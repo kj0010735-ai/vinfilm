@@ -823,7 +823,12 @@ function renderProjectsTab() {
     </div>
     <div class="proj-board">
       ${PROJECT_COLUMNS.map(col => {
-        const colProjects = projItems.filter(p => p.status === col.id);
+        const colProjects = projItems.filter(p => p.status === col.id).slice().sort((a, b) => {
+          if (!a.dueDate && !b.dueDate) return 0;
+          if (!a.dueDate) return 1;
+          if (!b.dueDate) return -1;
+          return a.dueDate.localeCompare(b.dueDate);
+        });
         return `
         <div class="proj-col" style="border-top-color:${col.color}" data-dropzone="col" data-col-id="${col.id}">
           <div class="proj-col-head">
