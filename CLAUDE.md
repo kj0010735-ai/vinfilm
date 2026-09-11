@@ -9,7 +9,8 @@
 - `works/index.html` — **내부 작업 관리 앱** (기존 "작업 관리" 툴, 원래 루트에 있던 파일을 이전한 것). 장비목록/스케줄/프로젝트/공유 프로젝트/메모장 탭 구성. `?guest=1`로 외부 공유 모드 진입 가능.
 - `works/장비목록 이미지/` — 장비 사진 에셋.
 - `CNAME` — GitHub Pages 커스텀 도메인 설정 파일 (`www.vinfilmstudio.com`).
-- 저장: `localStorage`가 기본, Firebase Firestore(compat SDK)로 클라우드 동기화. 인터넷이 없으면 Firebase 로딩이 조용히 실패하고 로컬 저장만으로 동작하도록 설계됨.
+- `firestore.rules`, `firebase.json` — Firestore 보안 규칙 정의. `firebase deploy --only firestore:rules --project vinfilm-studio-app`로 배포.
+- 저장: `localStorage`가 기본, Firebase Firestore(compat SDK)로 클라우드 동기화. 인터넷이 없으면 Firebase 로딩이 조용히 실패하고 로컬 저장만으로 동작하도록 설계됨. Firebase 프로젝트는 `vinfilm-studio-app` (VINFILM STUDIO 전용 — 예전에는 다른 무관한 사이트와 같은 프로젝트를 공유해서 쓰다가 분리했다).
 
 ## 공개 홈페이지 (index.html)
 
@@ -22,8 +23,8 @@
 
 ## Firebase 관련 주의사항
 
-- `FIREBASE_CONFIG`의 API 키는 **HTTP 리퍼러 제한이 걸려 있는 것으로 보임** — `http://localhost`에서 테스트하면 기존에 잘 동작하던 컬렉션까지 전부 `permission-denied`가 뜬다 (Firestore 규칙 문제가 아니라 Google Cloud Console의 API 키 애플리케이션 제한 때문으로 추정). 로컬에서 Firebase 연동을 확인하려면 실제 배포 도메인(GitHub Pages 또는 커스텀 도메인)에서 테스트해야 한다.
-- 커스텀 도메인(`www.vinfilmstudio.com`)을 새로 연결했다면, Google Cloud Console → API 및 서비스 → 사용자 인증 정보에서 해당 API 키의 허용 리퍼러 목록에 `https://www.vinfilmstudio.com/*`를 추가해야 Firestore 호출이 정상 동작한다 (기존에는 `https://kj0010735-ai.github.io/*`만 등록돼 있었을 가능성이 높음).
+- 새 컬렉션을 코드에서 쓰기 시작하면 **`firestore.rules`에도 반드시 해당 컬렉션의 allow 규칙을 추가하고 배포할 것.** 규칙이 없으면 그 컬렉션은 조용히 `permission-denied`로 막히고, 앱은 로컬 저장(localStorage)만으로 동작하는 것처럼 보여서 눈치채기 어렵다 (실제로 `sharedProjects`/`siteContent` 컬렉션을 규칙 없이 써서 한동안 클라우드 동기화가 안 되고 있었다).
+- Firestore 관련 문제가 생기면 브라우저 콘솔에서 `permission-denied` 에러부터 확인할 것 — 도메인/로컬호스트 문제가 아니라 대부분 규칙 누락이다.
 
 ## 외부 공유(guest) 모드 — works/index.html
 
