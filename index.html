@@ -17,6 +17,7 @@
   a:hover { opacity: 0.75; }
   ::selection { background: var(--accent); color: var(--bg); }
   img, video { max-width: 100%; }
+  html, body { touch-action: manipulation; }
   #root { opacity: 0; transition: opacity .35s ease; }
   @keyframes hero-ticker-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
   .hero-ticker-track { animation: hero-ticker-scroll 240s linear infinite; }
