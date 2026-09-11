@@ -18,8 +18,14 @@
 
 ## admin 페이지 (admin/index.html)
 
-- 비밀번호는 파일 상단 `ADMIN_PASSWORD` 상수. **평문으로 코드에 들어있어 완전한 보안은 아님** — 개발자 도구로 소스를 보면 누구나 알 수 있는 수준의 방어. 실제 계정 기반 보안이 필요해지면 Firebase Authentication 연동으로 교체할 것.
+- 로그인은 Google 계정(Firebase Authentication) — `signInWithPopup(GoogleAuthProvider)`. 처음엔 이메일/비밀번호 + 코드에 평문 비밀번호를 박아두는 방식이었는데, 실제 인증으로 교체했다.
 - 저장 시 Firestore `siteContent/home` 문서를 통째로 `.set()`으로 덮어씀 (부분 업데이트 아님) — 필드 추가 시 admin 폼에도 같이 반영해야 유실되지 않는다.
+
+## works/index.html 로그인
+
+- guest 모드가 아닐 때는 Google 로그인(`firebase.auth().onAuthStateChanged`)이 앱 전체를 가로막는다 — `bootApp()`은 로그인 성공 후에만 호출됨. `?guest=1`이면 로그인 절차를 아예 건너뛴다.
+- 로그인 후에도 **실제 쓰기 권한은 Firestore 규칙(`isOwner()`, `kj0010735@gmail.com`)이 결정**한다 — 로그인 화면 통과는 UI 접근 제어일 뿐, 진짜 방어선은 규칙 쪽.
+- Google 로그인 팝업이 뜨려면 Firebase 콘솔 Authentication → Settings → Authorized domains에 실제 서빙 도메인(`www.vinfilmstudio.com`, `kj0010735-ai.github.io`)이 등록돼 있어야 한다. 안 그러면 `auth/unauthorized-domain` 에러.
 
 ## Firebase 관련 주의사항
 
@@ -28,9 +34,11 @@
 
 ## 외부 공유(guest) 모드 — works/index.html
 
-`works/index.html?guest=1`로 접속하면 `GUEST_MODE`가 켜지며 사이드바에 장비목록/공유 프로젝트 탭만 보이고, 공유 프로젝트 탭의 추가/수정/삭제 버튼도 숨겨진다.
+`works/index.html?guest=1`로 접속하면 `GUEST_MODE`가 켜지며 사이드바에 장비목록/공유 프로젝트 탭만 보이고, 로그인 절차도 없다.
 
-**주의: 이건 UI 상에서만 탭을 숨기는 것이지 실제 데이터 보안이 아니다.** Firebase 설정값이 공개 저장소에 그대로 노출돼 있어서, Firestore 보안 규칙이 허용하는 범위 내에서는 개발자 도구로 직접 호출해 데이터를 읽고 쓸 수 있다. guest 모드는 동기화되는 컬렉션을 `equipment`/`categories`/`sharedProjects`로만 제한해서 내부용 데이터가 외부 브라우저로 아예 내려받히지 않게는 해두었지만, 이것도 앱 코드 안에서의 완화일 뿐이다.
+**게스트는 "외부인이 그냥 구경하는 것"이 아니라 로그인 없는 공동작업자다.** 그래서 `equipment`/`categories`/`sharedProjects` 컬렉션은 Firestore 규칙에서 `allow read, write: if true`로 **읽기+쓰기 둘 다 완전히 공개**돼 있다 (일부러 그런 것 — isOwner()로 막으면 게스트가 같이 등록/수정을 못 하게 됨). `schedule`/`projects`/`shoots`/`presets`/`todayTasks`/`notes`처럼 guest 모드에 아예 노출 안 되는 컬렉션만 `isOwner()`로 로그인 필수 처리돼 있다.
+
+즉 장비목록/공유 프로젝트는 **URL만 알면 로그인 없이 누구나 읽고 쓸 수 있는 상태**다 (의도된 설계). guest 모드는 그 위에서 UI 탭만 제한해 외부 협업자가 필요한 두 화면만 보게 하는 것이지, 데이터 자체를 잠그는 게 아니다.
 
 ## 작업 시 유의사항
 
