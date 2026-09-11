@@ -17,6 +17,7 @@
   a:hover { opacity: 0.75; }
   ::selection { background: var(--accent); color: var(--bg); }
   img, video { max-width: 100%; }
+  #root { opacity: 0; transition: opacity .35s ease; }
 
   .nav-link:hover { color: var(--fg) !important; }
 
@@ -243,21 +244,34 @@ function render(c) {
   </div>`;
 }
 
-render(DEFAULT_CONTENT);
+/* Firestore 로딩 중엔 기본값(플레이스홀더)을 먼저 보여주지 않는다 —
+   실제 콘텐츠가 준비되면(또는 타임아웃 시 기본값으로) 딱 한 번만 그린다. */
+let rendered = false;
+function renderOnce(c) {
+  if (rendered) return;
+  rendered = true;
+  render(c);
+  requestAnimationFrame(() => { document.getElementById('root').style.opacity = '1'; });
+}
+const fallbackTimer = setTimeout(() => renderOnce(DEFAULT_CONTENT), 1200);
 
 try {
   firebase.initializeApp(FIREBASE_CONFIG);
   const db = firebase.firestore();
   db.collection('siteContent').doc('home').get().then(doc => {
+    clearTimeout(fallbackTimer);
     if (doc.exists) {
       const data = doc.data();
       const merged = { ...DEFAULT_CONTENT, ...data };
       if (!Array.isArray(merged.workItems) || merged.workItems.length === 0) merged.workItems = DEFAULT_CONTENT.workItems;
-      render(merged);
+      renderOnce(merged);
+    } else {
+      renderOnce(DEFAULT_CONTENT);
     }
-  }).catch(err => console.warn('site content load failed, showing defaults', err));
+  }).catch(err => { console.warn('site content load failed, showing defaults', err); renderOnce(DEFAULT_CONTENT); });
 } catch (e) {
   console.warn('Firebase 초기화 실패, 기본 콘텐츠로 표시합니다.', e);
+  renderOnce(DEFAULT_CONTENT);
 }
 </script>
 </body>
