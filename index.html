@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.youtube.com/iframe_api"></script>
 <style>
   :root { --accent: #d98a3d; --bg: #0e0d0c; --fg: #f5f2ea; }
@@ -115,10 +116,58 @@
     .nav-menu-pill { display: none !important; }
     .nav-hamburger { display: flex !important; }
   }
+
+  .editable { outline: 1px dashed rgba(217,138,61,0.55); outline-offset: 3px; cursor: text; border-radius: 2px; }
+  .editable:hover { outline-color: rgba(217,138,61,0.9); background: rgba(217,138,61,0.06); }
+  .editable:focus { outline: 2px solid var(--accent); background: rgba(217,138,61,0.1); }
+  .edit-cell-tools { position:absolute; top:6px; right:6px; z-index:5; display:flex; gap:6px; }
+  .edit-cell-btn { width:26px; height:26px; border-radius:50%; border:none; background:rgba(14,13,12,0.82); color:#f5f2ea; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1; }
+  .edit-cell-btn:hover { background:var(--accent); color:#0e0d0c; }
+  .edit-toolbar { position:fixed; left:50%; transform:translateX(-50%); bottom:20px; z-index:300; display:flex; align-items:center; gap:10px; background:rgba(14,13,12,0.94); border:1px solid rgba(245,242,234,0.18); border-radius:999px; padding:10px 10px 10px 18px; box-shadow:0 10px 30px rgba(0,0,0,0.45); flex-wrap:wrap; justify-content:center; max-width:94vw; }
+  .edit-toolbar span.label { font-family:'Anton',sans-serif; font-size:11px; letter-spacing:1px; color:var(--accent); }
+  .edit-toolbar button { font-family:'Noto Sans KR',sans-serif; font-size:13px; border-radius:999px; padding:9px 16px; cursor:pointer; border:1px solid rgba(245,242,234,0.25); background:transparent; color:#f5f2ea; }
+  .edit-toolbar button.primary { background:var(--accent); border-color:var(--accent); color:#0e0d0c; font-weight:700; }
+  .edit-toolbar button:hover { opacity:0.82; }
+  .edit-panel { position:fixed; right:20px; bottom:90px; z-index:300; background:rgba(14,13,12,0.96); border:1px solid rgba(245,242,234,0.18); border-radius:14px; padding:18px 20px; width:240px; box-shadow:0 10px 30px rgba(0,0,0,0.45); display:none; }
+  .edit-panel.open { display:block; }
+  .edit-panel h4 { margin:0 0 14px; font-family:'Anton',sans-serif; font-size:12px; letter-spacing:1px; color:var(--accent); }
+  .edit-panel label { display:block; font-size:12px; color:#c7c2b6; margin:12px 0 4px; }
+  .edit-panel input[type=range] { width:100%; }
+  .edit-login-overlay { position:fixed; inset:0; z-index:400; background:rgba(6,5,4,0.94); display:flex; align-items:center; justify-content:center; flex-direction:column; gap:16px; }
+  .edit-login-overlay button { font-family:'Anton',sans-serif; font-size:13px; letter-spacing:1px; padding:14px 26px; border-radius:999px; background:var(--accent); border:none; color:#0e0d0c; cursor:pointer; }
+  .edit-toast { position:fixed; left:50%; transform:translateX(-50%); bottom:96px; z-index:301; background:var(--accent); color:#0e0d0c; font-weight:700; font-size:13px; padding:10px 20px; border-radius:999px; opacity:0; pointer-events:none; transition:opacity .25s ease; }
+  .edit-toast.show { opacity:1; }
 </style>
 </head>
 <body>
 <div id="root"></div>
+
+<div id="editLoginOverlay" class="edit-login-overlay" style="display:none;">
+  <div style="font-family:'Anton',sans-serif; font-size:18px; letter-spacing:1px; color:#f5f2ea;">관리자 로그인이 필요해요</div>
+  <button onclick="editSignIn()">Google로 로그인</button>
+</div>
+
+<div id="editToolbar" class="edit-toolbar" style="display:none;">
+  <span class="label">편집 모드</span>
+  <button onclick="toggleEditPanel()">크기 조절</button>
+  <button class="primary" onclick="saveEdits()">저장</button>
+  <button onclick="exitEditMode()">닫기</button>
+</div>
+
+<div id="editPanel" class="edit-panel">
+  <h4>크기 조절</h4>
+  <label>헤드라인 크기</label>
+  <input type="range" min="32" max="96" id="rngHeroHeadline" oninput="updateStyleVar('heroHeadlineSize', this.value)">
+  <label>최근작업 제목 크기</label>
+  <input type="range" min="24" max="64" id="rngWorkTitle" oninput="updateStyleVar('workTitleSize', this.value)">
+  <label>작업 카드 제목 크기</label>
+  <input type="range" min="11" max="22" id="rngCellTitle" oninput="updateStyleVar('workCellTitleSize', this.value)">
+  <label>썸네일 크기</label>
+  <input type="range" min="160" max="420" id="rngThumbW" oninput="updateStyleVar('workThumbW', this.value)">
+</div>
+
+<div id="editToast" class="edit-toast">저장됐어요</div>
+
 <script>
 'use strict';
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -131,12 +180,14 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "1072224922970",
   appId: "1:1072224922970:web:bb2cf2544b1c92a7211763",
 };
+const OWNER_EMAIL = 'kj0010735@gmail.com';
 
 const DEFAULT_CONTENT = {
   heroVideoUrl: '',
   heroEyebrow: 'VIDEO PRODUCTION STUDIO',
   heroHeadline: '[헤드라인 카피를 넣어주세요]',
   heroSub: '인터뷰와 내레이션을 중심으로, 사람의 목소리와 표정을 영상으로 옮기는 곳, VINFILM STUDIO입니다.',
+  workSectionTitle: '최근 작업',
   workIntro: '교육·브랜드 콘텐츠를 중심으로 진행한 최신 프로젝트입니다. 매 촬영이 새로운 이야기를 만드는 기회였습니다.',
   workItems: [
     { category: '인터뷰 콘텐츠', title: '삼둥이 인터뷰', client: '에나스쿨', year: '2026', thumbUrl: '', videoUrl: '' },
@@ -149,6 +200,7 @@ const DEFAULT_CONTENT = {
   contactAddress: '',
   instagramUrl: '',
   vimeoUrl: '',
+  styleVars: { heroHeadlineSize: 72, workTitleSize: 46, workCellTitleSize: 15, workThumbW: 280 },
 };
 
 const PLACEHOLDER_GRADIENTS = [
@@ -158,32 +210,77 @@ const PLACEHOLDER_GRADIENTS = [
   'linear-gradient(135deg, #262b23, #131611)',
 ];
 
-function workCellHtml(item, i) {
-  const bg = item.thumbUrl ? `background-image:url('${esc(item.thumbUrl)}');` : `background:${PLACEHOLDER_GRADIENTS[i % PLACEHOLDER_GRADIENTS.length]};`;
-  const clickAttr = item.videoUrl ? `onclick='openWorkLightbox("${esc(item.videoUrl)}")'` : '';
+let EDIT_MODE = false;
+let currentContent = null;
+
+function enhanceThumbnails(c) {
+  (c.workItems || []).forEach((item, idx) => {
+    if (item.thumbUrl) return;
+    const v = parseVideoUrl(item.videoUrl);
+    if (!v || v.type !== 'vimeo') return;
+    fetch(`https://vimeo.com/api/oembed.json?url=${encodeURIComponent('https://vimeo.com/' + v.id)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data || !data.thumbnail_url) return;
+        const cell = document.getElementById('work-cell-' + idx);
+        if (cell) cell.querySelector('.cell-img').style.backgroundImage = `url('${data.thumbnail_url}')`;
+      })
+      .catch(() => {});
+  });
+}
+function setCssVars(vars) {
+  const v = { ...DEFAULT_CONTENT.styleVars, ...(vars || {}) };
+  const root = document.documentElement.style;
+  root.setProperty('--hero-headline-size', v.heroHeadlineSize + 'px');
+  root.setProperty('--work-title-size', v.workTitleSize + 'px');
+  root.setProperty('--work-cell-title-size', v.workCellTitleSize + 'px');
+  root.setProperty('--work-thumb-w', v.workThumbW + 'px');
+}
+
+function autoThumbUrl(item) {
+  if (item.thumbUrl) return item.thumbUrl;
+  const v = parseVideoUrl(item.videoUrl);
+  if (v && v.type === 'youtube') return `https://img.youtube.com/vi/${v.id}/hqdefault.jpg`;
+  return '';
+}
+function workCellHtml(item) {
+  const i = item.__i;
+  const thumb = autoThumbUrl(item);
+  const bg = thumb ? `background-image:url('${esc(thumb)}');` : `background:${PLACEHOLDER_GRADIENTS[i % PLACEHOLDER_GRADIENTS.length]};`;
+  const clickAttr = (item.videoUrl && !EDIT_MODE) ? `onclick='openWorkLightbox("${esc(item.videoUrl)}")'` : '';
   return `
-    <div class="grid-cell" ${clickAttr} style="flex:0 0 280px; aspect-ratio:16/9; border-radius:2px;">
+    <div class="grid-cell" id="work-cell-${i}" ${clickAttr} style="flex:0 0 var(--work-thumb-w, 280px); aspect-ratio:16/9; border-radius:2px;">
       <div class="cell-img" style="${bg}"></div>
-      ${item.videoUrl ? `<div class="cell-play"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 4L19 12L6 20V4Z" fill="#0e0d0c"/></svg></div>` : ''}
-      <div class="cell-caption">
-        <div style="font-family:'Noto Sans KR',sans-serif; font-weight:700; font-size:15px; color:#f5f2ea;">${esc(item.title)}</div>
-        <div style="font-size:11.5px; color:#c7c2b6; margin-top:4px;">${esc(item.client)}${item.client && item.year ? ' · ' : ''}${esc(item.year)}</div>
+      ${item.videoUrl && !EDIT_MODE ? `<div class="cell-play"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 4L19 12L6 20V4Z" fill="#0e0d0c"/></svg></div>` : ''}
+      ${EDIT_MODE ? `
+      <div class="edit-cell-tools">
+        <button class="edit-cell-btn" title="영상/썸네일 링크 수정" onclick="event.stopPropagation(); editItemLink(${i})">✎</button>
+        <button class="edit-cell-btn" title="삭제" onclick="event.stopPropagation(); removeWorkItemInline(${i})">✕</button>
+      </div>` : ''}
+      <div class="cell-caption" style="${EDIT_MODE ? 'opacity:1; transform:none; pointer-events:auto;' : ''}">
+        <div class="${EDIT_MODE ? 'editable' : ''}" ${EDIT_MODE ? `contenteditable="true" data-item-field="title" data-item-idx="${i}"` : ''} style="font-family:'Noto Sans KR',sans-serif; font-weight:700; font-size:var(--work-cell-title-size, 15px); color:#f5f2ea;">${esc(item.title)}</div>
+        <div style="font-size:11.5px; color:#c7c2b6; margin-top:4px; display:flex; gap:4px;">
+          <span class="${EDIT_MODE ? 'editable' : ''}" ${EDIT_MODE ? `contenteditable="true" data-item-field="client" data-item-idx="${i}"` : ''}>${esc(item.client)}</span>
+          ${EDIT_MODE ? '<span>·</span>' : (item.client && item.year ? '<span>·</span>' : '')}
+          <span class="${EDIT_MODE ? 'editable' : ''}" ${EDIT_MODE ? `contenteditable="true" data-item-field="year" data-item-idx="${i}"` : ''}>${esc(item.year)}</span>
+        </div>
       </div>
     </div>`;
 }
 function groupWorkItems(items) {
   const order = []; const map = {};
-  items.forEach(it => {
+  items.forEach((it, idx) => {
     const cat = (it.category || '').trim() || '작업';
     if (!map[cat]) { map[cat] = []; order.push(cat); }
-    map[cat].push(it);
+    map[cat].push({ ...it, __i: idx });
   });
   return order.map(cat => ({ category: cat, items: map[cat] }));
 }
 function workCategoryHtml(group) {
+  const idxList = group.items.map(it => it.__i).join(',');
   return `
     <div style="margin-bottom:44px;">
-      <h3 style="margin:0 0 18px; font-family:'Anton',sans-serif; font-size:14px; letter-spacing:2px; color:var(--accent);">${esc(group.category.toUpperCase())}</h3>
+      <h3 class="${EDIT_MODE ? 'editable' : ''}" ${EDIT_MODE ? `contenteditable="true" data-category-group="${idxList}"` : ''} style="margin:0 0 18px; font-family:'Anton',sans-serif; font-size:14px; letter-spacing:2px; color:var(--accent); text-transform:uppercase; display:inline-block;">${esc(group.category)}</h3>
       <div class="work-category-row" style="display:flex; gap:14px; overflow-x:auto;">
         ${group.items.map(workCellHtml).join('')}
       </div>
@@ -303,9 +400,10 @@ function render(c) {
       </div>
 
       <div class="hero-foreground" style="position:relative; height:100%; display:flex; flex-direction:column; justify-content:flex-end; padding:0 clamp(24px,4vw,56px) 300px;">
-        <div style="font-family:'Anton',sans-serif; font-size:14px; letter-spacing:5px; color:var(--accent); margin-bottom:24px;">${esc(c.heroEyebrow)}</div>
-        <h1 style="margin:0; font-family:'Noto Sans KR',sans-serif; font-weight:900; font-size:clamp(40px,5.6vw,72px); line-height:1.2; letter-spacing:-1px; color:#f5f2ea; max-width:760px;">${esc(c.heroHeadline)}</h1>
-        <p style="margin:26px 0 0; font-size:17px; line-height:1.75; color:#bdb8ac; font-weight:400; max-width:560px;">${esc(c.heroSub)}</p>
+        ${EDIT_MODE ? `<button class="edit-cell-btn" style="position:absolute; top:16px; right:16px; width:auto; border-radius:999px; padding:0 14px; height:32px;" onclick="editHeroVideo()">✎ 배경 영상 URL</button>` : ''}
+        <div class="${EDIT_MODE ? 'editable' : ''}" ${EDIT_MODE ? 'contenteditable="true" data-field="heroEyebrow"' : ''} style="font-family:'Anton',sans-serif; font-size:14px; letter-spacing:5px; color:var(--accent); margin-bottom:24px; display:inline-block;">${esc(c.heroEyebrow)}</div>
+        <h1 class="${EDIT_MODE ? 'editable' : ''}" ${EDIT_MODE ? 'contenteditable="true" data-field="heroHeadline"' : ''} style="margin:0; font-family:'Noto Sans KR',sans-serif; font-weight:900; font-size:clamp(32px,6vw,var(--hero-headline-size, 72px)); line-height:1.2; letter-spacing:-1px; color:#f5f2ea; max-width:760px;">${esc(c.heroHeadline)}</h1>
+        <p class="${EDIT_MODE ? 'editable' : ''}" ${EDIT_MODE ? 'contenteditable="true" data-field="heroSub"' : ''} style="margin:26px 0 0; font-size:17px; line-height:1.75; color:#bdb8ac; font-weight:400; max-width:560px;">${esc(c.heroSub)}</p>
       </div>
     </div>
 
@@ -313,15 +411,16 @@ function render(c) {
     <div id="work" style="padding:130px clamp(24px,4vw,56px) 110px; border-bottom:1px solid #201f1d;">
       <div class="work-head-row" style="display:flex; align-items:flex-start; justify-content:space-between; gap:40px; flex-wrap:wrap; margin-bottom:52px;">
         <div>
-          <h2 style="margin:0 0 18px; font-family:'Noto Sans KR',sans-serif; font-weight:900; font-size:clamp(32px,4vw,46px); color:#f5f2ea;">최근 작업</h2>
+          <h2 class="${EDIT_MODE ? 'editable' : ''}" ${EDIT_MODE ? 'contenteditable="true" data-field="workSectionTitle"' : ''} style="margin:0 0 18px; font-family:'Noto Sans KR',sans-serif; font-weight:900; font-size:clamp(24px,4vw,var(--work-title-size, 46px)); color:#f5f2ea; display:inline-block;">${esc(c.workSectionTitle)}</h2>
           <div style="width:64px; height:2px; background:#3a3733;"></div>
         </div>
         <div style="max-width:420px; display:flex; flex-direction:column; gap:14px;">
-          <p style="margin:0; font-size:15px; line-height:1.75; color:#a8a49b;">${esc(c.workIntro)}</p>
+          <p class="${EDIT_MODE ? 'editable' : ''}" ${EDIT_MODE ? 'contenteditable="true" data-field="workIntro"' : ''} style="margin:0; font-size:15px; line-height:1.75; color:#a8a49b;">${esc(c.workIntro)}</p>
         </div>
       </div>
 
       ${groupWorkItems(c.workItems).map(workCategoryHtml).join('')}
+      ${EDIT_MODE ? `<button onclick="addWorkItemInline()" style="font-family:'Anton',sans-serif; font-size:12px; letter-spacing:1px; padding:12px 20px; border-radius:999px; border:1px dashed rgba(245,242,234,0.4); background:transparent; color:#f5f2ea; cursor:pointer; margin-top:8px;">+ 작업 추가</button>` : ''}
     </div>
 
     <!-- WORK LIGHTBOX -->
@@ -359,10 +458,13 @@ function render(c) {
         <h2 style="margin:0 0 40px; font-family:'Noto Sans KR',sans-serif; font-weight:900; font-size:clamp(30px,3.6vw,42px); line-height:1.2; color:var(--accent);">이야기해요.</h2>
 
         <div style="font-family:'Anton',sans-serif; font-size:12px; letter-spacing:2px; color:#79766f; margin-bottom:10px;">GENERAL</div>
-        <div style="font-size:15px; color:#d8d4c9; margin-bottom:28px;">${esc(c.contactEmail) || '[CONTACT EMAIL]'}<br/>${esc(c.contactPhone) || '[CONTACT PHONE]'}</div>
+        <div style="font-size:15px; color:#d8d4c9; margin-bottom:28px;">
+          <div class="${EDIT_MODE ? 'editable' : ''}" ${EDIT_MODE ? 'contenteditable="true" data-field="contactEmail"' : ''}>${esc(c.contactEmail) || (EDIT_MODE ? '' : '[CONTACT EMAIL]')}</div>
+          <div class="${EDIT_MODE ? 'editable' : ''}" ${EDIT_MODE ? 'contenteditable="true" data-field="contactPhone"' : ''}>${esc(c.contactPhone) || (EDIT_MODE ? '' : '[CONTACT PHONE]')}</div>
+        </div>
 
         <div style="font-family:'Anton',sans-serif; font-size:12px; letter-spacing:2px; color:#79766f; margin-bottom:10px;">STUDIO</div>
-        <div style="font-size:15px; color:#d8d4c9;">${esc(c.contactAddress) || '[STUDIO ADDRESS]'}</div>
+        <div class="${EDIT_MODE ? 'editable' : ''}" ${EDIT_MODE ? 'contenteditable="true" data-field="contactAddress"' : ''} style="font-size:15px; color:#d8d4c9;">${esc(c.contactAddress) || (EDIT_MODE ? '' : '[STUDIO ADDRESS]')}</div>
       </div>
 
       <div style="flex:1 1 340px; display:flex; align-items:center; justify-content:center; position:relative; min-height:340px;">
@@ -385,9 +487,11 @@ function render(c) {
             <button class="subscribe-btn" style="background:transparent; border:1px solid #f5f2ea; color:#f5f2ea; font-family:'Anton',sans-serif; font-size:12px; letter-spacing:1.5px; padding:0 22px; border-radius:2px; cursor:pointer; transition:all .2s ease;">구독하기</button>
           </div>
         </div>
-        <div style="display:flex; gap:28px; font-family:'Anton',sans-serif; font-size:13px; letter-spacing:1px;">
+        <div style="display:flex; gap:28px; align-items:center; font-family:'Anton',sans-serif; font-size:13px; letter-spacing:1px;">
           ${c.instagramUrl ? `<a href="${esc(c.instagramUrl)}" target="_blank" rel="noopener">INSTAGRAM</a>` : `<span style="color:#4a4742;">INSTAGRAM</span>`}
+          ${EDIT_MODE ? `<button class="edit-cell-btn" style="position:static; width:auto; border-radius:999px; padding:0 10px; height:24px; font-size:11px;" onclick="editFooterLink('instagramUrl')">✎</button>` : ''}
           ${c.vimeoUrl ? `<a href="${esc(c.vimeoUrl)}" target="_blank" rel="noopener">VIMEO</a>` : `<span style="color:#4a4742;">VIMEO</span>`}
+          ${EDIT_MODE ? `<button class="edit-cell-btn" style="position:static; width:auto; border-radius:999px; padding:0 10px; height:24px; font-size:11px;" onclick="editFooterLink('vimeoUrl')">✎</button>` : ''}
         </div>
       </div>
       <div style="display:flex; justify-content:space-between; padding-top:22px; font-size:12px; color:#6f6c65; letter-spacing:0.8px; flex-wrap:wrap; gap:8px;">
@@ -408,6 +512,107 @@ function toggleMobileNav() {
   document.getElementById('mobileNavPanel').classList.toggle('open');
 }
 
+/* ---- 페이지 안에서 바로 수정하는 편집 모드 (?edit=1, 관리자 Google 로그인 필요) ---- */
+const EDIT_REQUESTED = new URLSearchParams(location.search).get('edit') === '1';
+let db = null;
+let ownerConfirmed = false;
+
+function reRenderEdit() {
+  render(currentContent);
+  setCssVars(currentContent.styleVars);
+  enhanceThumbnails(currentContent);
+  wireEditMode();
+}
+function wireEditMode() {
+  if (!EDIT_MODE) return;
+  document.querySelectorAll('[data-field]').forEach(el => {
+    el.addEventListener('blur', () => { currentContent[el.dataset.field] = el.textContent.trim(); });
+  });
+  document.querySelectorAll('[data-item-field]').forEach(el => {
+    el.addEventListener('blur', () => {
+      const idx = Number(el.dataset.itemIdx);
+      currentContent.workItems[idx][el.dataset.itemField] = el.textContent.trim();
+    });
+  });
+  document.querySelectorAll('[data-category-group]').forEach(el => {
+    el.addEventListener('blur', () => {
+      const idxs = el.dataset.categoryGroup.split(',').map(Number);
+      const newCat = el.textContent.trim();
+      idxs.forEach(i => { currentContent.workItems[i].category = newCat; });
+    });
+  });
+  document.querySelectorAll('.editable').forEach(el => {
+    const multiline = el.dataset.field === 'heroSub' || el.dataset.field === 'workIntro';
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' && !multiline) { e.preventDefault(); el.blur(); } });
+  });
+}
+function editItemLink(idx) {
+  const item = currentContent.workItems[idx];
+  const url = prompt('영상 URL (유튜브·Vimeo·mp4)', item.videoUrl || '');
+  if (url === null) return;
+  item.videoUrl = url.trim();
+  const thumb = prompt('썸네일 이미지 URL (비워두면 영상에서 자동으로 가져와요)', item.thumbUrl || '');
+  if (thumb !== null) item.thumbUrl = thumb.trim();
+  reRenderEdit();
+}
+function removeWorkItemInline(idx) {
+  if (!confirm('이 작업을 삭제할까요?')) return;
+  currentContent.workItems.splice(idx, 1);
+  reRenderEdit();
+}
+function addWorkItemInline() {
+  currentContent.workItems.push({ category: '작업', title: '새 작업', client: '', year: '', thumbUrl: '', videoUrl: '' });
+  reRenderEdit();
+}
+function editFooterLink(field) {
+  const url = prompt(field === 'instagramUrl' ? 'Instagram URL' : 'Vimeo URL', currentContent[field] || '');
+  if (url === null) return;
+  currentContent[field] = url.trim();
+  reRenderEdit();
+}
+function editHeroVideo() {
+  const url = prompt('배경 영상 URL (유튜브·Vimeo·mp4)', currentContent.heroVideoUrl || '');
+  if (url === null) return;
+  currentContent.heroVideoUrl = url.trim();
+  reRenderEdit();
+}
+function updateStyleVar(key, value) {
+  currentContent.styleVars = { ...DEFAULT_CONTENT.styleVars, ...(currentContent.styleVars || {}), [key]: Number(value) };
+  setCssVars(currentContent.styleVars);
+}
+function toggleEditPanel() {
+  document.getElementById('editPanel').classList.toggle('open');
+}
+function showEditToast(msg) {
+  const t = document.getElementById('editToast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1800);
+}
+function saveEdits() {
+  if (!db) return;
+  db.collection('siteContent').doc('home').set(currentContent)
+    .then(() => showEditToast('저장됐어요'))
+    .catch(err => { console.error(err); showEditToast('저장 실패: ' + err.message); });
+}
+function exitEditMode() { location.href = location.pathname; }
+function editSignIn() {
+  firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider())
+    .catch(err => alert('로그인 실패: ' + err.message));
+}
+function tryEnterEditMode() {
+  if (!EDIT_REQUESTED || !ownerConfirmed || !currentContent || EDIT_MODE) return;
+  EDIT_MODE = true;
+  document.getElementById('editLoginOverlay').style.display = 'none';
+  document.getElementById('editToolbar').style.display = 'flex';
+  reRenderEdit();
+  const sv = { ...DEFAULT_CONTENT.styleVars, ...(currentContent.styleVars || {}) };
+  document.getElementById('rngHeroHeadline').value = sv.heroHeadlineSize;
+  document.getElementById('rngWorkTitle').value = sv.workTitleSize;
+  document.getElementById('rngCellTitle').value = sv.workCellTitleSize;
+  document.getElementById('rngThumbW').value = sv.workThumbW;
+}
+
 /* Firestore 로딩 중엔 기본값(플레이스홀더)을 먼저 보여주지 않는다 —
    실제 콘텐츠가 준비되면(또는 타임아웃 시 기본값으로) 딱 한 번만 그린다. */
 /* Firestore가 느릴 땐 기본값을 "임시로" 보여주되, 실제 데이터가
@@ -416,27 +621,53 @@ let realDataLoaded = false;
 function showFade() { requestAnimationFrame(() => { document.getElementById('root').style.opacity = '1'; }); }
 function renderReal(c) {
   realDataLoaded = true;
+  currentContent = c;
   render(c);
+  setCssVars(c.styleVars);
+  enhanceThumbnails(c);
+  if (EDIT_MODE) wireEditMode();
   showFade();
+  tryEnterEditMode();
 }
 const fallbackTimer = setTimeout(() => {
-  if (!realDataLoaded) { render(DEFAULT_CONTENT); showFade(); }
+  if (!realDataLoaded) {
+    currentContent = DEFAULT_CONTENT;
+    render(DEFAULT_CONTENT);
+    setCssVars(DEFAULT_CONTENT.styleVars);
+    showFade();
+    tryEnterEditMode();
+  }
 }, 1800);
 
 try {
   firebase.initializeApp(FIREBASE_CONFIG);
-  const db = firebase.firestore();
+  db = firebase.firestore();
   db.collection('siteContent').doc('home').get().then(doc => {
     clearTimeout(fallbackTimer);
     if (doc.exists) {
       const data = doc.data();
       const merged = { ...DEFAULT_CONTENT, ...data };
       if (!Array.isArray(merged.workItems)) merged.workItems = DEFAULT_CONTENT.workItems;
+      merged.styleVars = { ...DEFAULT_CONTENT.styleVars, ...(merged.styleVars || {}) };
       renderReal(merged);
     } else {
       renderReal(DEFAULT_CONTENT);
     }
   }).catch(err => { console.warn('site content load failed, showing defaults', err); renderReal(DEFAULT_CONTENT); });
+
+  if (EDIT_REQUESTED) {
+    firebase.auth().onAuthStateChanged(user => {
+      if (user && user.email === OWNER_EMAIL) {
+        ownerConfirmed = true;
+        tryEnterEditMode();
+      } else {
+        ownerConfirmed = false;
+        EDIT_MODE = false;
+        document.getElementById('editLoginOverlay').style.display = 'flex';
+        document.getElementById('editToolbar').style.display = 'none';
+      }
+    });
+  }
 } catch (e) {
   console.warn('Firebase 초기화 실패, 기본 콘텐츠로 표시합니다.', e);
   renderReal(DEFAULT_CONTENT);

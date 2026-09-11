@@ -54,6 +54,7 @@
       <h1 style="margin:4px 0 0; font-size:24px;">홈페이지 콘텐츠 관리</h1>
     </div>
     <div style="display:flex; align-items:center; gap:18px;">
+      <a href="../index.html?edit=1" target="_blank" style="color:var(--accent); font-size:13px;">화면 보면서 바로 수정 ↗</a>
       <a href="../index.html" target="_blank" style="color:var(--accent); font-size:13px;">사이트 보기 ↗</a>
       <button class="btn-ghost" onclick="logout()">로그아웃</button>
     </div>
@@ -90,6 +91,10 @@
 
   <div class="card">
     <h2 style="margin:0 0 18px; font-size:15px;">최근 작업</h2>
+    <div class="field">
+      <label>섹션 제목</label>
+      <input id="workSectionTitle" />
+    </div>
     <div class="field">
       <label>작업 섹션 소개 문구</label>
       <textarea id="workIntro" rows="2"></textarea>
@@ -178,6 +183,7 @@ const DEFAULT_CONTENT = {
   heroEyebrow: 'VIDEO PRODUCTION STUDIO',
   heroHeadline: '[헤드라인 카피를 넣어주세요]',
   heroSub: '인터뷰와 내레이션을 중심으로, 사람의 목소리와 표정을 영상으로 옮기는 곳, VINFILM STUDIO입니다.',
+  workSectionTitle: '최근 작업',
   workIntro: '교육·브랜드 콘텐츠를 중심으로 진행한 최신 프로젝트입니다. 매 촬영이 새로운 이야기를 만드는 기회였습니다.',
   workItems: [
     { category: '인터뷰 콘텐츠', title: '삼둥이 인터뷰', client: '에나스쿨', year: '2026', thumbUrl: '', videoUrl: '' },
@@ -193,6 +199,7 @@ const DEFAULT_CONTENT = {
 };
 
 let workItems = [];
+let lastLoadedDoc = {};
 
 document.getElementById('googleLoginBtn').addEventListener('click', () => {
   const errEl = document.getElementById('pwError');
@@ -242,10 +249,12 @@ function escAttr(s) { return String(s == null ? '' : s).replace(/"/g,'&quot;'); 
 function loadContent() {
   db.collection('siteContent').doc('home').get().then(doc => {
     const d = doc.exists ? doc.data() : {};
+    lastLoadedDoc = d;
     document.getElementById('heroVideoUrl').value = d.heroVideoUrl ?? DEFAULT_CONTENT.heroVideoUrl;
     document.getElementById('heroEyebrow').value = d.heroEyebrow ?? DEFAULT_CONTENT.heroEyebrow;
     document.getElementById('heroHeadline').value = d.heroHeadline ?? DEFAULT_CONTENT.heroHeadline;
     document.getElementById('heroSub').value = d.heroSub ?? DEFAULT_CONTENT.heroSub;
+    document.getElementById('workSectionTitle').value = d.workSectionTitle ?? DEFAULT_CONTENT.workSectionTitle;
     document.getElementById('workIntro').value = d.workIntro ?? DEFAULT_CONTENT.workIntro;
     document.getElementById('contactEmail').value = d.contactEmail ?? DEFAULT_CONTENT.contactEmail;
     document.getElementById('contactPhone').value = d.contactPhone ?? DEFAULT_CONTENT.contactPhone;
@@ -262,10 +271,12 @@ function loadContent() {
 
 function saveContent() {
   const payload = {
+    ...lastLoadedDoc,
     heroVideoUrl: document.getElementById('heroVideoUrl').value.trim(),
     heroEyebrow: document.getElementById('heroEyebrow').value.trim(),
     heroHeadline: document.getElementById('heroHeadline').value.trim(),
     heroSub: document.getElementById('heroSub').value.trim(),
+    workSectionTitle: document.getElementById('workSectionTitle').value.trim(),
     workIntro: document.getElementById('workIntro').value.trim(),
     workItems: workItems,
     contactEmail: document.getElementById('contactEmail').value.trim(),

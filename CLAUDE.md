@@ -19,7 +19,15 @@
 ## admin 페이지 (admin/index.html)
 
 - 로그인은 Google 계정(Firebase Authentication) — `signInWithPopup(GoogleAuthProvider)`. 처음엔 이메일/비밀번호 + 코드에 평문 비밀번호를 박아두는 방식이었는데, 실제 인증으로 교체했다.
-- 저장 시 Firestore `siteContent/home` 문서를 통째로 `.set()`으로 덮어씀 (부분 업데이트 아님) — 필드 추가 시 admin 폼에도 같이 반영해야 유실되지 않는다.
+- 저장 시 Firestore `siteContent/home` 문서를 통째로 `.set()`으로 덮어씀 (부분 업데이트 아님) — 다만 폼에 없는 필드(예: `styleVars`)는 `lastLoadedDoc`을 스프레드해서 그대로 보존하므로, admin에 입력칸이 없는 필드라고 admin 저장 시 사라지지는 않는다. 그래도 새 필드를 admin 폼으로 노출하고 싶으면 `loadContent`/`saveContent`/`DEFAULT_CONTENT` 세 군데 다 반영할 것.
+
+## 홈페이지 인라인 편집 모드 (index.html?edit=1)
+
+- 홈페이지 자체에서 화면을 보며 바로 수정하는 기능. `index.html?edit=1`로 접속하면 Google 로그인 게이트가 뜨고, `OWNER_EMAIL`(`kj0010735@gmail.com`)로 로그인해야 편집 모드가 켜진다 — UI 게이트일 뿐이고 실제 방어선은 여전히 Firestore `isOwner()` 규칙.
+- 편집 모드에서는 헤드라인/서브카피/섹션 제목/작업 소개문구/연락처/작업 카드의 제목·클라이언트·연도·카테고리가 `contenteditable`로 바로 수정된다. 영상/썸네일 URL, 인스타그램/Vimeo 링크, 히어로 배경 영상은 텍스트가 아니라서 각 항목의 ✎ 버튼으로 prompt() 입력.
+- 하단 툴바의 "크기 조절" 패널에서 헤드라인/섹션 제목/카드 제목 폰트 크기와 썸네일 크기를 슬라이더로 조절 — 값은 `siteContent/home` 문서의 `styleVars` 필드에 저장되고 CSS 변수(`--hero-headline-size` 등)로 적용됨.
+- "저장" 버튼이 현재 편집 중인 콘텐츠 전체를 `siteContent/home`에 `.set()`으로 덮어씀 (admin 페이지와 동일한 문서, 같은 덮어쓰기 방식 — 즉 어느 쪽에서 편집하든 항상 최신 상태로 유지되게 신경 쓸 것).
+- 작업 카드의 썸네일은 `thumbUrl`을 직접 안 넣어도 유튜브 링크면 `https://img.youtube.com/vi/{id}/hqdefault.jpg`로 자동 생성되고, Vimeo 링크는 로드 후 oEmbed API로 비동기로 가져온다 (`enhanceThumbnails`).
 
 ## works/index.html 로그인
 
