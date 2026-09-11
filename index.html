@@ -34,11 +34,17 @@
   }
   .glass-text {
     color: #f5f2ea;
-    background: linear-gradient(180deg, #ffffff 0%, #d8d4c9 100%);
+    background: linear-gradient(100deg, #9c988e 25%, #ffffff 47%, #ffffff 53%, #9c988e 75%);
+    background-size: 300% 100%;
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    text-shadow: 0 1px 1px rgba(255,255,255,0.25);
+    text-shadow: 0 1px 1px rgba(255,255,255,0.2);
+    animation: glass-shine 5s ease-in-out infinite;
+  }
+  @keyframes glass-shine {
+    0%, 15% { background-position: 200% 0; }
+    85%, 100% { background-position: -200% 0; }
   }
 
   .grid-cell { position:relative; overflow:hidden; cursor:pointer; display:block; background-size:cover; background-position:center; }
