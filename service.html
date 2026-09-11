@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VINFILM STUDIO · 서비스</title>
+<link rel="icon" href="icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root { --accent: #d98a3d; --bg: #0e0d0c; --fg: #f5f2ea; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); }
+  body { color: var(--fg); font-family: 'Noto Sans KR', -apple-system, 'Malgun Gothic', sans-serif; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { opacity: 0.75; }
+  ::selection { background: var(--accent); color: var(--bg); }
+
+  .nav-bar { position:fixed; top:0; left:0; right:0; z-index:50; display:flex; align-items:center; justify-content:space-between; padding:16px clamp(24px,4vw,56px); }
+  .glass-pill {
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0.05));
+    backdrop-filter: blur(18px) saturate(180%);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.24);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), inset 0 -1px 8px rgba(0,0,0,0.15), 0 6px 20px rgba(0,0,0,0.25);
+  }
+
+  .back-link { display:inline-flex; align-items:center; gap:8px; font-family:'Anton',sans-serif; font-size:12px; letter-spacing:1px; color:#d8d4c9; }
+  .back-link:hover { color:#f5f2ea; opacity:1; }
+
+  .step-row { border-top:1px solid rgba(245,242,234,0.16); padding:26px 0; display:flex; gap:24px; align-items:flex-start; }
+  .step-num { font-family:'Anton',sans-serif; font-size:14px; color:var(--accent); flex:0 0 auto; padding-top:2px; }
+  .step-text { font-size:15px; line-height:1.7; color:#d8d4c9; }
+
+  .cta-btn { display:inline-flex; align-items:center; gap:10px; background:var(--accent); color:#0e0d0c; font-family:'Anton',sans-serif; font-size:13px; letter-spacing:1px; padding:16px 30px; border-radius:999px; }
+  .cta-btn:hover { opacity:0.88; }
+
+  .other-card { display:block; padding:20px 22px; border:1px solid rgba(245,242,234,0.16); border-radius:6px; transition: all .2s ease; }
+  .other-card:hover { opacity:1; border-color:var(--accent); background:rgba(217,138,61,0.06); }
+
+  @media (max-width: 720px) {
+    .hero-headline { font-size:clamp(40px,13vw,64px) !important; }
+    .service-grid, .other-grid { grid-template-columns:1fr !important; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+'use strict';
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+const SERVICES = [
+  {
+    id: 'interview',
+    num: '01',
+    label: '인터뷰',
+    tagline: '말이 아니라, 그 사람을 담습니다',
+    body: [
+      '인터뷰는 질문지를 읽는 시간이 아니라, 한 사람이 편하게 자기 이야기를 꺼낼 수 있는 시간을 만드는 일이라고 생각해요.',
+      '촬영 전 짧은 사전 미팅으로 톤과 분위기를 맞추고, 실제 촬영에서는 정해진 답이 아니라 자연스러운 표정과 목소리가 나올 수 있도록 편안한 환경을 먼저 만듭니다.',
+    ],
+    steps: [
+      '사전 미팅 — 목적, 톤, 핵심 메시지 정리',
+      '현장 세팅 — 다각도 카메라 + 편안한 조명/동선',
+      '진행 — 정해진 답이 아닌 자연스러운 대화 유도',
+      '편집 — 표정과 감정을 살리는 컷 구성',
+    ],
+  },
+  {
+    id: 'sketch',
+    num: '02',
+    label: '스케치 영상',
+    tagline: '꾸미지 않아도 되는, 오늘의 기록',
+    body: [
+      '스케치 영상은 완벽하게 연출된 장면보다 그날 현장에서만 나올 수 있는 공기와 순간을 담는 데 집중합니다.',
+      '행사, 촬영 비하인드, 브랜드 데이처럼 흘러가는 하루를 다큐멘터리처럼 따라가며, 편집에서는 그 순간의 온도를 살리는 것을 가장 중요하게 생각해요.',
+    ],
+    steps: [
+      '현장 동행 — 별도 연출 없이 자연스럽게 따라가며 촬영',
+      '순간 포착 — 예상치 못한 리액션과 디테일 위주로 기록',
+      '빠른 편집 — 현장의 리듬을 살리는 컷 앤 사운드 구성',
+      '공유 — 짧고 몰입감 있는 결과물로 완성',
+    ],
+  },
+  {
+    id: 'mv',
+    num: '03',
+    label: '뮤직비디오',
+    tagline: '노래에 이야기를 입히는 영상',
+    body: [
+      '뮤직비디오는 음악이 가진 분위기와 가사의 정서를 영상 언어로 옮기는 작업이에요. 곡을 여러 번 들으며 컨셉을 잡는 것부터 시작합니다.',
+      '장소, 색감, 카메라 무빙 하나하나가 곡의 톤에 맞게 설계되고, 후반 작업에서는 컬러와 사운드까지 곡의 무드에 맞춰 마무리합니다.',
+    ],
+    steps: [
+      '컨셉 & 스토리보드 — 곡 해석을 바탕으로 비주얼 방향 설정',
+      '로케이션 헌팅 — 무드에 맞는 장소/시간대 선정',
+      '촬영 & 연출 — 카메라 무빙, 조명, 퍼포먼스 디렉팅',
+      '컬러그레이딩 & 믹싱 — 곡의 분위기에 맞춘 마무리',
+    ],
+  },
+  {
+    id: 'youtube',
+    num: '04',
+    label: '유튜브 콘텐츠',
+    tagline: '채널의 색을 꾸준히 만들어가는 콘텐츠',
+    body: [
+      '유튜브 콘텐츠는 한 편으로 끝나는 영상이 아니라 채널이라는 시리즈를 함께 만드는 작업이라고 생각해요. 그래서 톤앤매너와 포맷을 먼저 정리합니다.',
+      '시청자가 끝까지 볼 수 있는 호흡, 섬네일과 제목까지 이어지는 흐름을 함께 고려해서 기획부터 편집까지 진행합니다.',
+    ],
+    steps: [
+      '채널 기획 — 톤앤매너, 시리즈 포맷 설계',
+      '촬영 구성 — 호흡과 리듬을 고려한 촬영 콘티',
+      '편집 — 이탈을 줄이는 템포와 자막/그래픽 구성',
+      '최적화 — 섬네일/제목까지 이어지는 노출 전략',
+    ],
+  },
+];
+
+function render() {
+  const params = new URLSearchParams(location.search);
+  const svc = SERVICES.find(s => s.id === params.get('id')) || SERVICES[0];
+  const others = SERVICES.filter(s => s.id !== svc.id);
+
+  document.getElementById('root').innerHTML = `
+  <div style="width:100%; position:relative;">
+    <div class="nav-bar">
+      <a href="index.html" class="glass-pill" style="display:flex; align-items:center; gap:10px; padding:9px 18px 9px 14px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.5" stroke="var(--accent)" stroke-width="2"/><circle cx="12" cy="12" r="2.6" fill="var(--accent)"/></svg>
+        <span style="font-family:'Anton',sans-serif; font-size:19px; letter-spacing:1px; white-space:nowrap; color:#f5f2ea;">VINFILM STUDIO</span>
+      </a>
+      <a href="index.html#about" class="back-link glass-pill" style="padding:11px 20px;">← 목록으로</a>
+    </div>
+
+    <div style="position:relative; overflow:hidden; padding:180px clamp(24px,4vw,56px) 90px; background:
+        radial-gradient(ellipse 900px 640px at 76% 0%, rgba(217,138,61,0.16), transparent 60%),
+        linear-gradient(180deg, #17140f 0%, #0e0d0c 70%); border-bottom:1px solid #221f1c;">
+      <div style="font-family:'Anton',sans-serif; font-size:13px; letter-spacing:4px; color:var(--accent); margin-bottom:20px;">SERVICE ${esc(svc.num)}</div>
+      <h1 class="hero-headline" style="margin:0 0 20px; font-family:'Noto Sans KR',sans-serif; font-weight:900; font-size:clamp(48px,7vw,88px); line-height:1.05; letter-spacing:-1px; color:#f5f2ea;">${esc(svc.label)}</h1>
+      <p style="margin:0; font-size:19px; color:#d8d4c9; max-width:520px;">${esc(svc.tagline)}</p>
+    </div>
+
+    <div class="service-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:60px; padding:90px clamp(24px,4vw,56px); border-bottom:1px solid #201f1d;">
+      <div>
+        <div style="font-family:'Anton',sans-serif; font-size:12px; letter-spacing:2px; color:#79766f; margin-bottom:18px;">ABOUT THIS SERVICE</div>
+        ${svc.body.map(p => `<p style="margin:0 0 20px; font-size:16px; line-height:1.9; color:#c7c2b6; max-width:480px;">${esc(p)}</p>`).join('')}
+        <a href="index.html#contact" class="cta-btn" style="margin-top:12px;">
+          문의하기
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M7 17L17 7M17 7H9M17 7V15" stroke="#0e0d0c" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </div>
+      <div>
+        <div style="font-family:'Anton',sans-serif; font-size:12px; letter-spacing:2px; color:#79766f; margin-bottom:4px;">HOW WE WORK</div>
+        ${svc.steps.map((s, i) => `
+        <div class="step-row">
+          <div class="step-num">0${i + 1}</div>
+          <div class="step-text">${esc(s)}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <div style="padding:80px clamp(24px,4vw,56px) 110px;">
+      <div style="font-family:'Anton',sans-serif; font-size:12px; letter-spacing:2px; color:#79766f; margin-bottom:22px;">다른 서비스도 있어요</div>
+      <div class="other-grid" style="display:grid; grid-template-columns:repeat(3,1fr); gap:14px;">
+        ${others.map(s => `
+        <a href="service.html?id=${esc(s.id)}" class="other-card">
+          <div style="font-family:'Anton',sans-serif; font-size:11px; letter-spacing:1px; color:var(--accent); margin-bottom:8px;">SERVICE ${esc(s.num)}</div>
+          <div style="font-family:'Noto Sans KR',sans-serif; font-weight:700; font-size:16px; color:#f5f2ea;">${esc(s.label)}</div>
+        </a>`).join('')}
+      </div>
+    </div>
+
+    <div style="padding:40px clamp(24px,4vw,56px); border-top:1px solid #201f1d; display:flex; justify-content:space-between; font-size:12px; color:#6f6c65; letter-spacing:0.8px; flex-wrap:wrap; gap:8px;">
+      <span>© 2026 VINFILM STUDIO</span>
+      <span>SEOUL, KOREA</span>
+    </div>
+  </div>`;
+
+  document.title = `VINFILM STUDIO · ${svc.label}`;
+}
+render();
+</script>
+</body>
+</html>
