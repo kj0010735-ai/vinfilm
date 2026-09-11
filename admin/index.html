@@ -180,10 +180,10 @@ const DEFAULT_CONTENT = {
   heroSub: '인터뷰와 내레이션을 중심으로, 사람의 목소리와 표정을 영상으로 옮기는 곳, VINFILM STUDIO입니다.',
   workIntro: '교육·브랜드 콘텐츠를 중심으로 진행한 최신 프로젝트입니다. 매 촬영이 새로운 이야기를 만드는 기회였습니다.',
   workItems: [
-    { title: '삼둥이 인터뷰', client: '에나스쿨', year: '2026', thumbUrl: '', videoUrl: '' },
-    { title: 'EF 영어능력지수 내레이션 시리즈', client: '웅진컴퍼니', year: '2026', thumbUrl: '', videoUrl: '' },
-    { title: '대치동 학습 습관 인터뷰', client: '웅진컴퍼니', year: '2026', thumbUrl: '', videoUrl: '' },
-    { title: '영어 말하기 유창성 다큐', client: '웅진컴퍼니', year: '2026', thumbUrl: '', videoUrl: '' },
+    { category: '인터뷰 콘텐츠', title: '삼둥이 인터뷰', client: '에나스쿨', year: '2026', thumbUrl: '', videoUrl: '' },
+    { category: '내레이션 콘텐츠', title: 'EF 영어능력지수 내레이션 시리즈', client: '웅진컴퍼니', year: '2026', thumbUrl: '', videoUrl: '' },
+    { category: '인터뷰 콘텐츠', title: '대치동 학습 습관 인터뷰', client: '웅진컴퍼니', year: '2026', thumbUrl: '', videoUrl: '' },
+    { category: '내레이션 콘텐츠', title: '영어 말하기 유창성 다큐', client: '웅진컴퍼니', year: '2026', thumbUrl: '', videoUrl: '' },
   ],
   contactEmail: '',
   contactPhone: '',
@@ -222,6 +222,7 @@ function renderWorkItems() {
   document.getElementById('workItemsList').innerHTML = workItems.map((item, i) => `
     <div class="work-item">
       <button class="btn-ghost" style="position:absolute; top:12px; right:12px; padding:4px 9px;" onclick="removeWorkItem(${i})">삭제</button>
+      <div class="field"><label>카테고리 (같은 카테고리끼리 한 줄로 묶여요, 예: 브랜드 스케치 영상)</label><input value="${escAttr(item.category)}" oninput="workItems[${i}].category=this.value" /></div>
       <div class="row2">
         <div class="field"><label>제목</label><input value="${escAttr(item.title)}" oninput="workItems[${i}].title=this.value" /></div>
         <div class="field"><label>클라이언트</label><input value="${escAttr(item.client)}" oninput="workItems[${i}].client=this.value" /></div>
@@ -230,11 +231,11 @@ function renderWorkItems() {
         <div class="field"><label>연도</label><input value="${escAttr(item.year)}" oninput="workItems[${i}].year=this.value" /></div>
         <div class="field"><label>썸네일 이미지 URL</label><input value="${escAttr(item.thumbUrl)}" oninput="workItems[${i}].thumbUrl=this.value" /></div>
       </div>
-      <div class="field"><label>영상 URL (클릭 시 새 탭으로 열림, 비워두면 클릭 비활성)</label><input value="${escAttr(item.videoUrl)}" oninput="workItems[${i}].videoUrl=this.value" /></div>
+      <div class="field"><label>영상 URL (유튜브·Vimeo·mp4 — 클릭 시 페이지 안에서 바로 재생, 비워두면 클릭 비활성)</label><input value="${escAttr(item.videoUrl)}" oninput="workItems[${i}].videoUrl=this.value" /></div>
     </div>
   `).join('');
 }
-function addWorkItem() { workItems.push({ title:'', client:'', year:'', thumbUrl:'', videoUrl:'' }); renderWorkItems(); }
+function addWorkItem() { workItems.push({ category:'', title:'', client:'', year:'', thumbUrl:'', videoUrl:'' }); renderWorkItems(); }
 function removeWorkItem(i) { workItems.splice(i,1); renderWorkItems(); }
 function escAttr(s) { return String(s == null ? '' : s).replace(/"/g,'&quot;'); }
 

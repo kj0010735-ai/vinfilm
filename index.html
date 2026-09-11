@@ -76,6 +76,16 @@
   .grid-cell:hover .cell-img { transform: scale(1.06); }
   .grid-cell .cell-caption { position:absolute; left:0; right:0; bottom:0; padding:22px 24px; background:linear-gradient(180deg, transparent, rgba(0,0,0,0.82) 78%); opacity:0; transform:translateY(8px); transition: all .3s ease; }
   .grid-cell:hover .cell-caption { opacity:1; transform:translateY(0); }
+  .cell-play { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:42px; height:42px; border-radius:50%; background:rgba(245,242,234,0.92); display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .25s ease; pointer-events:none; }
+  .grid-cell:hover .cell-play { opacity:1; }
+  .work-category-row { scrollbar-width: thin; }
+  .work-category-row::-webkit-scrollbar { height: 6px; }
+  .work-category-row::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+
+  .work-lightbox { display:none; position:fixed; inset:0; background:rgba(6,5,4,0.94); z-index:200; align-items:center; justify-content:center; padding:40px; }
+  .work-lightbox.open { display:flex; }
+  .work-lightbox-inner { width:100%; max-width:1100px; aspect-ratio:16/9; background:#000; }
+  .work-lightbox-close { position:absolute; top:24px; right:28px; background:none; border:none; color:#f5f2ea; font-size:28px; cursor:pointer; line-height:1; }
 
   .acc-row { border-bottom:1px solid rgba(245,242,234,0.25); transition: background .2s ease; }
   .acc-row:hover { background: rgba(245,242,234,0.06); }
@@ -90,7 +100,6 @@
   .hero-section { height: 820px; }
 
   @media (max-width: 720px) {
-    .work-grid { grid-template-columns: 1fr !important; }
     .footer-row, .contact-row, .work-head-row { flex-direction: column !important; }
 
     .hero-section { height: 70vh; min-height: 420px; }
@@ -129,10 +138,10 @@ const DEFAULT_CONTENT = {
   heroSub: '인터뷰와 내레이션을 중심으로, 사람의 목소리와 표정을 영상으로 옮기는 곳, VINFILM STUDIO입니다.',
   workIntro: '교육·브랜드 콘텐츠를 중심으로 진행한 최신 프로젝트입니다. 매 촬영이 새로운 이야기를 만드는 기회였습니다.',
   workItems: [
-    { title: '삼둥이 인터뷰', client: '에나스쿨', year: '2026', thumbUrl: '', videoUrl: '' },
-    { title: 'EF 영어능력지수 내레이션 시리즈', client: '웅진컴퍼니', year: '2026', thumbUrl: '', videoUrl: '' },
-    { title: '대치동 학습 습관 인터뷰', client: '웅진컴퍼니', year: '2026', thumbUrl: '', videoUrl: '' },
-    { title: '영어 말하기 유창성 다큐', client: '웅진컴퍼니', year: '2026', thumbUrl: '', videoUrl: '' },
+    { category: '인터뷰 콘텐츠', title: '삼둥이 인터뷰', client: '에나스쿨', year: '2026', thumbUrl: '', videoUrl: '' },
+    { category: '내레이션 콘텐츠', title: 'EF 영어능력지수 내레이션 시리즈', client: '웅진컴퍼니', year: '2026', thumbUrl: '', videoUrl: '' },
+    { category: '인터뷰 콘텐츠', title: '대치동 학습 습관 인터뷰', client: '웅진컴퍼니', year: '2026', thumbUrl: '', videoUrl: '' },
+    { category: '내레이션 콘텐츠', title: '영어 말하기 유창성 다큐', client: '웅진컴퍼니', year: '2026', thumbUrl: '', videoUrl: '' },
   ],
   contactEmail: '',
   contactPhone: '',
@@ -150,16 +159,48 @@ const PLACEHOLDER_GRADIENTS = [
 
 function workCellHtml(item, i) {
   const bg = item.thumbUrl ? `background-image:url('${esc(item.thumbUrl)}');` : `background:${PLACEHOLDER_GRADIENTS[i % PLACEHOLDER_GRADIENTS.length]};`;
-  const tag = item.videoUrl ? 'a' : 'div';
-  const hrefAttr = item.videoUrl ? `href="${esc(item.videoUrl)}" target="_blank" rel="noopener"` : '';
+  const clickAttr = item.videoUrl ? `onclick='openWorkLightbox("${esc(item.videoUrl)}")'` : '';
   return `
-    <${tag} class="grid-cell" ${hrefAttr} style="aspect-ratio:16/11; border-radius:2px;">
+    <div class="grid-cell" ${clickAttr} style="flex:0 0 280px; aspect-ratio:16/9; border-radius:2px;">
       <div class="cell-img" style="${bg}"></div>
+      ${item.videoUrl ? `<div class="cell-play"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 4L19 12L6 20V4Z" fill="#0e0d0c"/></svg></div>` : ''}
       <div class="cell-caption">
-        <div style="font-family:'Noto Sans KR',sans-serif; font-weight:700; font-size:19px; color:#f5f2ea;">${esc(item.title)}</div>
-        <div style="font-size:12.5px; color:#c7c2b6; margin-top:4px;">${esc(item.client)}${item.client && item.year ? ' · ' : ''}${esc(item.year)}</div>
+        <div style="font-family:'Noto Sans KR',sans-serif; font-weight:700; font-size:15px; color:#f5f2ea;">${esc(item.title)}</div>
+        <div style="font-size:11.5px; color:#c7c2b6; margin-top:4px;">${esc(item.client)}${item.client && item.year ? ' · ' : ''}${esc(item.year)}</div>
       </div>
-    </${tag}>`;
+    </div>`;
+}
+function groupWorkItems(items) {
+  const order = []; const map = {};
+  items.forEach(it => {
+    const cat = (it.category || '').trim() || '작업';
+    if (!map[cat]) { map[cat] = []; order.push(cat); }
+    map[cat].push(it);
+  });
+  return order.map(cat => ({ category: cat, items: map[cat] }));
+}
+function workCategoryHtml(group) {
+  return `
+    <div style="margin-bottom:44px;">
+      <h3 style="margin:0 0 18px; font-family:'Anton',sans-serif; font-size:14px; letter-spacing:2px; color:var(--accent);">${esc(group.category.toUpperCase())}</h3>
+      <div class="work-category-row" style="display:flex; gap:14px; overflow-x:auto;">
+        ${group.items.map(workCellHtml).join('')}
+      </div>
+    </div>`;
+}
+function openWorkLightbox(url) {
+  const v = parseVideoUrl(url);
+  if (!v) return;
+  let inner = '';
+  if (v.type === 'youtube') inner = `<iframe src="https://www.youtube.com/embed/${esc(v.id)}?autoplay=1" allow="autoplay; encrypted-media" allowfullscreen style="width:100%;height:100%;border:none;"></iframe>`;
+  else if (v.type === 'vimeo') inner = `<iframe src="https://player.vimeo.com/video/${esc(v.id)}?autoplay=1" allow="autoplay; encrypted-media" allowfullscreen style="width:100%;height:100%;border:none;"></iframe>`;
+  else inner = `<video src="${esc(v.url)}" controls autoplay style="width:100%;height:100%;"></video>`;
+  document.getElementById('workLightboxInner').innerHTML = inner;
+  document.getElementById('workLightbox').classList.add('open');
+}
+function closeWorkLightbox() {
+  document.getElementById('workLightbox').classList.remove('open');
+  document.getElementById('workLightboxInner').innerHTML = '';
 }
 
 function parseVideoUrl(url) {
@@ -251,9 +292,13 @@ function render(c) {
         </div>
       </div>
 
-      <div class="work-grid" style="display:grid; grid-template-columns:repeat(2, 1fr); gap:18px;">
-        ${c.workItems.map(workCellHtml).join('')}
-      </div>
+      ${groupWorkItems(c.workItems).map(workCategoryHtml).join('')}
+    </div>
+
+    <!-- WORK LIGHTBOX -->
+    <div id="workLightbox" class="work-lightbox" onclick="if(event.target===this) closeWorkLightbox()">
+      <button class="work-lightbox-close" onclick="closeWorkLightbox()">✕</button>
+      <div id="workLightboxInner" class="work-lightbox-inner"></div>
     </div>
 
     <!-- WHAT WE DO -->
