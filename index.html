@@ -71,9 +71,22 @@
 
   .subscribe-btn:hover { background:#f5f2ea; color:#0e0d0c; }
 
+  .hero-section { height: 820px; }
+
   @media (max-width: 720px) {
     .work-grid { grid-template-columns: 1fr !important; }
     .footer-row, .contact-row, .work-head-row { flex-direction: column !important; }
+
+    .hero-section { height: 100dvh; min-height: 520px; }
+    .hero-foreground { padding-bottom: 56px !important; }
+    .hero-ticker-band { height: 26% !important; min-height: 90px !important; }
+    .hero-ticker-text { font-size: 34px !important; padding: 0 20px !important; }
+
+    .nav-bar { padding: 12px 16px !important; }
+    .nav-logo-pill { padding: 7px 12px 7px 10px !important; gap: 6px !important; }
+    .nav-logo-text { font-size: 13px !important; letter-spacing: 0.5px !important; }
+    .nav-menu-pill { padding: 4px !important; }
+    .nav-menu-pill .nav-link { padding: 7px 9px !important; font-size: 10px !important; }
   }
 </style>
 </head>
@@ -159,21 +172,21 @@ function render(c) {
   <div style="width:100%; position:relative;">
 
     <!-- NAV -->
-    <div style="position:fixed; top:0; left:0; right:0; z-index:50; display:flex; align-items:center; justify-content:space-between; padding:16px clamp(24px,4vw,56px);">
-      <div class="glass-pill" style="display:flex; align-items:center; gap:10px; padding:9px 18px 9px 14px;">
+    <div class="nav-bar" style="position:fixed; top:0; left:0; right:0; z-index:50; display:flex; align-items:center; justify-content:space-between; padding:16px clamp(24px,4vw,56px);">
+      <div class="glass-pill nav-logo-pill" style="display:flex; align-items:center; gap:10px; padding:9px 18px 9px 14px;">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.5" stroke="var(--accent)" stroke-width="2"/><circle cx="12" cy="12" r="2.6" fill="var(--accent)"/></svg>
-        <div class="glass-text" style="font-family:'Anton',sans-serif; font-size:19px; letter-spacing:1px;">VINFILM STUDIO</div>
+        <div class="glass-text nav-logo-text" style="font-family:'Anton',sans-serif; font-size:19px; letter-spacing:1px; white-space:nowrap;">VINFILM STUDIO</div>
       </div>
-      <div class="glass-pill" style="display:flex; align-items:center; gap:2px; padding:6px;">
-        <a href="#home" class="nav-link glass-text" style="padding:9px 18px; border-radius:999px;">HOME</a>
-        <a href="#work" class="nav-link" style="padding:9px 18px; border-radius:999px; color:#d8d4c9;">WORK</a>
-        <a href="#about" class="nav-link" style="padding:9px 18px; border-radius:999px; color:#d8d4c9;">ABOUT</a>
-        <a href="#contact" class="nav-link" style="padding:9px 18px; border-radius:999px; color:#d8d4c9;">CONTACT</a>
+      <div class="glass-pill nav-menu-pill" style="display:flex; align-items:center; gap:2px; padding:6px;">
+        <a href="#home" class="nav-link glass-text" style="padding:9px 18px; border-radius:999px; white-space:nowrap;">HOME</a>
+        <a href="#work" class="nav-link" style="padding:9px 18px; border-radius:999px; color:#d8d4c9; white-space:nowrap;">WORK</a>
+        <a href="#about" class="nav-link" style="padding:9px 18px; border-radius:999px; color:#d8d4c9; white-space:nowrap;">ABOUT</a>
+        <a href="#contact" class="nav-link" style="padding:9px 18px; border-radius:999px; color:#d8d4c9; white-space:nowrap;">CONTACT</a>
       </div>
     </div>
 
     <!-- HERO -->
-    <div id="home" style="position:relative; height:820px; overflow:hidden; border-bottom:1px solid #221f1c; background:
+    <div id="home" class="hero-section" style="position:relative; overflow:hidden; border-bottom:1px solid #221f1c; background:
         radial-gradient(ellipse 900px 640px at 76% 22%, rgba(217,138,61,0.14), transparent 60%),
         linear-gradient(180deg, #17140f 0%, #0e0d0c 70%);">
 
@@ -181,13 +194,13 @@ function render(c) {
       ${heroMediaHtml(c)}
       <div style="position:absolute; inset:0; background:linear-gradient(180deg, rgba(14,13,12,0.25) 0%, rgba(14,13,12,0.35) 55%, rgba(14,13,12,0.92) 100%); pointer-events:none;"></div>
 
-      <div style="position:absolute; left:0; right:0; bottom:0; height:34%; min-height:150px; overflow:hidden; pointer-events:none; display:flex; align-items:center; background:linear-gradient(180deg, transparent, rgba(14,13,12,0.55) 60%);">
+      <div class="hero-ticker-band" style="position:absolute; left:0; right:0; bottom:0; height:34%; min-height:150px; overflow:hidden; pointer-events:none; display:flex; align-items:center; background:linear-gradient(180deg, transparent, rgba(14,13,12,0.55) 60%);">
         <div class="hero-ticker-track" style="display:flex; align-items:center; white-space:nowrap; will-change:transform;">
-          ${Array(4).fill(`<span class="glass-text-ticker" style="font-family:'Anton',sans-serif; font-size:clamp(64px,13vw,220px); line-height:1; padding:0 40px;">VINFILM STUDIO CREATES FILMS, STORIES, AND VISUAL EXPERIENCES</span>`).join('')}
+          ${Array(4).fill(`<span class="glass-text-ticker hero-ticker-text" style="font-family:'Anton',sans-serif; font-size:clamp(64px,13vw,220px); line-height:1; padding:0 40px;">VINFILM STUDIO CREATES FILMS, STORIES, AND VISUAL EXPERIENCES</span>`).join('')}
         </div>
       </div>
 
-      <div style="position:relative; height:100%; display:flex; flex-direction:column; justify-content:flex-end; padding:0 clamp(24px,4vw,56px) 100px;">
+      <div class="hero-foreground" style="position:relative; height:100%; display:flex; flex-direction:column; justify-content:flex-end; padding:0 clamp(24px,4vw,56px) 100px;">
         <div style="font-family:'Anton',sans-serif; font-size:14px; letter-spacing:5px; color:var(--accent); margin-bottom:24px;">${esc(c.heroEyebrow)}</div>
         <h1 style="margin:0; font-family:'Noto Sans KR',sans-serif; font-weight:900; font-size:clamp(40px,5.6vw,72px); line-height:1.2; letter-spacing:-1px; color:#f5f2ea; max-width:760px;">${esc(c.heroHeadline)}</h1>
         <p style="margin:26px 0 0; font-size:17px; line-height:1.75; color:#bdb8ac; font-weight:400; max-width:560px;">${esc(c.heroSub)}</p>
@@ -250,7 +263,7 @@ function render(c) {
         <div style="width:min(100%,380px); height:300px; border-radius:50%; transform:rotate(-8deg); overflow:hidden; background:linear-gradient(135deg, #2a2420 0%, #14120f 60%, #0e0d0c 100%); position:relative;">
           <div style="position:absolute; inset:0; opacity:0.4; background-image: radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px); background-size:4px 4px;"></div>
         </div>
-        <div style="position:absolute; right:14%; bottom:6%; width:56px; height:56px; border-radius:50%; background:#0e0d0c; border:2px solid var(--accent); display:flex; align-items:center; justify-content:center;">
+        <div style="position:absolute; left:10%; top:2%; width:56px; height:56px; border-radius:50%; background:#0e0d0c; border:2px solid var(--accent); display:flex; align-items:center; justify-content:center;">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.5" stroke="var(--accent)" stroke-width="2"/><circle cx="12" cy="12" r="2.6" fill="var(--accent)"/></svg>
         </div>
       </div>
