@@ -36,7 +36,11 @@
 
 `works/index.html?guest=1`로 접속하면 `GUEST_MODE`가 켜지며 사이드바에 장비목록/공유 프로젝트 탭만 보이고, 로그인 절차도 없다.
 
-**게스트는 "외부인이 그냥 구경하는 것"이 아니라 로그인 없는 공동작업자다.** 그래서 `equipment`/`categories`/`sharedProjects` 컬렉션은 Firestore 규칙에서 `allow read, write: if true`로 **읽기+쓰기 둘 다 완전히 공개**돼 있다 (일부러 그런 것 — isOwner()로 막으면 게스트가 같이 등록/수정을 못 하게 됨). `schedule`/`projects`/`shoots`/`presets`/`todayTasks`/`notes`처럼 guest 모드에 아예 노출 안 되는 컬렉션만 `isOwner()`로 로그인 필수 처리돼 있다.
+**게스트 권한은 탭마다 다르다** (둘 다 로그인 없이 접근):
+- **공유 프로젝트**: 로그인 없는 공동작업자로서 같이 등록/수정 가능 — `sharedProjects`는 `allow read, write: if true`.
+- **장비목록**: 보기 전용. 처음엔 게스트도 수정 가능하게 열어뒀다가, "장비는 게스트가 못 건드리게" 요청으로 다시 잠갔다 — `equipment`/`categories`는 `allow read: if true; allow write: if isOwner()`. UI에서도 GUEST_MODE일 때 등록/수정/삭제/카테고리 관리 버튼을 전부 숨기고, 클릭 핸들러 쪽에도 `EQ_WRITE_ACTIONS` 방어선을 하나 더 둠 (`works/index.html`의 `eq-` 관련 액션 처리부 참고).
+
+`schedule`/`projects`/`shoots`/`presets`/`todayTasks`/`notes`처럼 guest 모드에 아예 노출 안 되는 컬렉션은 `isOwner()`로 로그인 필수 처리돼 있다.
 
 즉 장비목록/공유 프로젝트는 **URL만 알면 로그인 없이 누구나 읽고 쓸 수 있는 상태**다 (의도된 설계). guest 모드는 그 위에서 UI 탭만 제한해 외부 협업자가 필요한 두 화면만 보게 하는 것이지, 데이터 자체를 잠그는 게 아니다.
 

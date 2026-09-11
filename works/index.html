@@ -468,10 +468,11 @@ function eqCardHtml(item, children) {
             <button class="danger" data-action="eq-delete" data-id="${item.id}">삭제</button>
           </div>
         </div>` : ''}
+      ${!GUEST_MODE ? `
       <div class="eq-card-actions">
         <button class="eq-icon-btn" data-action="eq-open-edit" data-id="${item.id}">✎</button>
         <button class="eq-icon-btn" data-action="eq-confirm-delete" data-id="${item.id}">✕</button>
-      </div>
+      </div>` : ''}
       <div class="eq-card-main-compact">
         <div class="eq-photo-box-xs">${item.photo ? `<img src="${item.photo}" class="eq-photo-img" alt="${esc(item.name)}"/>` : ''}</div>
         <div class="eq-card-body-compact">
@@ -514,12 +515,13 @@ function eqDetailModalHtml() {
           ${children.length > 0 ? `
             <div class="eq-subitems-label">구성품 ${children.length}개</div>
             <div class="eq-subitems-chips">${children.map(c => `<button type="button" class="eq-subitem-chip" data-action="eq-open-detail" data-id="${c.id}">${esc(c.name)}</button>`).join('')}</div>` : ''}
-          <button type="button" class="eq-subitem-add-btn" data-action="eq-open-add-child" data-id="${item.id}">+ 구성품 추가</button>
+          ${!GUEST_MODE ? `<button type="button" class="eq-subitem-add-btn" data-action="eq-open-add-child" data-id="${item.id}">+ 구성품 추가</button>` : ''}
         </div>
+        ${!GUEST_MODE ? `
         <div class="eq-detail-actions">
           <button class="eq-modal-submit" data-action="eq-detail-edit" data-id="${item.id}">수정하기</button>
           <button type="button" class="eq-detail-delete-btn" data-action="eq-detail-delete" data-id="${item.id}">삭제</button>
-        </div>
+        </div>` : ''}
       </div>
     </div>`;
 }
@@ -661,14 +663,14 @@ function renderEquipmentTab() {
   return `
     <div class="eq-header">
       <div class="eq-title-block"><h1 class="eq-title">장비 목록</h1><div class="eq-stat">보유 <b>${ownedCount}</b> / 전체 <b>${totalCount}</b></div></div>
-      <button class="eq-add-btn" data-action="eq-open-add">+ 장비 등록</button>
+      ${!GUEST_MODE ? `<button class="eq-add-btn" data-action="eq-open-add">+ 장비 등록</button>` : ''}
     </div>
     <div class="eq-toolbar">
       <div class="eq-search"><input id="eqSearchInput" placeholder="이름, 배터리, 메모로 검색" value="${esc(S.eq.search)}" /></div>
       <div class="eq-chip-row">
         <button class="eq-chip ${S.eq.categoryFilter==='all'?'active':''}" data-action="eq-set-category-filter" data-id="all">전체</button>
         ${eqCategories.map(c => `<button class="eq-chip ${S.eq.categoryFilter===c.id?'active':''}" data-action="eq-set-category-filter" data-id="${c.id}"><span class="eq-chip-dot" style="background:${c.color||'#8b90a0'}"></span>${esc(c.label)}</button>`).join('')}
-        <button class="eq-chip eq-chip-add" data-action="eq-open-category-modal">⚙ 카테고리 관리</button>
+        ${!GUEST_MODE ? `<button class="eq-chip eq-chip-add" data-action="eq-open-category-modal">⚙ 카테고리 관리</button>` : ''}
       </div>
       <div class="eq-chip-row">
         <button class="eq-chip ${S.eq.statusFilter==='all'?'active':''}" data-action="eq-set-status-filter" data-id="all">상태 전체</button>
@@ -1469,6 +1471,10 @@ function bootApp() {
     const action = el.dataset.action;
     const id = el.dataset.id;
 
+    /* 게스트는 장비목록을 보기만 할 수 있다 — 등록/수정/삭제/카테고리 관리 전부 차단. */
+    const EQ_WRITE_ACTIONS = ['eq-open-add', 'eq-open-edit', 'eq-confirm-delete', 'eq-delete', 'eq-open-category-modal', 'eq-add-category', 'eq-delete-category', 'eq-detail-edit', 'eq-detail-delete', 'eq-open-add-child', 'eq-request-delete-in-modal'];
+    if (GUEST_MODE && EQ_WRITE_ACTIONS.includes(action)) return;
+
     switch (action) {
       case 'set-tab':
         if (GUEST_MODE && !GUEST_ALLOWED_TABS.includes(id)) return;
@@ -1776,6 +1782,7 @@ function bootApp() {
     e.preventDefault();
     const form = e.target;
     if (form.matches('[data-form-role="eq-form"]')) {
+      if (GUEST_MODE) return;
       const fd = new FormData(form);
       const name = (fd.get('name') || '').toString().trim();
       if (!name) return;
