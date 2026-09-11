@@ -35,13 +35,14 @@
   .nav-hamburger { display: none; border-radius: 999px; }
   .mobile-nav-panel {
     display: none;
-    position: fixed; top: 66px; right: 16px; left: auto; width: 170px; z-index: 49;
+    position: fixed; top: 66px; right: 16px; left: auto; width: 85px; z-index: 49;
     max-height: 0; overflow: hidden;
     transition: max-height .35s ease, opacity .3s ease;
     opacity: 0;
     border-radius: 20px;
   }
   .mobile-nav-panel.open { max-height: 320px; opacity: 1; }
+  .mobile-nav-panel .nav-link { font-size: 16px !important; padding: 14px 10px !important; text-align: center; }
   .mobile-nav-panel .nav-link:hover { background: rgba(255,255,255,0.1); }
   @media (max-width: 720px) {
     .mobile-nav-panel { display: block; }
