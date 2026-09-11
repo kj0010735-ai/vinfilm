@@ -5,6 +5,7 @@
 ## 저장소 구조
 
 - `index.html` — **공개 홈페이지** (루트, 커스텀 도메인 `www.vinfilmstudio.com`이 여기로 연결됨). 포트폴리오/소개/연락처.
+- `service.html` — 서비스 상세 페이지 (`?id=interview|sketch|mv|youtube`). index.html의 "무엇을 만드나요?" 목록에서 클릭하면 넘어옴. 서비스별 태그라인·소개문구·진행 단계도 `siteContent/home`의 `services` 필드에서 읽어온다.
 - `admin/index.html` — 홈페이지 콘텐츠 관리자 화면. 비밀번호 게이트 + Firestore `siteContent/home` 문서 편집.
 - `works/index.html` — **내부 작업 관리 앱** (기존 "작업 관리" 툴, 원래 루트에 있던 파일을 이전한 것). 장비목록/스케줄/프로젝트/공유 프로젝트/메모장 탭 구성. `?guest=1`로 외부 공유 모드 진입 가능.
 - `works/장비목록 이미지/` — 장비 사진 에셋.
@@ -28,6 +29,7 @@
 - 하단 툴바의 "크기 조절" 패널에서 헤드라인/섹션 제목/카드 제목 폰트 크기와 썸네일 크기를 슬라이더로 조절 — 값은 `siteContent/home` 문서의 `styleVars` 필드에 저장되고 CSS 변수(`--hero-headline-size` 등)로 적용됨.
 - "저장" 버튼이 현재 편집 중인 콘텐츠 전체를 `siteContent/home`에 `.set()`으로 덮어씀 (admin 페이지와 동일한 문서, 같은 덮어쓰기 방식 — 즉 어느 쪽에서 편집하든 항상 최신 상태로 유지되게 신경 쓸 것).
 - 작업 카드의 썸네일은 `thumbUrl`을 직접 안 넣어도 유튜브 링크면 `https://img.youtube.com/vi/{id}/hqdefault.jpg`로 자동 생성되고, Vimeo 링크는 로드 후 oEmbed API로 비동기로 가져온다 (`enhanceThumbnails`).
+- "무엇을 만드나요?" 섹션 제목(`servicesTitle`)과 서비스 목록(`services` — 각 항목 `id`/`label`)도 같은 방식으로 편집된다. `service.html?id=...&edit=1`로 들어가면 그 서비스의 태그라인·소개문구(`body[]`)·진행 단계(`steps[]`)도 같은 로그인 게이트로 바로 수정 가능 — index.html의 서비스 목록 링크는 편집 모드일 때 자동으로 `&edit=1`을 붙여서 넘겨준다. `services`의 기본값(`DEFAULT_SERVICES`/`DEFAULT_CONTENT.services`)은 index.html과 service.html 양쪽에 동일하게 복제돼 있으니 문구를 코드로 바꿀 땐 둘 다 고칠 것.
 
 ## works/index.html 로그인
 

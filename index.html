@@ -201,6 +201,65 @@ const DEFAULT_CONTENT = {
   instagramUrl: '',
   vimeoUrl: '',
   styleVars: { heroHeadlineSize: 72, workTitleSize: 46, workCellTitleSize: 15, workThumbW: 280 },
+  servicesTitle: '무엇을 만드나요?',
+  services: [
+    {
+      id: 'interview', label: '인터뷰',
+      tagline: '말이 아니라, 그 사람을 담습니다',
+      body: [
+        '인터뷰는 질문지를 읽는 시간이 아니라, 한 사람이 편하게 자기 이야기를 꺼낼 수 있는 시간을 만드는 일이라고 생각해요.',
+        '촬영 전 짧은 사전 미팅으로 톤과 분위기를 맞추고, 실제 촬영에서는 정해진 답이 아니라 자연스러운 표정과 목소리가 나올 수 있도록 편안한 환경을 먼저 만듭니다.',
+      ],
+      steps: [
+        '사전 미팅 — 목적, 톤, 핵심 메시지 정리',
+        '현장 세팅 — 다각도 카메라 + 편안한 조명/동선',
+        '진행 — 정해진 답이 아닌 자연스러운 대화 유도',
+        '편집 — 표정과 감정을 살리는 컷 구성',
+      ],
+    },
+    {
+      id: 'sketch', label: '스케치 영상',
+      tagline: '꾸미지 않아도 되는, 오늘의 기록',
+      body: [
+        '스케치 영상은 완벽하게 연출된 장면보다 그날 현장에서만 나올 수 있는 공기와 순간을 담는 데 집중합니다.',
+        '행사, 촬영 비하인드, 브랜드 데이처럼 흘러가는 하루를 다큐멘터리처럼 따라가며, 편집에서는 그 순간의 온도를 살리는 것을 가장 중요하게 생각해요.',
+      ],
+      steps: [
+        '현장 동행 — 별도 연출 없이 자연스럽게 따라가며 촬영',
+        '순간 포착 — 예상치 못한 리액션과 디테일 위주로 기록',
+        '빠른 편집 — 현장의 리듬을 살리는 컷 앤 사운드 구성',
+        '공유 — 짧고 몰입감 있는 결과물로 완성',
+      ],
+    },
+    {
+      id: 'mv', label: '뮤직비디오',
+      tagline: '노래에 이야기를 입히는 영상',
+      body: [
+        '뮤직비디오는 음악이 가진 분위기와 가사의 정서를 영상 언어로 옮기는 작업이에요. 곡을 여러 번 들으며 컨셉을 잡는 것부터 시작합니다.',
+        '장소, 색감, 카메라 무빙 하나하나가 곡의 톤에 맞게 설계되고, 후반 작업에서는 컬러와 사운드까지 곡의 무드에 맞춰 마무리합니다.',
+      ],
+      steps: [
+        '컨셉 & 스토리보드 — 곡 해석을 바탕으로 비주얼 방향 설정',
+        '로케이션 헌팅 — 무드에 맞는 장소/시간대 선정',
+        '촬영 & 연출 — 카메라 무빙, 조명, 퍼포먼스 디렉팅',
+        '컬러그레이딩 & 믹싱 — 곡의 분위기에 맞춘 마무리',
+      ],
+    },
+    {
+      id: 'youtube', label: '유튜브 콘텐츠',
+      tagline: '채널의 색을 꾸준히 만들어가는 콘텐츠',
+      body: [
+        '유튜브 콘텐츠는 한 편으로 끝나는 영상이 아니라 채널이라는 시리즈를 함께 만드는 작업이라고 생각해요. 그래서 톤앤매너와 포맷을 먼저 정리합니다.',
+        '시청자가 끝까지 볼 수 있는 호흡, 섬네일과 제목까지 이어지는 흐름을 함께 고려해서 기획부터 편집까지 진행합니다.',
+      ],
+      steps: [
+        '채널 기획 — 톤앤매너, 시리즈 포맷 설계',
+        '촬영 구성 — 호흡과 리듬을 고려한 촬영 콘티',
+        '편집 — 이탈을 줄이는 템포와 자막/그래픽 구성',
+        '최적화 — 섬네일/제목까지 이어지는 노출 전략',
+      ],
+    },
+  ],
 };
 
 const PLACEHOLDER_GRADIENTS = [
@@ -212,13 +271,6 @@ const PLACEHOLDER_GRADIENTS = [
 
 let EDIT_MODE = false;
 let currentContent = null;
-
-const SERVICES = [
-  { id: 'interview', label: '인터뷰' },
-  { id: 'sketch', label: '스케치 영상' },
-  { id: 'mv', label: '뮤직비디오' },
-  { id: 'youtube', label: '유튜브 콘텐츠' },
-];
 
 function enhanceThumbnails(c) {
   (c.workItems || []).forEach((item, idx) => {
@@ -444,12 +496,12 @@ function render(c) {
       <div style="position:absolute; width:420px; height:420px; border-radius:50%; background:rgba(0,0,0,0.10); right:-120px; top:-160px;"></div>
 
       <div style="position:relative; display:flex; gap:60px; flex-wrap:wrap; justify-content:space-between;">
-        <h2 style="margin:0; font-family:'Noto Sans KR',sans-serif; font-weight:900; font-size:clamp(38px,5vw,58px); line-height:1.15; color:#f5f2ea; max-width:420px;">무엇을<br/>만드나요?</h2>
+        <h2 class="${EDIT_MODE ? 'editable' : ''}" ${EDIT_MODE ? 'contenteditable="true" data-field="servicesTitle"' : ''} style="margin:0; font-family:'Noto Sans KR',sans-serif; font-weight:900; font-size:clamp(38px,5vw,58px); line-height:1.15; color:#f5f2ea; max-width:420px; display:inline-block;">${esc(c.servicesTitle)}</h2>
 
         <div style="flex:1 1 460px; max-width:560px; background:rgba(14,13,12,0.32); border:1px solid rgba(245,242,234,0.18); border-radius:4px; padding:8px 28px;">
-          ${SERVICES.map((s, i, arr) => `
-          <a href="service.html?id=${esc(s.id)}" class="acc-row" style="display:flex; align-items:center; justify-content:space-between; padding:22px 4px; text-decoration:none; ${i===arr.length-1 ? 'border-bottom:none;' : ''}">
-            <span style="font-family:'Anton',sans-serif; font-size:15px; letter-spacing:1px; color:#f5f2ea;">${esc(s.label)}</span>
+          ${(c.services || DEFAULT_CONTENT.services).map((s, i, arr) => `
+          <a href="service.html?id=${esc(s.id)}${EDIT_MODE ? '&edit=1' : ''}" class="acc-row" onclick="return !EDIT_MODE;" style="display:flex; align-items:center; justify-content:space-between; padding:22px 4px; text-decoration:none; ${i===arr.length-1 ? 'border-bottom:none;' : ''}">
+            <span class="${EDIT_MODE ? 'editable' : ''}" ${EDIT_MODE ? `contenteditable="true" data-service-field="label" data-service-idx="${i}"` : ''} style="font-family:'Anton',sans-serif; font-size:15px; letter-spacing:1px; color:#f5f2ea;">${esc(s.label)}</span>
             <svg class="acc-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex:0 0 auto;"><path d="M7 17L17 7M17 7H9M17 7V15" stroke="#f5f2ea" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </a>`).join('')}
         </div>
@@ -537,6 +589,13 @@ function wireEditMode() {
     el.addEventListener('blur', () => {
       const idx = Number(el.dataset.itemIdx);
       currentContent.workItems[idx][el.dataset.itemField] = el.textContent.trim();
+    });
+  });
+  document.querySelectorAll('[data-service-field]').forEach(el => {
+    el.addEventListener('blur', () => {
+      const idx = Number(el.dataset.serviceIdx);
+      if (!Array.isArray(currentContent.services)) currentContent.services = JSON.parse(JSON.stringify(DEFAULT_CONTENT.services));
+      currentContent.services[idx][el.dataset.serviceField] = el.textContent.trim();
     });
   });
   document.querySelectorAll('[data-category-group]').forEach(el => {
@@ -663,6 +722,7 @@ try {
       const data = doc.data();
       const merged = { ...DEFAULT_CONTENT, ...data };
       if (!Array.isArray(merged.workItems)) merged.workItems = DEFAULT_CONTENT.workItems;
+      if (!Array.isArray(merged.services) || !merged.services.length) merged.services = DEFAULT_CONTENT.services;
       merged.styleVars = { ...DEFAULT_CONTENT.styleVars, ...(merged.styleVars || {}) };
       renderReal(merged);
     } else {
