@@ -283,6 +283,7 @@ function workCategoryHtml(group) {
       <h3 class="${EDIT_MODE ? 'editable' : ''}" ${EDIT_MODE ? `contenteditable="true" data-category-group="${idxList}"` : ''} style="margin:0 0 18px; font-family:'Anton',sans-serif; font-size:14px; letter-spacing:2px; color:var(--accent); text-transform:uppercase; display:inline-block;">${esc(group.category)}</h3>
       <div class="work-category-row" style="display:flex; gap:14px; overflow-x:auto;">
         ${group.items.map(workCellHtml).join('')}
+        ${EDIT_MODE ? `<button data-add-category="${esc(group.category)}" style="flex:0 0 var(--work-thumb-w, 280px); aspect-ratio:16/9; border-radius:2px; border:1px dashed rgba(245,242,234,0.35); background:transparent; color:#a8a49b; cursor:pointer; font-size:13px; font-family:'Noto Sans KR',sans-serif;">+ 이 카테고리에 작업 추가</button>` : ''}
       </div>
     </div>`;
 }
@@ -420,7 +421,7 @@ function render(c) {
       </div>
 
       ${groupWorkItems(c.workItems).map(workCategoryHtml).join('')}
-      ${EDIT_MODE ? `<button onclick="addWorkItemInline()" style="font-family:'Anton',sans-serif; font-size:12px; letter-spacing:1px; padding:12px 20px; border-radius:999px; border:1px dashed rgba(245,242,234,0.4); background:transparent; color:#f5f2ea; cursor:pointer; margin-top:8px;">+ 작업 추가</button>` : ''}
+      ${EDIT_MODE ? `<button onclick="addNewCategory()" style="font-family:'Anton',sans-serif; font-size:12px; letter-spacing:1px; padding:12px 20px; border-radius:999px; border:1px dashed rgba(245,242,234,0.4); background:transparent; color:#f5f2ea; cursor:pointer; margin-top:8px;">+ 새 카테고리 만들기</button>` : ''}
     </div>
 
     <!-- WORK LIGHTBOX -->
@@ -541,6 +542,9 @@ function wireEditMode() {
       idxs.forEach(i => { currentContent.workItems[i].category = newCat; });
     });
   });
+  document.querySelectorAll('[data-add-category]').forEach(el => {
+    el.addEventListener('click', () => addWorkItemInline(el.dataset.addCategory));
+  });
   document.querySelectorAll('.editable').forEach(el => {
     const multiline = el.dataset.field === 'heroSub' || el.dataset.field === 'workIntro';
     el.addEventListener('keydown', e => { if (e.key === 'Enter' && !multiline) { e.preventDefault(); el.blur(); } });
@@ -560,9 +564,16 @@ function removeWorkItemInline(idx) {
   currentContent.workItems.splice(idx, 1);
   reRenderEdit();
 }
-function addWorkItemInline() {
-  currentContent.workItems.push({ category: '작업', title: '새 작업', client: '', year: '', thumbUrl: '', videoUrl: '' });
+function addWorkItemInline(category) {
+  currentContent.workItems.push({ category: category || '작업', title: '새 작업', client: '', year: '', thumbUrl: '', videoUrl: '' });
   reRenderEdit();
+}
+function addNewCategory() {
+  const name = prompt('새 카테고리 이름 (예: 브랜드 스케치 영상)');
+  if (name === null) return;
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  addWorkItemInline(trimmed);
 }
 function editFooterLink(field) {
   const url = prompt(field === 'instagramUrl' ? 'Instagram URL' : 'Vimeo URL', currentContent[field] || '');
