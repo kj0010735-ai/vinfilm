@@ -93,7 +93,7 @@
     .footer-row, .contact-row, .work-head-row { flex-direction: column !important; }
 
     .hero-section { height: 70vh; min-height: 420px; }
-    .hero-foreground { padding-bottom: 56px !important; }
+    .hero-foreground { padding-bottom: 190px !important; }
     .hero-ticker-band { height: 30% !important; min-height: 120px !important; }
     .hero-ticker-text { font-size: 56px !important; padding: 0 24px !important; }
     .hero-ticker-track { animation-duration: 110s !important; }
@@ -231,7 +231,7 @@ function render(c) {
         </div>
       </div>
 
-      <div class="hero-foreground" style="position:relative; height:100%; display:flex; flex-direction:column; justify-content:flex-end; padding:0 clamp(24px,4vw,56px) 100px;">
+      <div class="hero-foreground" style="position:relative; height:100%; display:flex; flex-direction:column; justify-content:flex-end; padding:0 clamp(24px,4vw,56px) 300px;">
         <div style="font-family:'Anton',sans-serif; font-size:14px; letter-spacing:5px; color:var(--accent); margin-bottom:24px;">${esc(c.heroEyebrow)}</div>
         <h1 style="margin:0; font-family:'Noto Sans KR',sans-serif; font-weight:900; font-size:clamp(40px,5.6vw,72px); line-height:1.2; letter-spacing:-1px; color:#f5f2ea; max-width:760px;">${esc(c.heroHeadline)}</h1>
         <p style="margin:26px 0 0; font-size:17px; line-height:1.75; color:#bdb8ac; font-weight:400; max-width:560px;">${esc(c.heroSub)}</p>
@@ -335,14 +335,18 @@ function toggleMobileNav() {
 
 /* Firestore 로딩 중엔 기본값(플레이스홀더)을 먼저 보여주지 않는다 —
    실제 콘텐츠가 준비되면(또는 타임아웃 시 기본값으로) 딱 한 번만 그린다. */
-let rendered = false;
-function renderOnce(c) {
-  if (rendered) return;
-  rendered = true;
+/* Firestore가 느릴 땐 기본값을 "임시로" 보여주되, 실제 데이터가
+   나중에 도착하면 언제든 다시 그려서 기본값에 영구히 멈추지 않게 한다. */
+let realDataLoaded = false;
+function showFade() { requestAnimationFrame(() => { document.getElementById('root').style.opacity = '1'; }); }
+function renderReal(c) {
+  realDataLoaded = true;
   render(c);
-  requestAnimationFrame(() => { document.getElementById('root').style.opacity = '1'; });
+  showFade();
 }
-const fallbackTimer = setTimeout(() => renderOnce(DEFAULT_CONTENT), 1200);
+const fallbackTimer = setTimeout(() => {
+  if (!realDataLoaded) { render(DEFAULT_CONTENT); showFade(); }
+}, 1800);
 
 try {
   firebase.initializeApp(FIREBASE_CONFIG);
@@ -353,14 +357,14 @@ try {
       const data = doc.data();
       const merged = { ...DEFAULT_CONTENT, ...data };
       if (!Array.isArray(merged.workItems)) merged.workItems = DEFAULT_CONTENT.workItems;
-      renderOnce(merged);
+      renderReal(merged);
     } else {
-      renderOnce(DEFAULT_CONTENT);
+      renderReal(DEFAULT_CONTENT);
     }
-  }).catch(err => { console.warn('site content load failed, showing defaults', err); renderOnce(DEFAULT_CONTENT); });
+  }).catch(err => { console.warn('site content load failed, showing defaults', err); renderReal(DEFAULT_CONTENT); });
 } catch (e) {
   console.warn('Firebase 초기화 실패, 기본 콘텐츠로 표시합니다.', e);
-  renderOnce(DEFAULT_CONTENT);
+  renderReal(DEFAULT_CONTENT);
 }
 </script>
 </body>
