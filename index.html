@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
 <style>
   :root { --accent: #d98a3d; --bg: #0e0d0c; --fg: #f5f2ea; }
   * { box-sizing: border-box; }
@@ -188,18 +189,46 @@ function workCategoryHtml(group) {
       </div>
     </div>`;
 }
+/* 유튜브는 공식 IFrame Player API로 띄운다 — 컨트롤/제목/추천영상 카드를
+   전부 숨기고(controls:0 등), 가능하면 최고화질(4K)로 재생을 시도한다.
+   (유튜브가 화질을 자동으로 조절해서 100% 강제되진 않을 수 있음) */
+let ytApiReady = false;
+let ytPendingCreate = null;
+let ytPlayer = null;
+window.onYouTubeIframeAPIReady = function () {
+  ytApiReady = true;
+  if (ytPendingCreate) { const fn = ytPendingCreate; ytPendingCreate = null; fn(); }
+};
+
 function openWorkLightbox(url) {
   const v = parseVideoUrl(url);
   if (!v) return;
-  let inner = '';
-  if (v.type === 'youtube') inner = `<iframe src="https://www.youtube.com/embed/${esc(v.id)}?autoplay=1" allow="autoplay; encrypted-media" allowfullscreen style="width:100%;height:100%;border:none;"></iframe>`;
-  else if (v.type === 'vimeo') inner = `<iframe src="https://player.vimeo.com/video/${esc(v.id)}?autoplay=1" allow="autoplay; encrypted-media" allowfullscreen style="width:100%;height:100%;border:none;"></iframe>`;
-  else inner = `<video src="${esc(v.url)}" controls autoplay style="width:100%;height:100%;"></video>`;
-  document.getElementById('workLightboxInner').innerHTML = inner;
   document.getElementById('workLightbox').classList.add('open');
+  if (v.type === 'youtube') {
+    document.getElementById('workLightboxInner').innerHTML = '<div id="ytPlayerMount" style="width:100%;height:100%;"></div>';
+    const createPlayer = () => {
+      ytPlayer = new YT.Player('ytPlayerMount', {
+        videoId: v.id,
+        playerVars: { autoplay: 1, controls: 0, modestbranding: 1, rel: 0, iv_load_policy: 3, playsinline: 1 },
+        events: {
+          onReady: (e) => {
+            try { e.target.setPlaybackQuality('hd2160'); } catch (err) {}
+            e.target.playVideo();
+          }
+        }
+      });
+    };
+    if (ytApiReady && window.YT && window.YT.Player) createPlayer();
+    else ytPendingCreate = createPlayer;
+  } else if (v.type === 'vimeo') {
+    document.getElementById('workLightboxInner').innerHTML = `<iframe src="https://player.vimeo.com/video/${esc(v.id)}?autoplay=1" allow="autoplay; encrypted-media" allowfullscreen style="width:100%;height:100%;border:none;"></iframe>`;
+  } else {
+    document.getElementById('workLightboxInner').innerHTML = `<video src="${esc(v.url)}" controls autoplay style="width:100%;height:100%;"></video>`;
+  }
 }
 function closeWorkLightbox() {
   document.getElementById('workLightbox').classList.remove('open');
+  if (ytPlayer && ytPlayer.destroy) { try { ytPlayer.destroy(); } catch (e) {} ytPlayer = null; }
   document.getElementById('workLightboxInner').innerHTML = '';
 }
 
