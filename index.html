@@ -111,13 +111,13 @@ function parseVideoUrl(url) {
 function heroMediaHtml(c) {
   const v = parseVideoUrl(c.heroVideoUrl);
   if (v && v.type === 'youtube') {
-    return `<iframe src="https://www.youtube.com/embed/${esc(v.id)}?autoplay=1&mute=1&loop=1&playlist=${esc(v.id)}&controls=0&modestbranding=1&playsinline=1&rel=0" style="position:absolute; inset:0; width:100%; height:100%; opacity:0.55; pointer-events:none; border:none;" allow="autoplay; encrypted-media"></iframe>`;
+    return `<iframe src="https://www.youtube.com/embed/${esc(v.id)}?autoplay=1&mute=1&loop=1&playlist=${esc(v.id)}&controls=0&modestbranding=1&playsinline=1&rel=0" style="position:absolute; inset:0; width:100%; height:100%; opacity:0.9; pointer-events:none; border:none;" allow="autoplay; encrypted-media"></iframe>`;
   }
   if (v && v.type === 'vimeo') {
-    return `<iframe src="https://player.vimeo.com/video/${esc(v.id)}?autoplay=1&muted=1&loop=1&background=1" style="position:absolute; inset:0; width:100%; height:100%; opacity:0.55; pointer-events:none; border:none;" allow="autoplay; encrypted-media"></iframe>`;
+    return `<iframe src="https://player.vimeo.com/video/${esc(v.id)}?autoplay=1&muted=1&loop=1&background=1" style="position:absolute; inset:0; width:100%; height:100%; opacity:0.9; pointer-events:none; border:none;" allow="autoplay; encrypted-media"></iframe>`;
   }
   if (v && v.type === 'file') {
-    return `<video autoplay muted loop playsinline preload="auto" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0.55;"><source src="${esc(v.url)}"></video>`;
+    return `<video autoplay muted loop playsinline preload="auto" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0.9;"><source src="${esc(v.url)}"></video>`;
   }
   return '';
 }
@@ -127,7 +127,7 @@ function render(c) {
   <div style="width:100%; position:relative;">
 
     <!-- NAV -->
-    <div style="position:fixed; top:0; left:0; right:0; z-index:50; display:flex; align-items:center; justify-content:space-between; padding:24px clamp(24px,4vw,56px); background:linear-gradient(180deg, rgba(14,13,12,0.8), rgba(14,13,12,0));">
+    <div style="position:fixed; top:0; left:0; right:0; z-index:50; display:flex; align-items:center; justify-content:space-between; padding:18px clamp(24px,4vw,56px); background:rgba(255,255,255,0.07); backdrop-filter:blur(22px) saturate(180%); -webkit-backdrop-filter:blur(22px) saturate(180%); border-bottom:1px solid rgba(255,255,255,0.14); box-shadow:0 1px 0 rgba(255,255,255,0.08) inset, 0 8px 30px rgba(0,0,0,0.25);">
       <div style="display:flex; align-items:center; gap:10px;">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.5" stroke="var(--accent)" stroke-width="2"/><circle cx="12" cy="12" r="2.6" fill="var(--accent)"/></svg>
         <div style="font-family:'Anton',sans-serif; font-size:19px; letter-spacing:1px; color:#f5f2ea;">VINFILM STUDIO</div>
