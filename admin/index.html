@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VINFILM STUDIO · Admin</title>
+<link rel="icon" href="../icon.png">
+<meta name="robots" content="noindex, nofollow">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<style>
+  :root { --accent: #d98a3d; --bg: #0e0d0c; --fg: #f5f2ea; --line: #262420; --dim: #8c887f; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background:var(--bg); }
+  body { color:var(--fg); font-family: -apple-system, 'Malgun Gothic', sans-serif; font-size:14px; }
+  h1, h2 { font-family: 'Helvetica Neue', Arial, sans-serif; }
+  input, textarea { width:100%; background:#161412; border:1px solid var(--line); color:var(--fg); border-radius:4px; padding:9px 11px; font-size:13.5px; font-family:inherit; }
+  input:focus, textarea:focus { outline:none; border-color:var(--accent); }
+  label { display:block; font-size:12px; color:var(--dim); margin-bottom:6px; letter-spacing:0.3px; }
+  .field { margin-bottom:16px; }
+  .card { background:#131110; border:1px solid var(--line); border-radius:8px; padding:24px; margin-bottom:24px; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .btn { background:var(--accent); color:#14120f; border:none; border-radius:6px; padding:11px 20px; font-weight:700; font-size:13.5px; cursor:pointer; }
+  .btn:hover { opacity:0.9; }
+  .btn-ghost { background:transparent; color:var(--dim); border:1px solid var(--line); border-radius:6px; padding:8px 14px; font-size:12.5px; cursor:pointer; }
+  .btn-ghost:hover { color:var(--fg); border-color:var(--dim); }
+  .work-item { border:1px solid var(--line); border-radius:6px; padding:16px; margin-bottom:12px; position:relative; }
+  .toast { position:fixed; top:20px; right:20px; background:var(--accent); color:#14120f; padding:12px 18px; border-radius:6px; font-weight:700; font-size:13px; opacity:0; transform:translateY(-8px); transition:all .25s ease; pointer-events:none; z-index:100; }
+  .toast.show { opacity:1; transform:translateY(0); }
+</style>
+</head>
+<body>
+
+<div id="gate" style="min-height:100vh; display:flex; align-items:center; justify-content:center;">
+  <div style="width:320px;">
+    <div style="font-size:13px; letter-spacing:2px; color:var(--dim); margin-bottom:10px;">VINFILM STUDIO</div>
+    <h1 style="margin:0 0 20px; font-size:22px;">Admin 로그인</h1>
+    <input id="pwInput" type="password" placeholder="비밀번호" style="margin-bottom:12px;" />
+    <button class="btn" style="width:100%;" onclick="tryLogin()">로그인</button>
+    <div id="pwError" style="color:#d9534f; font-size:12.5px; margin-top:10px; display:none;">비밀번호가 틀렸어요.</div>
+  </div>
+</div>
+
+<div id="panel" style="display:none; max-width:760px; margin:0 auto; padding:48px 24px 120px;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:32px;">
+    <div>
+      <div style="font-size:13px; letter-spacing:2px; color:var(--dim);">VINFILM STUDIO</div>
+      <h1 style="margin:4px 0 0; font-size:24px;">홈페이지 콘텐츠 관리</h1>
+    </div>
+    <a href="../index.html" target="_blank" style="color:var(--accent); font-size:13px;">사이트 보기 ↗</a>
+  </div>
+
+  <div class="card">
+    <h2 style="margin:0 0 18px; font-size:15px;">히어로</h2>
+    <div class="field">
+      <label>메인 영상 URL (mp4 직접 링크, 비워두면 기본 배경 표시)</label>
+      <input id="heroVideoUrl" placeholder="https://.../video.mp4" />
+    </div>
+    <div class="field">
+      <label>eyebrow 라벨</label>
+      <input id="heroEyebrow" />
+    </div>
+    <div class="field">
+      <label>헤드라인</label>
+      <input id="heroHeadline" />
+    </div>
+    <div class="field">
+      <label>서브 카피</label>
+      <textarea id="heroSub" rows="2"></textarea>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin:0 0 18px; font-size:15px;">최근 작업</h2>
+    <div class="field">
+      <label>작업 섹션 소개 문구</label>
+      <textarea id="workIntro" rows="2"></textarea>
+    </div>
+    <div id="workItemsList"></div>
+    <button class="btn-ghost" onclick="addWorkItem()">+ 작업 추가</button>
+  </div>
+
+  <div class="card">
+    <h2 style="margin:0 0 18px; font-size:15px;">연락처</h2>
+    <div class="row2">
+      <div class="field"><label>이메일</label><input id="contactEmail" /></div>
+      <div class="field"><label>전화번호</label><input id="contactPhone" /></div>
+    </div>
+    <div class="field"><label>주소</label><input id="contactAddress" /></div>
+    <div class="row2">
+      <div class="field"><label>Instagram URL</label><input id="instagramUrl" /></div>
+      <div class="field"><label>Vimeo URL</label><input id="vimeoUrl" /></div>
+    </div>
+  </div>
+
+  <button class="btn" onclick="saveContent()">저장하기</button>
+</div>
+
+<div id="toast" class="toast">저장됐어요</div>
+
+<script>
+'use strict';
+
+/* 관리자 비밀번호 — 반드시 직접 바꿔서 사용하세요. */
+const ADMIN_PASSWORD = 'vinfilm2026';
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyARSJjWFCOgn6Nd5oIhZOr5T7TePdWCTGc",
+  authDomain: "vinfilm-8d452.firebaseapp.com",
+  projectId: "vinfilm-8d452",
+  storageBucket: "vinfilm-8d452.firebasestorage.app",
+  messagingSenderId: "1096224254259",
+  appId: "1:1096224254259:web:b9dbf2c565d2012de37646",
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+const db = firebase.firestore();
+
+const DEFAULT_CONTENT = {
+  heroVideoUrl: '',
+  heroEyebrow: 'VIDEO PRODUCTION STUDIO',
+  heroHeadline: '[헤드라인 카피를 넣어주세요]',
+  heroSub: '인터뷰와 내레이션을 중심으로, 사람의 목소리와 표정을 영상으로 옮기는 곳, VINFILM STUDIO입니다.',
+  workIntro: '교육·브랜드 콘텐츠를 중심으로 진행한 최신 프로젝트입니다. 매 촬영이 새로운 이야기를 만드는 기회였습니다.',
+  workItems: [
+    { title: '삼둥이 인터뷰', client: '에나스쿨', year: '2026', thumbUrl: '', videoUrl: '' },
+    { title: 'EF 영어능력지수 내레이션 시리즈', client: '웅진컴퍼니', year: '2026', thumbUrl: '', videoUrl: '' },
+    { title: '대치동 학습 습관 인터뷰', client: '웅진컴퍼니', year: '2026', thumbUrl: '', videoUrl: '' },
+    { title: '영어 말하기 유창성 다큐', client: '웅진컴퍼니', year: '2026', thumbUrl: '', videoUrl: '' },
+  ],
+  contactEmail: '',
+  contactPhone: '',
+  contactAddress: '',
+  instagramUrl: '',
+  vimeoUrl: '',
+};
+
+let workItems = [];
+
+function tryLogin() {
+  const val = document.getElementById('pwInput').value;
+  if (val === ADMIN_PASSWORD) {
+    sessionStorage.setItem('vinfilm-admin-ok', '1');
+    showPanel();
+  } else {
+    document.getElementById('pwError').style.display = 'block';
+  }
+}
+document.getElementById('pwInput').addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+
+function showPanel() {
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('panel').style.display = 'block';
+  loadContent();
+}
+
+if (sessionStorage.getItem('vinfilm-admin-ok') === '1') showPanel();
+
+function renderWorkItems() {
+  document.getElementById('workItemsList').innerHTML = workItems.map((item, i) => `
+    <div class="work-item">
+      <button class="btn-ghost" style="position:absolute; top:12px; right:12px; padding:4px 9px;" onclick="removeWorkItem(${i})">삭제</button>
+      <div class="row2">
+        <div class="field"><label>제목</label><input value="${escAttr(item.title)}" oninput="workItems[${i}].title=this.value" /></div>
+        <div class="field"><label>클라이언트</label><input value="${escAttr(item.client)}" oninput="workItems[${i}].client=this.value" /></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>연도</label><input value="${escAttr(item.year)}" oninput="workItems[${i}].year=this.value" /></div>
+        <div class="field"><label>썸네일 이미지 URL</label><input value="${escAttr(item.thumbUrl)}" oninput="workItems[${i}].thumbUrl=this.value" /></div>
+      </div>
+      <div class="field"><label>영상 URL (클릭 시 새 탭으로 열림, 비워두면 클릭 비활성)</label><input value="${escAttr(item.videoUrl)}" oninput="workItems[${i}].videoUrl=this.value" /></div>
+    </div>
+  `).join('');
+}
+function addWorkItem() { workItems.push({ title:'', client:'', year:'', thumbUrl:'', videoUrl:'' }); renderWorkItems(); }
+function removeWorkItem(i) { workItems.splice(i,1); renderWorkItems(); }
+function escAttr(s) { return String(s == null ? '' : s).replace(/"/g,'&quot;'); }
+
+function loadContent() {
+  db.collection('siteContent').doc('home').get().then(doc => {
+    const d = doc.exists ? doc.data() : {};
+    document.getElementById('heroVideoUrl').value = d.heroVideoUrl || DEFAULT_CONTENT.heroVideoUrl;
+    document.getElementById('heroEyebrow').value = d.heroEyebrow || DEFAULT_CONTENT.heroEyebrow;
+    document.getElementById('heroHeadline').value = d.heroHeadline || DEFAULT_CONTENT.heroHeadline;
+    document.getElementById('heroSub').value = d.heroSub || DEFAULT_CONTENT.heroSub;
+    document.getElementById('workIntro').value = d.workIntro || DEFAULT_CONTENT.workIntro;
+    document.getElementById('contactEmail').value = d.contactEmail || DEFAULT_CONTENT.contactEmail;
+    document.getElementById('contactPhone').value = d.contactPhone || DEFAULT_CONTENT.contactPhone;
+    document.getElementById('contactAddress').value = d.contactAddress || DEFAULT_CONTENT.contactAddress;
+    document.getElementById('instagramUrl').value = d.instagramUrl || DEFAULT_CONTENT.instagramUrl;
+    document.getElementById('vimeoUrl').value = d.vimeoUrl || DEFAULT_CONTENT.vimeoUrl;
+    workItems = Array.isArray(d.workItems) && d.workItems.length ? d.workItems : DEFAULT_CONTENT.workItems.slice();
+    renderWorkItems();
+  }).catch(err => {
+    console.error(err);
+    alert('콘텐츠를 불러오지 못했어요. 콘솔을 확인해주세요.');
+  });
+}
+
+function saveContent() {
+  const payload = {
+    heroVideoUrl: document.getElementById('heroVideoUrl').value.trim(),
+    heroEyebrow: document.getElementById('heroEyebrow').value.trim(),
+    heroHeadline: document.getElementById('heroHeadline').value.trim(),
+    heroSub: document.getElementById('heroSub').value.trim(),
+    workIntro: document.getElementById('workIntro').value.trim(),
+    workItems: workItems,
+    contactEmail: document.getElementById('contactEmail').value.trim(),
+    contactPhone: document.getElementById('contactPhone').value.trim(),
+    contactAddress: document.getElementById('contactAddress').value.trim(),
+    instagramUrl: document.getElementById('instagramUrl').value.trim(),
+    vimeoUrl: document.getElementById('vimeoUrl').value.trim(),
+  };
+  db.collection('siteContent').doc('home').set(payload).then(() => {
+    const toast = document.getElementById('toast');
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2000);
+  }).catch(err => {
+    console.error(err);
+    alert('저장에 실패했어요: ' + err.message);
+  });
+}
+</script>
+</body>
+</html>
