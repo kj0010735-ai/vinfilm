@@ -15,7 +15,14 @@
 - 촬영준비 (shootprep) — 촬영 프리셋, 이동수단/장소/패킹 옵션 기반 준비물 체크
 - 스케줄 (schedule) — ICS 캘린더 파싱/병합 지원
 - 프로젝트 (projects) — 칸반 보드 (진행중/진행완료 등, PJ-001 형식 시리얼)
+- 공유 프로젝트 (shared) — 외부 협업자와 공유하는 목록 (SP-001 형식 시리얼). 마감일순 정렬된 플랫 리스트, 칸반 아님.
 - 메모장 (notes)
+
+## 외부 공유(guest) 모드
+
+`index.html?guest=1`로 접속하면 `GUEST_MODE`가 켜지며 사이드바에 장비목록/공유 프로젝트 탭만 보이고, 공유 프로젝트 탭의 추가/수정/삭제 버튼도 숨겨진다 (index.html:198-206 근처 `GUEST_MODE`/`GUEST_ALLOWED_TABS` 참고).
+
+**주의: 이건 UI 상에서만 탭을 숨기는 것이지 실제 데이터 보안이 아니다.** Firebase 설정값(`FIREBASE_CONFIG`)이 이 공개 저장소의 `index.html`에 그대로 노출돼 있고, Firestore 보안 규칙이 열려 있다면 누구든 브라우저 개발자도구에서 Firestore를 직접 호출해 모든 컬렉션을 읽고 쓸 수 있다. guest 모드는 `GUEST_CLOUD_COLLECTIONS`로 동기화되는 컬렉션을 `equipment`/`categories`/`sharedProjects`로만 제한해서 내부용 데이터(스케줄·메모·오늘 할 일 등)가 외부 브라우저로 아예 내려받히지 않게는 해두었지만, 이것도 우리 앱 코드 안에서의 완화일 뿐 Firestore 규칙 자체를 대체하지 않는다. 실제로 접근을 막아야 하는 민감한 정보라면 Firebase 콘솔에서 Firestore 보안 규칙을 확인/강화해야 한다.
 
 ## 작업 시 유의사항
 

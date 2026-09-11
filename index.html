@@ -196,8 +196,17 @@ const NAV_ITEMS = [
   { id: 'shootprep', icon: '🎒', label: '촬영준비' },
   { id: 'schedule', icon: '🗓', label: '스케줄' },
   { id: 'projects', icon: '📋', label: '프로젝트' },
+  { id: 'shared', icon: '🤝', label: '공유 프로젝트' },
   { id: 'notes', icon: '📝', label: '메모장' },
 ];
+const SHARED_STATUSES = [
+  { id: 'todo', label: '준비중', color: '#e0a63c' },
+  { id: 'doing', label: '진행중', color: '#4cae7d' },
+  { id: 'done', label: '완료', color: '#8b90a0' },
+];
+/* 외부인과 공유하는 링크는 index.html?guest=1 형태로 접속 — 장비목록/공유 프로젝트 탭만 노출된다. */
+const GUEST_MODE = new URLSearchParams(location.search).get('guest') === '1';
+const GUEST_ALLOWED_TABS = ['equipment', 'shared'];
 const LS_ITEMS = 'eq-manager-items';
 const LS_CATEGORIES = 'eq-manager-categories';
 const LS_SCHEDULE = 'eq-manager-schedule';
@@ -207,6 +216,7 @@ const LS_PRESETS = 'eq-manager-presets';
 const LS_SCHED_FEED = 'eq-manager-sched-feed-url';
 const LS_TASKS = 'eq-manager-today-tasks';
 const LS_NOTES = 'eq-manager-notes';
+const LS_SHARED = 'eq-manager-shared-projects';
 const TASK_COLOR_PALETTE = ['#5b8def', '#4cae7d', '#c9a227', '#e0a63c', '#8b5cf6', '#22b8cf', '#d9534f', '#8b90a0', '#ec4899', '#84cc16', '#a3703a', '#14b8a6', '#6366f1', '#f97316'];
 
 const SHOOT_TYPE_SUGGESTIONS = ['인터뷰', '행사 스케치', '광고 촬영', '공연 촬영', '여행 촬영', '다큐멘터리', '브이로그'];
@@ -229,12 +239,14 @@ let shoots = loadJSON(LS_SHOOTS, []);
 let presets = loadJSON(LS_PRESETS, []);
 let todayTasks = loadJSON(LS_TASKS, []);
 let notes = loadJSON(LS_NOTES, []);
+let sharedProjItems = loadJSON(LS_SHARED, []);
 
 const S = {
-  activeTab: 'today',
+  activeTab: GUEST_MODE ? 'equipment' : 'today',
   eq: { search: '', categoryFilter: 'all', statusFilter: 'all', sortBy: 'recent', sortOpen: false, modalOpen: false, editingId: null, confirmDeleteId: null, categoryModalOpen: false, detailId: null },
   sched: { search: '', categoryFilter: 'all', showPast: false, modalOpen: false, editingId: null, confirmDeleteId: null, importMsg: '', detailId: null },
   proj: { modalOpen: false, editingId: null, confirmDeleteId: null, addStatus: 'todo', detailId: null },
+  shared: { modalOpen: false, editingId: null, confirmDeleteId: null, detailId: null },
   shoot: { formOpen: false, editingParamsId: null, selectedShootId: null, mode: 'pack', confirmDeleteShootId: null, confirmDeletePresetId: null, applyPresetId: null },
   task: { modalOpen: false, editingId: null, confirmDeleteId: null },
   note: { modalOpen: false, editingId: null, confirmDeleteId: null },
@@ -251,6 +263,7 @@ function saveShoots(next) { const prev = shoots; shoots = next; try { localStora
 function savePresets(next) { const prev = presets; presets = next; try { localStorage.setItem(LS_PRESETS, JSON.stringify(next)); } catch (e) {} pushToCloud('presets', prev, next); }
 function saveTodayTasks(next) { const prev = todayTasks; todayTasks = next; try { localStorage.setItem(LS_TASKS, JSON.stringify(next)); } catch (e) {} pushToCloud('todayTasks', prev, next); }
 function saveNotes(next) { const prev = notes; notes = next; try { localStorage.setItem(LS_NOTES, JSON.stringify(next)); } catch (e) {} pushToCloud('notes', prev, next); }
+function saveSharedProjItems(next) { const prev = sharedProjItems; sharedProjItems = next; try { localStorage.setItem(LS_SHARED, JSON.stringify(next)); } catch (e) {} pushToCloud('sharedProjects', prev, next); }
 
 /* ---- cloud sync bridge (Firebase compat SDK is initialized via initCloudSync() below) ---- */
 function getLocalArrayFor(name) {
@@ -263,6 +276,7 @@ function getLocalArrayFor(name) {
     case 'presets': return presets;
     case 'todayTasks': return todayTasks;
     case 'notes': return notes;
+    case 'sharedProjects': return sharedProjItems;
     default: return [];
   }
 }
@@ -276,6 +290,7 @@ function applyCloudUpdate(name, items) {
     case 'presets': presets = items; try { localStorage.setItem(LS_PRESETS, JSON.stringify(items)); } catch (e) {} break;
     case 'todayTasks': todayTasks = items; try { localStorage.setItem(LS_TASKS, JSON.stringify(items)); } catch (e) {} break;
     case 'notes': notes = items; try { localStorage.setItem(LS_NOTES, JSON.stringify(items)); } catch (e) {} break;
+    case 'sharedProjects': sharedProjItems = items; try { localStorage.setItem(LS_SHARED, JSON.stringify(items)); } catch (e) {} break;
   }
   render();
 }
@@ -290,7 +305,9 @@ async function pushToCloud(name, prevArr, nextArr) {
   } catch (e) { console.warn('cloud sync push failed for', name, e); }
 }
 
-const CLOUD_COLLECTIONS = ['equipment', 'categories', 'schedule', 'projects', 'shoots', 'presets', 'todayTasks', 'notes'];
+const CLOUD_COLLECTIONS = ['equipment', 'categories', 'schedule', 'projects', 'shoots', 'presets', 'todayTasks', 'notes', 'sharedProjects'];
+/* 공유 링크(?guest=1)로 접속했을 때는 이 목록만 동기화한다 — 스케줄/메모장 등 내부 데이터는 외부 브라우저로 아예 내려받지 않는다. */
+const GUEST_CLOUD_COLLECTIONS = ['equipment', 'categories', 'sharedProjects'];
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyARSJjWFCOgn6Nd5oIhZOr5T7TePdWCTGc",
   authDomain: "vinfilm-8d452.firebaseapp.com",
@@ -311,7 +328,7 @@ function initCloudSync() {
       async upsertMany(name, items) { await Promise.all(items.map(it => db.collection(name).doc(String(it.id)).set(it))); },
       async deleteMany(name, ids) { await Promise.all(ids.map(id => db.collection(name).doc(String(id)).delete())); },
     };
-    CLOUD_COLLECTIONS.forEach(name => {
+    (GUEST_MODE ? GUEST_CLOUD_COLLECTIONS : CLOUD_COLLECTIONS).forEach(name => {
       let initialized = false;
       db.collection(name).onSnapshot(async (snap) => {
         const items = snap.docs.map(d => d.data());
@@ -335,6 +352,8 @@ function initCloudSync() {
 
 function nextSerial(items) { let max = 0; items.forEach(it => { const m = /^EQ-(\d+)$/.exec(it.serial || ''); if (m) max = Math.max(max, parseInt(m[1], 10)); }); return `EQ-${String(max + 1).padStart(3, '0')}`; }
 function nextProjectSerial(list) { let max = 0; list.forEach(p => { const m = /^PJ-(\d+)$/.exec(p.serial || ''); if (m) max = Math.max(max, parseInt(m[1], 10)); }); return `PJ-${String(max + 1).padStart(3, '0')}`; }
+function nextSharedSerial(list) { let max = 0; list.forEach(p => { const m = /^SP-(\d+)$/.exec(p.serial || ''); if (m) max = Math.max(max, parseInt(m[1], 10)); }); return `SP-${String(max + 1).padStart(3, '0')}`; }
+function sharedStatusOf(id) { return SHARED_STATUSES.find(s => s.id === id) || SHARED_STATUSES[0]; }
 function categoryOf(id) { return eqCategories.find(c => c.id === id) || eqCategories[eqCategories.length - 1] || { label: '기타', abbr: '기타', color: '#8b90a0' }; }
 function eqStatusOf(id) { return EQ_STATUSES.find(s => s.id === id) || EQ_STATUSES[0]; }
 function eqById(id) { return eqItems.find(it => it.id === id); }
@@ -342,10 +361,12 @@ function bagOptions() { return eqItems.filter(it => it.category === 'bag'); }
 
 /* ================= render: sidebar ================= */
 function renderSidebar() {
+  const items = GUEST_MODE ? NAV_ITEMS.filter(it => GUEST_ALLOWED_TABS.includes(it.id)) : NAV_ITEMS;
   return `
     <nav class="side-nav" id="sideNav">
       <div class="side-nav-mark">●</div>
-      ${NAV_ITEMS.map(it => `
+      ${GUEST_MODE ? `<div class="side-nav-guest-badge">👋 공유 보기</div>` : ''}
+      ${items.map(it => `
         <button class="side-nav-item ${S.activeTab===it.id?'active':''}" data-action="set-tab" data-id="${it.id}">
           <span class="side-nav-icon">${it.icon}</span><span class="side-nav-label">${it.label}</span>
         </button>`).join('')}
@@ -844,6 +865,99 @@ function renderProjectsTab() {
   `;
 }
 
+/* ================= render: shared projects tab ================= */
+function sharedModalHtml() {
+  if (!S.shared.modalOpen) return '';
+  const editing = S.shared.editingId ? sharedProjItems.find(p => p.id === S.shared.editingId) : null;
+  const f = editing
+    ? { title: editing.title, client: editing.client || '', dueDate: editing.dueDate || '', status: editing.status || 'todo', link: editing.link || '', notes: editing.notes || '' }
+    : { title: '', client: '', dueDate: '', status: 'todo', link: '', notes: '' };
+  return `
+    <div class="eq-modal-overlay" data-action="shared-close-modal-backdrop">
+      <div class="eq-modal" data-stop-close>
+        <div class="eq-modal-head"><h2>${editing ? '공유 프로젝트 수정' : '새 공유 프로젝트'}</h2><button class="eq-modal-close" data-action="shared-close-modal">✕</button></div>
+        <form data-form-role="shared-form">
+          <div class="eq-field"><label>프로젝트명</label><input name="title" autofocus value="${esc(f.title)}" placeholder="예: OO 브랜드 홍보영상" required /></div>
+          <div class="eq-field"><label>클라이언트 / 협업자</label><input name="client" value="${esc(f.client)}" placeholder="예: OO컴퍼니" /></div>
+          <div class="eq-field"><label>마감일</label><input type="date" name="dueDate" value="${esc(f.dueDate)}" /></div>
+          <div class="eq-field"><label>상태</label>
+            <select name="status">${SHARED_STATUSES.map(s => `<option value="${s.id}" ${f.status===s.id?'selected':''}>${s.label}</option>`).join('')}</select>
+          </div>
+          <div class="eq-field"><label>참고 링크</label><input name="link" value="${esc(f.link)}" placeholder="예: 공유 드라이브 링크" /></div>
+          <div class="eq-field"><label>메모</label><textarea name="notes" class="sched-memo-textarea" placeholder="외부 협업자와 공유할 내용">${esc(f.notes)}</textarea></div>
+          <button type="submit" class="eq-modal-submit">${editing ? '수정 완료' : '등록하기'}</button>
+        </form>
+      </div>
+    </div>`;
+}
+function sharedDetailModalHtml() {
+  if (!S.shared.detailId) return '';
+  const p = sharedProjItems.find(pr => pr.id === S.shared.detailId);
+  if (!p) return '';
+  const st = sharedStatusOf(p.status);
+  const isDueToday = p.dueDate === todayStr();
+  return `
+    <div class="eq-modal-overlay" data-action="shared-close-detail-backdrop">
+      <div class="eq-modal" data-stop-close>
+        <div class="eq-modal-head"><h2>${esc(p.title)}</h2><button class="eq-modal-close" data-action="shared-close-detail">✕</button></div>
+        <div class="eq-detail-row"><span>시리얼</span><b>${esc(p.serial)}</b></div>
+        <div class="eq-detail-row"><span>상태</span><b><span class="proj-col-dot" style="background:${st.color}"></span> ${st.label}</b></div>
+        ${p.client ? `<div class="eq-detail-row"><span>클라이언트</span><b>${esc(p.client)}</b></div>` : ''}
+        ${p.dueDate ? `<div class="eq-detail-row"><span>마감일</span><b>${esc(p.dueDate)} ${isDueToday ? '<span class="proj-due-today-badge">오늘 마감</span>' : ''}</b></div>` : ''}
+        ${p.link ? `<div class="eq-detail-row"><span>링크</span><b><a href="${esc(p.link)}" target="_blank" rel="noopener">${esc(p.link)}</a></b></div>` : ''}
+        ${p.notes ? `<div class="eq-detail-notes">${esc(p.notes)}</div>` : ''}
+        ${!GUEST_MODE ? `
+        <div class="eq-detail-actions">
+          <button class="eq-modal-submit" data-action="shared-detail-edit" data-id="${p.id}">수정하기</button>
+          <button type="button" class="eq-detail-delete-btn" data-action="shared-detail-delete" data-id="${p.id}">삭제</button>
+        </div>` : ''}
+      </div>
+    </div>`;
+}
+function sharedCardHtml(p) {
+  const st = sharedStatusOf(p.status);
+  const confirming = S.shared.confirmDeleteId === p.id;
+  const isDueToday = p.dueDate === todayStr();
+  return `
+    <div class="proj-card" style="border-left-color:${st.color}" data-action="shared-open-detail" data-id="${p.id}">
+      ${confirming ? `
+        <div class="eq-confirm-bar">
+          <span>"${esc(p.title)}" 삭제할까요?</span>
+          <div class="eq-confirm-actions"><button data-action="shared-cancel-delete">취소</button><button class="danger" data-action="shared-delete" data-id="${p.id}">삭제</button></div>
+        </div>` : ''}
+      ${!GUEST_MODE ? `
+      <div class="proj-card-actions">
+        <button class="eq-icon-btn" data-action="shared-open-edit" data-id="${p.id}">✎</button>
+        <button class="eq-icon-btn" data-action="shared-confirm-delete" data-id="${p.id}">✕</button>
+      </div>` : ''}
+      <div class="proj-serial">${esc(p.serial)} <span class="proj-col-dot" style="background:${st.color}"></span> ${st.label}</div>
+      <h3 class="proj-title">${esc(p.title)}</h3>
+      ${p.client ? `<div class="proj-client">${esc(p.client)}</div>` : ''}
+      ${p.dueDate ? `<div class="proj-due">🗓 ${esc(p.dueDate)} ${isDueToday ? '<span class="proj-due-today-badge">오늘 마감</span>' : ''}</div>` : ''}
+      ${p.notes ? `<div class="proj-notes">${esc(p.notes)}</div>` : ''}
+    </div>`;
+}
+function renderSharedProjectsTab() {
+  const list = sharedProjItems.slice().sort((a, b) => {
+    if (!a.dueDate && !b.dueDate) return 0;
+    if (!a.dueDate) return 1;
+    if (!b.dueDate) return -1;
+    return a.dueDate.localeCompare(b.dueDate);
+  });
+  return `
+    <div class="eq-header">
+      <div class="eq-title-block"><h1 class="eq-title">공유 프로젝트</h1><div class="eq-stat">전체 <b>${list.length}</b></div></div>
+      ${!GUEST_MODE ? `<button class="eq-add-btn" data-action="shared-open-add">+ 새 공유 프로젝트</button>` : ''}
+    </div>
+    ${GUEST_MODE ? `<div class="shared-guest-note">외부 협업자와 공유 중인 프로젝트예요. 장비목록도 함께 확인할 수 있어요.</div>` : ''}
+    <div class="shared-list">
+      ${list.length === 0 ? `<div class="proj-empty">등록된 공유 프로젝트가 없어요${!GUEST_MODE ? '<br/>+ 버튼으로 추가해보세요' : ''}</div>` : list.map(sharedCardHtml).join('')}
+    </div>
+    ${sharedModalHtml()}
+    ${sharedDetailModalHtml()}
+  `;
+}
+
 /* =======================================================================
    SHOOT PREP TAB
    ======================================================================= */
@@ -1248,10 +1362,12 @@ function renderNotesTab() {
 
 /* ================= main render ================= */
 function renderTab() {
+  if (GUEST_MODE && !GUEST_ALLOWED_TABS.includes(S.activeTab)) S.activeTab = 'equipment';
   if (S.activeTab === 'today') return renderTodayTab();
   if (S.activeTab === 'equipment') return renderEquipmentTab();
   if (S.activeTab === 'schedule') return renderScheduleTab();
   if (S.activeTab === 'projects') return renderProjectsTab();
+  if (S.activeTab === 'shared') return renderSharedProjectsTab();
   if (S.activeTab === 'shootprep') return renderShootPrepTab();
   if (S.activeTab === 'notes') return renderNotesTab();
   return '';
@@ -1292,6 +1408,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     switch (action) {
       case 'set-tab':
+        if (GUEST_MODE && !GUEST_ALLOWED_TABS.includes(id)) return;
         S.activeTab = id;
         render();
         if (id === 'schedule' && schedFeedUrl) { fetchScheduleFeed().then(render); }
@@ -1436,6 +1553,29 @@ document.addEventListener('DOMContentLoaded', () => {
         if (p && window.confirm(`"${p.title}" 삭제할까요?`)) {
           saveProjItems(projItems.filter(pr => pr.id !== id));
           S.proj.detailId = null;
+          render();
+        }
+        break;
+      }
+
+      /* shared projects */
+      case 'shared-open-add': if (GUEST_MODE) return; S.shared.editingId = null; S.shared.modalOpen = true; render(); break;
+      case 'shared-open-edit': if (GUEST_MODE) return; S.shared.editingId = id; S.shared.modalOpen = true; render(); break;
+      case 'shared-close-modal': S.shared.modalOpen = false; S.shared.editingId = null; render(); break;
+      case 'shared-close-modal-backdrop': if (!e.target.closest('[data-stop-close]')) { S.shared.modalOpen = false; S.shared.editingId = null; render(); } break;
+      case 'shared-confirm-delete': if (GUEST_MODE) return; S.shared.confirmDeleteId = id; render(); break;
+      case 'shared-cancel-delete': S.shared.confirmDeleteId = null; render(); break;
+      case 'shared-delete': if (GUEST_MODE) return; saveSharedProjItems(sharedProjItems.filter(p => p.id !== id)); S.shared.confirmDeleteId = null; render(); break;
+      case 'shared-open-detail': S.shared.detailId = id; render(); break;
+      case 'shared-close-detail': S.shared.detailId = null; render(); break;
+      case 'shared-close-detail-backdrop': if (!e.target.closest('[data-stop-close]')) { S.shared.detailId = null; render(); } break;
+      case 'shared-detail-edit': if (GUEST_MODE) return; S.shared.detailId = null; S.shared.editingId = id; S.shared.modalOpen = true; render(); break;
+      case 'shared-detail-delete': {
+        if (GUEST_MODE) return;
+        const p = sharedProjItems.find(pr => pr.id === id);
+        if (p && window.confirm(`"${p.title}" 삭제할까요?`)) {
+          saveSharedProjItems(sharedProjItems.filter(pr => pr.id !== id));
+          S.shared.detailId = null;
           render();
         }
         break;
@@ -1602,6 +1742,16 @@ document.addEventListener('DOMContentLoaded', () => {
       if (S.proj.editingId) saveProjItems(projItems.map(p => p.id === S.proj.editingId ? { ...p, ...payload } : p));
       else saveProjItems([{ id: uid(), serial: nextProjectSerial(projItems), createdAt: Date.now(), status: S.proj.addStatus || 'todo', ...payload }, ...projItems]);
       S.proj.modalOpen = false; S.proj.editingId = null;
+      render();
+    } else if (form.matches('[data-form-role="shared-form"]')) {
+      if (GUEST_MODE) return;
+      const fd = new FormData(form);
+      const title = (fd.get('title') || '').toString().trim();
+      if (!title) return;
+      const payload = { title, client: fd.get('client') || '', dueDate: fd.get('dueDate') || '', status: fd.get('status') || 'todo', link: fd.get('link') || '', notes: fd.get('notes') || '' };
+      if (S.shared.editingId) saveSharedProjItems(sharedProjItems.map(p => p.id === S.shared.editingId ? { ...p, ...payload } : p));
+      else saveSharedProjItems([{ id: uid(), serial: nextSharedSerial(sharedProjItems), createdAt: Date.now(), ...payload }, ...sharedProjItems]);
+      S.shared.modalOpen = false; S.shared.editingId = null;
       render();
     } else if (form.matches('[data-form-role="task-form"]')) {
       const fd = new FormData(form);
@@ -1978,6 +2128,9 @@ document.addEventListener('DOMContentLoaded', () => {
   .proj-empty { text-align:center; color:var(--text-faint); font-size:12px; padding:24px 8px; }
 
   @media (max-width: 860px) { .proj-board { flex-direction: column; } }
+  .shared-list { display:flex; flex-direction:column; gap:10px; max-width:640px; }
+  .shared-guest-note { font-size:12px; color:var(--text-dim); background:var(--accent-soft); border-radius:8px; padding:10px 14px; margin-bottom:14px; max-width:640px; }
+  .side-nav-guest-badge { font-size:11.5px; font-weight:700; color:var(--accent); background:var(--accent-soft); border-radius:6px; padding:6px 10px; margin:0 17px 10px; text-align:center; }
 
   /* shoot prep */
   /* today prep */

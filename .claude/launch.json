@@ -6,6 +6,18 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8123", "--directory", "/Users/user/Documents/vinfilm studio"],
       "port": 8123
+    },
+    {
+      "name": "music-academy-app",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "/Users/user/Documents/music-academy-app"],
+      "port": 3000
+    },
+    {
+      "name": "hano-parent",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/user/Documents/hano-parent", "run", "dev", "--", "--port", "3001"],
+      "port": 3001
     }
   ]
 }
