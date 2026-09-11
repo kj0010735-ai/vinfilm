@@ -263,7 +263,7 @@ try {
     if (doc.exists) {
       const data = doc.data();
       const merged = { ...DEFAULT_CONTENT, ...data };
-      if (!Array.isArray(merged.workItems) || merged.workItems.length === 0) merged.workItems = DEFAULT_CONTENT.workItems;
+      if (!Array.isArray(merged.workItems)) merged.workItems = DEFAULT_CONTENT.workItems;
       renderOnce(merged);
     } else {
       renderOnce(DEFAULT_CONTENT);

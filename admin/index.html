@@ -251,7 +251,7 @@ function loadContent() {
     document.getElementById('contactAddress').value = d.contactAddress || DEFAULT_CONTENT.contactAddress;
     document.getElementById('instagramUrl').value = d.instagramUrl || DEFAULT_CONTENT.instagramUrl;
     document.getElementById('vimeoUrl').value = d.vimeoUrl || DEFAULT_CONTENT.vimeoUrl;
-    workItems = Array.isArray(d.workItems) && d.workItems.length ? d.workItems : DEFAULT_CONTENT.workItems.slice();
+    workItems = Array.isArray(d.workItems) ? d.workItems : DEFAULT_CONTENT.workItems.slice();
     renderWorkItems();
   }).catch(err => {
     console.error(err);
