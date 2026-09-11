@@ -241,16 +241,16 @@ function escAttr(s) { return String(s == null ? '' : s).replace(/"/g,'&quot;'); 
 function loadContent() {
   db.collection('siteContent').doc('home').get().then(doc => {
     const d = doc.exists ? doc.data() : {};
-    document.getElementById('heroVideoUrl').value = d.heroVideoUrl || DEFAULT_CONTENT.heroVideoUrl;
-    document.getElementById('heroEyebrow').value = d.heroEyebrow || DEFAULT_CONTENT.heroEyebrow;
-    document.getElementById('heroHeadline').value = d.heroHeadline || DEFAULT_CONTENT.heroHeadline;
-    document.getElementById('heroSub').value = d.heroSub || DEFAULT_CONTENT.heroSub;
-    document.getElementById('workIntro').value = d.workIntro || DEFAULT_CONTENT.workIntro;
-    document.getElementById('contactEmail').value = d.contactEmail || DEFAULT_CONTENT.contactEmail;
-    document.getElementById('contactPhone').value = d.contactPhone || DEFAULT_CONTENT.contactPhone;
-    document.getElementById('contactAddress').value = d.contactAddress || DEFAULT_CONTENT.contactAddress;
-    document.getElementById('instagramUrl').value = d.instagramUrl || DEFAULT_CONTENT.instagramUrl;
-    document.getElementById('vimeoUrl').value = d.vimeoUrl || DEFAULT_CONTENT.vimeoUrl;
+    document.getElementById('heroVideoUrl').value = d.heroVideoUrl ?? DEFAULT_CONTENT.heroVideoUrl;
+    document.getElementById('heroEyebrow').value = d.heroEyebrow ?? DEFAULT_CONTENT.heroEyebrow;
+    document.getElementById('heroHeadline').value = d.heroHeadline ?? DEFAULT_CONTENT.heroHeadline;
+    document.getElementById('heroSub').value = d.heroSub ?? DEFAULT_CONTENT.heroSub;
+    document.getElementById('workIntro').value = d.workIntro ?? DEFAULT_CONTENT.workIntro;
+    document.getElementById('contactEmail').value = d.contactEmail ?? DEFAULT_CONTENT.contactEmail;
+    document.getElementById('contactPhone').value = d.contactPhone ?? DEFAULT_CONTENT.contactPhone;
+    document.getElementById('contactAddress').value = d.contactAddress ?? DEFAULT_CONTENT.contactAddress;
+    document.getElementById('instagramUrl').value = d.instagramUrl ?? DEFAULT_CONTENT.instagramUrl;
+    document.getElementById('vimeoUrl').value = d.vimeoUrl ?? DEFAULT_CONTENT.vimeoUrl;
     workItems = Array.isArray(d.workItems) ? d.workItems : DEFAULT_CONTENT.workItems.slice();
     renderWorkItems();
   }).catch(err => {
