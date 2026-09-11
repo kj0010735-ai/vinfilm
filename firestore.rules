@@ -5,10 +5,12 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.email in ['kj0010735@gmail.com'];
     }
 
-    // guest 모드(장비목록, 공유 프로젝트)와 공개 홈페이지가 읽어야 해서 읽기는 공개.
-    match /equipment/{id} { allow read: if true; allow write: if isOwner(); }
-    match /categories/{id} { allow read: if true; allow write: if isOwner(); }
-    match /sharedProjects/{id} { allow read: if true; allow write: if isOwner(); }
+    // 게스트(?guest=1)는 로그인 없이 접속하는 공동작업자라서, 장비목록/공유
+    // 프로젝트는 읽기+쓰기 둘 다 공개로 둔다 (같이 등록/수정할 수 있어야 함).
+    match /equipment/{id} { allow read, write: if true; }
+    match /categories/{id} { allow read, write: if true; }
+    match /sharedProjects/{id} { allow read, write: if true; }
+    // 홈페이지 콘텐츠는 게스트와 무관 — admin 로그인한 사람만 수정.
     match /siteContent/{id} { allow read: if true; allow write: if isOwner(); }
 
     // 내부 전용 — guest 모드에서도 노출되지 않는 데이터.
