@@ -18,6 +18,8 @@
   ::selection { background: var(--accent); color: var(--bg); }
   img, video { max-width: 100%; }
   #root { opacity: 0; transition: opacity .35s ease; }
+  @keyframes hero-ticker-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .hero-ticker-track { animation: hero-ticker-scroll 22s linear infinite; }
 
   .nav-link:hover { color: var(--fg) !important; }
 
@@ -147,12 +149,10 @@ function render(c) {
       ${heroMediaHtml(c)}
       <div style="position:absolute; inset:0; background:linear-gradient(180deg, rgba(14,13,12,0.25) 0%, rgba(14,13,12,0.35) 55%, rgba(14,13,12,0.92) 100%); pointer-events:none;"></div>
 
-      <div style="position:absolute; left:0; right:0; top:42%; transform:translateY(-50%); text-align:center; pointer-events:none; padding:0 20px;">
-        <div style="display:inline-block; font-family:'Anton',sans-serif; font-size:clamp(42px,9vw,180px); line-height:0.92; letter-spacing:-1px; color:#f5f2ea;
-          text-shadow:
-            1px 1px 0 rgba(0,0,0,.55), 2px 2px 0 rgba(0,0,0,.5), 3px 3px 0 rgba(0,0,0,.46),
-            4px 4px 0 rgba(0,0,0,.42), 5px 5px 0 rgba(0,0,0,.38), 6px 6px 0 rgba(0,0,0,.34),
-            7px 7px 0 rgba(0,0,0,.3), 8px 8px 22px rgba(0,0,0,.55);">VINFILM STUDIO</div>
+      <div style="position:absolute; left:0; right:0; bottom:0; height:34%; min-height:150px; overflow:hidden; pointer-events:none; display:flex; align-items:center; background:linear-gradient(180deg, transparent, rgba(14,13,12,0.55) 60%);">
+        <div class="hero-ticker-track" style="display:flex; align-items:center; white-space:nowrap; will-change:transform;">
+          ${Array(8).fill(`<span style="font-family:'Anton',sans-serif; font-size:clamp(64px,13vw,220px); line-height:1; color:#f5f2ea; padding:0 40px;">VINFILM STUDIO</span>`).join('')}
+        </div>
       </div>
 
       <div style="position:relative; height:100%; display:flex; flex-direction:column; justify-content:flex-end; padding:0 clamp(24px,4vw,56px) 100px;">
