@@ -29,6 +29,7 @@ function dateLabel(dateStr) {
   return `${m}월 ${d}일 (${WEEKDAYS_KO[dt.getDay()]})`;
 }
 function uid() { return `${Date.now()}-${Math.random().toString(36).slice(2,9)}`; }
+function formatUpdated(ts) { if (!ts) return ''; const d = new Date(ts); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`; }
 
 /* ================= image helpers ================= */
 function loadImageElement(src) {
@@ -321,6 +322,37 @@ if (typeof firebase !== 'undefined') { try { firebase.initializeApp(FIREBASE_CON
 
 /* ---- 로그인 (guest 모드는 로그인 없이 접근) ---- */
 const ADMIN_EMAILS = ['kj0010735@gmail.com'];
+
+/* ---- 누가 수정했는지 기록 (게스트는 이름을 한 번 물어봐서 기억) ---- */
+const GUEST_NAME_KEY = 'vinfilm-guest-name';
+function currentEditorName() {
+  if (GUEST_MODE) return localStorage.getItem(GUEST_NAME_KEY) || '게스트';
+  try {
+    const u = firebase.auth().currentUser;
+    if (u) return u.displayName || u.email || '알 수 없음';
+  } catch (e) {}
+  return '알 수 없음';
+}
+function showGuestNameGate() {
+  document.getElementById('root').innerHTML = `
+    <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; background:#14161b; color:#f4f1ea; font-family:-apple-system, 'Malgun Gothic', sans-serif;">
+      <div style="width:300px;">
+        <div style="font-size:13px; letter-spacing:2px; color:#8b8880; margin-bottom:10px;">VINFILM STUDIO</div>
+        <h1 style="margin:0 0 12px; font-size:22px;">공유 작업 공간</h1>
+        <p style="margin:0 0 18px; font-size:13.5px; color:#a8a49b; line-height:1.6;">수정 기록에 표시할 이름을 알려주세요.</p>
+        <input id="guestNameInput" type="text" placeholder="이름" style="width:100%; box-sizing:border-box; margin-bottom:12px; background:#1c1e24; border:1px solid #2c2f37; color:#f4f1ea; border-radius:6px; padding:10px 12px; font-size:14px;" />
+        <button id="guestNameBtn" style="width:100%; background:#d98a3d; color:#14161b; border:none; border-radius:6px; padding:11px; font-weight:700; font-size:14px; cursor:pointer;">시작하기</button>
+      </div>
+    </div>`;
+  const submit = () => {
+    const name = document.getElementById('guestNameInput').value.trim();
+    if (!name) return;
+    localStorage.setItem(GUEST_NAME_KEY, name);
+    bootApp();
+  };
+  document.getElementById('guestNameBtn').addEventListener('click', submit);
+  document.getElementById('guestNameInput').addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+}
 function showLoginGate() {
   document.getElementById('root').innerHTML = `
     <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; background:#14161b; color:#f4f1ea; font-family:-apple-system, 'Malgun Gothic', sans-serif;">
@@ -477,6 +509,7 @@ function eqDetailModalHtml() {
         ${bag ? `<div class="eq-detail-row"><span>보관 가방</span><b>${esc(bag.name)}</b></div>` : ''}
         ${companions.length ? `<div class="eq-detail-row"><span>동반 장비</span><b>${companions.map(c => esc(c.name)).join(', ')}</b></div>` : ''}
         ${item.notes ? `<div class="eq-detail-notes">${esc(item.notes)}</div>` : ''}
+        ${item.updatedBy ? `<div class="eq-detail-row"><span>마지막 수정</span><b>${esc(item.updatedBy)} · ${formatUpdated(item.updatedAt)}</b></div>` : ''}
         <div class="eq-subitems eq-subitems-in-detail">
           ${children.length > 0 ? `
             <div class="eq-subitems-label">구성품 ${children.length}개</div>
@@ -935,6 +968,7 @@ function sharedDetailModalHtml() {
         ${p.dueDate ? `<div class="eq-detail-row"><span>마감일</span><b>${esc(p.dueDate)} ${isDueToday ? '<span class="proj-due-today-badge">오늘 마감</span>' : ''}</b></div>` : ''}
         ${p.link ? `<div class="eq-detail-row"><span>링크</span><b><a href="${esc(p.link)}" target="_blank" rel="noopener">${esc(p.link)}</a></b></div>` : ''}
         ${p.notes ? `<div class="eq-detail-notes">${esc(p.notes)}</div>` : ''}
+        ${p.updatedBy ? `<div class="eq-detail-row"><span>마지막 수정</span><b>${esc(p.updatedBy)} · ${formatUpdated(p.updatedAt)}</b></div>` : ''}
         ${!GUEST_MODE ? `
         <div class="eq-detail-actions">
           <button class="eq-modal-submit" data-action="shared-detail-edit" data-id="${p.id}">수정하기</button>
@@ -1749,6 +1783,7 @@ function bootApp() {
         name, category: fd.get('category'), status: fd.get('status') || 'owned', quantity: parseInt(fd.get('quantity'), 10) || 1,
         weight: fd.get('weight') || '', battery: fd.get('battery') || '', cables: fd.get('cables') || '', bagId: fd.get('bagId') || '',
         parentId: fd.get('parentId') || '', companionIds: fd.getAll('companions'), notes: fd.get('notes') || '', photo: currentEqPhoto,
+        updatedBy: currentEditorName(), updatedAt: Date.now(),
       };
       if (S.eq.editingId) saveEqItems(eqItems.map(it => it.id === S.eq.editingId ? { ...it, ...payload } : it));
       else saveEqItems([{ id: uid(), serial: nextSerial(eqItems), createdAt: Date.now(), ...payload }, ...eqItems]);
@@ -1778,7 +1813,7 @@ function bootApp() {
       const fd = new FormData(form);
       const title = (fd.get('title') || '').toString().trim();
       if (!title) return;
-      const payload = { title, client: fd.get('client') || '', dueDate: fd.get('dueDate') || '', status: fd.get('status') || 'todo', link: fd.get('link') || '', notes: fd.get('notes') || '' };
+      const payload = { title, client: fd.get('client') || '', dueDate: fd.get('dueDate') || '', status: fd.get('status') || 'todo', link: fd.get('link') || '', notes: fd.get('notes') || '', updatedBy: currentEditorName(), updatedAt: Date.now() };
       if (S.shared.editingId) saveSharedProjItems(sharedProjItems.map(p => p.id === S.shared.editingId ? { ...p, ...payload } : p));
       else saveSharedProjItems([{ id: uid(), serial: nextSharedSerial(sharedProjItems), createdAt: Date.now(), ...payload }, ...sharedProjItems]);
       S.shared.modalOpen = false; S.shared.editingId = null;
@@ -1940,7 +1975,11 @@ function bootApp() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  if (GUEST_MODE || typeof firebase === 'undefined' || typeof firebase.auth !== 'function') { bootApp(); return; }
+  if (GUEST_MODE) {
+    if (!localStorage.getItem(GUEST_NAME_KEY)) showGuestNameGate(); else bootApp();
+    return;
+  }
+  if (typeof firebase === 'undefined' || typeof firebase.auth !== 'function') { bootApp(); return; }
   let booted = false;
   firebase.auth().onAuthStateChanged(user => {
     if (user) {
