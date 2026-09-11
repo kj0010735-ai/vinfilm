@@ -26,6 +26,8 @@
   .btn:hover { opacity:0.9; }
   .btn-ghost { background:transparent; color:var(--dim); border:1px solid var(--line); border-radius:6px; padding:8px 14px; font-size:12.5px; cursor:pointer; }
   .btn-ghost:hover { color:var(--fg); border-color:var(--dim); }
+  #heroDropZone:hover { border-color:var(--dim); }
+  #heroDropZone.drag-over { border-color:var(--accent); background:rgba(217,138,61,0.06); }
   .work-item { border:1px solid var(--line); border-radius:6px; padding:16px; margin-bottom:12px; position:relative; }
   .toast { position:fixed; top:20px; right:20px; background:var(--accent); color:#14120f; padding:12px 18px; border-radius:6px; font-weight:700; font-size:13px; opacity:0; transform:translateY(-8px); transition:all .25s ease; pointer-events:none; z-index:100; }
   .toast.show { opacity:1; transform:translateY(0); }
@@ -61,10 +63,10 @@
     <h2 style="margin:0 0 18px; font-size:15px;">히어로</h2>
     <div class="field">
       <label>메인 영상 (파일 업로드 — 로고·컨트롤 없이 꽉 차게 재생됨)</label>
-      <div style="display:flex; align-items:center; gap:12px;">
+      <div id="heroDropZone" style="border:1.5px dashed var(--line); border-radius:8px; padding:24px; text-align:center; cursor:pointer; transition:all .15s ease;">
         <input type="file" id="heroVideoFile" accept="video/mp4,video/webm" style="display:none;" />
-        <button type="button" class="btn-ghost" onclick="document.getElementById('heroVideoFile').click()">영상 파일 선택</button>
-        <span id="heroUploadStatus" style="font-size:12.5px; color:var(--dim);"></span>
+        <div style="font-size:13.5px; color:var(--fg);">영상 파일을 여기로 끌어다 놓거나, 클릭해서 선택하세요</div>
+        <div id="heroUploadStatus" style="font-size:12.5px; color:var(--dim); margin-top:8px;"></div>
       </div>
       <div style="margin-top:10px; font-size:11.5px; color:var(--dim);">10~20초 분량, 50MB 이하로 압축해서 올리는 걸 추천해요 (로딩 속도 때문에).</div>
     </div>
@@ -129,14 +131,17 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const db = firebase.firestore();
 const storage = firebase.storage();
 
-document.getElementById('heroVideoFile').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
+function uploadHeroVideo(file) {
   if (!file) return;
   const statusEl = document.getElementById('heroUploadStatus');
+  if (!file.type.startsWith('video/')) {
+    statusEl.textContent = '영상 파일만 올릴 수 있어요.';
+    statusEl.style.color = '#d9534f';
+    return;
+  }
   if (file.size > 50 * 1024 * 1024) {
     statusEl.textContent = '50MB가 넘어요. 압축해서 다시 올려주세요.';
     statusEl.style.color = '#d9534f';
-    e.target.value = '';
     return;
   }
   statusEl.style.color = 'var(--dim)';
@@ -154,6 +159,18 @@ document.getElementById('heroVideoFile').addEventListener('change', async (e) =>
     statusEl.textContent = '업로드 완료! 아래 "저장하기"를 눌러 반영해주세요.';
     statusEl.style.color = 'var(--accent)';
   });
+}
+
+const heroDropZone = document.getElementById('heroDropZone');
+const heroVideoFile = document.getElementById('heroVideoFile');
+heroDropZone.addEventListener('click', () => heroVideoFile.click());
+heroVideoFile.addEventListener('change', (e) => { uploadHeroVideo(e.target.files[0]); e.target.value = ''; });
+heroDropZone.addEventListener('dragover', (e) => { e.preventDefault(); heroDropZone.classList.add('drag-over'); });
+heroDropZone.addEventListener('dragleave', () => heroDropZone.classList.remove('drag-over'));
+heroDropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  heroDropZone.classList.remove('drag-over');
+  uploadHeroVideo(e.dataTransfer.files[0]);
 });
 
 const DEFAULT_CONTENT = {
