@@ -83,9 +83,9 @@
   .work-category-row::-webkit-scrollbar { height: 6px; }
   .work-category-row::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
 
-  .work-lightbox { display:none; position:fixed; inset:0; background:rgba(6,5,4,0.94); z-index:200; align-items:center; justify-content:center; padding:40px; }
+  .work-lightbox { display:none; position:fixed; inset:0; background:rgba(6,5,4,0.94); z-index:200; align-items:center; justify-content:center; padding:16px; }
   .work-lightbox.open { display:flex; }
-  .work-lightbox-inner { width:100%; max-width:1100px; aspect-ratio:16/9; background:#000; }
+  .work-lightbox-inner { width:min(96vw, 96vh * 16 / 9); aspect-ratio:16/9; background:#000; }
   .work-lightbox-close { position:absolute; top:24px; right:28px; background:none; border:none; color:#f5f2ea; font-size:28px; cursor:pointer; line-height:1; }
 
   .acc-row { border-bottom:1px solid rgba(245,242,234,0.25); transition: background .2s ease; }
