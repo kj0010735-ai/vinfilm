@@ -1004,6 +1004,7 @@ function projRowHtml(p) {
           <span>"${esc(p.title)}" 삭제할까요?</span>
           <div class="eq-confirm-actions"><button data-action="proj-cancel-delete">취소</button><button class="danger" data-action="proj-delete" data-id="${p.id}">삭제</button></div>
         </div>` : ''}
+      <div class="proj-row-drag-cell"><span class="proj-row-drag-handle" title="순서 변경(드래그)" draggable="true" data-drag-row-id="${p.id}" onclick="event.stopPropagation()">⠿</span></div>
       <div><span class="proj-row-pill" data-status-menu-id="${p.id}" style="background:${col.color}26; color:${col.color};"><span class="proj-row-dot" style="background:${col.color};"></span>${col.label}</span></div>
       <div><div class="proj-row-title">${ptype ? `<span title="${ptype.label}">${ptype.icon}</span> ` : ''}${esc(p.title)}${childCount ? `<span class="proj-row-child-badge">${childCount}</span>` : ''}</div><div class="proj-row-code">${esc(p.serial)}</div></div>
       <div class="proj-row-client">${esc(p.client) || '—'}</div>
@@ -1014,7 +1015,6 @@ function projRowHtml(p) {
       <div class="proj-row-note" contenteditable="true" data-role="proj-notes-inline" data-id="${p.id}" onclick="event.stopPropagation()">${esc(p.notes) || ''}</div>
       <div class="proj-row-actions-cell">
         <span class="proj-row-chevron">›</span>
-        <span class="proj-row-actions"><button class="eq-icon-btn" title="순서 변경(드래그)" draggable="true" data-drag-row-id="${p.id}" onclick="event.stopPropagation()">⠿</button><button class="eq-icon-btn" title="복제" data-action="proj-duplicate" data-id="${p.id}">⧉</button><button class="eq-icon-btn" data-action="proj-open-edit" data-id="${p.id}">✎</button><button class="eq-icon-btn" data-action="proj-confirm-delete" data-id="${p.id}">✕</button></span>
       </div>
     </div>`;
 }
@@ -1042,7 +1042,7 @@ function projListHtml() {
   }
   return `
     <div class="proj-list">
-      <div class="proj-row proj-row-head"><div>상태</div><div>프로젝트</div><div>클라이언트</div><div>마감</div><div>메모</div><div></div></div>
+      <div class="proj-row proj-row-head"><div></div><div>상태</div><div>프로젝트</div><div>클라이언트</div><div>마감</div><div>메모</div><div></div></div>
       ${items.map(projRowHtml).join('')}
     </div>
     ${addBtn}`;
@@ -1183,6 +1183,7 @@ function sharedRowHtml(p) {
           <span>"${esc(p.title)}" 삭제할까요?</span>
           <div class="eq-confirm-actions"><button data-action="shared-cancel-delete">취소</button><button class="danger" data-action="shared-delete" data-id="${p.id}">삭제</button></div>
         </div>` : ''}
+      <div class="proj-row-drag-cell">${!GUEST_MODE ? `<span class="proj-row-drag-handle" title="순서 변경(드래그)" draggable="true" data-drag-row-id="${p.id}" onclick="event.stopPropagation()">⠿</span>` : ''}</div>
       <div><span class="proj-row-pill" ${!GUEST_MODE ? `data-shared-status-menu-id="${p.id}"` : ''} style="background:${st.color}26; color:${st.color};"><span class="proj-row-dot" style="background:${st.color};"></span>${st.label}</span></div>
       <div><div class="proj-row-title">${esc(p.title)}${childCount ? `<span class="proj-row-child-badge">${childCount}</span>` : ''}</div><div class="proj-row-code">${esc(p.serial)}</div></div>
       <div class="proj-row-client">${esc(p.client) || '—'}</div>
@@ -1195,7 +1196,6 @@ function sharedRowHtml(p) {
       <div class="proj-row-note" ${!GUEST_MODE ? `contenteditable="true" data-role="shared-notes-inline" data-id="${p.id}" onclick="event.stopPropagation()"` : ''}>${esc(p.notes) || ''}</div>
       <div class="proj-row-actions-cell">
         <span class="proj-row-chevron">›</span>
-        ${!GUEST_MODE ? `<span class="proj-row-actions"><button class="eq-icon-btn" title="순서 변경(드래그)" draggable="true" data-drag-row-id="${p.id}" onclick="event.stopPropagation()">⠿</button><button class="eq-icon-btn" title="복제" data-action="shared-duplicate" data-id="${p.id}">⧉</button><button class="eq-icon-btn" data-action="shared-open-edit" data-id="${p.id}">✎</button><button class="eq-icon-btn" data-action="shared-confirm-delete" data-id="${p.id}">✕</button></span>` : ''}
       </div>
     </div>`;
 }
@@ -1223,7 +1223,7 @@ function sharedListHtml() {
   }
   return `
     <div class="proj-list">
-      <div class="proj-row proj-row-head"><div>상태</div><div>프로젝트</div><div>클라이언트</div><div>마감</div><div>메모</div><div></div></div>
+      <div class="proj-row proj-row-head"><div></div><div>상태</div><div>프로젝트</div><div>클라이언트</div><div>마감</div><div>메모</div><div></div></div>
       ${items.map(sharedRowHtml).join('')}
     </div>
     ${addBtn}`;
@@ -2678,12 +2678,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   .proj-eyebrow { font-family:var(--font-display); font-size:11px; letter-spacing:2px; color:var(--text-faint); margin-bottom:8px; }
   .proj-list { background:var(--surface); border:1px solid var(--border); border-radius:6px; overflow:hidden; }
-  .proj-row { position:relative; display:grid; grid-template-columns:118px 1.6fr 140px 118px 1.3fr 56px; align-items:center; gap:16px; padding:13px 16px; border-bottom:1px solid var(--border); }
+  .proj-row { position:relative; display:grid; grid-template-columns:20px 118px 1.6fr 140px 118px 1.3fr 24px; align-items:center; gap:16px; padding:13px 16px; border-bottom:1px solid var(--border); }
   .proj-row:last-child { border-bottom:none; }
   .proj-row:hover { background:var(--surface-hover); }
   .proj-row.drag-over { background:var(--accent-soft); box-shadow:inset 0 2px 0 var(--accent); }
   .proj-row-head { color:var(--text-faint); font-size:11px; font-weight:600; padding:11px 16px; }
   .proj-row-head:hover { background:none; }
+  .proj-row-drag-cell { display:flex; align-items:center; justify-content:center; }
+  .proj-row-drag-handle { opacity:0; transition:opacity .12s ease; cursor:grab; }
+  .proj-row:hover .proj-row-drag-handle { opacity:1; }
   .proj-row-pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:600; white-space:nowrap; }
   .proj-row-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
   .proj-row-title { font-size:14px; font-weight:600; color:var(--text); }
@@ -2700,15 +2703,12 @@ document.addEventListener('DOMContentLoaded', () => {
   .proj-row-note[contenteditable]:hover { background:var(--surface-hover); }
   .proj-row-note[contenteditable]:focus { outline:1px solid var(--accent); background:var(--surface); white-space:normal; overflow:visible; position:relative; z-index:1; }
   .proj-row-child-badge { display:inline-block; margin-left:7px; font-size:10px; font-weight:700; color:var(--text-dim); background:var(--border); border-radius:999px; padding:1px 6px; vertical-align:middle; }
-  .proj-row-actions-cell { position:relative; display:flex; align-items:center; justify-content:flex-end; min-height:20px; }
-  .proj-row-chevron { font-size:16px; color:var(--text-faint); transition:opacity .12s ease; }
-  .proj-row:hover .proj-row-chevron { opacity:0; }
-  .proj-row-actions { position:absolute; right:0; top:50%; transform:translateY(-50%); opacity:0; display:flex; gap:4px; transition:opacity .12s ease; }
-  .proj-row:hover .proj-row-actions { opacity:1; }
+  .proj-row-actions-cell { display:flex; align-items:center; justify-content:flex-end; min-height:20px; }
+  .proj-row-chevron { font-size:16px; color:var(--text-faint); }
   @media (max-width: 860px) {
     .proj-row { grid-template-columns: 92px 1fr 92px 44px; }
-    .proj-row-client, .proj-row-note { display:none; }
-    .proj-row-head > div:nth-child(3), .proj-row-head > div:nth-child(5) { display:none; }
+    .proj-row-client, .proj-row-note, .proj-row-drag-cell { display:none; }
+    .proj-row-head > div:nth-child(1), .proj-row-head > div:nth-child(4), .proj-row-head > div:nth-child(6) { display:none; }
   }
   .proj-breadcrumb { display:flex; align-items:center; gap:9px; font-size:14.5px; color:var(--text-faint); margin-bottom:20px; flex-wrap:wrap; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:11px 16px; }
   .proj-breadcrumb button { background:none; border:none; color:var(--text-dim); font-family:var(--font-body); font-size:14.5px; font-weight:600; cursor:pointer; padding:0; }
