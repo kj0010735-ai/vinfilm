@@ -264,8 +264,8 @@ const S = {
   eq: { search: '', categoryFilter: 'all', statusFilter: 'all', sortBy: 'recent', sortOpen: false, modalOpen: false, editingId: null, confirmDeleteId: null, categoryModalOpen: false, detailId: null },
   sched: { search: '', categoryFilter: 'all', showPast: false, modalOpen: false, editingId: null, confirmDeleteId: null, importMsg: '', detailId: null, linkProjectId: null },
   today: { viewMode: 'today', month: todayStr().slice(0, 7) },
-  proj: { modalOpen: false, editingId: null, confirmDeleteId: null, addStatus: 'todo', search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [] },
-  shared: { modalOpen: false, editingId: null, confirmDeleteId: null, search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [] },
+  proj: { modalOpen: false, editingId: null, confirmDeleteId: null, addStatus: 'todo', search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [], selectMode: false },
+  shared: { modalOpen: false, editingId: null, confirmDeleteId: null, search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [], selectMode: false },
   shoot: { formOpen: false, editingParamsId: null, selectedShootId: null, mode: 'pack', confirmDeleteShootId: null, confirmDeletePresetId: null, applyPresetId: null },
   task: { modalOpen: false, editingId: null, confirmDeleteId: null },
   note: { modalOpen: false, editingId: null, confirmDeleteId: null },
@@ -1004,7 +1004,7 @@ function projRowHtml(p) {
           <span>"${esc(p.title)}" 삭제할까요?</span>
           <div class="eq-confirm-actions"><button data-action="proj-cancel-delete">취소</button><button class="danger" data-action="proj-delete" data-id="${p.id}">삭제</button></div>
         </div>` : ''}
-      <div class="proj-row-check-cell"><input type="checkbox" class="proj-row-checkbox" data-role="proj-row-select" data-id="${p.id}" ${S.proj.selectedIds.includes(p.id) ? 'checked' : ''} onclick="event.stopPropagation()" /></div>
+      ${S.proj.selectMode ? `<div class="proj-row-check-cell"><input type="checkbox" class="proj-row-checkbox" data-role="proj-row-select" data-id="${p.id}" ${S.proj.selectedIds.includes(p.id) ? 'checked' : ''} onclick="event.stopPropagation()" /></div>` : ''}
       <div class="proj-row-drag-cell"><span class="proj-row-drag-handle" title="순서 변경(드래그)" draggable="true" data-drag-row-id="${p.id}" onclick="event.stopPropagation()">⠿</span></div>
       <div><span class="proj-row-pill" data-status-menu-id="${p.id}" style="background:${col.color}26; color:${col.color};"><span class="proj-row-dot" style="background:${col.color};"></span>${col.label}</span></div>
       <div><div class="proj-row-title">${ptype ? `<span title="${ptype.label}">${ptype.icon}</span> ` : ''}${esc(p.title)}${childCount ? `<span class="proj-row-child-badge">${childCount}</span>` : ''}</div><div class="proj-row-code">${esc(p.serial)}</div></div>
@@ -1045,8 +1045,8 @@ function projListHtml() {
   const allChecked = items.every(p => S.proj.selectedIds.includes(p.id));
   return `
     ${bulkBar}
-    <div class="proj-list">
-      <div class="proj-row proj-row-head"><div><input type="checkbox" class="proj-row-checkbox" data-role="proj-select-all" data-ids="${items.map(p => p.id).join(',')}" ${allChecked ? 'checked' : ''} /></div><div></div><div>상태</div><div>프로젝트</div><div>클라이언트</div><div>마감</div><div>메모</div><div></div></div>
+    <div class="proj-list ${S.proj.selectMode ? 'select-mode' : ''}">
+      <div class="proj-row proj-row-head">${S.proj.selectMode ? `<div class="proj-row-check-cell"><input type="checkbox" class="proj-row-checkbox" data-role="proj-select-all" data-ids="${items.map(p => p.id).join(',')}" ${allChecked ? 'checked' : ''} /></div>` : ''}<div class="proj-row-drag-cell"></div><div>상태</div><div>프로젝트</div><div class="proj-row-head-narrow">클라이언트</div><div>마감</div><div class="proj-row-head-narrow">메모</div><div></div></div>
       ${items.map(projRowHtml).join('')}
     </div>
     ${addBtn}`;
@@ -1089,7 +1089,8 @@ function renderProjectsTab() {
         <button class="eq-chip ${S.proj.statusFilter==='all'?'active':''}" data-action="proj-set-status-filter" data-id="all">전체 ${counts.all}</button>
         ${PROJECT_COLUMNS.map(col => `<button class="eq-chip ${S.proj.statusFilter===col.id?'active':''}" data-action="proj-set-status-filter" data-id="${col.id}"><span class="eq-chip-dot" style="background:${col.color}"></span>${col.label} ${counts[col.id]}</button>`).join('')}
       </div>
-      <button class="eq-chip active" style="margin-left:auto; cursor:default;">마감일순</button>
+      <button class="eq-chip ${S.proj.selectMode ? 'active' : ''}" style="margin-left:auto;" data-action="proj-toggle-select-mode">${S.proj.selectMode ? '선택 취소' : '☑ 선택'}</button>
+      <button class="eq-chip active" style="cursor:default;">마감일순</button>
     </div>
     ${breadcrumb.length ? `
       <div class="proj-breadcrumb">
@@ -1200,7 +1201,7 @@ function sharedRowHtml(p) {
           <span>"${esc(p.title)}" 삭제할까요?</span>
           <div class="eq-confirm-actions"><button data-action="shared-cancel-delete">취소</button><button class="danger" data-action="shared-delete" data-id="${p.id}">삭제</button></div>
         </div>` : ''}
-      <div class="proj-row-check-cell">${!GUEST_MODE ? `<input type="checkbox" class="proj-row-checkbox" data-role="shared-row-select" data-id="${p.id}" ${S.shared.selectedIds.includes(p.id) ? 'checked' : ''} onclick="event.stopPropagation()" />` : ''}</div>
+      ${!GUEST_MODE && S.shared.selectMode ? `<div class="proj-row-check-cell"><input type="checkbox" class="proj-row-checkbox" data-role="shared-row-select" data-id="${p.id}" ${S.shared.selectedIds.includes(p.id) ? 'checked' : ''} onclick="event.stopPropagation()" /></div>` : ''}
       <div class="proj-row-drag-cell">${!GUEST_MODE ? `<span class="proj-row-drag-handle" title="순서 변경(드래그)" draggable="true" data-drag-row-id="${p.id}" onclick="event.stopPropagation()">⠿</span>` : ''}</div>
       <div><span class="proj-row-pill" ${!GUEST_MODE ? `data-shared-status-menu-id="${p.id}"` : ''} style="background:${st.color}26; color:${st.color};"><span class="proj-row-dot" style="background:${st.color};"></span>${st.label}</span></div>
       <div><div class="proj-row-title">${esc(p.title)}${childCount ? `<span class="proj-row-child-badge">${childCount}</span>` : ''}</div><div class="proj-row-code">${esc(p.serial)}</div></div>
@@ -1243,8 +1244,8 @@ function sharedListHtml() {
   const allChecked = !GUEST_MODE && items.every(p => S.shared.selectedIds.includes(p.id));
   return `
     ${bulkBar}
-    <div class="proj-list">
-      <div class="proj-row proj-row-head"><div>${!GUEST_MODE ? `<input type="checkbox" class="proj-row-checkbox" data-role="shared-select-all" data-ids="${items.map(p => p.id).join(',')}" ${allChecked ? 'checked' : ''} />` : ''}</div><div></div><div>상태</div><div>프로젝트</div><div>클라이언트</div><div>마감</div><div>메모</div><div></div></div>
+    <div class="proj-list ${!GUEST_MODE && S.shared.selectMode ? 'select-mode' : ''}">
+      <div class="proj-row proj-row-head">${!GUEST_MODE && S.shared.selectMode ? `<div class="proj-row-check-cell"><input type="checkbox" class="proj-row-checkbox" data-role="shared-select-all" data-ids="${items.map(p => p.id).join(',')}" ${allChecked ? 'checked' : ''} /></div>` : ''}<div class="proj-row-drag-cell"></div><div>상태</div><div>프로젝트</div><div class="proj-row-head-narrow">클라이언트</div><div>마감</div><div class="proj-row-head-narrow">메모</div><div></div></div>
       ${items.map(sharedRowHtml).join('')}
     </div>
     ${addBtn}`;
@@ -1287,7 +1288,8 @@ function renderSharedProjectsTab() {
         <button class="eq-chip ${S.shared.statusFilter==='all'?'active':''}" data-action="shared-set-status-filter" data-id="all">전체 ${counts.all}</button>
         ${SHARED_STATUSES.map(st => `<button class="eq-chip ${S.shared.statusFilter===st.id?'active':''}" data-action="shared-set-status-filter" data-id="${st.id}"><span class="eq-chip-dot" style="background:${st.color}"></span>${st.label} ${counts[st.id]}</button>`).join('')}
       </div>
-      <button class="eq-chip active" style="margin-left:auto; cursor:default;">마감일순</button>
+      ${!GUEST_MODE ? `<button class="eq-chip ${S.shared.selectMode ? 'active' : ''}" style="margin-left:auto;" data-action="shared-toggle-select-mode">${S.shared.selectMode ? '선택 취소' : '☑ 선택'}</button>` : ''}
+      <button class="eq-chip active" style="${GUEST_MODE ? 'margin-left:auto; ' : ''}cursor:default;">마감일순</button>
     </div>
     ${breadcrumb.length ? `
       <div class="proj-breadcrumb">
@@ -2003,6 +2005,11 @@ function bootApp() {
         break;
       }
       case 'proj-clear-selection': S.proj.selectedIds = []; render(); break;
+      case 'proj-toggle-select-mode':
+        S.proj.selectMode = !S.proj.selectMode;
+        if (!S.proj.selectMode) S.proj.selectedIds = [];
+        render();
+        break;
 
       /* shared projects */
       case 'shared-open-add': if (GUEST_MODE) return; S.shared.editingId = null; S.shared.modalOpen = true; render(); break;
@@ -2054,6 +2061,12 @@ function bootApp() {
         break;
       }
       case 'shared-clear-selection': S.shared.selectedIds = []; render(); break;
+      case 'shared-toggle-select-mode':
+        if (GUEST_MODE) return;
+        S.shared.selectMode = !S.shared.selectMode;
+        if (!S.shared.selectMode) S.shared.selectedIds = [];
+        render();
+        break;
       case 'shared-close-status-menu': S.shared.statusMenu = null; render(); break;
       case 'shared-close-row-menu': S.shared.rowMenu = null; render(); break;
       case 'shared-set-status': {
@@ -2507,19 +2520,6 @@ function bootApp() {
     render();
   });
 
-  /* sidebar hover expand (direct class toggle, no re-render) */
-  root.addEventListener('mouseover', (e) => {
-    if (e.target.closest('#sideNav')) {
-      const nav = document.getElementById('sideNav');
-      if (nav && !nav.classList.contains('expanded')) nav.classList.add('expanded');
-    }
-  });
-  root.addEventListener('mouseout', (e) => {
-    const nav = document.getElementById('sideNav');
-    if (!nav) return;
-    if (nav.contains(e.target) && !nav.contains(e.relatedTarget)) nav.classList.remove('expanded');
-  });
-
   /* Esc closes whichever modal is open */
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
@@ -2583,16 +2583,15 @@ document.addEventListener('DOMContentLoaded', () => {
   .app-shell * { box-sizing: border-box; }
   .app-main { margin-left: 56px; width: 100%; padding: 32px 28px 60px; }
 
-  .side-nav { position: fixed; top: 0; left: 0; height: 100vh; width: 56px; background: var(--surface); border-right: 1px solid var(--border); overflow: hidden; transition: width .18s ease; z-index: 50; display: flex; flex-direction: column; padding-top: 20px; }
-  .side-nav.expanded { width: 196px; box-shadow: 6px 0 24px rgba(0,0,0,0.4); }
+  .side-nav { position: fixed; top: 0; left: 0; height: 100vh; width: 56px; background: var(--surface); border-right: 1px solid var(--border); z-index: 50; display: flex; flex-direction: column; padding-top: 20px; }
   .side-nav-mark { width: 100%; text-align: center; color: var(--accent); font-size: 10px; margin-bottom: 18px; }
-  .side-nav-item { display: flex; align-items: center; gap: 14px; padding: 12px 17px; background: none; border: none; color: var(--text-dim); cursor: pointer; white-space: nowrap; font-family: var(--font-body); font-size: 13.5px; width: 100%; text-align: left; }
+  .side-nav-item { position: relative; display: flex; align-items: center; justify-content: center; padding: 12px 0; background: none; border: none; color: var(--text-dim); cursor: pointer; white-space: nowrap; font-family: var(--font-body); font-size: 13.5px; width: 100%; text-align: left; }
   .side-nav-item:hover { background: var(--surface-hover); color: var(--text); }
   .side-nav-item.active { color: var(--accent); background: var(--accent-soft); }
   .side-nav-icon { font-size: 16px; flex-shrink: 0; width: 20px; text-align: center; }
-  .side-nav-label { opacity: 0; transition: opacity .12s ease; }
-  .side-nav.expanded .side-nav-label { opacity: 1; }
-  .side-nav-sync { margin-top: auto; display: flex; align-items: center; gap: 14px; padding: 12px 17px; font-size: 11px; color: var(--text-faint); white-space: nowrap; }
+  .side-nav-label { position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 12.5px; color: var(--text); opacity: 0; pointer-events: none; transition: opacity .1s ease; box-shadow: 4px 4px 16px rgba(0,0,0,0.4); z-index: 60; }
+  .side-nav-item:hover .side-nav-label, .side-nav-sync:hover .side-nav-label { opacity: 1; }
+  .side-nav-sync { position: relative; margin-top: auto; display: flex; align-items: center; justify-content: center; padding: 12px 0; font-size: 11px; color: var(--text-faint); white-space: nowrap; }
 
   .eq-header { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; margin-bottom:28px; flex-wrap:wrap; }
   .eq-title-block { display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; }
@@ -2787,7 +2786,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   .proj-eyebrow { font-family:var(--font-display); font-size:11px; letter-spacing:2px; color:var(--text-faint); margin-bottom:8px; }
   .proj-list { background:var(--surface); border:1px solid var(--border); border-radius:6px; overflow:hidden; }
-  .proj-row { position:relative; display:grid; grid-template-columns:18px 20px 118px 1.6fr 140px 118px 1.3fr 24px; align-items:center; gap:16px; padding:13px 16px; border-bottom:1px solid var(--border); }
+  .proj-row { position:relative; display:grid; grid-template-columns:20px 118px 1.6fr 140px 118px 1.3fr 24px; align-items:center; gap:16px; padding:13px 16px; border-bottom:1px solid var(--border); }
+  .proj-list.select-mode .proj-row { grid-template-columns:18px 20px 118px 1.6fr 140px 118px 1.3fr 24px; }
   .proj-row:last-child { border-bottom:none; }
   .proj-row:hover { background:var(--surface-hover); }
   .proj-row.drag-over { background:var(--accent-soft); box-shadow:inset 0 2px 0 var(--accent); }
@@ -2817,9 +2817,8 @@ document.addEventListener('DOMContentLoaded', () => {
   .proj-row-actions-cell { display:flex; align-items:center; justify-content:flex-end; min-height:20px; }
   .proj-row-chevron { font-size:16px; color:var(--text-faint); }
   @media (max-width: 860px) {
-    .proj-row { grid-template-columns: 92px 1fr 92px 44px; }
-    .proj-row-client, .proj-row-note, .proj-row-drag-cell, .proj-row-check-cell { display:none; }
-    .proj-row-head > div:nth-child(1), .proj-row-head > div:nth-child(2), .proj-row-head > div:nth-child(5), .proj-row-head > div:nth-child(7) { display:none; }
+    .proj-row, .proj-list.select-mode .proj-row { grid-template-columns: 92px 1fr 92px 44px; }
+    .proj-row-client, .proj-row-note, .proj-row-drag-cell, .proj-row-check-cell, .proj-row-head-narrow { display:none; }
   }
   .proj-breadcrumb { display:flex; align-items:center; gap:9px; font-size:14.5px; color:var(--text-faint); margin-bottom:20px; flex-wrap:wrap; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:11px 16px; }
   .proj-breadcrumb button { background:none; border:none; color:var(--text-dim); font-family:var(--font-body); font-size:14.5px; font-weight:600; cursor:pointer; padding:0; }
