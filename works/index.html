@@ -6,6 +6,7 @@
 <title>작업 관리</title>
 <link rel="icon" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <!-- 클라우드 동기화용 SDK. 인터넷이 없으면 아래 두 줄은 그냥 조용히 실패하고, 앱은 로컬 저장만으로 정상 동작해요. -->
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
@@ -247,7 +248,7 @@ const S = {
   activeTab: GUEST_MODE ? 'equipment' : 'today',
   eq: { search: '', categoryFilter: 'all', statusFilter: 'all', sortBy: 'recent', sortOpen: false, modalOpen: false, editingId: null, confirmDeleteId: null, categoryModalOpen: false, detailId: null },
   sched: { search: '', categoryFilter: 'all', showPast: false, modalOpen: false, editingId: null, confirmDeleteId: null, importMsg: '', detailId: null },
-  proj: { modalOpen: false, editingId: null, confirmDeleteId: null, addStatus: 'todo', detailId: null },
+  proj: { modalOpen: false, editingId: null, confirmDeleteId: null, addStatus: 'todo', detailId: null, search: '', statusFilter: 'all' },
   shared: { modalOpen: false, editingId: null, confirmDeleteId: null, detailId: null },
   shoot: { formOpen: false, editingParamsId: null, selectedShootId: null, mode: 'pack', confirmDeleteShootId: null, confirmDeletePresetId: null, applyPresetId: null },
   task: { modalOpen: false, editingId: null, confirmDeleteId: null },
@@ -335,13 +336,13 @@ function currentEditorName() {
 }
 function showGuestNameGate() {
   document.getElementById('root').innerHTML = `
-    <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; background:#14161b; color:#f4f1ea; font-family:-apple-system, 'Malgun Gothic', sans-serif;">
+    <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; background:#0e0d0c; color:#f5f2ea; font-family:-apple-system, 'Malgun Gothic', sans-serif;">
       <div style="width:300px;">
-        <div style="font-size:13px; letter-spacing:2px; color:#8b8880; margin-bottom:10px;">VINFILM STUDIO</div>
+        <div style="font-size:13px; letter-spacing:2px; color:#79766f; margin-bottom:10px;">VINFILM STUDIO</div>
         <h1 style="margin:0 0 12px; font-size:22px;">공유 작업 공간</h1>
         <p style="margin:0 0 18px; font-size:13.5px; color:#a8a49b; line-height:1.6;">수정 기록에 표시할 이름을 알려주세요.</p>
-        <input id="guestNameInput" type="text" placeholder="이름" style="width:100%; box-sizing:border-box; margin-bottom:12px; background:#1c1e24; border:1px solid #2c2f37; color:#f4f1ea; border-radius:6px; padding:10px 12px; font-size:14px;" />
-        <button id="guestNameBtn" style="width:100%; background:#d98a3d; color:#14161b; border:none; border-radius:6px; padding:11px; font-weight:700; font-size:14px; cursor:pointer;">시작하기</button>
+        <input id="guestNameInput" type="text" placeholder="이름" style="width:100%; box-sizing:border-box; margin-bottom:12px; background:#17140f; border:1px solid rgba(245,242,234,0.14); color:#f5f2ea; border-radius:6px; padding:10px 12px; font-size:14px;" />
+        <button id="guestNameBtn" style="width:100%; background:#d98a3d; color:#0e0d0c; border:none; border-radius:6px; padding:11px; font-weight:700; font-size:14px; cursor:pointer;">시작하기</button>
       </div>
     </div>`;
   const submit = () => {
@@ -355,11 +356,11 @@ function showGuestNameGate() {
 }
 function showLoginGate() {
   document.getElementById('root').innerHTML = `
-    <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; background:#14161b; color:#f4f1ea; font-family:-apple-system, 'Malgun Gothic', sans-serif;">
+    <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; background:#0e0d0c; color:#f5f2ea; font-family:-apple-system, 'Malgun Gothic', sans-serif;">
       <div style="width:300px; text-align:center;">
-        <div style="font-size:13px; letter-spacing:2px; color:#8b8880; margin-bottom:10px;">VINFILM STUDIO</div>
+        <div style="font-size:13px; letter-spacing:2px; color:#79766f; margin-bottom:10px;">VINFILM STUDIO</div>
         <h1 style="margin:0 0 24px; font-size:22px;">로그인</h1>
-        <button id="googleLoginBtn" style="width:100%; background:#f4f1ea; color:#14161b; border:none; border-radius:6px; padding:12px; font-weight:700; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px;">
+        <button id="googleLoginBtn" style="width:100%; background:#f5f2ea; color:#0e0d0c; border:none; border-radius:6px; padding:12px; font-weight:700; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px;">
           <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.9 32.6 29.4 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.5 5.1 29.5 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.4-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 18.9 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34.5 6.1 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 10-2 13.6-5.2l-6.3-5.3C29.3 35.4 26.8 36 24 36c-5.3 0-9.8-3.4-11.3-8.1l-6.6 5.1C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.2-4.2 5.6l6.3 5.3C39.9 37.1 44 31.4 44 24c0-1.4-.1-2.7-.4-3.5z"/></svg>
           Google로 로그인
         </button>
@@ -424,7 +425,7 @@ function renderSidebar() {
   const items = GUEST_MODE ? NAV_ITEMS.filter(it => GUEST_ALLOWED_TABS.includes(it.id)) : NAV_ITEMS;
   return `
     <nav class="side-nav" id="sideNav">
-      <div class="side-nav-mark">●</div>
+      <div class="side-nav-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.5" stroke="var(--accent)" stroke-width="2"/><circle cx="12" cy="12" r="2.6" fill="var(--accent)"/></svg></div>
       ${GUEST_MODE ? `<div class="side-nav-guest-badge">👋 공유 보기</div>` : ''}
       ${items.map(it => `
         <button class="side-nav-item ${S.activeTab===it.id?'active':''}" data-action="set-tab" data-id="${it.id}">
@@ -843,7 +844,9 @@ function renderScheduleTab() {
 function projModalHtml() {
   if (!S.proj.modalOpen) return '';
   const editing = S.proj.editingId ? projItems.find(p => p.id === S.proj.editingId) : null;
-  const f = editing ? { title: editing.title, client: editing.client || '', dueDate: editing.dueDate || '', notes: editing.notes || '' } : { title: '', client: '', dueDate: '', notes: '' };
+  const f = editing
+    ? { title: editing.title, client: editing.client || '', status: editing.status || 'todo', dueDate: editing.dueDate || '', notes: editing.notes || '' }
+    : { title: '', client: '', status: S.proj.addStatus || 'todo', dueDate: '', notes: '' };
   return `
     <div class="eq-modal-overlay">
       <div class="eq-modal" data-stop-close>
@@ -851,6 +854,15 @@ function projModalHtml() {
         <form data-form-role="proj-form">
           <div class="eq-field"><label>프로젝트명</label><input name="title" autofocus value="${esc(f.title)}" placeholder="예: OO 브랜드 홍보영상" required /></div>
           <div class="eq-field"><label>클라이언트 / 부제</label><input name="client" value="${esc(f.client)}" placeholder="예: OO컴퍼니" /></div>
+          <div class="eq-field"><label>상태</label>
+            <div style="display:flex; gap:8px;">
+              ${PROJECT_COLUMNS.map(col => `
+                <label class="eq-status-option">
+                  <input type="radio" name="status" value="${col.id}" ${f.status===col.id?'checked':''} />
+                  ${col.label}
+                </label>`).join('')}
+            </div>
+          </div>
           <div class="eq-field"><label>마감일</label><input type="date" name="dueDate" value="${esc(f.dueDate)}" /></div>
           <div class="eq-field"><label>메모</label><textarea name="notes" class="sched-memo-textarea" placeholder="진행 상황, 참고사항 등">${esc(f.notes)}</textarea></div>
           <button type="submit" class="eq-modal-submit">${editing ? '수정 완료' : '등록하기'}</button>
@@ -880,50 +892,85 @@ function projDetailModalHtml() {
       </div>
     </div>`;
 }
-function projCardHtml(p, color) {
+function projDday(dueDate) {
+  if (!dueDate) return null;
+  const diff = Math.round((new Date(dueDate + 'T00:00:00') - new Date(todayStr() + 'T00:00:00')) / 86400000);
+  if (diff === 0) return { text: 'D-DAY', urgent: true };
+  if (diff < 0) return { text: `D+${-diff}`, urgent: true };
+  return { text: `D-${diff}`, soon: diff <= 3 };
+}
+function projRowHtml(p) {
   const confirming = S.proj.confirmDeleteId === p.id;
-  const isDueToday = p.dueDate === todayStr();
+  const col = PROJECT_COLUMNS.find(c => c.id === p.status) || PROJECT_COLUMNS[0];
+  const doneColor = PROJECT_COLUMNS.find(c => c.id === 'done').color;
+  const todoColor = PROJECT_COLUMNS.find(c => c.id === 'todo').color;
+  const dday = p.status !== 'done' ? projDday(p.dueDate) : null;
+  let ddayColor = 'var(--text-dim)', ddayBg = 'transparent';
+  if (dday && dday.urgent) { ddayColor = doneColor; ddayBg = doneColor + '26'; }
+  else if (dday && dday.soon) { ddayColor = todoColor; ddayBg = todoColor + '26'; }
   return `
-    <div class="proj-card" style="border-left-color:${color || '#8b90a0'}" draggable="true" data-drag-id="${p.id}" data-action="proj-open-detail" data-id="${p.id}">
+    <div class="proj-row" data-action="proj-open-detail" data-id="${p.id}">
       ${confirming ? `
         <div class="eq-confirm-bar">
           <span>"${esc(p.title)}" 삭제할까요?</span>
           <div class="eq-confirm-actions"><button data-action="proj-cancel-delete">취소</button><button class="danger" data-action="proj-delete" data-id="${p.id}">삭제</button></div>
         </div>` : ''}
-      <div class="proj-card-actions">
-        <button class="eq-icon-btn" data-action="proj-open-edit" data-id="${p.id}">✎</button>
-        <button class="eq-icon-btn" data-action="proj-confirm-delete" data-id="${p.id}">✕</button>
+      <div><span class="proj-row-pill" style="background:${col.color}26; color:${col.color};"><span class="proj-row-dot" style="background:${col.color};"></span>${col.label}</span></div>
+      <div><div class="proj-row-title">${esc(p.title)}</div><div class="proj-row-code">${esc(p.serial)}</div></div>
+      <div class="proj-row-client">${esc(p.client) || '—'}</div>
+      <div>
+        <div class="proj-row-due">${p.dueDate ? esc(p.dueDate) : '—'}</div>
+        ${dday ? `<div class="proj-row-dday" style="background:${ddayBg}; color:${ddayColor};">${dday.text}</div>` : ''}
       </div>
-      <div class="proj-serial">${esc(p.serial)}</div>
-      <h3 class="proj-title">${esc(p.title)}</h3>
-      ${p.client ? `<div class="proj-client">${esc(p.client)}</div>` : ''}
-      ${p.dueDate ? `<div class="proj-due">🗓 ${esc(p.dueDate)} ${isDueToday ? '<span class="proj-due-today-badge">오늘 마감</span>' : ''}</div>` : ''}
-      ${p.notes ? `<div class="proj-notes">${esc(p.notes)}</div>` : ''}
+      <div class="proj-row-note">${esc(p.notes) || ''}</div>
+      <div class="proj-row-actions"><button class="eq-icon-btn" data-action="proj-open-edit" data-id="${p.id}">✎</button><button class="eq-icon-btn" data-action="proj-confirm-delete" data-id="${p.id}">✕</button></div>
     </div>`;
 }
-function renderProjectsTab() {
+function projListHtml() {
+  const q = (S.proj.search || '').trim().toLowerCase();
+  let items = projItems.filter(p => {
+    if (S.proj.statusFilter !== 'all' && p.status !== S.proj.statusFilter) return false;
+    if (!q) return true;
+    return (p.title || '').toLowerCase().includes(q) || (p.client || '').toLowerCase().includes(q) || (p.notes || '').toLowerCase().includes(q);
+  });
+  items = items.slice().sort((a, b) => {
+    const aDone = a.status === 'done' ? 1 : 0, bDone = b.status === 'done' ? 1 : 0;
+    if (aDone !== bDone) return aDone - bDone;
+    if (!a.dueDate && !b.dueDate) return 0;
+    if (!a.dueDate) return 1;
+    if (!b.dueDate) return -1;
+    return a.dueDate.localeCompare(b.dueDate);
+  });
+  if (items.length === 0) return `<div class="proj-empty">조건에 맞는 프로젝트가 없어요</div>`;
   return `
+    <div class="proj-list">
+      <div class="proj-row proj-row-head"><div>상태</div><div>프로젝트</div><div>클라이언트</div><div>마감</div><div>메모</div><div></div></div>
+      ${items.map(projRowHtml).join('')}
+    </div>`;
+}
+function refreshProjList() { const el = document.getElementById('projList'); if (el) el.innerHTML = projListHtml(); }
+function renderProjectsTab() {
+  const counts = {
+    all: projItems.length,
+    todo: projItems.filter(p => p.status === 'todo').length,
+    doing: projItems.filter(p => p.status === 'doing').length,
+    done: projItems.filter(p => p.status === 'done').length,
+  };
+  return `
+    <div class="proj-eyebrow">WORK MANAGEMENT</div>
     <div class="eq-header">
-      <div class="eq-title-block"><h1 class="eq-title">프로젝트</h1><div class="eq-stat">진행중 <b>${projItems.filter(p=>p.status==='doing').length}</b> / 전체 <b>${projItems.length}</b></div></div>
+      <div class="eq-title-block"><h1 class="eq-title">프로젝트</h1><div class="eq-stat">진행중 <b>${counts.doing}</b> / 전체 <b>${counts.all}</b></div></div>
+      <button class="eq-add-btn" data-action="proj-open-add" data-id="todo">+ 새 프로젝트</button>
     </div>
-    <div class="proj-board">
-      ${PROJECT_COLUMNS.map(col => {
-        const colProjects = projItems.filter(p => p.status === col.id).slice().sort((a, b) => {
-          if (!a.dueDate && !b.dueDate) return 0;
-          if (!a.dueDate) return 1;
-          if (!b.dueDate) return -1;
-          return a.dueDate.localeCompare(b.dueDate);
-        });
-        return `
-        <div class="proj-col" style="border-top-color:${col.color}" data-dropzone="col" data-col-id="${col.id}">
-          <div class="proj-col-head">
-            <div class="proj-col-title"><span class="proj-col-dot" style="background:${col.color}"></span>${col.label} <span class="proj-col-count">${colProjects.length}</span></div>
-            <button class="proj-col-add" data-action="proj-open-add" data-id="${col.id}">+</button>
-          </div>
-          ${colProjects.length === 0 ? `<div class="proj-empty">여기로 카드를 끌어놓거나<br/>+ 버튼으로 추가해보세요</div>` : colProjects.map(p => projCardHtml(p, col.color)).join('')}
-        </div>`;
-      }).join('')}
+    <div class="eq-toolbar">
+      <div class="eq-search"><input id="projSearchInput" placeholder="제목, 클라이언트, 메모로 검색" value="${esc(S.proj.search)}" /></div>
+      <div class="eq-chip-row">
+        <button class="eq-chip ${S.proj.statusFilter==='all'?'active':''}" data-action="proj-set-status-filter" data-id="all">전체 ${counts.all}</button>
+        ${PROJECT_COLUMNS.map(col => `<button class="eq-chip ${S.proj.statusFilter===col.id?'active':''}" data-action="proj-set-status-filter" data-id="${col.id}"><span class="eq-chip-dot" style="background:${col.color}"></span>${col.label} ${counts[col.id]}</button>`).join('')}
+      </div>
+      <button class="eq-chip active" style="margin-left:auto; cursor:default;">마감일순</button>
     </div>
+    <div id="projList">${projListHtml()}</div>
     ${projModalHtml()}
     ${projDetailModalHtml()}
   `;
@@ -1627,6 +1674,7 @@ function bootApp() {
         }
         break;
       }
+      case 'proj-set-status-filter': S.proj.statusFilter = id; render(); break;
 
       /* shared projects */
       case 'shared-open-add': if (GUEST_MODE) return; S.shared.editingId = null; S.shared.modalOpen = true; render(); break;
@@ -1733,6 +1781,7 @@ function bootApp() {
   root.addEventListener('input', (e) => {
     if (e.target.id === 'eqSearchInput') { S.eq.search = e.target.value; refreshEqGrid(); }
     else if (e.target.id === 'schedSearchInput') { S.sched.search = e.target.value; refreshSchedList(); }
+    else if (e.target.id === 'projSearchInput') { S.proj.search = e.target.value; refreshProjList(); }
   });
 
   /* checkboxes: allDay, photo file, ics import, shoot confirm/pack toggles */
@@ -1810,9 +1859,9 @@ function bootApp() {
       const fd = new FormData(form);
       const title = (fd.get('title') || '').toString().trim();
       if (!title) return;
-      const payload = { title, client: fd.get('client') || '', dueDate: fd.get('dueDate') || '', notes: fd.get('notes') || '' };
+      const payload = { title, client: fd.get('client') || '', status: fd.get('status') || 'todo', dueDate: fd.get('dueDate') || '', notes: fd.get('notes') || '' };
       if (S.proj.editingId) saveProjItems(projItems.map(p => p.id === S.proj.editingId ? { ...p, ...payload } : p));
-      else saveProjItems([{ id: uid(), serial: nextProjectSerial(projItems), createdAt: Date.now(), status: S.proj.addStatus || 'todo', ...payload }, ...projItems]);
+      else saveProjItems([{ id: uid(), serial: nextProjectSerial(projItems), createdAt: Date.now(), ...payload }, ...projItems]);
       S.proj.modalOpen = false; S.proj.editingId = null;
       render();
     } else if (form.matches('[data-form-role="shared-form"]')) {
@@ -1867,7 +1916,7 @@ function bootApp() {
     }
   });
 
-  /* drag & drop: equipment photo zone + kanban columns + equipment category re-sort */
+  /* drag & drop: equipment photo zone + equipment category re-sort + 패킹 가방 재배치 */
   root.addEventListener('dragover', (e) => {
     const zone = e.target.closest('[data-dropzone]');
     if (!zone) return;
@@ -1894,12 +1943,6 @@ function bootApp() {
       try { currentEqPhoto = await resizeFromUrl(url); }
       catch (err) { currentEqPhoto = url; currentEqPhotoError = '외부 이미지 링크로 저장했어요. 인터넷이 연결되어 있어야 보여요.'; }
       refreshEqPhotoZone();
-    } else if (zone.dataset.dropzone === 'col') {
-      const id = e.dataTransfer.getData('text/plain');
-      if (!id) return;
-      const colId = zone.dataset.colId;
-      saveProjItems(projItems.map(p => p.id === id ? { ...p, status: colId } : p));
-      render();
     } else if (zone.dataset.dropzone === 'eq-cat') {
       const eqId = e.dataTransfer.getData('application/x-eq-id');
       if (!eqId) return;
@@ -1925,8 +1968,6 @@ function bootApp() {
     }
   });
   root.addEventListener('dragstart', (e) => {
-    const card = e.target.closest('[data-drag-id]');
-    if (card) { e.dataTransfer.setData('text/plain', card.dataset.dragId); e.dataTransfer.effectAllowed = 'move'; return; }
     const eqCard = e.target.closest('[data-drag-eq-id]');
     if (eqCard) { e.dataTransfer.setData('application/x-eq-id', eqCard.dataset.dragEqId); e.dataTransfer.effectAllowed = 'copyMove'; return; }
     const packRow = e.target.closest('[data-drag-pack-id]');
@@ -1998,16 +2039,17 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 <style>
-  html, body { margin: 0; padding: 0; height: 100%; background: #14161b; }
+  html, body { margin: 0; padding: 0; height: 100%; background: #0e0d0c; }
   #root { min-height: 100vh; }
   .app-shell {
-    --bg: #14161b; --surface: #1c1f26; --surface-hover: #232732; --border: #2a2e38;
-    --text: #ecedf0; --text-dim: #8b90a0; --text-faint: #565c6b;
-    --accent: #c9a227; --accent-soft: rgba(201,162,39,0.14);
+    --bg: #0e0d0c; --surface: #17140f; --surface-hover: #1d1913; --border: rgba(245,242,234,0.14);
+    --text: #f5f2ea; --text-dim: #a8a49b; --text-faint: #79766f;
+    --accent: #d98a3d; --accent-soft: rgba(217,138,61,0.14);
     --status-owned: #4cae7d; --status-lent: #5b8def; --status-repair: #e0a63c; --status-sold: #6b7080;
-    --sched-shoot: #c9a227; --sched-meeting: #5b8def; --sched-deadline: #d9534f; --sched-etc: #6b7080; --sched-calendar: #4cae7d;
-    --font-body: 'Pretendard', 'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, sans-serif;
+    --sched-shoot: #d98a3d; --sched-meeting: #5b8def; --sched-deadline: #d9534f; --sched-etc: #6b7080; --sched-calendar: #4cae7d;
+    --font-body: 'Noto Sans KR', 'Pretendard', 'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+    --font-display: 'Anton', sans-serif;
     display: flex; min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font-body);
   }
   .app-shell * { box-sizing: border-box; }
@@ -2029,7 +2071,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .eq-title { font-size:22px; font-weight:700; letter-spacing:-0.01em; margin:0; }
   .eq-stat { font-family: var(--font-mono); font-size:13px; color:var(--text-dim); display:flex; align-items:baseline; gap:6px; }
   .eq-stat b { font-size:20px; color: var(--accent); font-weight:600; }
-  .eq-add-btn { display:flex; align-items:center; gap:8px; background: var(--accent); color:#14161b; border:none; padding:10px 16px; border-radius:8px; font-family: var(--font-body); font-size:14px; font-weight:600; cursor:pointer; white-space:nowrap; }
+  .eq-add-btn { display:flex; align-items:center; gap:8px; background: var(--accent); color:#0e0d0c; border:none; padding:10px 20px; border-radius:999px; font-family: var(--font-body); font-size:14px; font-weight:700; cursor:pointer; white-space:nowrap; }
   .eq-add-btn:hover { filter: brightness(1.1); }
   .eq-toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:20px; }
   .eq-search { flex:1 1 220px; min-width:180px; }
@@ -2092,7 +2134,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .eq-card:hover .eq-card-actions { opacity:1; }
   .eq-icon-btn { background:var(--surface-hover); border:1px solid var(--border); color:var(--text-dim); width:26px; height:26px; border-radius:6px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:12px; }
   .eq-icon-btn:hover { color:var(--text); border-color:var(--accent); }
-  .eq-confirm-bar { position:absolute; inset:0; background:rgba(20,22,27,0.94); border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; z-index:3; }
+  .eq-confirm-bar { position:absolute; inset:0; background:rgba(20,17,13,0.95); border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; z-index:3; }
   .eq-confirm-bar span { font-size:12.5px; color:var(--text-dim); }
   .eq-confirm-actions { display:flex; gap:8px; }
   .eq-confirm-actions button { font-family:var(--font-body); font-size:12px; padding:6px 12px; border-radius:6px; border:1px solid var(--border); cursor:pointer; background:var(--surface); color:var(--text-dim); }
@@ -2116,7 +2158,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .eq-status-option { flex:1; min-width:70px; text-align:center; padding:8px 6px; border-radius:7px; border:1px solid var(--border); background:var(--bg); color:var(--text-dim); font-size:12px; cursor:pointer; font-family:var(--font-mono); display:block; }
   .eq-status-option input { position:absolute; opacity:0; pointer-events:none; }
   .eq-status-option:has(input:checked) { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
-  .eq-modal-submit { width:100%; background:var(--accent); color:#14161b; border:none; padding:11px; border-radius:8px; font-family:var(--font-body); font-size:14px; font-weight:700; cursor:pointer; margin-top:6px; }
+  .eq-modal-submit { width:100%; background:var(--accent); color:#0e0d0c; border:none; padding:11px; border-radius:8px; font-family:var(--font-body); font-size:14px; font-weight:700; cursor:pointer; margin-top:6px; }
   .eq-modal-submit:hover { filter: brightness(1.1); }
   .shoot-form-btn-row { display:flex; gap:8px; }
   .shoot-form-btn-row .eq-modal-submit { margin-top:6px; }
@@ -2147,7 +2189,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .eq-cat-add-row { display:flex; gap:8px; margin-bottom:16px; }
   .eq-cat-add-row input { flex:1; background:var(--bg); border:1px solid var(--border); border-radius:7px; padding:9px 10px; color:var(--text); font-family:var(--font-body); font-size:13.5px; outline:none; }
   .eq-cat-add-row input:focus { border-color: var(--accent); }
-  .eq-cat-add-row button { background:var(--accent); color:#14161b; border:none; padding:0 14px; border-radius:7px; font-family:var(--font-body); font-size:13px; font-weight:600; cursor:pointer; }
+  .eq-cat-add-row button { background:var(--accent); color:#0e0d0c; border:none; padding:0 14px; border-radius:7px; font-family:var(--font-body); font-size:13px; font-weight:600; cursor:pointer; }
   .eq-cat-add-row button:hover { filter: brightness(1.1); }
   .eq-cat-list { max-height:280px; overflow-y:auto; }
   .eq-cat-manage-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); }
@@ -2178,7 +2220,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .sched-day-label { display:flex; align-items:baseline; gap:10px; margin-bottom:10px; }
   .sched-day-date { font-family:var(--font-mono); font-size:16px; font-weight:700; color:var(--text); letter-spacing:0.01em; }
   .sched-dday-badge { font-family:var(--font-mono); font-size:17px; font-weight:700; color:var(--text-dim); border:1.5px solid var(--border); border-radius:999px; padding:3px 13px; }
-  .sched-dday-badge.is-today { color:#14161b; background:var(--accent); border-color:var(--accent); }
+  .sched-dday-badge.is-today { color:#0e0d0c; background:var(--accent); border-color:var(--accent); }
   .sched-dday-badge.is-past { color:var(--text-faint); border-color:var(--border); opacity:0.6; }
   .sched-row { position:relative; display:flex; align-items:flex-start; gap:14px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:8px; border-left-width:3px; border-left-style:solid; }
   .sched-time { font-family:var(--font-mono); font-size:12px; color:var(--text-dim); min-width:44px; padding-top:1px; flex-shrink:0; }
@@ -2193,18 +2235,9 @@ document.addEventListener('DOMContentLoaded', () => {
   .sched-row:hover .sched-row-actions { opacity:1; }
   .sched-allday-toggle { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-dim); margin-top:-6px; margin-bottom:14px; }
 
-  .proj-board { display:flex; gap:16px; align-items:flex-start; }
-  .proj-col { flex:1; min-width:0; background:var(--surface); border:1px solid var(--border); border-top-width:3px; border-top-style:solid; border-radius:10px; padding:14px; min-height:200px; transition: border-color .12s ease, background .12s ease; }
-  .proj-col.drag-over { border-color:var(--accent); background:var(--accent-soft); }
-  .proj-col-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
-  .proj-col-title { font-size:13.5px; font-weight:700; display:flex; align-items:center; gap:8px; }
   .proj-col-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
   .proj-due-today-badge { font-family:var(--font-mono); font-size:10px; font-weight:700; color:#d9534f; border:1px solid #d9534f; border-radius:4px; padding:1px 6px; margin-left:6px; }
-  .proj-col-count { font-family:var(--font-mono); font-size:11px; color:var(--text-faint); font-weight:400; }
-  .proj-col-add { background:none; border:1px dashed var(--border); color:var(--text-faint); width:24px; height:24px; border-radius:6px; cursor:pointer; font-size:14px; line-height:1; }
-  .proj-col-add:hover { color:var(--accent); border-color:var(--accent); }
-  .proj-card { position:relative; background:var(--bg); border:1px solid var(--border); border-left-width:3px; border-left-style:solid; border-radius:8px; padding:12px 12px 10px; margin-bottom:10px; cursor:grab; }
-  .proj-card:active { cursor:grabbing; }
+  .proj-card { position:relative; background:var(--bg); border:1px solid var(--border); border-left-width:3px; border-left-style:solid; border-radius:8px; padding:12px 12px 10px; margin-bottom:10px; }
   .proj-card:hover { border-color:#3a3f4b; }
   .proj-serial { font-family:var(--font-mono); font-size:10.5px; color:var(--text-faint); margin-bottom:6px; }
   .proj-title { font-size:13.5px; font-weight:600; margin:0 0 4px; }
@@ -2215,7 +2248,28 @@ document.addEventListener('DOMContentLoaded', () => {
   .proj-card:hover .proj-card-actions { opacity:1; }
   .proj-empty { text-align:center; color:var(--text-faint); font-size:12px; padding:24px 8px; }
 
-  @media (max-width: 860px) { .proj-board { flex-direction: column; } }
+  .proj-eyebrow { font-family:var(--font-display); font-size:11px; letter-spacing:2px; color:var(--text-faint); margin-bottom:8px; }
+  .proj-list { background:var(--surface); border:1px solid var(--border); border-radius:6px; overflow:hidden; }
+  .proj-row { position:relative; display:grid; grid-template-columns:118px 1.6fr 140px 118px 1.3fr 56px; align-items:center; gap:16px; padding:13px 16px; border-bottom:1px solid var(--border); }
+  .proj-row:last-child { border-bottom:none; }
+  .proj-row:hover { background:var(--surface-hover); }
+  .proj-row:hover .proj-row-actions { opacity:1; }
+  .proj-row-head { color:var(--text-faint); font-size:11px; font-weight:600; padding:11px 16px; }
+  .proj-row-head:hover { background:none; }
+  .proj-row-pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:600; white-space:nowrap; }
+  .proj-row-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+  .proj-row-title { font-size:14px; font-weight:600; color:var(--text); }
+  .proj-row-code { font-size:10.5px; color:var(--text-faint); letter-spacing:0.03em; margin-top:2px; }
+  .proj-row-client { font-size:12.5px; color:var(--text-dim); }
+  .proj-row-due { font-size:12.5px; color:var(--text-dim); }
+  .proj-row-dday { display:inline-block; margin-top:3px; font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:5px; }
+  .proj-row-note { font-size:12.5px; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .proj-row-actions { opacity:0; display:flex; gap:4px; justify-content:flex-end; transition:opacity .12s ease; }
+  @media (max-width: 860px) {
+    .proj-row { grid-template-columns: 92px 1fr 92px 44px; }
+    .proj-row-client, .proj-row-note { display:none; }
+    .proj-row-head > div:nth-child(3), .proj-row-head > div:nth-child(5) { display:none; }
+  }
   .shared-list { display:flex; flex-direction:column; gap:10px; max-width:640px; }
   .shared-guest-note { font-size:12px; color:var(--text-dim); background:var(--accent-soft); border-radius:8px; padding:10px 14px; margin-bottom:14px; max-width:640px; }
   .side-nav-guest-badge { font-size:11.5px; font-weight:700; color:var(--accent); background:var(--accent-soft); border-radius:6px; padding:6px 10px; margin:0 17px 10px; text-align:center; }

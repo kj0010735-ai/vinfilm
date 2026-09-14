@@ -31,6 +31,12 @@
 - 작업 카드의 썸네일은 `thumbUrl`을 직접 안 넣어도 유튜브 링크면 `https://img.youtube.com/vi/{id}/hqdefault.jpg`로 자동 생성되고, Vimeo 링크는 로드 후 oEmbed API로 비동기로 가져온다 (`enhanceThumbnails`).
 - "무엇을 만드나요?" 섹션 제목(`servicesTitle`)과 서비스 목록(`services` — 각 항목 `id`/`label`)도 같은 방식으로 편집된다. `service.html?id=...&edit=1`로 들어가면 그 서비스의 태그라인·소개문구(`body[]`)·진행 단계(`steps[]`)도 같은 로그인 게이트로 바로 수정 가능 — index.html의 서비스 목록 링크는 편집 모드일 때 자동으로 `&edit=1`을 붙여서 넘겨준다. `services`의 기본값(`DEFAULT_SERVICES`/`DEFAULT_CONTENT.services`)은 index.html과 service.html 양쪽에 동일하게 복제돼 있으니 문구를 코드로 바꿀 땐 둘 다 고칠 것.
 
+## works/index.html 디자인 톤
+
+내부 앱도 공개 홈페이지와 같은 다크 웜톤(배경 `#0e0d0c`, 포인트 컬러 `#d98a3d`, Noto Sans KR 본문)을 쓴다 — `.app-shell`의 CSS 변수(`--bg`/`--accent`/`--font-body` 등)만 바꾸면 앱 전체에 적용되는 구조라 두 사이트 색이 어긋나지 않게 관리하기 쉽다. `--font-display`(Anton)는 한글을 지원하지 않는 폰트라 영문 라벨(예: "WORK MANAGEMENT" eyebrow, 코드/D-day 같은 영문·숫자)에만 쓰고, 한글 텍스트에는 절대 적용하지 말 것 — Anton은 한글을 렌더링하지 못해 그냥 폴백 폰트로 깨져 보인다.
+
+**프로젝트 탭은 칸반 보드가 아니라 리스트형 게시판**이다 (마감 임박순 정렬, 검색/상태 필터, 상태는 카드 드래그가 아니라 수정 모달의 라디오로 변경). "공유 프로젝트" 탭(`sharedCardHtml`)은 이미 원래부터 리스트 형태였고 여기서 손대지 않았다 — `.proj-card`/`.proj-serial`/`.proj-title` 등은 공유 프로젝트 탭이 계속 쓰고 있으니 삭제하지 말 것.
+
 ## works/index.html 로그인
 
 - guest 모드가 아닐 때는 Google 로그인(`firebase.auth().onAuthStateChanged`)이 앱 전체를 가로막는다 — `bootApp()`은 로그인 성공 후에만 호출됨. `?guest=1`이면 로그인 절차를 아예 건너뛴다.
