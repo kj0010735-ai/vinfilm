@@ -884,8 +884,8 @@ function projModalHtml() {
   if (!S.proj.modalOpen) return '';
   const editing = S.proj.editingId ? projItems.find(p => p.id === S.proj.editingId) : null;
   const f = editing
-    ? { title: editing.title, client: editing.client || '', status: editing.status || 'todo', type: editing.type || '', dueDate: editing.dueDate || '', notes: editing.notes || '' }
-    : { title: '', client: '', status: S.proj.addStatus || 'todo', type: '', dueDate: '', notes: '' };
+    ? { title: editing.title, client: editing.client || '', status: editing.status || 'todo', type: editing.type || '', color: editing.color || '', dueDate: editing.dueDate || '', notes: editing.notes || '' }
+    : { title: '', client: '', status: S.proj.addStatus || 'todo', type: '', color: '', dueDate: '', notes: '' };
   return `
     <div class="eq-modal-overlay">
       <div class="eq-modal" data-stop-close>
@@ -893,6 +893,12 @@ function projModalHtml() {
         <form data-form-role="proj-form">
           <div class="eq-field"><label>프로젝트명</label><input name="title" autofocus value="${esc(f.title)}" placeholder="예: OO 브랜드 홍보영상" required /></div>
           <div class="eq-field"><label>클라이언트 / 부제</label><input name="client" list="clientList" value="${esc(f.client)}" placeholder="예: OO컴퍼니" /><datalist id="clientList">${getKnownClients().map(c => `<option value="${esc(c)}"></option>`).join('')}</datalist></div>
+          <div class="eq-field"><label>색상 <span style="color:var(--text-faint); font-weight:400;">(목록에서 구분용, 선택)</span></label>
+            <div class="eq-color-swatches">
+              <label class="eq-color-swatch eq-color-swatch-none" title="기본"><input type="radio" name="color" value="" ${!f.color?'checked':''} /></label>
+              ${CATEGORY_COLOR_PALETTE.map(c => `<label class="eq-color-swatch" style="background:${c};" title="${c}"><input type="radio" name="color" value="${c}" ${f.color===c?'checked':''} /></label>`).join('')}
+            </div>
+          </div>
           <div class="eq-field"><label>종류</label>
             <div style="display:flex; gap:8px;">
               <label class="eq-status-option">
@@ -943,6 +949,7 @@ function projRowMenuHtml() {
   return `
     <div class="proj-status-menu-backdrop" data-action="proj-close-row-menu"></div>
     <div class="proj-status-menu" style="left:${m.x}px; top:${m.y}px;" data-stop-close>
+      <button data-action="proj-duplicate" data-id="${m.id}">⧉ 복제</button>
       <button data-action="proj-open-edit" data-id="${m.id}">✎ 수정</button>
       <button data-action="proj-confirm-delete" data-id="${m.id}">✕ 삭제</button>
     </div>`;
@@ -954,7 +961,7 @@ function projParentSummaryHtml(p) {
   const meta = [p.serial, p.client, p.dueDate ? `마감 ${p.dueDate}${isDueToday ? ' (오늘)' : ''}` : ''].filter(Boolean).join(' · ');
   const linkedSched = p.scheduleId ? schedItems.find(s => s.id === p.scheduleId) : null;
   return `
-    <div class="proj-parent-card">
+    <div class="proj-parent-card" style="${p.color ? `border-left:3px solid ${p.color}; padding-left:15px;` : ''}">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">
         <div>
           <span class="proj-row-pill" data-status-menu-id="${p.id}" style="background:${col.color}26; color:${col.color}; cursor:context-menu;"><span class="proj-row-dot" style="background:${col.color};"></span>${col.label}</span>
@@ -991,7 +998,7 @@ function projRowHtml(p) {
   if (dday && dday.urgent) { ddayColor = doneColor; ddayBg = doneColor + '26'; }
   else if (dday && dday.soon) { ddayColor = todoColor; ddayBg = todoColor + '26'; }
   return `
-    <div class="proj-row" data-action="proj-drill-in" data-id="${p.id}" data-row-menu-id="${p.id}">
+    <div class="proj-row" data-action="proj-drill-in" data-id="${p.id}" data-row-menu-id="${p.id}" data-dropzone="proj-row" style="${p.color ? `border-left:3px solid ${p.color}; padding-left:13px;` : ''}">
       ${confirming ? `
         <div class="eq-confirm-bar">
           <span>"${esc(p.title)}" 삭제할까요?</span>
@@ -1007,7 +1014,7 @@ function projRowHtml(p) {
       <div class="proj-row-note" contenteditable="true" data-role="proj-notes-inline" data-id="${p.id}" onclick="event.stopPropagation()">${esc(p.notes) || ''}</div>
       <div class="proj-row-actions-cell">
         <span class="proj-row-chevron">›</span>
-        <span class="proj-row-actions"><button class="eq-icon-btn" data-action="proj-open-edit" data-id="${p.id}">✎</button><button class="eq-icon-btn" data-action="proj-confirm-delete" data-id="${p.id}">✕</button></span>
+        <span class="proj-row-actions"><button class="eq-icon-btn" title="순서 변경(드래그)" draggable="true" data-drag-row-id="${p.id}" onclick="event.stopPropagation()">⠿</button><button class="eq-icon-btn" title="복제" data-action="proj-duplicate" data-id="${p.id}">⧉</button><button class="eq-icon-btn" data-action="proj-open-edit" data-id="${p.id}">✎</button><button class="eq-icon-btn" data-action="proj-confirm-delete" data-id="${p.id}">✕</button></span>
       </div>
     </div>`;
 }
@@ -1053,12 +1060,6 @@ function renderProjectsTab() {
   const breadcrumb = projBreadcrumb(parentId);
   return `
     <div class="proj-eyebrow">WORK MANAGEMENT</div>
-    ${breadcrumb.length ? `
-      <div class="proj-breadcrumb">
-        <button data-action="proj-go-parent" data-id="">전체 프로젝트</button>
-        ${breadcrumb.map((b, i) => `<span>/</span>${i === breadcrumb.length - 1 ? `<b>${esc(b.title)}</b>` : `<button data-action="proj-go-parent" data-id="${b.id}">${esc(b.title)}</button>`}`).join('')}
-      </div>` : ''}
-    ${parent ? projParentSummaryHtml(parent) : ''}
     <div class="eq-header">
       <div class="eq-title-block"><h1 class="eq-title">${parent ? esc(parent.title) : '프로젝트'}</h1><div class="eq-stat">진행중 <b>${counts.doing}</b> / 전체 <b>${counts.all}</b></div></div>
       <button class="eq-add-btn" data-action="proj-open-add" data-id="todo">+ 새 프로젝트</button>
@@ -1071,6 +1072,12 @@ function renderProjectsTab() {
       </div>
       <button class="eq-chip active" style="margin-left:auto; cursor:default;">마감일순</button>
     </div>
+    ${breadcrumb.length ? `
+      <div class="proj-breadcrumb">
+        <button data-action="proj-go-parent" data-id="">전체 프로젝트</button>
+        ${breadcrumb.map((b, i) => `<span>/</span>${i === breadcrumb.length - 1 ? `<b>${esc(b.title)}</b>` : `<button data-action="proj-go-parent" data-id="${b.id}">${esc(b.title)}</button>`}`).join('')}
+      </div>` : ''}
+    ${parent ? projParentSummaryHtml(parent) : ''}
     <div id="projList">${projListHtml()}</div>
     ${projModalHtml()}
     ${projStatusMenuHtml()}
@@ -1083,8 +1090,8 @@ function sharedModalHtml() {
   if (!S.shared.modalOpen) return '';
   const editing = S.shared.editingId ? sharedProjItems.find(p => p.id === S.shared.editingId) : null;
   const f = editing
-    ? { title: editing.title, client: editing.client || '', dueDate: editing.dueDate || '', status: editing.status || 'todo', link: editing.link || '', notes: editing.notes || '' }
-    : { title: '', client: '', dueDate: '', status: 'todo', link: '', notes: '' };
+    ? { title: editing.title, client: editing.client || '', dueDate: editing.dueDate || '', status: editing.status || 'todo', color: editing.color || '', link: editing.link || '', notes: editing.notes || '' }
+    : { title: '', client: '', dueDate: '', status: 'todo', color: '', link: '', notes: '' };
   return `
     <div class="eq-modal-overlay" data-action="shared-close-modal-backdrop">
       <div class="eq-modal" data-stop-close>
@@ -1092,6 +1099,12 @@ function sharedModalHtml() {
         <form data-form-role="shared-form">
           <div class="eq-field"><label>프로젝트명</label><input name="title" autofocus value="${esc(f.title)}" placeholder="예: OO 브랜드 홍보영상" required /></div>
           <div class="eq-field"><label>클라이언트 / 협업자</label><input name="client" list="clientList" value="${esc(f.client)}" placeholder="예: OO컴퍼니" /><datalist id="clientList">${getKnownClients().map(c => `<option value="${esc(c)}"></option>`).join('')}</datalist></div>
+          <div class="eq-field"><label>색상 <span style="color:var(--text-faint); font-weight:400;">(목록에서 구분용, 선택)</span></label>
+            <div class="eq-color-swatches">
+              <label class="eq-color-swatch eq-color-swatch-none" title="기본"><input type="radio" name="color" value="" ${!f.color?'checked':''} /></label>
+              ${CATEGORY_COLOR_PALETTE.map(c => `<label class="eq-color-swatch" style="background:${c};" title="${c}"><input type="radio" name="color" value="${c}" ${f.color===c?'checked':''} /></label>`).join('')}
+            </div>
+          </div>
           <div class="eq-field"><label>마감일</label><input type="date" name="dueDate" value="${esc(f.dueDate)}" /></div>
           <div class="eq-field"><label>상태</label>
             <select name="status">${SHARED_STATUSES.map(s => `<option value="${s.id}" ${f.status===s.id?'selected':''}>${s.label}</option>`).join('')}</select>
@@ -1124,6 +1137,7 @@ function sharedRowMenuHtml() {
   return `
     <div class="proj-status-menu-backdrop" data-action="shared-close-row-menu"></div>
     <div class="proj-status-menu" style="left:${m.x}px; top:${m.y}px;" data-stop-close>
+      <button data-action="shared-duplicate" data-id="${m.id}">⧉ 복제</button>
       <button data-action="shared-open-edit" data-id="${m.id}">✎ 수정</button>
       <button data-action="shared-confirm-delete" data-id="${m.id}">✕ 삭제</button>
     </div>`;
@@ -1133,7 +1147,7 @@ function sharedParentSummaryHtml(p) {
   const isDueToday = p.dueDate === todayStr();
   const meta = [p.serial, p.client, p.dueDate ? `마감 ${p.dueDate}${isDueToday ? ' (오늘)' : ''}` : ''].filter(Boolean).join(' · ');
   return `
-    <div class="proj-parent-card">
+    <div class="proj-parent-card" style="${p.color ? `border-left:3px solid ${p.color}; padding-left:15px;` : ''}">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">
         <div>
           <span class="proj-row-pill" ${!GUEST_MODE ? `data-shared-status-menu-id="${p.id}"` : ''} style="background:${st.color}26; color:${st.color}; ${!GUEST_MODE ? 'cursor:context-menu;' : ''}"><span class="proj-row-dot" style="background:${st.color};"></span>${st.label}</span>
@@ -1161,7 +1175,7 @@ function sharedRowHtml(p) {
   if (dday && dday.urgent) { ddayColor = doneColor; ddayBg = doneColor + '26'; }
   else if (dday && dday.soon) { ddayColor = todoColor; ddayBg = todoColor + '26'; }
   return `
-    <div class="proj-row" data-action="shared-drill-in" data-id="${p.id}" ${!GUEST_MODE ? `data-shared-row-menu-id="${p.id}"` : ''}>
+    <div class="proj-row" data-action="shared-drill-in" data-id="${p.id}" ${!GUEST_MODE ? `data-shared-row-menu-id="${p.id}" data-dropzone="proj-row"` : ''} style="${p.color ? `border-left:3px solid ${p.color}; padding-left:13px;` : ''}">
       ${confirming ? `
         <div class="eq-confirm-bar">
           <span>"${esc(p.title)}" 삭제할까요?</span>
@@ -1179,7 +1193,7 @@ function sharedRowHtml(p) {
       <div class="proj-row-note" ${!GUEST_MODE ? `contenteditable="true" data-role="shared-notes-inline" data-id="${p.id}" onclick="event.stopPropagation()"` : ''}>${esc(p.notes) || ''}</div>
       <div class="proj-row-actions-cell">
         <span class="proj-row-chevron">›</span>
-        ${!GUEST_MODE ? `<span class="proj-row-actions"><button class="eq-icon-btn" data-action="shared-open-edit" data-id="${p.id}">✎</button><button class="eq-icon-btn" data-action="shared-confirm-delete" data-id="${p.id}">✕</button></span>` : ''}
+        ${!GUEST_MODE ? `<span class="proj-row-actions"><button class="eq-icon-btn" title="순서 변경(드래그)" draggable="true" data-drag-row-id="${p.id}" onclick="event.stopPropagation()">⠿</button><button class="eq-icon-btn" title="복제" data-action="shared-duplicate" data-id="${p.id}">⧉</button><button class="eq-icon-btn" data-action="shared-open-edit" data-id="${p.id}">✎</button><button class="eq-icon-btn" data-action="shared-confirm-delete" data-id="${p.id}">✕</button></span>` : ''}
       </div>
     </div>`;
 }
@@ -1224,12 +1238,6 @@ function renderSharedProjectsTab() {
   };
   const breadcrumb = sharedBreadcrumb(parentId);
   return `
-    ${breadcrumb.length ? `
-      <div class="proj-breadcrumb">
-        <button data-action="shared-go-parent" data-id="">전체 공유 프로젝트</button>
-        ${breadcrumb.map((b, i) => `<span>/</span>${i === breadcrumb.length - 1 ? `<b>${esc(b.title)}</b>` : `<button data-action="shared-go-parent" data-id="${b.id}">${esc(b.title)}</button>`}`).join('')}
-      </div>` : ''}
-    ${parent ? sharedParentSummaryHtml(parent) : ''}
     <div class="eq-header">
       <div class="eq-title-block"><h1 class="eq-title">${parent ? esc(parent.title) : '공유 프로젝트'}</h1><div class="eq-stat">진행중 <b>${counts.doing}</b> / 전체 <b>${counts.all}</b></div></div>
       ${!GUEST_MODE ? `<button class="eq-add-btn" data-action="shared-open-add">+ 새 공유 프로젝트</button>` : ''}
@@ -1243,6 +1251,12 @@ function renderSharedProjectsTab() {
       </div>
       <button class="eq-chip active" style="margin-left:auto; cursor:default;">마감일순</button>
     </div>
+    ${breadcrumb.length ? `
+      <div class="proj-breadcrumb">
+        <button data-action="shared-go-parent" data-id="">전체 공유 프로젝트</button>
+        ${breadcrumb.map((b, i) => `<span>/</span>${i === breadcrumb.length - 1 ? `<b>${esc(b.title)}</b>` : `<button data-action="shared-go-parent" data-id="${b.id}">${esc(b.title)}</button>`}`).join('')}
+      </div>` : ''}
+    ${parent ? sharedParentSummaryHtml(parent) : ''}
     <div id="sharedProjList">${sharedListHtml()}</div>
     ${sharedModalHtml()}
     ${sharedStatusMenuHtml()}
@@ -1876,6 +1890,16 @@ function bootApp() {
       /* projects */
       case 'proj-open-add': S.proj.editingId = null; S.proj.addStatus = id; S.proj.modalOpen = true; render(); break;
       case 'proj-open-edit': S.proj.editingId = id; S.proj.modalOpen = true; S.proj.rowMenu = null; render(); break;
+      case 'proj-duplicate': {
+        const src = projItems.find(p => p.id === id);
+        if (src) {
+          const copy = { ...src, id: uid(), serial: nextProjectSerial(projItems), createdAt: Date.now(), title: `${src.title} 복사본`, status: 'todo', dueDate: '' };
+          saveProjItems([copy, ...projItems]);
+          S.proj.rowMenu = null;
+          render();
+        }
+        break;
+      }
       case 'proj-close-modal': S.proj.modalOpen = false; S.proj.editingId = null; render(); break;
       case 'proj-close-modal-backdrop': if (!e.target.closest('[data-stop-close]')) { S.proj.modalOpen = false; S.proj.editingId = null; render(); } break;
       case 'proj-confirm-delete': S.proj.confirmDeleteId = id; S.proj.rowMenu = null; render(); break;
@@ -1927,6 +1951,17 @@ function bootApp() {
       /* shared projects */
       case 'shared-open-add': if (GUEST_MODE) return; S.shared.editingId = null; S.shared.modalOpen = true; render(); break;
       case 'shared-open-edit': if (GUEST_MODE) return; S.shared.editingId = id; S.shared.modalOpen = true; S.shared.rowMenu = null; render(); break;
+      case 'shared-duplicate': {
+        if (GUEST_MODE) return;
+        const src = sharedProjItems.find(p => p.id === id);
+        if (src) {
+          const copy = { ...src, id: uid(), serial: nextSharedSerial(sharedProjItems), createdAt: Date.now(), title: `${src.title} 복사본`, status: 'todo', dueDate: '', updatedBy: currentEditorName(), updatedAt: Date.now() };
+          saveSharedProjItems([copy, ...sharedProjItems]);
+          S.shared.rowMenu = null;
+          render();
+        }
+        break;
+      }
       case 'shared-close-modal': S.shared.modalOpen = false; S.shared.editingId = null; render(); break;
       case 'shared-close-modal-backdrop': if (!e.target.closest('[data-stop-close]')) { S.shared.modalOpen = false; S.shared.editingId = null; render(); } break;
       case 'shared-confirm-delete': if (GUEST_MODE) return; S.shared.confirmDeleteId = id; S.shared.rowMenu = null; render(); break;
@@ -2200,7 +2235,7 @@ function bootApp() {
       const fd = new FormData(form);
       const title = (fd.get('title') || '').toString().trim();
       if (!title) return;
-      const payload = { title, client: fd.get('client') || '', status: fd.get('status') || 'todo', type: fd.get('type') || '', dueDate: fd.get('dueDate') || '', notes: fd.get('notes') || '' };
+      const payload = { title, client: fd.get('client') || '', status: fd.get('status') || 'todo', type: fd.get('type') || '', color: fd.get('color') || '', dueDate: fd.get('dueDate') || '', notes: fd.get('notes') || '' };
       if (S.proj.editingId) saveProjItems(projItems.map(p => p.id === S.proj.editingId ? { ...p, ...payload } : p));
       else saveProjItems([{ id: uid(), serial: nextProjectSerial(projItems), createdAt: Date.now(), parentId: S.proj.currentParentId || null, ...payload }, ...projItems]);
       S.proj.modalOpen = false; S.proj.editingId = null;
@@ -2210,7 +2245,7 @@ function bootApp() {
       const fd = new FormData(form);
       const title = (fd.get('title') || '').toString().trim();
       if (!title) return;
-      const payload = { title, client: fd.get('client') || '', dueDate: fd.get('dueDate') || '', status: fd.get('status') || 'todo', link: fd.get('link') || '', notes: fd.get('notes') || '', updatedBy: currentEditorName(), updatedAt: Date.now() };
+      const payload = { title, client: fd.get('client') || '', dueDate: fd.get('dueDate') || '', status: fd.get('status') || 'todo', color: fd.get('color') || '', link: fd.get('link') || '', notes: fd.get('notes') || '', updatedBy: currentEditorName(), updatedAt: Date.now() };
       if (S.shared.editingId) saveSharedProjItems(sharedProjItems.map(p => p.id === S.shared.editingId ? { ...p, ...payload } : p));
       else saveSharedProjItems([{ id: uid(), serial: nextSharedSerial(sharedProjItems), createdAt: Date.now(), parentId: S.shared.currentParentId || null, ...payload }, ...sharedProjItems]);
       S.shared.modalOpen = false; S.shared.editingId = null;
@@ -2306,6 +2341,24 @@ function bootApp() {
       const overrides = { ...(shoot.bagOverrides || {}), [itemId]: targetBagId };
       saveShoots(shoots.map(s => s.id === shoot.id ? { ...s, bagOverrides: overrides } : s));
       refreshShootPackList();
+    } else if (zone.dataset.dropzone === 'proj-row') {
+      const draggedId = e.dataTransfer.getData('application/x-proj-row-id');
+      const targetId = zone.dataset.id;
+      if (!draggedId || draggedId === targetId) return;
+      const isShared = S.activeTab === 'shared';
+      const list = isShared ? sharedProjItems : projItems;
+      const dragged = list.find(p => p.id === draggedId);
+      const target = list.find(p => p.id === targetId);
+      if (!dragged || !target) return;
+      if ((dragged.parentId || null) !== (target.parentId || null)) return;
+      const rect = zone.getBoundingClientRect();
+      const before = (e.clientY - rect.top) < rect.height / 2;
+      const without = list.filter(p => p.id !== draggedId);
+      const targetIdx = without.findIndex(p => p.id === targetId);
+      const insertAt = before ? targetIdx : targetIdx + 1;
+      const next = [...without.slice(0, insertAt), dragged, ...without.slice(insertAt)];
+      if (isShared) saveSharedProjItems(next); else saveProjItems(next);
+      render();
     }
   });
   root.addEventListener('dragstart', (e) => {
@@ -2313,6 +2366,8 @@ function bootApp() {
     if (eqCard) { e.dataTransfer.setData('application/x-eq-id', eqCard.dataset.dragEqId); e.dataTransfer.effectAllowed = 'copyMove'; return; }
     const packRow = e.target.closest('[data-drag-pack-id]');
     if (packRow) { e.dataTransfer.setData('application/x-pack-id', packRow.dataset.dragPackId); e.dataTransfer.effectAllowed = 'move'; return; }
+    const projRow = e.target.closest('[data-drag-row-id]');
+    if (projRow) { e.dataTransfer.setData('application/x-proj-row-id', projRow.dataset.dragRowId); e.dataTransfer.effectAllowed = 'move'; return; }
   });
 
   /* paste image into equipment modal */
@@ -2502,6 +2557,8 @@ document.addEventListener('DOMContentLoaded', () => {
   .eq-card-actions { position:absolute; top:12px; right:12px; display:flex; gap:4px; opacity:0; transition:opacity .12s ease; z-index:2; }
   .eq-card:hover .eq-card-actions { opacity:1; }
   .eq-icon-btn { background:var(--surface-hover); border:1px solid var(--border); color:var(--text-dim); width:26px; height:26px; border-radius:6px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:12px; }
+  .eq-icon-btn[draggable="true"] { cursor:grab; }
+  .eq-icon-btn[draggable="true"]:active { cursor:grabbing; }
   .eq-icon-btn:hover { color:var(--text); border-color:var(--accent); }
   .eq-confirm-bar { position:absolute; inset:0; background:rgba(20,17,13,0.95); border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; z-index:3; }
   .eq-confirm-bar span { font-size:12.5px; color:var(--text-dim); }
@@ -2527,6 +2584,12 @@ document.addEventListener('DOMContentLoaded', () => {
   .eq-status-option { flex:1; min-width:70px; text-align:center; padding:8px 6px; border-radius:7px; border:1px solid var(--border); background:var(--bg); color:var(--text-dim); font-size:12px; cursor:pointer; font-family:var(--font-mono); display:block; }
   .eq-status-option input { position:absolute; opacity:0; pointer-events:none; }
   .eq-status-option:has(input:checked) { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .eq-color-swatches { display:flex; gap:9px; flex-wrap:wrap; }
+  .eq-color-swatch { width:26px; height:26px; border-radius:50%; cursor:pointer; position:relative; border:2px solid transparent; display:inline-block; }
+  .eq-color-swatch input { position:absolute; opacity:0; pointer-events:none; }
+  .eq-color-swatch:has(input:checked) { border-color:var(--text); box-shadow:0 0 0 2px var(--bg), 0 0 0 3px var(--text); }
+  .eq-color-swatch-none { background:var(--bg); border:1px dashed var(--border); }
+  .eq-color-swatch-none:has(input:checked) { border-style:solid; }
   .eq-modal-submit { width:100%; background:var(--accent); color:#0e0d0c; border:none; padding:11px; border-radius:8px; font-family:var(--font-body); font-size:14px; font-weight:700; cursor:pointer; margin-top:6px; }
   .eq-modal-submit:hover { filter: brightness(1.1); }
   .shoot-form-btn-row { display:flex; gap:8px; }
@@ -2612,7 +2675,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .proj-row { position:relative; display:grid; grid-template-columns:118px 1.6fr 140px 118px 1.3fr 56px; align-items:center; gap:16px; padding:13px 16px; border-bottom:1px solid var(--border); }
   .proj-row:last-child { border-bottom:none; }
   .proj-row:hover { background:var(--surface-hover); }
-  .proj-row:hover .proj-row-actions { opacity:1; }
+  .proj-row.drag-over { background:var(--accent-soft); box-shadow:inset 0 2px 0 var(--accent); }
   .proj-row-head { color:var(--text-faint); font-size:11px; font-weight:600; padding:11px 16px; }
   .proj-row-head:hover { background:none; }
   .proj-row-pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:600; white-space:nowrap; }

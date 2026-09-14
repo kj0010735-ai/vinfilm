@@ -33,7 +33,7 @@
 
 ## works/index.html 디자인 톤
 
-내부 앱도 공개 홈페이지와 같은 다크 웜톤(배경 `#0e0d0c`, 포인트 컬러 `#d98a3d`, Noto Sans KR 본문)을 쓴다 — `.app-shell`의 CSS 변수(`--bg`/`--accent`/`--font-body` 등)만 바꾸면 앱 전체에 적용되는 구조라 두 사이트 색이 어긋나지 않게 관리하기 쉽다. `--font-display`(Anton)는 한글을 지원하지 않는 폰트라 영문 라벨(예: "WORK MANAGEMENT" eyebrow, 코드/D-day 같은 영문·숫자)에만 쓰고, 한글 텍스트에는 절대 적용하지 말 것 — Anton은 한글을 렌더링하지 못해 그냥 폴백 폰트로 깨져 보인다.
+내부 앱도 공개 홈페이지와 같은 다크 웜톤(배경 `#0e0d0c`, 포인트 컬러 `#d98a3d`, Noto Sans KR 본문)을 쓴다 — 색/폰트 CSS 변수(`--bg`/`--accent`/`--font-body` 등)만 바꾸면 앱 전체에 적용되는 구조라 두 사이트 색이 어긋나지 않게 관리하기 쉽다. **이 변수들은 `:root`에 정의돼 있다(예전엔 `.app-shell`에 있었는데, 스케줄 모달을 전역 렌더로 옮기면서 `.app-shell` 밖에서도 필요해져 `:root`로 옮김 — 아래 "프로젝트 ↔ 스케줄 연동" 항목 참고). 새 색/폰트 변수도 반드시 `:root`에 추가할 것, `.app-shell`에 추가하면 그 바깥(전역 모달 등)에서 안 먹혀서 화면이 까맣게 보이는 버그가 재발한다.** `--font-display`(Anton)는 한글을 지원하지 않는 폰트라 영문 라벨(예: "WORK MANAGEMENT" eyebrow, 코드/D-day 같은 영문·숫자)에만 쓰고, 한글 텍스트에는 절대 적용하지 말 것 — Anton은 한글을 렌더링하지 못해 그냥 폴백 폰트로 깨져 보인다.
 
 **프로젝트 탭과 공유 프로젝트 탭 둘 다 칸반 보드가 아니라 같은 리스트형 게시판 UI**를 쓴다 (마감 임박순 정렬, 검색/상태 필터, `.proj-row`/`.proj-list`/`.proj-breadcrumb`/`.proj-parent-card`/`.proj-status-menu` 등 CSS 클래스를 두 탭이 공유). 로직은 각자 분리돼 있다 — 프로젝트는 `projItems`/`saveProjItems`/`PROJECT_COLUMNS`/`projRowHtml`, 공유 프로젝트는 `sharedProjItems`/`saveSharedProjItems`/`SHARED_STATUSES`/`sharedRowHtml`.
 
@@ -47,6 +47,9 @@
 - **스케줄 상세 안에서 촬영준비 체크리스트를 바로 체크할 수 있다**: `findShootForTitle()`로 스케줄 제목과 이름이 같은 `shoots` 항목을 찾아 연결한다(진짜 ID 연결이 아니라 이름 매칭이라 다소 허술함 — 이름을 바꾸면 연결이 끊긴다). 있으면 `shootPackListHtml()`을 그대로 재사용해 패킹 체크리스트를 임베드하고, 없으면 "🎒 촬영준비에서 만들기" 버튼만 보여준다. 이 재사용을 위해 패킹/회수 체크박스에 `data-shoot-id`를 추가해서 `S.shoot.selectedShootId`(촬영준비 탭 전용 상태)에 의존하지 않고 어느 화면에서 클릭해도 올바른 `shoots` 항목을 찾도록 일반화했다 — `shoot-set-mode`도 부분 갱신 대신 항상 `render()`로 바꿔서 스케줄 모달 안에서도 모드 전환이 반영되게 함. 단, 가방으로 드래그해서 옮기는 기능은 여전히 `S.shoot.selectedShootId` 기준이라 스케줄 상세에서는 동작하지 않음(체크박스만 동작).
 - **클라이언트 입력은 `<datalist>`로 자동완성된다**: `getKnownClients()`가 `projItems`+`sharedProjItems`에서 실제 쓰인 클라이언트 값을 모아 정렬해서 만든다 — 별도의 "클라이언트 목록"을 관리하는 화면은 없고, 그냥 한 번 입력해서 저장되면 다음부터 그 값이 자동으로 후보에 뜬다. 촬영준비 탭의 `shootType`(`list="shootTypeList"`)과 같은 방식.
 - **리스트 행에서 마감일/메모를 모달 없이 바로 수정 가능**: 마감은 `<input type="date" data-role="proj-due-inline">`(공유는 `shared-due-inline`, `change` 이벤트로 저장), 메모는 `contenteditable` `data-role="proj-notes-inline"`(공유는 `shared-notes-inline`, `focusout` 이벤트로 저장). 둘 다 행 전체의 `data-action="proj-drill-in"` 클릭을 가로채지 않도록 `onclick="event.stopPropagation()"`을 달아뒀다 — 이게 없으면 클릭이 버블링돼서 편집하려고 누른 게 하위 프로젝트로 드릴다운돼 버린다. 공유 프로젝트는 게스트 모드일 때 이 두 필드가 아예 읽기 전용 `<div>`로 렌더링된다(다른 쓰기 액션과 동일한 제한).
+- **레이아웃 순서**: breadcrumb + 상위 요약 카드는 헤더/툴바보다 아래, 리스트 바로 위에 렌더링된다(원래는 맨 위였는데 "리스트 바로 위가 낫다"는 피드백으로 옮김) — `renderProjectsTab`/`renderSharedProjectsTab`에서 순서: eyebrow → eq-header → eq-toolbar → breadcrumb → 상위 요약 카드 → 리스트.
+- **행 복제**: 액션 셀의 ⧉ 아이콘이나 행 우클릭 메뉴의 "⧉ 복제"로 그 항목을 복제한다(`proj-duplicate`/`shared-duplicate`). 제목에 " 복사본"을 붙이고 상태는 기본값으로, 마감일은 비움 — 클라이언트/메모/종류/parentId는 그대로 복사해서 반복적인 등록 작업(예: Lesson 1~N처럼 비슷한 항목 여러 개)을 빠르게 만들 수 있게 함.
+- **행 순서를 드래그로 바꿀 수 있다**: 액션 셀의 ⠿ 핸들 아이콘만 `draggable`이다(행 전체를 드래그 가능하게 하면 메모 `contenteditable`의 텍스트 선택 제스처와 충돌해서 핸들로 분리함). 드롭하면 대상 행의 위/아래 절반 중 어디에 놓였는지로 그 앞/뒤에 삽입한다(`data-dropzone="proj-row"`, `dragstart`/`drop` 리스너). **같은 `parentId`끼리만 순서가 바뀐다** — 다른 계층으로 드래그하면 조용히 무시됨. 정렬은 여전히 상태(완료가 맨 아래)·마감일 우선이라, 마감일이 없고 상태가 같은 항목들끼리에서만 이 드래그 순서가 화면에 그대로 반영된다(JS 배열 정렬이 stable이라 동점일 때 배열 순서를 유지하는 걸 이용한 것).
 
 ## works/index.html 로그인
 
