@@ -998,7 +998,7 @@ function projRowHtml(p) {
   if (dday && dday.urgent) { ddayColor = doneColor; ddayBg = doneColor + '26'; }
   else if (dday && dday.soon) { ddayColor = todoColor; ddayBg = todoColor + '26'; }
   return `
-    <div class="proj-row" data-action="proj-drill-in" data-id="${p.id}" data-row-menu-id="${p.id}" data-dropzone="proj-row" style="${p.color ? `border-left:3px solid ${p.color}; padding-left:13px;` : ''}">
+    <div class="proj-row ${S.proj.selectMode && S.proj.selectedIds.includes(p.id) ? 'selected' : ''}" data-action="proj-drill-in" data-id="${p.id}" data-row-menu-id="${p.id}" data-dropzone="proj-row" style="${p.color ? `border-left:3px solid ${p.color}; padding-left:13px;` : ''}">
       ${confirming ? `
         <div class="eq-confirm-bar">
           <span>"${esc(p.title)}" 삭제할까요?</span>
@@ -1195,7 +1195,7 @@ function sharedRowHtml(p) {
   if (dday && dday.urgent) { ddayColor = doneColor; ddayBg = doneColor + '26'; }
   else if (dday && dday.soon) { ddayColor = todoColor; ddayBg = todoColor + '26'; }
   return `
-    <div class="proj-row" data-action="shared-drill-in" data-id="${p.id}" ${!GUEST_MODE ? `data-shared-row-menu-id="${p.id}" data-dropzone="proj-row"` : ''} style="${p.color ? `border-left:3px solid ${p.color}; padding-left:13px;` : ''}">
+    <div class="proj-row ${!GUEST_MODE && S.shared.selectMode && S.shared.selectedIds.includes(p.id) ? 'selected' : ''}" data-action="shared-drill-in" data-id="${p.id}" ${!GUEST_MODE ? `data-shared-row-menu-id="${p.id}" data-dropzone="proj-row"` : ''} style="${p.color ? `border-left:3px solid ${p.color}; padding-left:13px;` : ''}">
       ${confirming ? `
         <div class="eq-confirm-bar">
           <span>"${esc(p.title)}" 삭제할까요?</span>
@@ -1947,6 +1947,13 @@ function bootApp() {
       case 'proj-delete': saveProjItems(projItems.filter(p => p.id !== id)); S.proj.confirmDeleteId = null; render(); break;
       case 'proj-set-status-filter': S.proj.statusFilter = id; render(); break;
       case 'proj-drill-in':
+        if (S.proj.selectMode) {
+          const cur = new Set(S.proj.selectedIds);
+          if (cur.has(id)) cur.delete(id); else cur.add(id);
+          S.proj.selectedIds = [...cur];
+          refreshProjList();
+          break;
+        }
         S.proj.currentParentId = id; S.proj.statusFilter = 'all'; S.proj.search = ''; S.proj.selectedIds = [];
         history.pushState({ projParentId: id }, '');
         render();
@@ -2032,6 +2039,13 @@ function bootApp() {
       case 'shared-delete': if (GUEST_MODE) return; saveSharedProjItems(sharedProjItems.filter(p => p.id !== id)); S.shared.confirmDeleteId = null; render(); break;
       case 'shared-set-status-filter': S.shared.statusFilter = id; render(); break;
       case 'shared-drill-in':
+        if (!GUEST_MODE && S.shared.selectMode) {
+          const cur = new Set(S.shared.selectedIds);
+          if (cur.has(id)) cur.delete(id); else cur.add(id);
+          S.shared.selectedIds = [...cur];
+          refreshSharedProjList();
+          break;
+        }
         S.shared.currentParentId = id; S.shared.statusFilter = 'all'; S.shared.search = ''; S.shared.selectedIds = [];
         history.pushState({ sharedParentId: id }, '');
         render();
@@ -2790,6 +2804,8 @@ document.addEventListener('DOMContentLoaded', () => {
   .proj-list.select-mode .proj-row { grid-template-columns:18px 20px 118px 1.6fr 140px 118px 1.3fr 24px; }
   .proj-row:last-child { border-bottom:none; }
   .proj-row:hover { background:var(--surface-hover); }
+  .proj-list.select-mode .proj-row:not(.proj-row-head) { cursor:pointer; }
+  .proj-row.selected, .proj-row.selected:hover { background:var(--accent-soft); }
   .proj-row.drag-over { background:var(--accent-soft); box-shadow:inset 0 2px 0 var(--accent); }
   .proj-row-head { color:var(--text-faint); font-size:11px; font-weight:600; padding:11px 16px; }
   .proj-row-head:hover { background:none; }
