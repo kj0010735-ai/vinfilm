@@ -2373,7 +2373,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <style>
   html, body { margin: 0; padding: 0; height: 100%; background: #0e0d0c; }
   #root { min-height: 100vh; }
-  .app-shell {
+  :root {
     --bg: #0e0d0c; --surface: #17140f; --surface-hover: #1d1913; --border: rgba(245,242,234,0.14);
     --text: #f5f2ea; --text-dim: #a8a49b; --text-faint: #79766f;
     --accent: #d98a3d; --accent-soft: rgba(217,138,61,0.14);
@@ -2382,6 +2382,12 @@ document.addEventListener('DOMContentLoaded', () => {
     --font-body: 'Noto Sans KR', 'Pretendard', 'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
     --font-display: 'Anton', sans-serif;
+  }
+  /* .eq-modal-overlay 계열(예: 스케줄 등록 모달)은 프로젝트 탭 등 다른 화면 위에서도 뜰 수 있게
+     .app-shell 밖(전역 render())에서도 렌더링된다 — 그래서 위 색상 변수들은 .app-shell이 아니라
+     :root에 둬야 한다. .app-shell 안에만 정의하면 그 바깥 요소는 변수를 못 받아 화면이 새까맣게 보인다
+     (실제로 그 버그가 있었음). */
+  .app-shell {
     display: flex; min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font-body);
   }
   .app-shell * { box-sizing: border-box; }
