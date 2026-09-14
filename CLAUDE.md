@@ -52,6 +52,8 @@
 
 - 새 컬렉션을 코드에서 쓰기 시작하면 **`firestore.rules`에도 반드시 해당 컬렉션의 allow 규칙을 추가하고 배포할 것.** 규칙이 없으면 그 컬렉션은 조용히 `permission-denied`로 막히고, 앱은 로컬 저장(localStorage)만으로 동작하는 것처럼 보여서 눈치채기 어렵다 (실제로 `sharedProjects`/`siteContent` 컬렉션을 규칙 없이 써서 한동안 클라우드 동기화가 안 되고 있었다).
 - Firestore 관련 문제가 생기면 브라우저 콘솔에서 `permission-denied` 에러부터 확인할 것 — 도메인/로컬호스트 문제가 아니라 대부분 규칙 누락이다.
+- **`vinfilm-studio-app`은 Standard 등급 Firestore라 자동 백업/시점 복구(PITR)가 없다.** 한 번 지워진 데이터는 서버 쪽에서 되돌릴 방법이 없으니, 실제 데이터가 걸린 컬렉션(특히 `sharedProjects`, `projects`처럼 게스트도 쓰는 것)에 테스트/더미 데이터를 넣는 작업은 각별히 조심할 것.
+- **`works/index.html`은 로컬(`localhost`/`127.0.0.1`/`file://`)로 열면 `IS_LOCAL_DEV`가 켜지면서 클라우드 동기화 자체가 꺼진다** (`initCloudSync()` 맨 위에서 조기 리턴, `window.cloudSyncReady`가 아예 안 켜짐 → `pushToCloud`가 항상 no-op). 실제 배포 도메인에서만 정상 동기화됨. 이건 안전장치이지 회피 수단이 아니다 — 예전에 `bootApp()`을 콘솔에서 직접 호출해 로그인 게이트를 우회하고 로컬 서버로 프로젝트/공유 프로젝트 탭을 테스트하다가, `saveProjItems`/`saveSharedProjItems`가 실제 운영 Firestore와 diff-sync(`pushToCloud`)를 태워서 실제 등록된 데이터를 지워버린 사고가 있었다 (로그인 여부와 무관하게 `initCloudSync()`가 켜졌고, `sharedProjects`는 `allow read, write: if true`라 막아주지도 않았음). 지금은 로컬에서 아무리 `saveXxxItems([])` 같은 걸 실행해도 `IS_LOCAL_DEV` 덕분에 localStorage만 바뀌고 실제 데이터는 안전하다 — 다만 이 안전장치를 믿고 방심하지 말고, 실제 배포 도메인에서 직접 확인해야 할 때는 되도록 읽기만 하고 쓰기 테스트는 피할 것.
 
 ## 외부 공유(guest) 모드 — works/index.html
 

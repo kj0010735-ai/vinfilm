@@ -210,6 +210,10 @@ const SHARED_STATUSES = [
 /* 외부인과 공유하는 링크는 index.html?guest=1 형태로 접속 — 장비목록/공유 프로젝트 탭만 노출된다. */
 const GUEST_MODE = new URLSearchParams(location.search).get('guest') === '1';
 const GUEST_ALLOWED_TABS = ['equipment', 'shared'];
+/* 로컬(localhost/127.0.0.1)로 열었을 때는 실제 운영 Firestore를 절대 건드리지 않는다 —
+   테스트하다가 실수로 실제 데이터를 지운 사고가 있어서, 로컬에서는 클라우드 동기화 자체를
+   끄고 localStorage만으로 동작하게 함. 실제 배포 도메인에서는 정상적으로 동기화됨. */
+const IS_LOCAL_DEV = ['localhost', '127.0.0.1', ''].includes(location.hostname) || location.protocol === 'file:';
 const LS_ITEMS = 'eq-manager-items';
 const LS_CATEGORIES = 'eq-manager-categories';
 const LS_SCHEDULE = 'eq-manager-schedule';
@@ -379,6 +383,10 @@ function showLoginGate() {
 function logout() { firebase.auth().signOut(); }
 
 function initCloudSync() {
+  if (IS_LOCAL_DEV) {
+    console.warn('로컬 환경(localhost/file://)이라 클라우드 동기화를 켜지 않았어요 — localStorage만으로 동작합니다. 실제 운영 데이터는 안전해요.');
+    return;
+  }
   if (typeof firebase === 'undefined') {
     console.warn('Firebase SDK를 불러오지 못했어요 (인터넷 연결 확인). 로컬 저장 모드로 계속 동작합니다.');
     return;
