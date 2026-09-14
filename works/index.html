@@ -199,6 +199,11 @@ const PROJECT_TYPES = [
   { id: 'etc', label: '기타', icon: '' },
 ];
 function projectTypeOf(id) { return PROJECT_TYPES.find(t => t.id === id) || null; }
+function getKnownClients() {
+  const set = new Set();
+  [...projItems, ...sharedProjItems].forEach(p => { if (p.client && p.client.trim()) set.add(p.client.trim()); });
+  return [...set].sort((a, b) => a.localeCompare(b, 'ko'));
+}
 const NAV_ITEMS = [
   { id: 'today', icon: '🎬', label: '오늘 할 일' },
   { id: 'equipment', icon: '🎥', label: '장비목록' },
@@ -887,7 +892,7 @@ function projModalHtml() {
         <div class="eq-modal-head"><h2>${editing ? '프로젝트 수정' : '새 프로젝트 등록'}</h2><button class="eq-modal-close" data-action="proj-close-modal">✕</button></div>
         <form data-form-role="proj-form">
           <div class="eq-field"><label>프로젝트명</label><input name="title" autofocus value="${esc(f.title)}" placeholder="예: OO 브랜드 홍보영상" required /></div>
-          <div class="eq-field"><label>클라이언트 / 부제</label><input name="client" value="${esc(f.client)}" placeholder="예: OO컴퍼니" /></div>
+          <div class="eq-field"><label>클라이언트 / 부제</label><input name="client" list="clientList" value="${esc(f.client)}" placeholder="예: OO컴퍼니" /><datalist id="clientList">${getKnownClients().map(c => `<option value="${esc(c)}"></option>`).join('')}</datalist></div>
           <div class="eq-field"><label>종류</label>
             <div style="display:flex; gap:8px;">
               <label class="eq-status-option">
@@ -996,10 +1001,10 @@ function projRowHtml(p) {
       <div><div class="proj-row-title">${ptype ? `<span title="${ptype.label}">${ptype.icon}</span> ` : ''}${esc(p.title)}${childCount ? `<span class="proj-row-child-badge">${childCount}</span>` : ''}</div><div class="proj-row-code">${esc(p.serial)}</div></div>
       <div class="proj-row-client">${esc(p.client) || '—'}</div>
       <div>
-        <div class="proj-row-due">${p.dueDate ? esc(p.dueDate) : '—'}</div>
+        <input type="date" class="proj-row-due-input" value="${esc(p.dueDate || '')}" data-role="proj-due-inline" data-id="${p.id}" onclick="event.stopPropagation()" />
         ${dday ? `<div class="proj-row-dday" style="background:${ddayBg}; color:${ddayColor};">${dday.text}</div>` : ''}
       </div>
-      <div class="proj-row-note">${esc(p.notes) || ''}</div>
+      <div class="proj-row-note" contenteditable="true" data-role="proj-notes-inline" data-id="${p.id}" onclick="event.stopPropagation()">${esc(p.notes) || ''}</div>
       <div class="proj-row-actions-cell">
         <span class="proj-row-chevron">›</span>
         <span class="proj-row-actions"><button class="eq-icon-btn" data-action="proj-open-edit" data-id="${p.id}">✎</button><button class="eq-icon-btn" data-action="proj-confirm-delete" data-id="${p.id}">✕</button></span>
@@ -1086,7 +1091,7 @@ function sharedModalHtml() {
         <div class="eq-modal-head"><h2>${editing ? '공유 프로젝트 수정' : '새 공유 프로젝트'}</h2><button class="eq-modal-close" data-action="shared-close-modal">✕</button></div>
         <form data-form-role="shared-form">
           <div class="eq-field"><label>프로젝트명</label><input name="title" autofocus value="${esc(f.title)}" placeholder="예: OO 브랜드 홍보영상" required /></div>
-          <div class="eq-field"><label>클라이언트 / 협업자</label><input name="client" value="${esc(f.client)}" placeholder="예: OO컴퍼니" /></div>
+          <div class="eq-field"><label>클라이언트 / 협업자</label><input name="client" list="clientList" value="${esc(f.client)}" placeholder="예: OO컴퍼니" /><datalist id="clientList">${getKnownClients().map(c => `<option value="${esc(c)}"></option>`).join('')}</datalist></div>
           <div class="eq-field"><label>마감일</label><input type="date" name="dueDate" value="${esc(f.dueDate)}" /></div>
           <div class="eq-field"><label>상태</label>
             <select name="status">${SHARED_STATUSES.map(s => `<option value="${s.id}" ${f.status===s.id?'selected':''}>${s.label}</option>`).join('')}</select>
@@ -1166,10 +1171,12 @@ function sharedRowHtml(p) {
       <div><div class="proj-row-title">${esc(p.title)}${childCount ? `<span class="proj-row-child-badge">${childCount}</span>` : ''}</div><div class="proj-row-code">${esc(p.serial)}</div></div>
       <div class="proj-row-client">${esc(p.client) || '—'}</div>
       <div>
-        <div class="proj-row-due">${p.dueDate ? esc(p.dueDate) : '—'}</div>
+        ${!GUEST_MODE
+          ? `<input type="date" class="proj-row-due-input" value="${esc(p.dueDate || '')}" data-role="shared-due-inline" data-id="${p.id}" onclick="event.stopPropagation()" />`
+          : `<div class="proj-row-due">${p.dueDate ? esc(p.dueDate) : '—'}</div>`}
         ${dday ? `<div class="proj-row-dday" style="background:${ddayBg}; color:${ddayColor};">${dday.text}</div>` : ''}
       </div>
-      <div class="proj-row-note">${esc(p.notes) || ''}</div>
+      <div class="proj-row-note" ${!GUEST_MODE ? `contenteditable="true" data-role="shared-notes-inline" data-id="${p.id}" onclick="event.stopPropagation()"` : ''}>${esc(p.notes) || ''}</div>
       <div class="proj-row-actions-cell">
         <span class="proj-row-chevron">›</span>
         ${!GUEST_MODE ? `<span class="proj-row-actions"><button class="eq-icon-btn" data-action="shared-open-edit" data-id="${p.id}">✎</button><button class="eq-icon-btn" data-action="shared-confirm-delete" data-id="${p.id}">✕</button></span>` : ''}
@@ -2085,6 +2092,16 @@ function bootApp() {
 
   /* checkboxes: allDay, photo file, ics import, shoot confirm/pack toggles */
   root.addEventListener('change', (e) => {
+    if (e.target.dataset && e.target.dataset.role === 'proj-due-inline') {
+      const id = e.target.dataset.id;
+      saveProjItems(projItems.map(p => p.id === id ? { ...p, dueDate: e.target.value } : p));
+      refreshProjList();
+    }
+    if (e.target.dataset && e.target.dataset.role === 'shared-due-inline') {
+      const id = e.target.dataset.id;
+      saveSharedProjItems(sharedProjItems.map(p => p.id === id ? { ...p, dueDate: e.target.value } : p));
+      refreshSharedProjList();
+    }
     if (e.target.id === 'todayMonthPicker') {
       if (e.target.value) { S.today.month = e.target.value; render(); }
     }
@@ -2127,6 +2144,20 @@ function bootApp() {
       if (e.target.checked) cur.add(itemId); else cur.delete(itemId);
       saveShoots(shoots.map(s => s.id === shoot.id ? { ...s, [key]: [...cur] } : s));
       if (S.activeTab === 'shootprep') refreshShootPackList(); else render();
+    }
+  });
+
+  /* 프로젝트/공유 프로젝트 목록에서 메모를 행 안에서 바로 수정(contenteditable) — 포커스 잃을 때 저장 */
+  root.addEventListener('focusout', (e) => {
+    if (e.target.dataset && e.target.dataset.role === 'proj-notes-inline') {
+      const id = e.target.dataset.id;
+      const notes = e.target.textContent.trim();
+      saveProjItems(projItems.map(p => p.id === id ? { ...p, notes } : p));
+    }
+    if (e.target.dataset && e.target.dataset.role === 'shared-notes-inline') {
+      const id = e.target.dataset.id;
+      const notes = e.target.textContent.trim();
+      saveSharedProjItems(sharedProjItems.map(p => p.id === id ? { ...p, notes } : p));
     }
   });
 
@@ -2590,8 +2621,15 @@ document.addEventListener('DOMContentLoaded', () => {
   .proj-row-code { font-size:10.5px; color:var(--text-faint); letter-spacing:0.03em; margin-top:2px; }
   .proj-row-client { font-size:12.5px; color:var(--text-dim); }
   .proj-row-due { font-size:12.5px; color:var(--text-dim); }
+  .proj-row-due-input { width:100%; background:none; border:1px solid transparent; border-radius:5px; color:var(--text-dim); font-family:var(--font-body); font-size:12.5px; padding:3px 4px; margin:-3px -4px; cursor:pointer; }
+  .proj-row-due-input:hover { border-color:var(--border); }
+  .proj-row-due-input:focus { border-color:var(--accent); color:var(--text); background:var(--surface); cursor:text; outline:none; }
+  .proj-row-due-input::-webkit-calendar-picker-indicator { filter:invert(0.7); cursor:pointer; }
   .proj-row-dday { display:inline-block; margin-top:3px; font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:5px; }
-  .proj-row-note { font-size:12.5px; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .proj-row-note { font-size:12.5px; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border-radius:5px; padding:3px 4px; margin:-3px -4px; }
+  .proj-row-note[contenteditable] { cursor:text; }
+  .proj-row-note[contenteditable]:hover { background:var(--surface-hover); }
+  .proj-row-note[contenteditable]:focus { outline:1px solid var(--accent); background:var(--surface); white-space:normal; overflow:visible; position:relative; z-index:1; }
   .proj-row-child-badge { display:inline-block; margin-left:7px; font-size:10px; font-weight:700; color:var(--text-dim); background:var(--border); border-radius:999px; padding:1px 6px; vertical-align:middle; }
   .proj-row-actions-cell { position:relative; display:flex; align-items:center; justify-content:flex-end; min-height:20px; }
   .proj-row-chevron { font-size:16px; color:var(--text-faint); transition:opacity .12s ease; }
