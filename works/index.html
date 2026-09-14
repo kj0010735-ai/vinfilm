@@ -1035,15 +1035,17 @@ function projListHtml() {
     if (!b.dueDate) return -1;
     return a.dueDate.localeCompare(b.dueDate);
   });
+  const addBtn = `<button class="proj-list-add-btn" data-action="proj-open-add" data-id="todo">+ 새 프로젝트 추가</button>`;
   if (items.length === 0) {
-    const msg = (q || S.proj.statusFilter !== 'all') ? '조건에 맞는 프로젝트가 없어요' : (parentId ? '하위 프로젝트가 없어요<br/>+ 버튼으로 추가해보세요' : '등록된 프로젝트가 없어요<br/>+ 버튼으로 추가해보세요');
-    return `<div class="proj-empty">${msg}</div>`;
+    const msg = (q || S.proj.statusFilter !== 'all') ? '조건에 맞는 프로젝트가 없어요' : (parentId ? '하위 프로젝트가 없어요' : '등록된 프로젝트가 없어요');
+    return `<div class="proj-empty">${msg}</div>${addBtn}`;
   }
   return `
     <div class="proj-list">
       <div class="proj-row proj-row-head"><div>상태</div><div>프로젝트</div><div>클라이언트</div><div>마감</div><div>메모</div><div></div></div>
       ${items.map(projRowHtml).join('')}
-    </div>`;
+    </div>
+    ${addBtn}`;
 }
 function refreshProjList() { const el = document.getElementById('projList'); if (el) el.innerHTML = projListHtml(); }
 function renderProjectsTab() {
@@ -1214,15 +1216,17 @@ function sharedListHtml() {
     if (!b.dueDate) return -1;
     return a.dueDate.localeCompare(b.dueDate);
   });
+  const addBtn = !GUEST_MODE ? `<button class="proj-list-add-btn" data-action="shared-open-add">+ 새 공유 프로젝트 추가</button>` : '';
   if (items.length === 0) {
-    const msg = (q || S.shared.statusFilter !== 'all') ? '조건에 맞는 프로젝트가 없어요' : (parentId ? '하위 프로젝트가 없어요' + (!GUEST_MODE ? '<br/>+ 버튼으로 추가해보세요' : '') : '등록된 공유 프로젝트가 없어요' + (!GUEST_MODE ? '<br/>+ 버튼으로 추가해보세요' : ''));
-    return `<div class="proj-empty">${msg}</div>`;
+    const msg = (q || S.shared.statusFilter !== 'all') ? '조건에 맞는 프로젝트가 없어요' : (parentId ? '하위 프로젝트가 없어요' : '등록된 공유 프로젝트가 없어요');
+    return `<div class="proj-empty">${msg}</div>${addBtn}`;
   }
   return `
     <div class="proj-list">
       <div class="proj-row proj-row-head"><div>상태</div><div>프로젝트</div><div>클라이언트</div><div>마감</div><div>메모</div><div></div></div>
       ${items.map(sharedRowHtml).join('')}
-    </div>`;
+    </div>
+    ${addBtn}`;
 }
 function refreshSharedProjList() { const el = document.getElementById('sharedProjList'); if (el) el.innerHTML = sharedListHtml(); }
 function renderSharedProjectsTab() {
@@ -2669,6 +2673,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   .proj-due-today-badge { font-family:var(--font-mono); font-size:10px; font-weight:700; color:#d9534f; border:1px solid #d9534f; border-radius:4px; padding:1px 6px; margin-left:6px; }
   .proj-empty { text-align:center; color:var(--text-faint); font-size:12px; padding:24px 8px; }
+  .proj-list-add-btn { display:flex; align-items:center; justify-content:center; gap:6px; width:100%; margin-top:10px; padding:11px 16px; background:none; border:1px dashed var(--border); border-radius:6px; color:var(--text-faint); font-family:var(--font-body); font-size:12.5px; font-weight:600; cursor:pointer; }
+  .proj-list-add-btn:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
 
   .proj-eyebrow { font-family:var(--font-display); font-size:11px; letter-spacing:2px; color:var(--text-faint); margin-bottom:8px; }
   .proj-list { background:var(--surface); border:1px solid var(--border); border-radius:6px; overflow:hidden; }
