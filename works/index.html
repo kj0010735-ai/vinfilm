@@ -248,8 +248,8 @@ const S = {
   activeTab: GUEST_MODE ? 'equipment' : 'today',
   eq: { search: '', categoryFilter: 'all', statusFilter: 'all', sortBy: 'recent', sortOpen: false, modalOpen: false, editingId: null, confirmDeleteId: null, categoryModalOpen: false, detailId: null },
   sched: { search: '', categoryFilter: 'all', showPast: false, modalOpen: false, editingId: null, confirmDeleteId: null, importMsg: '', detailId: null },
-  proj: { modalOpen: false, editingId: null, confirmDeleteId: null, addStatus: 'todo', search: '', statusFilter: 'all', currentParentId: null, statusMenu: null },
-  shared: { modalOpen: false, editingId: null, confirmDeleteId: null, search: '', statusFilter: 'all', currentParentId: null, statusMenu: null },
+  proj: { modalOpen: false, editingId: null, confirmDeleteId: null, addStatus: 'todo', search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null },
+  shared: { modalOpen: false, editingId: null, confirmDeleteId: null, search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null },
   shoot: { formOpen: false, editingParamsId: null, selectedShootId: null, mode: 'pack', confirmDeleteShootId: null, confirmDeletePresetId: null, applyPresetId: null },
   task: { modalOpen: false, editingId: null, confirmDeleteId: null },
   note: { modalOpen: false, editingId: null, confirmDeleteId: null },
@@ -885,6 +885,16 @@ function projStatusMenuHtml() {
       ${PROJECT_COLUMNS.map(col => `<button data-action="proj-set-status" data-id="${m.id}" data-status="${col.id}"><span class="proj-row-dot" style="background:${col.color};"></span>${col.label}</button>`).join('')}
     </div>`;
 }
+function projRowMenuHtml() {
+  const m = S.proj.rowMenu;
+  if (!m) return '';
+  return `
+    <div class="proj-status-menu-backdrop" data-action="proj-close-row-menu"></div>
+    <div class="proj-status-menu" style="left:${m.x}px; top:${m.y}px;" data-stop-close>
+      <button data-action="proj-open-edit" data-id="${m.id}">✎ 수정</button>
+      <button data-action="proj-confirm-delete" data-id="${m.id}">✕ 삭제</button>
+    </div>`;
+}
 function projParentSummaryHtml(p) {
   const col = PROJECT_COLUMNS.find(c => c.id === p.status) || PROJECT_COLUMNS[0];
   const isDueToday = p.dueDate === todayStr();
@@ -922,7 +932,7 @@ function projRowHtml(p) {
   if (dday && dday.urgent) { ddayColor = doneColor; ddayBg = doneColor + '26'; }
   else if (dday && dday.soon) { ddayColor = todoColor; ddayBg = todoColor + '26'; }
   return `
-    <div class="proj-row" data-action="proj-drill-in" data-id="${p.id}">
+    <div class="proj-row" data-action="proj-drill-in" data-id="${p.id}" data-row-menu-id="${p.id}">
       ${confirming ? `
         <div class="eq-confirm-bar">
           <span>"${esc(p.title)}" 삭제할까요?</span>
@@ -1005,6 +1015,7 @@ function renderProjectsTab() {
     <div id="projList">${projListHtml()}</div>
     ${projModalHtml()}
     ${projStatusMenuHtml()}
+    ${projRowMenuHtml()}
   `;
 }
 
@@ -1048,6 +1059,16 @@ function sharedStatusMenuHtml() {
       ${SHARED_STATUSES.map(st => `<button data-action="shared-set-status" data-id="${m.id}" data-status="${st.id}"><span class="proj-row-dot" style="background:${st.color};"></span>${st.label}</button>`).join('')}
     </div>`;
 }
+function sharedRowMenuHtml() {
+  const m = S.shared.rowMenu;
+  if (!m) return '';
+  return `
+    <div class="proj-status-menu-backdrop" data-action="shared-close-row-menu"></div>
+    <div class="proj-status-menu" style="left:${m.x}px; top:${m.y}px;" data-stop-close>
+      <button data-action="shared-open-edit" data-id="${m.id}">✎ 수정</button>
+      <button data-action="shared-confirm-delete" data-id="${m.id}">✕ 삭제</button>
+    </div>`;
+}
 function sharedParentSummaryHtml(p) {
   const st = sharedStatusOf(p.status);
   const isDueToday = p.dueDate === todayStr();
@@ -1081,7 +1102,7 @@ function sharedRowHtml(p) {
   if (dday && dday.urgent) { ddayColor = doneColor; ddayBg = doneColor + '26'; }
   else if (dday && dday.soon) { ddayColor = todoColor; ddayBg = todoColor + '26'; }
   return `
-    <div class="proj-row" data-action="shared-drill-in" data-id="${p.id}">
+    <div class="proj-row" data-action="shared-drill-in" data-id="${p.id}" ${!GUEST_MODE ? `data-shared-row-menu-id="${p.id}"` : ''}>
       ${confirming ? `
         <div class="eq-confirm-bar">
           <span>"${esc(p.title)}" 삭제할까요?</span>
@@ -1164,6 +1185,7 @@ function renderSharedProjectsTab() {
     <div id="sharedProjList">${sharedListHtml()}</div>
     ${sharedModalHtml()}
     ${sharedStatusMenuHtml()}
+    ${sharedRowMenuHtml()}
   `;
 }
 
@@ -1752,10 +1774,10 @@ function bootApp() {
 
       /* projects */
       case 'proj-open-add': S.proj.editingId = null; S.proj.addStatus = id; S.proj.modalOpen = true; render(); break;
-      case 'proj-open-edit': S.proj.editingId = id; S.proj.modalOpen = true; render(); break;
+      case 'proj-open-edit': S.proj.editingId = id; S.proj.modalOpen = true; S.proj.rowMenu = null; render(); break;
       case 'proj-close-modal': S.proj.modalOpen = false; S.proj.editingId = null; render(); break;
       case 'proj-close-modal-backdrop': if (!e.target.closest('[data-stop-close]')) { S.proj.modalOpen = false; S.proj.editingId = null; render(); } break;
-      case 'proj-confirm-delete': S.proj.confirmDeleteId = id; render(); break;
+      case 'proj-confirm-delete': S.proj.confirmDeleteId = id; S.proj.rowMenu = null; render(); break;
       case 'proj-cancel-delete': S.proj.confirmDeleteId = null; render(); break;
       case 'proj-delete': saveProjItems(projItems.filter(p => p.id !== id)); S.proj.confirmDeleteId = null; render(); break;
       case 'proj-set-status-filter': S.proj.statusFilter = id; render(); break;
@@ -1770,6 +1792,7 @@ function bootApp() {
         render();
         break;
       case 'proj-close-status-menu': S.proj.statusMenu = null; render(); break;
+      case 'proj-close-row-menu': S.proj.rowMenu = null; render(); break;
       case 'proj-set-status': {
         const status = el.dataset.status;
         saveProjItems(projItems.map(p => p.id === id ? { ...p, status } : p));
@@ -1796,10 +1819,10 @@ function bootApp() {
 
       /* shared projects */
       case 'shared-open-add': if (GUEST_MODE) return; S.shared.editingId = null; S.shared.modalOpen = true; render(); break;
-      case 'shared-open-edit': if (GUEST_MODE) return; S.shared.editingId = id; S.shared.modalOpen = true; render(); break;
+      case 'shared-open-edit': if (GUEST_MODE) return; S.shared.editingId = id; S.shared.modalOpen = true; S.shared.rowMenu = null; render(); break;
       case 'shared-close-modal': S.shared.modalOpen = false; S.shared.editingId = null; render(); break;
       case 'shared-close-modal-backdrop': if (!e.target.closest('[data-stop-close]')) { S.shared.modalOpen = false; S.shared.editingId = null; render(); } break;
-      case 'shared-confirm-delete': if (GUEST_MODE) return; S.shared.confirmDeleteId = id; render(); break;
+      case 'shared-confirm-delete': if (GUEST_MODE) return; S.shared.confirmDeleteId = id; S.shared.rowMenu = null; render(); break;
       case 'shared-cancel-delete': S.shared.confirmDeleteId = null; render(); break;
       case 'shared-delete': if (GUEST_MODE) return; saveSharedProjItems(sharedProjItems.filter(p => p.id !== id)); S.shared.confirmDeleteId = null; render(); break;
       case 'shared-set-status-filter': S.shared.statusFilter = id; render(); break;
@@ -1814,6 +1837,7 @@ function bootApp() {
         render();
         break;
       case 'shared-close-status-menu': S.shared.statusMenu = null; render(); break;
+      case 'shared-close-row-menu': S.shared.rowMenu = null; render(); break;
       case 'shared-set-status': {
         if (GUEST_MODE) return;
         const status = el.dataset.status;
@@ -1918,12 +1942,16 @@ function bootApp() {
     }
   });
 
-  /* 프로젝트/공유 프로젝트 상태 배지 우클릭 → 빠른 상태 변경 메뉴 */
+  /* 프로젝트/공유 프로젝트: 상태 배지 우클릭 → 빠른 상태 변경, 행 우클릭 → 수정/삭제 메뉴 */
   root.addEventListener('contextmenu', (e) => {
     const pill = e.target.closest('[data-status-menu-id]');
     if (pill) { e.preventDefault(); S.proj.statusMenu = { id: pill.dataset.statusMenuId, x: e.clientX, y: e.clientY }; render(); return; }
     const sharedPill = e.target.closest('[data-shared-status-menu-id]');
     if (sharedPill) { e.preventDefault(); S.shared.statusMenu = { id: sharedPill.dataset.sharedStatusMenuId, x: e.clientX, y: e.clientY }; render(); return; }
+    const row = e.target.closest('[data-row-menu-id]');
+    if (row) { e.preventDefault(); S.proj.rowMenu = { id: row.dataset.rowMenuId, x: e.clientX, y: e.clientY }; render(); return; }
+    const sharedRow = e.target.closest('[data-shared-row-menu-id]');
+    if (sharedRow) { e.preventDefault(); S.shared.rowMenu = { id: sharedRow.dataset.sharedRowMenuId, x: e.clientX, y: e.clientY }; render(); return; }
   });
 
   /* text search (targeted refresh, no full render → keeps focus) */
@@ -2181,6 +2209,10 @@ function bootApp() {
     if (S.sched.detailId) { S.sched.detailId = null; changed = true; }
     if (S.proj.modalOpen) { S.proj.modalOpen = false; S.proj.editingId = null; changed = true; }
     if (S.proj.statusMenu) { S.proj.statusMenu = null; changed = true; }
+    if (S.proj.rowMenu) { S.proj.rowMenu = null; changed = true; }
+    if (S.shared.modalOpen) { S.shared.modalOpen = false; S.shared.editingId = null; changed = true; }
+    if (S.shared.statusMenu) { S.shared.statusMenu = null; changed = true; }
+    if (S.shared.rowMenu) { S.shared.rowMenu = null; changed = true; }
     if (S.shoot.formOpen) { S.shoot.formOpen = false; S.shoot.editingParamsId = null; S.shoot.applyPresetId = null; changed = true; }
     if (S.task.modalOpen) { S.task.modalOpen = false; S.task.editingId = null; changed = true; }
     if (S.note.modalOpen) { S.note.modalOpen = false; S.note.editingId = null; changed = true; }
