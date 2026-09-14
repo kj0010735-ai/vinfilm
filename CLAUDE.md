@@ -35,10 +35,11 @@
 
 내부 앱도 공개 홈페이지와 같은 다크 웜톤(배경 `#0e0d0c`, 포인트 컬러 `#d98a3d`, Noto Sans KR 본문)을 쓴다 — `.app-shell`의 CSS 변수(`--bg`/`--accent`/`--font-body` 등)만 바꾸면 앱 전체에 적용되는 구조라 두 사이트 색이 어긋나지 않게 관리하기 쉽다. `--font-display`(Anton)는 한글을 지원하지 않는 폰트라 영문 라벨(예: "WORK MANAGEMENT" eyebrow, 코드/D-day 같은 영문·숫자)에만 쓰고, 한글 텍스트에는 절대 적용하지 말 것 — Anton은 한글을 렌더링하지 못해 그냥 폴백 폰트로 깨져 보인다.
 
-**프로젝트 탭은 칸반 보드가 아니라 리스트형 게시판**이다 (마감 임박순 정렬, 검색/상태 필터). "공유 프로젝트" 탭(`sharedCardHtml`)은 이미 원래부터 리스트 형태였고 여기서 손대지 않았다 — `.proj-card`/`.proj-serial`/`.proj-title` 등은 공유 프로젝트 탭이 계속 쓰고 있으니 삭제하지 말 것.
+**프로젝트 탭과 공유 프로젝트 탭 둘 다 칸반 보드가 아니라 같은 리스트형 게시판 UI**를 쓴다 (마감 임박순 정렬, 검색/상태 필터, `.proj-row`/`.proj-list`/`.proj-breadcrumb`/`.proj-parent-card`/`.proj-status-menu` 등 CSS 클래스를 두 탭이 공유). 로직은 각자 분리돼 있다 — 프로젝트는 `projItems`/`saveProjItems`/`PROJECT_COLUMNS`/`projRowHtml`, 공유 프로젝트는 `sharedProjItems`/`saveSharedProjItems`/`SHARED_STATUSES`/`sharedRowHtml`.
 
-- **상태 변경 두 가지 경로**: ① 수정 모달의 라디오, ② 상태 배지 우클릭 → 빠른 변경 메뉴(`data-status-menu-id` + `contextmenu` 리스너, `S.proj.statusMenu`). 드래그로 상태를 바꾸던 옛 칸반 방식은 없앴다.
-- **프로젝트 안에 하위 프로젝트를 넣을 수 있다** (`parentId` 필드, 무제한 depth). 행을 클릭하면 그 프로젝트의 하위 목록으로 들어가고(`S.proj.currentParentId`), 상단에 breadcrumb과 상위 프로젝트 요약 카드(상태·메모·수정/삭제)가 뜬다. "+ 새 프로젝트"는 현재 보고 있는 depth의 하위 항목으로 생성된다. 상위 프로젝트를 삭제하면(`proj-confirm-delete-parent`) 모든 하위 항목이 연쇄 삭제된다.
+- **상태 변경 두 가지 경로**: ① 수정 모달(프로젝트는 라디오, 공유 프로젝트는 select), ② 상태 배지 우클릭 → 빠른 변경 메뉴 (프로젝트는 `data-status-menu-id`/`S.proj.statusMenu`, 공유 프로젝트는 `data-shared-status-menu-id`/`S.shared.statusMenu` — 같은 `contextmenu` 리스너 안에서 분기). 드래그로 상태를 바꾸던 옛 칸반 방식은 없앴다. 공유 프로젝트는 게스트 모드일 때 이 배지에 우클릭 트리거 자체가 안 붙는다.
+- **하위 프로젝트(무제한 depth)**: `parentId` 필드로 트리를 이룬다. 행을 클릭하면 그 항목의 하위 목록으로 들어가고(`S.proj.currentParentId` / `S.shared.currentParentId`), 상단에 breadcrumb과 상위 항목 요약 카드(상태·메모·링크(공유만)·수정/삭제)가 뜬다. "+ 새 프로젝트"는 현재 보고 있는 depth의 하위 항목으로 생성되고, 상위를 삭제하면(`proj-confirm-delete-parent`/`shared-confirm-delete-parent`) 모든 하위 항목이 연쇄 삭제된다.
+- **드릴다운은 `history.pushState`로 브라우저 히스토리에 쌓인다** (`{projParentId}` 또는 `{sharedParentId}` 상태 객체, `popstate`에서 둘 중 어느 키가 있는지로 구분해 복원). 이거 없으면 하위 프로젝트에 들어간 상태에서 마우스 뒤로가기를 눌렀을 때 앱을 완전히 벗어나 버린다 — 실제로 그 버그가 있었어서 추가한 것.
 
 ## works/index.html 로그인
 
