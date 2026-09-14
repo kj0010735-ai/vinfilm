@@ -264,8 +264,8 @@ const S = {
   eq: { search: '', categoryFilter: 'all', statusFilter: 'all', sortBy: 'recent', sortOpen: false, modalOpen: false, editingId: null, confirmDeleteId: null, categoryModalOpen: false, detailId: null },
   sched: { search: '', categoryFilter: 'all', showPast: false, modalOpen: false, editingId: null, confirmDeleteId: null, importMsg: '', detailId: null, linkProjectId: null },
   today: { viewMode: 'today', month: todayStr().slice(0, 7) },
-  proj: { modalOpen: false, editingId: null, confirmDeleteId: null, addStatus: 'todo', search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null },
-  shared: { modalOpen: false, editingId: null, confirmDeleteId: null, search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null },
+  proj: { modalOpen: false, editingId: null, confirmDeleteId: null, addStatus: 'todo', search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [] },
+  shared: { modalOpen: false, editingId: null, confirmDeleteId: null, search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [] },
   shoot: { formOpen: false, editingParamsId: null, selectedShootId: null, mode: 'pack', confirmDeleteShootId: null, confirmDeletePresetId: null, applyPresetId: null },
   task: { modalOpen: false, editingId: null, confirmDeleteId: null },
   note: { modalOpen: false, editingId: null, confirmDeleteId: null },
@@ -1004,6 +1004,7 @@ function projRowHtml(p) {
           <span>"${esc(p.title)}" 삭제할까요?</span>
           <div class="eq-confirm-actions"><button data-action="proj-cancel-delete">취소</button><button class="danger" data-action="proj-delete" data-id="${p.id}">삭제</button></div>
         </div>` : ''}
+      <div class="proj-row-check-cell"><input type="checkbox" class="proj-row-checkbox" data-role="proj-row-select" data-id="${p.id}" ${S.proj.selectedIds.includes(p.id) ? 'checked' : ''} onclick="event.stopPropagation()" /></div>
       <div class="proj-row-drag-cell"><span class="proj-row-drag-handle" title="순서 변경(드래그)" draggable="true" data-drag-row-id="${p.id}" onclick="event.stopPropagation()">⠿</span></div>
       <div><span class="proj-row-pill" data-status-menu-id="${p.id}" style="background:${col.color}26; color:${col.color};"><span class="proj-row-dot" style="background:${col.color};"></span>${col.label}</span></div>
       <div><div class="proj-row-title">${ptype ? `<span title="${ptype.label}">${ptype.icon}</span> ` : ''}${esc(p.title)}${childCount ? `<span class="proj-row-child-badge">${childCount}</span>` : ''}</div><div class="proj-row-code">${esc(p.serial)}</div></div>
@@ -1036,16 +1037,32 @@ function projListHtml() {
     return a.dueDate.localeCompare(b.dueDate);
   });
   const addBtn = `<button class="proj-list-add-btn" data-action="proj-open-add" data-id="todo">+ 새 프로젝트 추가</button>`;
+  const bulkBar = projBulkBarHtml();
   if (items.length === 0) {
     const msg = (q || S.proj.statusFilter !== 'all') ? '조건에 맞는 프로젝트가 없어요' : (parentId ? '하위 프로젝트가 없어요' : '등록된 프로젝트가 없어요');
-    return `<div class="proj-empty">${msg}</div>${addBtn}`;
+    return `${bulkBar}<div class="proj-empty">${msg}</div>${addBtn}`;
   }
+  const allChecked = items.every(p => S.proj.selectedIds.includes(p.id));
   return `
+    ${bulkBar}
     <div class="proj-list">
-      <div class="proj-row proj-row-head"><div></div><div>상태</div><div>프로젝트</div><div>클라이언트</div><div>마감</div><div>메모</div><div></div></div>
+      <div class="proj-row proj-row-head"><div><input type="checkbox" class="proj-row-checkbox" data-role="proj-select-all" data-ids="${items.map(p => p.id).join(',')}" ${allChecked ? 'checked' : ''} /></div><div></div><div>상태</div><div>프로젝트</div><div>클라이언트</div><div>마감</div><div>메모</div><div></div></div>
       ${items.map(projRowHtml).join('')}
     </div>
     ${addBtn}`;
+}
+function projBulkBarHtml() {
+  const n = S.proj.selectedIds.length;
+  if (n === 0) return '';
+  return `
+    <div class="proj-bulk-bar">
+      <span class="proj-bulk-count">${n}개 선택됨</span>
+      <div class="proj-bulk-actions">
+        ${PROJECT_COLUMNS.map(col => `<button data-action="proj-bulk-set-status" data-status="${col.id}"><span class="proj-row-dot" style="background:${col.color};"></span>${col.label}로 변경</button>`).join('')}
+        <button class="danger" data-action="proj-bulk-delete">삭제</button>
+      </div>
+      <button class="proj-bulk-clear" data-action="proj-clear-selection">선택 해제</button>
+    </div>`;
 }
 function refreshProjList() { const el = document.getElementById('projList'); if (el) el.innerHTML = projListHtml(); }
 function renderProjectsTab() {
@@ -1183,6 +1200,7 @@ function sharedRowHtml(p) {
           <span>"${esc(p.title)}" 삭제할까요?</span>
           <div class="eq-confirm-actions"><button data-action="shared-cancel-delete">취소</button><button class="danger" data-action="shared-delete" data-id="${p.id}">삭제</button></div>
         </div>` : ''}
+      <div class="proj-row-check-cell">${!GUEST_MODE ? `<input type="checkbox" class="proj-row-checkbox" data-role="shared-row-select" data-id="${p.id}" ${S.shared.selectedIds.includes(p.id) ? 'checked' : ''} onclick="event.stopPropagation()" />` : ''}</div>
       <div class="proj-row-drag-cell">${!GUEST_MODE ? `<span class="proj-row-drag-handle" title="순서 변경(드래그)" draggable="true" data-drag-row-id="${p.id}" onclick="event.stopPropagation()">⠿</span>` : ''}</div>
       <div><span class="proj-row-pill" ${!GUEST_MODE ? `data-shared-status-menu-id="${p.id}"` : ''} style="background:${st.color}26; color:${st.color};"><span class="proj-row-dot" style="background:${st.color};"></span>${st.label}</span></div>
       <div><div class="proj-row-title">${esc(p.title)}${childCount ? `<span class="proj-row-child-badge">${childCount}</span>` : ''}</div><div class="proj-row-code">${esc(p.serial)}</div></div>
@@ -1217,16 +1235,32 @@ function sharedListHtml() {
     return a.dueDate.localeCompare(b.dueDate);
   });
   const addBtn = !GUEST_MODE ? `<button class="proj-list-add-btn" data-action="shared-open-add">+ 새 공유 프로젝트 추가</button>` : '';
+  const bulkBar = !GUEST_MODE ? sharedBulkBarHtml() : '';
   if (items.length === 0) {
     const msg = (q || S.shared.statusFilter !== 'all') ? '조건에 맞는 프로젝트가 없어요' : (parentId ? '하위 프로젝트가 없어요' : '등록된 공유 프로젝트가 없어요');
-    return `<div class="proj-empty">${msg}</div>${addBtn}`;
+    return `${bulkBar}<div class="proj-empty">${msg}</div>${addBtn}`;
   }
+  const allChecked = !GUEST_MODE && items.every(p => S.shared.selectedIds.includes(p.id));
   return `
+    ${bulkBar}
     <div class="proj-list">
-      <div class="proj-row proj-row-head"><div></div><div>상태</div><div>프로젝트</div><div>클라이언트</div><div>마감</div><div>메모</div><div></div></div>
+      <div class="proj-row proj-row-head"><div>${!GUEST_MODE ? `<input type="checkbox" class="proj-row-checkbox" data-role="shared-select-all" data-ids="${items.map(p => p.id).join(',')}" ${allChecked ? 'checked' : ''} />` : ''}</div><div></div><div>상태</div><div>프로젝트</div><div>클라이언트</div><div>마감</div><div>메모</div><div></div></div>
       ${items.map(sharedRowHtml).join('')}
     </div>
     ${addBtn}`;
+}
+function sharedBulkBarHtml() {
+  const n = S.shared.selectedIds.length;
+  if (n === 0) return '';
+  return `
+    <div class="proj-bulk-bar">
+      <span class="proj-bulk-count">${n}개 선택됨</span>
+      <div class="proj-bulk-actions">
+        ${SHARED_STATUSES.map(st => `<button data-action="shared-bulk-set-status" data-status="${st.id}"><span class="proj-row-dot" style="background:${st.color};"></span>${st.label}로 변경</button>`).join('')}
+        <button class="danger" data-action="shared-bulk-delete">삭제</button>
+      </div>
+      <button class="proj-bulk-clear" data-action="shared-clear-selection">선택 해제</button>
+    </div>`;
 }
 function refreshSharedProjList() { const el = document.getElementById('sharedProjList'); if (el) el.innerHTML = sharedListHtml(); }
 function renderSharedProjectsTab() {
@@ -1911,12 +1945,12 @@ function bootApp() {
       case 'proj-delete': saveProjItems(projItems.filter(p => p.id !== id)); S.proj.confirmDeleteId = null; render(); break;
       case 'proj-set-status-filter': S.proj.statusFilter = id; render(); break;
       case 'proj-drill-in':
-        S.proj.currentParentId = id; S.proj.statusFilter = 'all'; S.proj.search = '';
+        S.proj.currentParentId = id; S.proj.statusFilter = 'all'; S.proj.search = ''; S.proj.selectedIds = [];
         history.pushState({ projParentId: id }, '');
         render();
         break;
       case 'proj-go-parent':
-        S.proj.currentParentId = id || null; S.proj.statusFilter = 'all'; S.proj.search = '';
+        S.proj.currentParentId = id || null; S.proj.statusFilter = 'all'; S.proj.search = ''; S.proj.selectedIds = [];
         history.pushState({ projParentId: id || null }, '');
         render();
         break;
@@ -1951,6 +1985,24 @@ function bootApp() {
         if (p && p.scheduleId) { S.activeTab = 'schedule'; S.sched.detailId = p.scheduleId; render(); }
         break;
       }
+      case 'proj-bulk-set-status': {
+        const status = el.dataset.status;
+        const ids = new Set(S.proj.selectedIds);
+        saveProjItems(projItems.map(p => ids.has(p.id) ? { ...p, status } : p));
+        S.proj.selectedIds = [];
+        render();
+        break;
+      }
+      case 'proj-bulk-delete': {
+        const ids = new Set(S.proj.selectedIds);
+        if (ids.size && window.confirm(`선택한 ${ids.size}개 프로젝트를 삭제할까요?`)) {
+          saveProjItems(projItems.filter(p => !ids.has(p.id)));
+          S.proj.selectedIds = [];
+          render();
+        }
+        break;
+      }
+      case 'proj-clear-selection': S.proj.selectedIds = []; render(); break;
 
       /* shared projects */
       case 'shared-open-add': if (GUEST_MODE) return; S.shared.editingId = null; S.shared.modalOpen = true; render(); break;
@@ -1973,15 +2025,35 @@ function bootApp() {
       case 'shared-delete': if (GUEST_MODE) return; saveSharedProjItems(sharedProjItems.filter(p => p.id !== id)); S.shared.confirmDeleteId = null; render(); break;
       case 'shared-set-status-filter': S.shared.statusFilter = id; render(); break;
       case 'shared-drill-in':
-        S.shared.currentParentId = id; S.shared.statusFilter = 'all'; S.shared.search = '';
+        S.shared.currentParentId = id; S.shared.statusFilter = 'all'; S.shared.search = ''; S.shared.selectedIds = [];
         history.pushState({ sharedParentId: id }, '');
         render();
         break;
       case 'shared-go-parent':
-        S.shared.currentParentId = id || null; S.shared.statusFilter = 'all'; S.shared.search = '';
+        S.shared.currentParentId = id || null; S.shared.statusFilter = 'all'; S.shared.search = ''; S.shared.selectedIds = [];
         history.pushState({ sharedParentId: id || null }, '');
         render();
         break;
+      case 'shared-bulk-set-status': {
+        if (GUEST_MODE) return;
+        const status = el.dataset.status;
+        const ids = new Set(S.shared.selectedIds);
+        saveSharedProjItems(sharedProjItems.map(p => ids.has(p.id) ? { ...p, status, updatedBy: currentEditorName(), updatedAt: Date.now() } : p));
+        S.shared.selectedIds = [];
+        render();
+        break;
+      }
+      case 'shared-bulk-delete': {
+        if (GUEST_MODE) return;
+        const ids = new Set(S.shared.selectedIds);
+        if (ids.size && window.confirm(`선택한 ${ids.size}개 프로젝트를 삭제할까요?`)) {
+          saveSharedProjItems(sharedProjItems.filter(p => !ids.has(p.id)));
+          S.shared.selectedIds = [];
+          render();
+        }
+        break;
+      }
+      case 'shared-clear-selection': S.shared.selectedIds = []; render(); break;
       case 'shared-close-status-menu': S.shared.statusMenu = null; render(); break;
       case 'shared-close-row-menu': S.shared.rowMenu = null; render(); break;
       case 'shared-set-status': {
@@ -2183,6 +2255,34 @@ function bootApp() {
       if (e.target.checked) cur.add(itemId); else cur.delete(itemId);
       saveShoots(shoots.map(s => s.id === shoot.id ? { ...s, [key]: [...cur] } : s));
       if (S.activeTab === 'shootprep') refreshShootPackList(); else render();
+    }
+    if (e.target.dataset && e.target.dataset.role === 'proj-row-select') {
+      const rid = e.target.dataset.id;
+      const cur = new Set(S.proj.selectedIds);
+      if (e.target.checked) cur.add(rid); else cur.delete(rid);
+      S.proj.selectedIds = [...cur];
+      refreshProjList();
+    }
+    if (e.target.dataset && e.target.dataset.role === 'proj-select-all') {
+      const ids = (e.target.dataset.ids || '').split(',').filter(Boolean);
+      const cur = new Set(S.proj.selectedIds);
+      if (e.target.checked) ids.forEach(x => cur.add(x)); else ids.forEach(x => cur.delete(x));
+      S.proj.selectedIds = [...cur];
+      refreshProjList();
+    }
+    if (e.target.dataset && e.target.dataset.role === 'shared-row-select') {
+      const rid = e.target.dataset.id;
+      const cur = new Set(S.shared.selectedIds);
+      if (e.target.checked) cur.add(rid); else cur.delete(rid);
+      S.shared.selectedIds = [...cur];
+      refreshSharedProjList();
+    }
+    if (e.target.dataset && e.target.dataset.role === 'shared-select-all') {
+      const ids = (e.target.dataset.ids || '').split(',').filter(Boolean);
+      const cur = new Set(S.shared.selectedIds);
+      if (e.target.checked) ids.forEach(x => cur.add(x)); else ids.forEach(x => cur.delete(x));
+      S.shared.selectedIds = [...cur];
+      refreshSharedProjList();
     }
   });
 
@@ -2675,15 +2775,26 @@ document.addEventListener('DOMContentLoaded', () => {
   .proj-empty { text-align:center; color:var(--text-faint); font-size:12px; padding:24px 8px; }
   .proj-list-add-btn { display:flex; align-items:center; justify-content:center; gap:6px; width:100%; margin-top:10px; padding:11px 16px; background:none; border:1px dashed var(--border); border-radius:6px; color:var(--text-faint); font-family:var(--font-body); font-size:12.5px; font-weight:600; cursor:pointer; }
   .proj-list-add-btn:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+  .proj-bulk-bar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; background:var(--accent-soft); border:1px solid var(--accent); border-radius:6px; padding:10px 14px; margin-bottom:10px; }
+  .proj-bulk-count { font-size:12.5px; font-weight:700; color:var(--accent); white-space:nowrap; }
+  .proj-bulk-actions { display:flex; gap:6px; flex-wrap:wrap; }
+  .proj-bulk-actions button { display:inline-flex; align-items:center; gap:6px; font-family:var(--font-body); font-size:12px; padding:6px 12px; border-radius:999px; border:1px solid var(--border); cursor:pointer; background:var(--surface); color:var(--text-dim); }
+  .proj-bulk-actions button:hover { border-color:var(--accent); color:var(--text); }
+  .proj-bulk-actions button.danger { background:#4a2020; border-color:#6b2e2e; color:#f2a8a8; }
+  .proj-bulk-actions button.danger:hover { border-color:#f2a8a8; }
+  .proj-bulk-clear { margin-left:auto; background:none; border:none; color:var(--text-faint); font-family:var(--font-body); font-size:12px; cursor:pointer; text-decoration:underline; white-space:nowrap; }
+  .proj-bulk-clear:hover { color:var(--text); }
 
   .proj-eyebrow { font-family:var(--font-display); font-size:11px; letter-spacing:2px; color:var(--text-faint); margin-bottom:8px; }
   .proj-list { background:var(--surface); border:1px solid var(--border); border-radius:6px; overflow:hidden; }
-  .proj-row { position:relative; display:grid; grid-template-columns:20px 118px 1.6fr 140px 118px 1.3fr 24px; align-items:center; gap:16px; padding:13px 16px; border-bottom:1px solid var(--border); }
+  .proj-row { position:relative; display:grid; grid-template-columns:18px 20px 118px 1.6fr 140px 118px 1.3fr 24px; align-items:center; gap:16px; padding:13px 16px; border-bottom:1px solid var(--border); }
   .proj-row:last-child { border-bottom:none; }
   .proj-row:hover { background:var(--surface-hover); }
   .proj-row.drag-over { background:var(--accent-soft); box-shadow:inset 0 2px 0 var(--accent); }
   .proj-row-head { color:var(--text-faint); font-size:11px; font-weight:600; padding:11px 16px; }
   .proj-row-head:hover { background:none; }
+  .proj-row-check-cell { display:flex; align-items:center; justify-content:center; }
+  .proj-row-checkbox { width:15px; height:15px; accent-color:var(--accent); cursor:pointer; margin:0; }
   .proj-row-drag-cell { display:flex; align-items:center; justify-content:center; }
   .proj-row-drag-handle { opacity:0; transition:opacity .12s ease; cursor:grab; }
   .proj-row:hover .proj-row-drag-handle { opacity:1; }
@@ -2707,8 +2818,8 @@ document.addEventListener('DOMContentLoaded', () => {
   .proj-row-chevron { font-size:16px; color:var(--text-faint); }
   @media (max-width: 860px) {
     .proj-row { grid-template-columns: 92px 1fr 92px 44px; }
-    .proj-row-client, .proj-row-note, .proj-row-drag-cell { display:none; }
-    .proj-row-head > div:nth-child(1), .proj-row-head > div:nth-child(4), .proj-row-head > div:nth-child(6) { display:none; }
+    .proj-row-client, .proj-row-note, .proj-row-drag-cell, .proj-row-check-cell { display:none; }
+    .proj-row-head > div:nth-child(1), .proj-row-head > div:nth-child(2), .proj-row-head > div:nth-child(5), .proj-row-head > div:nth-child(7) { display:none; }
   }
   .proj-breadcrumb { display:flex; align-items:center; gap:9px; font-size:14.5px; color:var(--text-faint); margin-bottom:20px; flex-wrap:wrap; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:11px 16px; }
   .proj-breadcrumb button { background:none; border:none; color:var(--text-dim); font-family:var(--font-body); font-size:14.5px; font-weight:600; cursor:pointer; padding:0; }
