@@ -1174,17 +1174,16 @@ function sharedParentSummaryHtml(p) {
     <div class="proj-parent-card" style="${colorMarkerStyle(p.color, 18)}">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">
         <div>
-          <span class="proj-row-pill" ${!GUEST_MODE ? `data-shared-status-menu-id="${p.id}"` : ''} style="background:${st.color}26; color:${st.color}; ${!GUEST_MODE ? 'cursor:context-menu;' : ''}"><span class="proj-row-dot" style="background:${st.color};"></span>${st.label}</span>
+          <span class="proj-row-pill" data-shared-status-menu-id="${p.id}" style="background:${st.color}26; color:${st.color}; cursor:context-menu;"><span class="proj-row-dot" style="background:${st.color};"></span>${st.label}</span>
           <div class="proj-parent-meta">${esc(meta)}</div>
           ${p.link ? `<div class="proj-parent-meta"><a href="${esc(p.link)}" target="_blank" rel="noopener">${esc(p.link)}</a></div>` : ''}
           ${p.notes ? `<div class="proj-parent-notes">${esc(p.notes)}</div>` : ''}
           ${p.updatedBy ? `<div class="proj-parent-meta">마지막 수정 · ${esc(p.updatedBy)} · ${formatUpdated(p.updatedAt)}</div>` : ''}
         </div>
-        ${!GUEST_MODE ? `
         <div style="display:flex; gap:4px; flex-shrink:0;">
           <button class="eq-icon-btn" data-action="shared-open-edit" data-id="${p.id}">✎</button>
           <button class="eq-icon-btn" data-action="shared-confirm-delete-parent" data-id="${p.id}">✕</button>
-        </div>` : ''}
+        </div>
       </div>
     </div>`;
 }
@@ -1199,24 +1198,22 @@ function sharedRowHtml(p) {
   if (dday && dday.urgent) { ddayColor = doneColor; ddayBg = doneColor + '26'; }
   else if (dday && dday.soon) { ddayColor = todoColor; ddayBg = todoColor + '26'; }
   return `
-    <div class="proj-row ${!GUEST_MODE && S.shared.selectMode && S.shared.selectedIds.includes(p.id) ? 'selected' : ''}" data-action="shared-drill-in" data-id="${p.id}" ${!GUEST_MODE ? `data-shared-row-menu-id="${p.id}" data-dropzone="proj-row"` : ''} style="${colorMarkerStyle(p.color, 16)}">
+    <div class="proj-row ${S.shared.selectMode && S.shared.selectedIds.includes(p.id) ? 'selected' : ''}" data-action="shared-drill-in" data-id="${p.id}" data-shared-row-menu-id="${p.id}" data-dropzone="proj-row" style="${colorMarkerStyle(p.color, 16)}">
       ${confirming ? `
         <div class="eq-confirm-bar">
           <span>"${esc(p.title)}" 삭제할까요?</span>
           <div class="eq-confirm-actions"><button data-action="shared-cancel-delete">취소</button><button class="danger" data-action="shared-delete" data-id="${p.id}">삭제</button></div>
         </div>` : ''}
-      ${!GUEST_MODE && S.shared.selectMode ? `<div class="proj-row-check-cell"><input type="checkbox" class="proj-row-checkbox" data-role="shared-row-select" data-id="${p.id}" ${S.shared.selectedIds.includes(p.id) ? 'checked' : ''} onclick="event.stopPropagation()" /></div>` : ''}
-      <div class="proj-row-drag-cell">${!GUEST_MODE ? `<span class="proj-row-drag-handle" title="순서 변경(드래그)" draggable="true" data-drag-row-id="${p.id}" onclick="event.stopPropagation()">⠿</span>` : ''}</div>
-      <div><span class="proj-row-pill" ${!GUEST_MODE ? `data-shared-status-menu-id="${p.id}"` : ''} style="background:${st.color}26; color:${st.color};"><span class="proj-row-dot" style="background:${st.color};"></span>${st.label}</span></div>
+      ${S.shared.selectMode ? `<div class="proj-row-check-cell"><input type="checkbox" class="proj-row-checkbox" data-role="shared-row-select" data-id="${p.id}" ${S.shared.selectedIds.includes(p.id) ? 'checked' : ''} onclick="event.stopPropagation()" /></div>` : ''}
+      <div class="proj-row-drag-cell"><span class="proj-row-drag-handle" title="순서 변경(드래그)" draggable="true" data-drag-row-id="${p.id}" onclick="event.stopPropagation()">⠿</span></div>
+      <div><span class="proj-row-pill" data-shared-status-menu-id="${p.id}" style="background:${st.color}26; color:${st.color};"><span class="proj-row-dot" style="background:${st.color};"></span>${st.label}</span></div>
       <div><div class="proj-row-title">${esc(p.title)}${childCount ? `<span class="proj-row-child-badge">${childCount}</span>` : ''}</div><div class="proj-row-code">${esc(p.serial)}</div></div>
       <div class="proj-row-client">${esc(p.client) || '—'}</div>
       <div>
-        ${!GUEST_MODE
-          ? `<input type="date" class="proj-row-due-input" value="${esc(p.dueDate || '')}" data-role="shared-due-inline" data-id="${p.id}" onclick="event.stopPropagation()" />`
-          : `<div class="proj-row-due">${p.dueDate ? esc(p.dueDate) : '—'}</div>`}
+        <input type="date" class="proj-row-due-input" value="${esc(p.dueDate || '')}" data-role="shared-due-inline" data-id="${p.id}" onclick="event.stopPropagation()" />
         ${dday ? `<div class="proj-row-dday" style="background:${ddayBg}; color:${ddayColor};">${dday.text}</div>` : ''}
       </div>
-      <div class="proj-row-note" ${!GUEST_MODE ? `contenteditable="true" data-role="shared-notes-inline" data-id="${p.id}" onclick="event.stopPropagation()"` : ''}>${esc(p.notes) || ''}</div>
+      <div class="proj-row-note" contenteditable="true" data-role="shared-notes-inline" data-id="${p.id}" onclick="event.stopPropagation()">${esc(p.notes) || ''}</div>
       <div class="proj-row-actions-cell">
         <span class="proj-row-chevron">›</span>
       </div>
@@ -1239,17 +1236,17 @@ function sharedListHtml() {
     if (!b.dueDate) return -1;
     return a.dueDate.localeCompare(b.dueDate);
   });
-  const addBtn = !GUEST_MODE ? `<button class="proj-list-add-btn" data-action="shared-open-add">+ 새 공유 프로젝트 추가</button>` : '';
-  const bulkBar = !GUEST_MODE ? sharedBulkBarHtml() : '';
+  const addBtn = `<button class="proj-list-add-btn" data-action="shared-open-add">+ 새 공유 프로젝트 추가</button>`;
+  const bulkBar = sharedBulkBarHtml();
   if (items.length === 0) {
     const msg = (q || S.shared.statusFilter !== 'all') ? '조건에 맞는 프로젝트가 없어요' : (parentId ? '하위 프로젝트가 없어요' : '등록된 공유 프로젝트가 없어요');
     return `${bulkBar}<div class="proj-empty">${msg}</div>${addBtn}`;
   }
-  const allChecked = !GUEST_MODE && items.every(p => S.shared.selectedIds.includes(p.id));
+  const allChecked = items.every(p => S.shared.selectedIds.includes(p.id));
   return `
     ${bulkBar}
-    <div class="proj-list ${!GUEST_MODE && S.shared.selectMode ? 'select-mode' : ''}">
-      <div class="proj-row proj-row-head">${!GUEST_MODE && S.shared.selectMode ? `<div class="proj-row-check-cell"><input type="checkbox" class="proj-row-checkbox" data-role="shared-select-all" data-ids="${items.map(p => p.id).join(',')}" ${allChecked ? 'checked' : ''} /></div>` : ''}<div class="proj-row-drag-cell"></div><div>상태</div><div>프로젝트</div><div class="proj-row-head-narrow">클라이언트</div><div>마감</div><div class="proj-row-head-narrow">메모</div><div></div></div>
+    <div class="proj-list ${S.shared.selectMode ? 'select-mode' : ''}">
+      <div class="proj-row proj-row-head">${S.shared.selectMode ? `<div class="proj-row-check-cell"><input type="checkbox" class="proj-row-checkbox" data-role="shared-select-all" data-ids="${items.map(p => p.id).join(',')}" ${allChecked ? 'checked' : ''} /></div>` : ''}<div class="proj-row-drag-cell"></div><div>상태</div><div>프로젝트</div><div class="proj-row-head-narrow">클라이언트</div><div>마감</div><div class="proj-row-head-narrow">메모</div><div></div></div>
       ${items.map(sharedRowHtml).join('')}
     </div>
     ${addBtn}`;
@@ -1283,7 +1280,7 @@ function renderSharedProjectsTab() {
   return `
     <div class="eq-header">
       <div class="eq-title-block"><h1 class="eq-title">${parent ? esc(parent.title) : '공유 프로젝트'}</h1><div class="eq-stat">진행중 <b>${counts.doing}</b> / 전체 <b>${counts.all}</b></div></div>
-      ${!GUEST_MODE ? `<button class="eq-add-btn" data-action="shared-open-add">+ 새 공유 프로젝트</button>` : ''}
+      <button class="eq-add-btn" data-action="shared-open-add">+ 새 공유 프로젝트</button>
     </div>
     ${GUEST_MODE && !parent ? `<div class="shared-guest-note">외부 협업자와 공유 중인 프로젝트예요. 장비목록도 함께 확인할 수 있어요.</div>` : ''}
     <div class="eq-toolbar">
@@ -1292,8 +1289,8 @@ function renderSharedProjectsTab() {
         <button class="eq-chip ${S.shared.statusFilter==='all'?'active':''}" data-action="shared-set-status-filter" data-id="all">전체 ${counts.all}</button>
         ${SHARED_STATUSES.map(st => `<button class="eq-chip ${S.shared.statusFilter===st.id?'active':''}" data-action="shared-set-status-filter" data-id="${st.id}"><span class="eq-chip-dot" style="background:${st.color}"></span>${st.label} ${counts[st.id]}</button>`).join('')}
       </div>
-      ${!GUEST_MODE ? `<button class="eq-chip ${S.shared.selectMode ? 'active' : ''}" style="margin-left:auto;" data-action="shared-toggle-select-mode">${S.shared.selectMode ? '선택 취소' : '☑ 선택'}</button>` : ''}
-      <button class="eq-chip active" style="${GUEST_MODE ? 'margin-left:auto; ' : ''}cursor:default;">마감일순</button>
+      <button class="eq-chip ${S.shared.selectMode ? 'active' : ''}" style="margin-left:auto;" data-action="shared-toggle-select-mode">${S.shared.selectMode ? '선택 취소' : '☑ 선택'}</button>
+      <button class="eq-chip active" style="cursor:default;">마감일순</button>
     </div>
     ${breadcrumb.length ? `
       <div class="proj-breadcrumb">
@@ -2023,10 +2020,9 @@ function bootApp() {
         break;
 
       /* shared projects */
-      case 'shared-open-add': if (GUEST_MODE) return; S.shared.editingId = null; S.shared.modalOpen = true; render(); break;
-      case 'shared-open-edit': if (GUEST_MODE) return; S.shared.editingId = id; S.shared.modalOpen = true; S.shared.rowMenu = null; render(); break;
+      case 'shared-open-add': S.shared.editingId = null; S.shared.modalOpen = true; render(); break;
+      case 'shared-open-edit': S.shared.editingId = id; S.shared.modalOpen = true; S.shared.rowMenu = null; render(); break;
       case 'shared-duplicate': {
-        if (GUEST_MODE) return;
         const src = sharedProjItems.find(p => p.id === id);
         if (src) {
           const copy = { ...src, id: uid(), serial: nextSharedSerial(sharedProjItems), createdAt: Date.now(), title: `${src.title} 복사본`, status: 'todo', dueDate: '', updatedBy: currentEditorName(), updatedAt: Date.now() };
@@ -2038,12 +2034,12 @@ function bootApp() {
       }
       case 'shared-close-modal': S.shared.modalOpen = false; S.shared.editingId = null; render(); break;
       case 'shared-close-modal-backdrop': if (!e.target.closest('[data-stop-close]')) { S.shared.modalOpen = false; S.shared.editingId = null; render(); } break;
-      case 'shared-confirm-delete': if (GUEST_MODE) return; S.shared.confirmDeleteId = id; S.shared.rowMenu = null; render(); break;
+      case 'shared-confirm-delete': S.shared.confirmDeleteId = id; S.shared.rowMenu = null; render(); break;
       case 'shared-cancel-delete': S.shared.confirmDeleteId = null; render(); break;
-      case 'shared-delete': if (GUEST_MODE) return; saveSharedProjItems(sharedProjItems.filter(p => p.id !== id)); S.shared.confirmDeleteId = null; render(); break;
+      case 'shared-delete': saveSharedProjItems(sharedProjItems.filter(p => p.id !== id)); S.shared.confirmDeleteId = null; render(); break;
       case 'shared-set-status-filter': S.shared.statusFilter = id; render(); break;
       case 'shared-drill-in':
-        if (!GUEST_MODE && S.shared.selectMode) {
+        if (S.shared.selectMode) {
           const cur = new Set(S.shared.selectedIds);
           if (cur.has(id)) cur.delete(id); else cur.add(id);
           S.shared.selectedIds = [...cur];
@@ -2060,7 +2056,6 @@ function bootApp() {
         render();
         break;
       case 'shared-bulk-set-status': {
-        if (GUEST_MODE) return;
         const status = el.dataset.status;
         const ids = new Set(S.shared.selectedIds);
         saveSharedProjItems(sharedProjItems.map(p => ids.has(p.id) ? { ...p, status, updatedBy: currentEditorName(), updatedAt: Date.now() } : p));
@@ -2069,7 +2064,6 @@ function bootApp() {
         break;
       }
       case 'shared-bulk-delete': {
-        if (GUEST_MODE) return;
         const ids = new Set(S.shared.selectedIds);
         if (ids.size && window.confirm(`선택한 ${ids.size}개 프로젝트를 삭제할까요?`)) {
           saveSharedProjItems(sharedProjItems.filter(p => !ids.has(p.id)));
@@ -2080,7 +2074,6 @@ function bootApp() {
       }
       case 'shared-clear-selection': S.shared.selectedIds = []; render(); break;
       case 'shared-toggle-select-mode':
-        if (GUEST_MODE) return;
         S.shared.selectMode = !S.shared.selectMode;
         if (!S.shared.selectMode) S.shared.selectedIds = [];
         render();
@@ -2088,7 +2081,6 @@ function bootApp() {
       case 'shared-close-status-menu': S.shared.statusMenu = null; render(); break;
       case 'shared-close-row-menu': S.shared.rowMenu = null; render(); break;
       case 'shared-set-status': {
-        if (GUEST_MODE) return;
         const status = el.dataset.status;
         saveSharedProjItems(sharedProjItems.map(p => p.id === id ? { ...p, status, updatedBy: currentEditorName(), updatedAt: Date.now() } : p));
         S.shared.statusMenu = null;
@@ -2096,7 +2088,6 @@ function bootApp() {
         break;
       }
       case 'shared-confirm-delete-parent': {
-        if (GUEST_MODE) return;
         const p = sharedProjItems.find(pr => pr.id === id);
         if (p && window.confirm(`"${p.title}"와(과) 하위 프로젝트를 모두 삭제할까요?`)) {
           const idsToDelete = new Set([id]);
@@ -2376,7 +2367,6 @@ function bootApp() {
       S.proj.modalOpen = false; S.proj.editingId = null;
       render();
     } else if (form.matches('[data-form-role="shared-form"]')) {
-      if (GUEST_MODE) return;
       const fd = new FormData(form);
       const title = (fd.get('title') || '').toString().trim();
       if (!title) return;
