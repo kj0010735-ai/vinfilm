@@ -7,7 +7,7 @@ APP="$DIR/프로젝트 정리.app"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$DIR/organize_project.py" "$DIR/organizer_app.py" "$APP/Contents/Resources/"
+cp "$DIR/organize_project.py" "$DIR/organizer_app.py" "$DIR/AppIcon.icns" "$APP/Contents/Resources/"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -16,6 +16,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>CFBundleName</key><string>프로젝트 정리</string>
   <key>CFBundleDisplayName</key><string>프로젝트 정리</string>
   <key>CFBundleIdentifier</key><string>com.vinfilmstudio.project-organizer</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundleExecutable</key><string>launcher</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>1.0</string>

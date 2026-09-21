@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a2521"/><stop offset="1" stop-color="#0e0d0c"/>
+    </linearGradient>
+    <linearGradient id="front" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eba055"/><stop offset="1" stop-color="#d98a3d"/>
+    </linearGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+  <rect x="101.5" y="101.5" width="821" height="821" rx="183.5" fill="none" stroke="#ffffff" stroke-opacity=".08" stroke-width="3"/>
+  <!-- 폴더 뒷면 + 탭 -->
+  <path d="M232 330 a40 40 0 0 1 40-40 h178 a40 40 0 0 1 30 14 l36 42 h236 a40 40 0 0 1 40 40 v34 h-560z" fill="#a8651f"/>
+  <!-- 폴더 앞면 -->
+  <rect x="232" y="384" width="560" height="380" rx="44" fill="url(#front)"/>
+  <!-- 필름 스프로킷 홀 -->
+  <g fill="#0e0d0c" fill-opacity=".82">
+    <rect x="268" y="712" width="34" height="26" rx="7"/><rect x="336" y="712" width="34" height="26" rx="7"/>
+    <rect x="404" y="712" width="34" height="26" rx="7"/><rect x="472" y="712" width="34" height="26" rx="7"/>
+    <rect x="540" y="712" width="34" height="26" rx="7"/><rect x="608" y="712" width="34" height="26" rx="7"/>
+    <rect x="676" y="712" width="34" height="26" rx="7"/><rect x="744" y="712" width="34" height="26" rx="7"/>
+    <rect x="268" y="410" width="34" height="26" rx="7"/><rect x="336" y="410" width="34" height="26" rx="7"/>
+    <rect x="404" y="410" width="34" height="26" rx="7"/><rect x="472" y="410" width="34" height="26" rx="7"/>
+    <rect x="540" y="410" width="34" height="26" rx="7"/><rect x="608" y="410" width="34" height="26" rx="7"/>
+    <rect x="676" y="410" width="34" height="26" rx="7"/><rect x="744" y="410" width="34" height="26" rx="7"/>
+  </g>
+  <!-- 재생 삼각형 -->
+  <path d="M467 493 L467 655 a12 12 0 0 0 18 10 L621 584 a12 12 0 0 0 0-20 L485 483 a12 12 0 0 0-18 10z" fill="#0e0d0c"/>
+</svg>
