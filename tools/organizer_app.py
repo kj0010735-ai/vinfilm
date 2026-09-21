@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """프로젝트 정리 앱 — 내 컴퓨터에서만 도는 작은 서버 + 브라우저 화면 (VINFILM STUDIO)
 
-앱을 실행하면 127.0.0.1의 임의 포트로 서버를 띄우고 기본 브라우저로 화면을 연다.
-탭을 닫거나 화면의 '종료'를 누르면 서버도 같이 꺼진다. 외부에서는 접근할 수 없고
+앱을 실행하면 127.0.0.1의 임의 포트로 서버를 띄우고 화면을 연다 (Chrome 계열이 있으면 주소창 없는 전용 창).
+창(탭)을 닫거나 화면의 '종료'를 누르면 서버도 같이 꺼진다. 외부에서는 접근할 수 없고
 (로컬 주소 + 실행할 때마다 바뀌는 토큰), 표준 라이브러리만 쓴다.
 """
 import json
@@ -160,6 +160,24 @@ def watchdog():
             shutdown()
 
 
+CHROMIUM_APPS = [
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+    "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+]
+
+
+def open_ui(url):
+    """Chrome 계열이 있으면 주소창 없는 전용 창(--app)으로, 없으면 기본 브라우저 탭으로 연다."""
+    for exe in CHROMIUM_APPS:
+        if os.path.exists(exe):
+            subprocess.Popen([exe, f"--app={url}", "--window-size=960,860"],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return
+    webbrowser.open(url)
+
+
 def already_running():
     """이미 떠 있는 인스턴스가 있으면 그 주소를 돌려준다."""
     try:
@@ -174,7 +192,7 @@ def already_running():
 def main():
     existing = already_running()
     if existing:
-        webbrowser.open(existing)
+        open_ui(existing)
         return
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
@@ -186,7 +204,7 @@ def main():
     if os.environ.get("ORGANIZER_NO_BROWSER"):
         print(url, flush=True)
     else:
-        webbrowser.open(url)
+        open_ui(url)
     server.serve_forever()
 
 
