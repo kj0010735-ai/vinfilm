@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>통합장부 · VINFILM STUDIO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+
+<style>
+  :root {
+    --bg: #0e0d0c; --surface: #17140f; --surface-hover: #1d1913; --border: rgba(245,242,234,0.14);
+    --text: #f5f2ea; --text-dim: #a8a49b; --text-faint: #79766f;
+    --accent: #d98a3d; --accent-soft: rgba(217,138,61,0.14);
+    --income: #4cae7d; --income-soft: rgba(76,174,125,0.14);
+    --expense: #d9534f; --expense-soft: rgba(217,83,79,0.14);
+    --font-body: 'Noto Sans KR', 'Pretendard', 'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+    --font-display: 'Anton', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); }
+  body { color: var(--text); font-family: var(--font-body); }
+  #root { min-height: 100vh; }
+
+  .ldg-shell { max-width: 1080px; margin: 0 auto; padding: 32px 24px 80px; }
+  .ldg-topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom: 26px; flex-wrap: wrap; gap: 12px; }
+  .ldg-eyebrow { font-family: var(--font-display); font-size: 12px; letter-spacing: 2px; color: var(--accent); text-transform: uppercase; }
+  .ldg-title { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; margin: 4px 0 0; }
+  .ldg-topbar-actions { display:flex; align-items:center; gap:10px; }
+  .ldg-logout { background:none; border:1px solid var(--border); color: var(--text-dim); border-radius:999px; padding:8px 16px; font-family: var(--font-body); font-size:12.5px; cursor:pointer; }
+  .ldg-logout:hover { background: var(--surface-hover); color: var(--text); }
+
+  .ldg-rate-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background: var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px 16px; margin-bottom: 22px; font-size: 13px; color: var(--text-dim); }
+  .ldg-rate-bar b { color: var(--text); font-family: var(--font-mono); }
+  .ldg-rate-edit { margin-left: auto; background:none; border:none; color: var(--accent); cursor:pointer; font-family: var(--font-body); font-size:12.5px; font-weight:700; }
+
+  .ldg-nav { display:flex; align-items:center; gap:10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .ldg-nav-btn { background: var(--surface); border:1px solid var(--border); color: var(--text); width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:15px; display:flex; align-items:center; justify-content:center; }
+  .ldg-nav-btn:hover { background: var(--surface-hover); }
+  .ldg-nav-label { font-family: var(--font-mono); font-size: 15px; font-weight:700; min-width: 92px; text-align:center; }
+  .ldg-view-toggle { display:flex; gap:6px; margin-left: 10px; }
+  .ldg-view-chip { font-family: var(--font-body); font-size:12.5px; padding:7px 13px; border-radius:999px; border:1px solid var(--border); background:var(--surface); color:var(--text-dim); cursor:pointer; }
+  .ldg-view-chip.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  .ldg-jump-today { margin-left: auto; background:none; border:1px solid var(--border); color: var(--text-dim); border-radius:999px; padding:7px 14px; font-family: var(--font-body); font-size:12.5px; cursor:pointer; }
+  .ldg-jump-today:hover { background: var(--surface-hover); color: var(--text); }
+
+  .ldg-summary { display:grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px; }
+  .ldg-card { background: var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px 20px; }
+  .ldg-card-label { font-size:12.5px; color: var(--text-faint); margin-bottom:8px; }
+  .ldg-card-value { font-family: var(--font-mono); font-size:22px; font-weight:700; }
+  .ldg-card-value.income { color: var(--income); }
+  .ldg-card-value.expense { color: var(--expense); }
+
+  .ldg-toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom: 18px; }
+  .ldg-search { flex:1 1 220px; min-width:180px; }
+  .ldg-search input { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:9px 12px; color:var(--text); font-family:var(--font-body); font-size:13.5px; outline:none; }
+  .ldg-search input:focus { border-color: var(--accent); }
+  .ldg-search input::placeholder { color: var(--text-faint); opacity: 0.45; }
+  .ldg-chip-row { display:flex; gap:6px; flex-wrap:wrap; }
+  .ldg-chip { font-family: var(--font-body); font-size:12.5px; padding:7px 12px; border-radius:999px; border:1px solid var(--border); background:var(--surface); color:var(--text-dim); cursor:pointer; white-space:nowrap; }
+  .ldg-chip.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  .ldg-add-btn { display:flex; align-items:center; gap:8px; background: var(--accent); color:#0e0d0c; border:none; padding:10px 20px; border-radius:999px; font-family: var(--font-body); font-size:14px; font-weight:700; cursor:pointer; white-space:nowrap; margin-left:auto; }
+  .ldg-add-btn:hover { filter: brightness(1.1); }
+
+  .ldg-list { display:flex; flex-direction:column; border:1px solid var(--border); border-radius:12px; overflow:hidden; background: var(--surface); }
+  .ldg-list-head, .ldg-row { display:grid; grid-template-columns: 90px 1.4fr 1fr 1.1fr 1.6fr 60px; gap:10px; align-items:center; padding:12px 16px; }
+  .ldg-list-head { font-size:11.5px; color: var(--text-faint); border-bottom:1px solid var(--border); text-transform:uppercase; letter-spacing:0.04em; }
+  .ldg-row { border-bottom:1px solid var(--border); font-size:13.5px; cursor:pointer; }
+  .ldg-row:last-child { border-bottom:none; }
+  .ldg-row:hover { background: var(--surface-hover); }
+  .ldg-type-badge { display:inline-flex; align-items:center; padding:4px 10px; border-radius:999px; font-size:11.5px; font-weight:700; white-space:nowrap; }
+  .ldg-type-badge.income { color: var(--income); background: var(--income-soft); }
+  .ldg-type-badge.expense { color: var(--expense); background: var(--expense-soft); }
+  .ldg-row-title { font-weight:600; }
+  .ldg-row-recur { font-size:11px; color: var(--accent); margin-left:6px; }
+  .ldg-row-category { color: var(--text-dim); }
+  .ldg-row-date { font-family: var(--font-mono); color: var(--text-dim); font-size:12.5px; }
+  .ldg-row-amount { font-family: var(--font-mono); text-align:right; }
+  .ldg-row-amount.income { color: var(--income); }
+  .ldg-row-amount.expense { color: var(--expense); }
+  .ldg-row-amount-sub { display:block; font-size:11px; color: var(--text-faint); font-weight:400; }
+  .ldg-row-del { background:none; border:none; color: var(--text-faint); cursor:pointer; font-size:14px; opacity:0; text-align:right; }
+  .ldg-row:hover .ldg-row-del { opacity:1; }
+  .ldg-row-del:hover { color: var(--expense); }
+  .ldg-empty { padding: 50px 20px; text-align:center; color: var(--text-faint); font-size:13.5px; }
+
+  .ldg-year-table { width:100%; border-collapse: collapse; font-size:13.5px; }
+  .ldg-year-table th, .ldg-year-table td { padding:10px 14px; border-bottom:1px solid var(--border); text-align:right; }
+  .ldg-year-table th:first-child, .ldg-year-table td:first-child { text-align:left; }
+  .ldg-year-table th { color: var(--text-faint); font-size:11.5px; text-transform:uppercase; letter-spacing:0.04em; }
+  .ldg-year-table td.income { color: var(--income); font-family: var(--font-mono); }
+  .ldg-year-table td.expense { color: var(--expense); font-family: var(--font-mono); }
+  .ldg-year-table td.net { font-family: var(--font-mono); font-weight:700; }
+  .ldg-year-table tr.total td { font-weight:700; border-top:2px solid var(--border); border-bottom:none; }
+
+  .ldg-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:100; padding:20px; }
+  .ldg-modal { background: var(--surface); border:1px solid var(--border); border-radius:14px; padding:26px; width:100%; max-width:420px; max-height:88vh; overflow-y:auto; }
+  .ldg-modal h3 { margin:0 0 18px; font-size:17px; }
+  .ldg-field { margin-bottom:14px; }
+  .ldg-field label { display:block; font-size:12.5px; color: var(--text-dim); margin-bottom:6px; }
+  .ldg-field input[type=text], .ldg-field input[type=number], .ldg-field input[type=date], .ldg-field textarea {
+    width:100%; background: var(--bg); border:1px solid var(--border); border-radius:8px; padding:9px 11px; color: var(--text); font-family: var(--font-body); font-size:13.5px; outline:none;
+  }
+  .ldg-field input:focus, .ldg-field textarea:focus { border-color: var(--accent); }
+  .ldg-field textarea { resize: vertical; min-height:60px; }
+  .ldg-radio-row { display:flex; gap:8px; }
+  .ldg-radio-option { flex:1; }
+  .ldg-radio-option input { display:none; }
+  .ldg-radio-option span { display:block; text-align:center; padding:9px 0; border-radius:8px; border:1px solid var(--border); background: var(--bg); color: var(--text-dim); font-size:13px; cursor:pointer; }
+  .ldg-radio-option input:checked + span { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight:700; }
+  .ldg-checkbox-row { display:flex; align-items:center; gap:8px; font-size:13px; color: var(--text-dim); }
+  .ldg-modal-actions { display:flex; gap:8px; margin-top: 20px; }
+  .ldg-btn { flex:1; padding:11px 0; border-radius:8px; border:none; font-family: var(--font-body); font-size:13.5px; font-weight:700; cursor:pointer; }
+  .ldg-btn-primary { background: var(--accent); color:#0e0d0c; }
+  .ldg-btn-primary:hover { filter: brightness(1.1); }
+  .ldg-btn-ghost { background: var(--bg); color: var(--text-dim); border:1px solid var(--border); }
+  .ldg-btn-ghost:hover { background: var(--surface-hover); color: var(--text); }
+  .ldg-btn-danger { background: var(--expense); color:#fff; }
+  .ldg-btn-danger:hover { filter: brightness(1.1); }
+
+  .ldg-login-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; }
+  .ldg-login-box { width:300px; text-align:center; }
+  .ldg-login-box .ldg-eyebrow { margin-bottom:10px; }
+  .ldg-login-box h1 { margin:0 0 24px; font-size:22px; }
+  .ldg-google-btn { width:100%; background:#f5f2ea; color:#0e0d0c; border:none; border-radius:6px; padding:12px; font-weight:700; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; }
+  .ldg-login-error { color: var(--expense); font-size:12.5px; margin-top:12px; }
+  .ldg-denied-note { color: var(--text-dim); font-size:13px; margin-top:16px; line-height:1.6; }
+
+  .ldg-sync-note { text-align:center; color: var(--text-faint); font-size:11.5px; margin-top:24px; }
+
+  @media (max-width: 760px) {
+    .ldg-summary { grid-template-columns: 1fr; }
+    .ldg-list-head { display:none; }
+    .ldg-row { grid-template-columns: 1fr; gap:4px; padding:14px 16px; }
+    .ldg-row-amount { text-align:left; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+/* =========================================================================
+   VINFILM STUDIO 통합장부 (ledger) — 수입/지출 관리 도구.
+   works/index.html과 동일한 바닐라 JS + Firebase(compat) 패턴을 그대로 따른다.
+   재무 데이터라 guest 모드는 없음 — OWNER_EMAIL 계정만 접근 (UI 게이트일 뿐이고
+   진짜 방어선은 firestore.rules의 isOwner()).
+   ========================================================================= */
+
+const OWNER_EMAIL = 'kj0010735@gmail.com';
+
+/* 로컬(localhost/127.0.0.1/file://)로 열었을 때는 절대 실제 운영 Firestore를 건드리지 않는다.
+   works/index.html에서 실제 데이터 삭제 사고가 있었던 뒤 도입된 안전장치 — 이 앱도 처음부터 동일하게 적용. */
+const IS_LOCAL_DEV = ['localhost', '127.0.0.1', ''].includes(location.hostname) || location.protocol === 'file:';
+
+const LS_ENTRIES = 'vinfilm-ledger-entries';
+const LS_SETTINGS = 'vinfilm-ledger-settings';
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function pad2(n) { return String(n).padStart(2, '0'); }
+function todayStr() { const d = new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+function uid() { return `${Date.now()}-${Math.random().toString(36).slice(2,9)}`; }
+function loadJSON(key, fallback) { try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; } catch (e) { return fallback; } }
+
+function daysInMonth(ym) { const [y, m] = ym.split('-').map(Number); return new Date(y, m, 0).getDate(); }
+function displayDateFor(entry, ym) { const day = Math.min(parseInt(entry.date.slice(8, 10), 10) || 1, daysInMonth(ym)); return `${ym}-${pad2(day)}`; }
+function occursInMonth(entry, ym) { const entryYm = entry.date.slice(0, 7); return entry.recurring ? entryYm <= ym : entryYm === ym; }
+function formatWon(n) { return '₩' + Math.round(n).toLocaleString('ko-KR'); }
+function formatUSD(n) { return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+let entries = loadJSON(LS_ENTRIES, []);
+let settings = loadJSON(LS_SETTINGS, { usdKrwRate: 1380, rateDate: todayStr() });
+
+function krwOf(entry) { return entry.currency === 'USD' ? entry.amount * (settings.usdKrwRate || 0) : entry.amount; }
+function getKnownCategories() {
+  const set = new Set();
+  entries.forEach(e => { if (e.category && e.category.trim()) set.add(e.category.trim()); });
+  return [...set].sort((a, b) => a.localeCompare(b, 'ko'));
+}
+
+const S = {
+  view: 'month', // 'month' | 'year'
+  month: todayStr().slice(0, 7),
+  year: Number(todayStr().slice(0, 4)),
+  search: '',
+  typeFilter: 'all', // all | income | expense
+  modalOpen: false,
+  editingId: null,
+  confirmDeleteId: null,
+  rateModalOpen: false,
+};
+
+function saveEntries(next) {
+  const prev = entries;
+  entries = next;
+  try { localStorage.setItem(LS_ENTRIES, JSON.stringify(next)); } catch (e) {}
+  pushToCloud('ledgerEntries', prev, next);
+}
+function saveSettings(next) {
+  settings = next;
+  try { localStorage.setItem(LS_SETTINGS, JSON.stringify(next)); } catch (e) {}
+  pushSettingsToCloud(next);
+}
+
+/* ---- cloud sync bridge (works/index.html과 동일한 패턴) ---- */
+async function pushToCloud(name, prevArr, nextArr) {
+  if (!window.cloudSync || !window.cloudSyncReady) return;
+  const prevIds = new Set(prevArr.map(x => x.id));
+  const nextIds = new Set(nextArr.map(x => x.id));
+  const toDelete = [...prevIds].filter(id => !nextIds.has(id));
+  try {
+    if (nextArr.length) await window.cloudSync.upsertMany('ledgerEntries', nextArr);
+    if (toDelete.length) await window.cloudSync.deleteMany('ledgerEntries', toDelete);
+  } catch (e) { console.warn('ledger cloud sync push failed', e); }
+}
+async function pushSettingsToCloud(next) {
+  if (!window.cloudSync || !window.cloudSyncReady) return;
+  try { await window.cloudSync.setDoc('ledgerSettings', 'main', next); } catch (e) { console.warn('ledger settings sync failed', e); }
+}
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAVJ6ZZ6L-3RtgoYe2dDSn_lCHXv3CeBGc",
+  authDomain: "vinfilm-studio-app.firebaseapp.com",
+  projectId: "vinfilm-studio-app",
+  storageBucket: "vinfilm-studio-app.firebasestorage.app",
+  messagingSenderId: "1072224922970",
+  appId: "1:1072224922970:web:bb2cf2544b1c92a7211763",
+};
+if (typeof firebase !== 'undefined') { try { firebase.initializeApp(FIREBASE_CONFIG); } catch (e) {} }
+
+function initCloudSync() {
+  if (IS_LOCAL_DEV) {
+    console.warn('로컬 환경이라 클라우드 동기화를 켜지 않았어요 — localStorage만으로 동작합니다. 실제 운영 데이터는 안전해요.');
+    return;
+  }
+  if (typeof firebase === 'undefined') { console.warn('Firebase SDK를 불러오지 못했어요. 로컬 저장 모드로 계속 동작합니다.'); return; }
+  try {
+    const db = firebase.firestore();
+    window.cloudSync = {
+      async upsertMany(name, items) { await Promise.all(items.map(it => db.collection(name).doc(String(it.id)).set(it))); },
+      async deleteMany(name, ids) { await Promise.all(ids.map(id => db.collection(name).doc(String(id)).delete())); },
+      async setDoc(name, id, data) { await db.collection(name).doc(id).set(data); },
+    };
+    let initialized = false;
+    db.collection('ledgerEntries').onSnapshot(async (snap) => {
+      const items = snap.docs.map(d => d.data());
+      if (!initialized) {
+        initialized = true;
+        if (items.length === 0 && entries.length > 0) { await window.cloudSync.upsertMany('ledgerEntries', entries); return; }
+      }
+      entries = items;
+      try { localStorage.setItem(LS_ENTRIES, JSON.stringify(items)); } catch (e) {}
+      render();
+    }, err => console.warn('ledgerEntries sync error', err));
+    db.collection('ledgerSettings').doc('main').onSnapshot(async (doc) => {
+      if (doc.exists) {
+        settings = doc.data();
+        try { localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); } catch (e) {}
+        render();
+      } else if (settings) {
+        await window.cloudSync.setDoc('ledgerSettings', 'main', settings);
+      }
+    }, err => console.warn('ledgerSettings sync error', err));
+    window.cloudSyncReady = true;
+  } catch (e) { console.warn('initCloudSync failed', e); }
+}
+
+/* ================= render ================= */
+
+function monthNavHtml() {
+  const [y, m] = S.month.split('-').map(Number);
+  const label = `${y}년 ${m}월`;
+  return `
+    <div class="ldg-nav">
+      <button class="ldg-nav-btn" data-action="ldg-prev">‹</button>
+      <div class="ldg-nav-label">${label}</div>
+      <button class="ldg-nav-btn" data-action="ldg-next">›</button>
+      <div class="ldg-view-toggle">
+        <button class="ldg-view-chip ${S.view === 'month' ? 'active' : ''}" data-action="ldg-set-view" data-view="month">월별</button>
+        <button class="ldg-view-chip ${S.view === 'year' ? 'active' : ''}" data-action="ldg-set-view" data-view="year">연간</button>
+      </div>
+      <button class="ldg-jump-today" data-action="ldg-jump-today">오늘</button>
+    </div>`;
+}
+
+function monthEntries(ym) {
+  return entries.filter(e => occursInMonth(e, ym))
+    .filter(e => S.typeFilter === 'all' || e.type === S.typeFilter)
+    .filter(e => !S.search.trim() || (e.title + ' ' + (e.category || '') + ' ' + (e.memo || '')).toLowerCase().includes(S.search.trim().toLowerCase()))
+    .map(e => ({ ...e, displayDate: displayDateFor(e, ym) }))
+    .sort((a, b) => a.displayDate.localeCompare(b.displayDate));
+}
+
+function summaryFor(ym) {
+  const list = entries.filter(e => occursInMonth(e, ym));
+  const income = list.filter(e => e.type === 'income').reduce((s, e) => s + krwOf(e), 0);
+  const expense = list.filter(e => e.type === 'expense').reduce((s, e) => s + krwOf(e), 0);
+  return { income, expense, net: income - expense };
+}
+
+function summaryCardsHtml(sum) {
+  return `
+    <div class="ldg-summary">
+      <div class="ldg-card"><div class="ldg-card-label">이번 달 수입</div><div class="ldg-card-value income">${formatWon(sum.income)}</div></div>
+      <div class="ldg-card"><div class="ldg-card-label">이번 달 지출</div><div class="ldg-card-value expense">${formatWon(sum.expense)}</div></div>
+      <div class="ldg-card"><div class="ldg-card-label">순이익</div><div class="ldg-card-value">${formatWon(sum.net)}</div></div>
+    </div>`;
+}
+
+function rowHtml(e) {
+  const isUsd = e.currency === 'USD';
+  const krw = krwOf(e);
+  const sign = e.type === 'income' ? '+' : '-';
+  return `
+    <div class="ldg-row" data-action="ldg-open-edit" data-id="${e.id}">
+      <div><span class="ldg-type-badge ${e.type}">${e.type === 'income' ? '수입' : '지출'}</span></div>
+      <div class="ldg-row-title">${esc(e.title)}${e.recurring ? '<span class="ldg-row-recur">🔁 매월</span>' : ''}</div>
+      <div class="ldg-row-category">${esc(e.category || '—')}</div>
+      <div class="ldg-row-date">${e.displayDate}</div>
+      <div class="ldg-row-amount ${e.type}">
+        ${sign}${isUsd ? formatUSD(e.amount) : formatWon(e.amount)}
+        ${isUsd ? `<span class="ldg-row-amount-sub">≈ ${formatWon(krw)}</span>` : ''}
+      </div>
+      <button class="ldg-row-del" data-action="ldg-confirm-delete" data-id="${e.id}">✕</button>
+    </div>`;
+}
+
+function listHtml() {
+  const list = monthEntries(S.month);
+  if (!list.length) return `<div class="ldg-list"><div class="ldg-empty">이 달에는 등록된 항목이 없어요.</div></div>`;
+  return `
+    <div class="ldg-list">
+      <div class="ldg-list-head">
+        <div>구분</div><div>제목</div><div>카테고리</div><div>날짜</div><div style="text-align:right;">금액</div><div></div>
+      </div>
+      ${list.map(rowHtml).join('')}
+    </div>`;
+}
+
+function yearViewHtml() {
+  const months = Array.from({ length: 12 }, (_, i) => `${S.year}-${pad2(i + 1)}`);
+  const rows = months.map(ym => summaryFor(ym));
+  const totalIncome = rows.reduce((s, r) => s + r.income, 0);
+  const totalExpense = rows.reduce((s, r) => s + r.expense, 0);
+  return `
+    <div class="ldg-nav" style="margin-top:-6px;">
+      <button class="ldg-nav-btn" data-action="ldg-prev-year">‹</button>
+      <div class="ldg-nav-label">${S.year}년</div>
+      <button class="ldg-nav-btn" data-action="ldg-next-year">›</button>
+    </div>
+    <div class="ldg-list" style="padding:6px 10px;">
+      <table class="ldg-year-table">
+        <thead><tr><th>월</th><th>수입</th><th>지출</th><th>순이익</th></tr></thead>
+        <tbody>
+          ${months.map((ym, i) => `<tr><td>${i + 1}월</td><td class="income">${formatWon(rows[i].income)}</td><td class="expense">${formatWon(rows[i].expense)}</td><td class="net">${formatWon(rows[i].net)}</td></tr>`).join('')}
+          <tr class="total"><td>합계</td><td class="income">${formatWon(totalIncome)}</td><td class="expense">${formatWon(totalExpense)}</td><td class="net">${formatWon(totalIncome - totalExpense)}</td></tr>
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function rateBarHtml() {
+  return `
+    <div class="ldg-rate-bar">
+      <span>적용 환율</span>
+      <b>1 USD = ${formatWon(settings.usdKrwRate)}</b>
+      <span>(${settings.rateDate} 기준)</span>
+      <button class="ldg-rate-edit" data-action="ldg-open-rate">✎ 환율 수정</button>
+    </div>`;
+}
+
+function toolbarHtml() {
+  return `
+    <div class="ldg-toolbar">
+      <div class="ldg-search"><input type="text" id="ldgSearchInput" placeholder="제목·카테고리·메모 검색" value="${esc(S.search)}" /></div>
+      <div class="ldg-chip-row">
+        <button class="ldg-chip ${S.typeFilter === 'all' ? 'active' : ''}" data-action="ldg-set-type-filter" data-type="all">전체</button>
+        <button class="ldg-chip ${S.typeFilter === 'income' ? 'active' : ''}" data-action="ldg-set-type-filter" data-type="income">수입</button>
+        <button class="ldg-chip ${S.typeFilter === 'expense' ? 'active' : ''}" data-action="ldg-set-type-filter" data-type="expense">지출</button>
+      </div>
+      <button class="ldg-add-btn" data-action="ldg-open-add">+ 항목 추가</button>
+    </div>`;
+}
+
+function entryModalHtml() {
+  if (!S.modalOpen) return '';
+  const editing = S.editingId ? entries.find(e => e.id === S.editingId) : null;
+  const cats = getKnownCategories();
+  return `
+    <div class="ldg-modal-overlay" data-action="ldg-close-modal">
+      <div class="ldg-modal">
+        <h3>${editing ? '항목 수정' : '새 항목 추가'}</h3>
+        <form id="ldgEntryForm">
+          <div class="ldg-field">
+            <label>구분</label>
+            <div class="ldg-radio-row">
+              <label class="ldg-radio-option"><input type="radio" name="type" value="income" ${(!editing && S.typeFilter !== 'expense') || editing?.type === 'income' ? 'checked' : ''}><span>수입</span></label>
+              <label class="ldg-radio-option"><input type="radio" name="type" value="expense" ${(!editing && S.typeFilter === 'expense') || editing?.type === 'expense' ? 'checked' : ''}><span>지출</span></label>
+            </div>
+          </div>
+          <div class="ldg-field"><label>제목</label><input type="text" name="title" required value="${esc(editing?.title || '')}" placeholder="예: 프리미어 프로 구독료" /></div>
+          <div class="ldg-field"><label>카테고리</label><input type="text" name="category" list="ldgCategoryList" value="${esc(editing?.category || '')}" placeholder="예: 소프트웨어 구독" />
+            <datalist id="ldgCategoryList">${cats.map(c => `<option value="${esc(c)}"></option>`).join('')}</datalist>
+          </div>
+          <div class="ldg-field">
+            <label>통화</label>
+            <div class="ldg-radio-row">
+              <label class="ldg-radio-option"><input type="radio" name="currency" value="KRW" ${!editing || editing?.currency === 'KRW' ? 'checked' : ''}><span>원화 (₩)</span></label>
+              <label class="ldg-radio-option"><input type="radio" name="currency" value="USD" ${editing?.currency === 'USD' ? 'checked' : ''}><span>달러 ($)</span></label>
+            </div>
+          </div>
+          <div class="ldg-field"><label>금액</label><input type="number" name="amount" step="0.01" min="0" required value="${editing?.amount ?? ''}" placeholder="0" /></div>
+          <div class="ldg-field"><label>날짜</label><input type="date" name="date" required value="${editing?.date || todayStr()}" /></div>
+          <div class="ldg-field">
+            <label class="ldg-checkbox-row"><input type="checkbox" name="recurring" ${editing?.recurring ? 'checked' : ''} style="width:auto;"> 매월 반복 (구독료 등)</label>
+          </div>
+          <div class="ldg-field"><label>메모</label><textarea name="memo" placeholder="메모 (선택)">${esc(editing?.memo || '')}</textarea></div>
+          <div class="ldg-modal-actions">
+            <button type="button" class="ldg-btn ldg-btn-ghost" data-action="ldg-close-modal">취소</button>
+            <button type="submit" class="ldg-btn ldg-btn-primary">${editing ? '저장' : '추가'}</button>
+          </div>
+        </form>
+      </div>
+    </div>`;
+}
+
+function rateModalHtml() {
+  if (!S.rateModalOpen) return '';
+  return `
+    <div class="ldg-modal-overlay" data-action="ldg-close-rate">
+      <div class="ldg-modal" style="max-width:340px;">
+        <h3>환율 수정</h3>
+        <form id="ldgRateForm">
+          <div class="ldg-field"><label>1 USD = ₩</label><input type="number" name="rate" step="0.01" min="0" required value="${settings.usdKrwRate}" /></div>
+          <div class="ldg-field"><label>기준일</label><input type="date" name="rateDate" required value="${settings.rateDate}" /></div>
+          <div class="ldg-modal-actions">
+            <button type="button" class="ldg-btn ldg-btn-ghost" data-action="ldg-close-rate">취소</button>
+            <button type="submit" class="ldg-btn ldg-btn-primary">저장</button>
+          </div>
+        </form>
+      </div>
+    </div>`;
+}
+
+function confirmDeleteModalHtml() {
+  if (!S.confirmDeleteId) return '';
+  const e = entries.find(x => x.id === S.confirmDeleteId);
+  if (!e) return '';
+  return `
+    <div class="ldg-modal-overlay" data-action="ldg-cancel-delete">
+      <div class="ldg-modal" style="max-width:340px;">
+        <h3>항목을 삭제할까요?</h3>
+        <p style="color:var(--text-dim); font-size:13.5px; margin:0 0 6px;">"${esc(e.title)}" 항목이 삭제됩니다.</p>
+        <div class="ldg-modal-actions">
+          <button class="ldg-btn ldg-btn-ghost" data-action="ldg-cancel-delete">취소</button>
+          <button class="ldg-btn ldg-btn-danger" data-action="ldg-delete" data-id="${e.id}">삭제</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function render() {
+  const sum = summaryFor(S.month);
+  document.getElementById('root').innerHTML = `
+    <div class="ldg-shell">
+      <div class="ldg-topbar">
+        <div><div class="ldg-eyebrow">VINFILM STUDIO</div><div class="ldg-title">통합장부</div></div>
+        <div class="ldg-topbar-actions"><button class="ldg-logout" data-action="ldg-logout">로그아웃</button></div>
+      </div>
+      ${rateBarHtml()}
+      ${monthNavHtml()}
+      ${S.view === 'month' ? `
+        ${summaryCardsHtml(sum)}
+        ${toolbarHtml()}
+        ${listHtml()}
+      ` : yearViewHtml()}
+      <div class="ldg-sync-note">${IS_LOCAL_DEV ? '로컬 테스트 모드 — 클라우드 동기화 꺼짐' : (window.cloudSyncReady ? '클라우드 동기화 중' : '동기화 대기 중')}</div>
+    </div>
+    ${entryModalHtml()}
+    ${rateModalHtml()}
+    ${confirmDeleteModalHtml()}
+  `;
+  const searchInput = document.getElementById('ldgSearchInput');
+  if (searchInput) {
+    searchInput.addEventListener('input', e => { S.search = e.target.value; refreshList(); });
+    // 커서 위치 유지
+    const pos = searchInput.value.length;
+    searchInput.setSelectionRange(pos, pos);
+  }
+}
+
+function refreshList() {
+  const listEl = document.querySelector('.ldg-shell .ldg-list');
+  if (S.view === 'month' && listEl) {
+    listEl.outerHTML = listHtml();
+  } else {
+    render();
+  }
+}
+
+function shiftMonth(delta) {
+  const [y, m] = S.month.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  S.month = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
+}
+
+/* ================= events ================= */
+
+document.addEventListener('submit', e => {
+  if (e.target.id === 'ldgEntryForm') {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const payload = {
+      type: fd.get('type'),
+      title: (fd.get('title') || '').trim(),
+      category: (fd.get('category') || '').trim(),
+      currency: fd.get('currency'),
+      amount: parseFloat(fd.get('amount')) || 0,
+      date: fd.get('date'),
+      recurring: fd.get('recurring') === 'on',
+      memo: (fd.get('memo') || '').trim(),
+    };
+    if (!payload.title || !payload.amount) return;
+    if (S.editingId) {
+      saveEntries(entries.map(x => x.id === S.editingId ? { ...x, ...payload } : x));
+    } else {
+      saveEntries([{ id: uid(), createdAt: Date.now(), ...payload }, ...entries]);
+    }
+    S.modalOpen = false; S.editingId = null;
+    render();
+  } else if (e.target.id === 'ldgRateForm') {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    saveSettings({ usdKrwRate: parseFloat(fd.get('rate')) || settings.usdKrwRate, rateDate: fd.get('rateDate') });
+    S.rateModalOpen = false;
+    render();
+  }
+});
+
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.dataset.action;
+  const id = btn.dataset.id;
+  switch (action) {
+    case 'ldg-prev': shiftMonth(-1); render(); break;
+    case 'ldg-next': shiftMonth(1); render(); break;
+    case 'ldg-jump-today': S.month = todayStr().slice(0, 7); S.year = Number(todayStr().slice(0, 4)); render(); break;
+    case 'ldg-set-view': S.view = btn.dataset.view; render(); break;
+    case 'ldg-prev-year': S.year -= 1; render(); break;
+    case 'ldg-next-year': S.year += 1; render(); break;
+    case 'ldg-set-type-filter': S.typeFilter = btn.dataset.type; refreshList(); break;
+    case 'ldg-open-add': S.modalOpen = true; S.editingId = null; render(); break;
+    case 'ldg-open-edit': S.modalOpen = true; S.editingId = id; render(); break;
+    case 'ldg-close-modal': if (e.target === btn) { S.modalOpen = false; S.editingId = null; render(); } break;
+    case 'ldg-open-rate': S.rateModalOpen = true; render(); break;
+    case 'ldg-close-rate': if (e.target === btn) { S.rateModalOpen = false; render(); } break;
+    case 'ldg-confirm-delete': S.confirmDeleteId = id; render(); break;
+    case 'ldg-cancel-delete': if (e.target === btn) { S.confirmDeleteId = null; render(); } break;
+    case 'ldg-delete': saveEntries(entries.filter(x => x.id !== id)); S.confirmDeleteId = null; render(); break;
+    case 'ldg-logout': firebase.auth().signOut(); break;
+  }
+});
+
+/* ================= auth gate ================= */
+
+function bootApp() { initCloudSync(); render(); }
+
+function showAccessDenied(email) {
+  document.getElementById('root').innerHTML = `
+    <div class="ldg-login-wrap">
+      <div class="ldg-login-box">
+        <div class="ldg-eyebrow">VINFILM STUDIO</div>
+        <h1>통합장부</h1>
+        <p class="ldg-denied-note">${esc(email)} 계정에는 통합장부 접근 권한이 없어요.</p>
+        <button class="ldg-logout" style="margin-top:14px;" data-action="ldg-logout">로그아웃</button>
+      </div>
+    </div>`;
+}
+
+function showLoginGate() {
+  document.getElementById('root').innerHTML = `
+    <div class="ldg-login-wrap">
+      <div class="ldg-login-box">
+        <div class="ldg-eyebrow">VINFILM STUDIO</div>
+        <h1>통합장부</h1>
+        <button id="ldgGoogleLoginBtn" class="ldg-google-btn">
+          <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.9 32.6 29.4 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.5 5.1 29.5 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.4-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 18.9 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34.5 6.1 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 10-2 13.6-5.2l-6.3-5.3C29.3 35.4 26.8 36 24 36c-5.3 0-9.8-3.4-11.3-8.1l-6.6 5.1C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.2-4.2 5.6l6.3 5.3C39.9 37.1 44 31.4 44 24c0-1.4-.1-2.7-.4-3.5z"/></svg>
+          Google로 로그인
+        </button>
+        <div id="ldgLoginError" class="ldg-login-error" style="display:none;"></div>
+      </div>
+    </div>`;
+  document.getElementById('ldgGoogleLoginBtn').addEventListener('click', () => {
+    const errEl = document.getElementById('ldgLoginError');
+    errEl.style.display = 'none';
+    firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(err => {
+      errEl.textContent = '로그인 실패: ' + err.message;
+      errEl.style.display = 'block';
+    });
+  });
+}
+
+if (typeof firebase === 'undefined' || typeof firebase.auth !== 'function') {
+  bootApp();
+} else {
+  firebase.auth().onAuthStateChanged(user => {
+    if (user) {
+      if (user.email === OWNER_EMAIL) bootApp();
+      else showAccessDenied(user.email);
+    } else {
+      showLoginGate();
+    }
+  });
+}
+</script>
+</body>
+</html>
