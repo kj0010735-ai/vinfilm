@@ -30,8 +30,8 @@
   #root { min-height: 100vh; }
 
   .sf-shell { max-width: 1180px; margin: 0 auto; padding: 22px 24px 70px; }
-  .sf-topline { display:flex; justify-content:flex-end; margin-bottom: 6px; }
-  .sf-logout { background:none; border:1px solid var(--sf-border); color: var(--sf-text-dim); border-radius:999px; padding:6px 14px; font-family: var(--font-body); font-size:12px; cursor:pointer; }
+  .sf-topline { display:flex; justify-content:flex-end; gap:8px; margin-bottom: 6px; }
+  .sf-logout { background:none; border:1px solid var(--sf-border); color: var(--sf-text-dim); border-radius:999px; padding:6px 14px; font-family: var(--font-body); font-size:12px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; }
   .sf-logout:hover { background: #eef0f5; }
 
   .sf-header { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; margin-bottom: 22px; flex-wrap: wrap; }
@@ -387,7 +387,10 @@ function downloadCsv(rows, filename) {
 
 function headerHtml() {
   return `
-    <div class="sf-topline"><button class="sf-logout" data-action="sf-logout">로그아웃</button></div>
+    <div class="sf-topline">
+      <a class="sf-logout" href="../works/">🎬 작업 관리로</a>
+      <button class="sf-logout" data-action="sf-logout">로그아웃</button>
+    </div>
     <div class="sf-header">
       <div>
         <div class="sf-eyebrow">STUDIO FINANCE</div>
