@@ -21,8 +21,8 @@ service cloud.firestore {
     match /todayTasks/{id} { allow read, write: if isOwner(); }
     match /notes/{id} { allow read, write: if isOwner(); }
 
-    // 통합장부(ledger/index.html) — 재무 데이터라 owner만 읽고 쓸 수 있다.
+    // STUDIO FINANCE 통합장부(ledger/index.html) — 재무 데이터라 owner만 읽고 쓸 수 있다.
     match /ledgerEntries/{id} { allow read, write: if isOwner(); }
-    match /ledgerSettings/{id} { allow read, write: if isOwner(); }
+    match /ledgerSubscriptions/{id} { allow read, write: if isOwner(); }
   }
 }
