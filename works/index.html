@@ -268,8 +268,8 @@ const S = {
   eq: { search: '', categoryFilter: 'all', statusFilter: 'all', sortBy: 'recent', sortOpen: false, modalOpen: false, editingId: null, confirmDeleteId: null, categoryModalOpen: false, detailId: null },
   sched: { search: '', categoryFilter: 'all', showPast: false, modalOpen: false, editingId: null, confirmDeleteId: null, importMsg: '', detailId: null, linkProjectId: null },
   today: { viewMode: 'today', month: todayStr().slice(0, 7) },
-  proj: { modalOpen: false, editingId: null, confirmDeleteId: null, addStatus: 'todo', search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [], selectMode: false },
-  shared: { modalOpen: false, editingId: null, confirmDeleteId: null, search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [], selectMode: false },
+  proj: { modalOpen: false, editingId: null, confirmDeleteId: null, addStatus: 'todo', search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [], selectMode: false, moveIds: null },
+  shared: { modalOpen: false, editingId: null, confirmDeleteId: null, search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [], selectMode: false, moveIds: null },
   shoot: { formOpen: false, editingParamsId: null, selectedShootId: null, mode: 'pack', confirmDeleteShootId: null, confirmDeletePresetId: null, applyPresetId: null },
   task: { modalOpen: false, editingId: null, confirmDeleteId: null },
   note: { modalOpen: false, editingId: null, confirmDeleteId: null },
@@ -460,7 +460,7 @@ function renderSidebar() {
       </div>
       ${!GUEST_MODE ? `
       <a class="side-nav-item" href="../ledger/" style="text-decoration:none;">
-        <span class="side-nav-icon">💰</span><span class="side-nav-label">STUDIO FINANCE</span>
+        <span class="side-nav-icon">💰</span><span class="side-nav-label">수입·지출 관리</span>
       </a>` : ''}
       ${!GUEST_MODE ? `<button class="side-nav-item" data-action="logout" style="opacity:0.6;"><span class="side-nav-icon">🚪</span><span class="side-nav-label">로그아웃</span></button>` : ''}
     </nav>`;
@@ -942,6 +942,30 @@ function projBreadcrumb(id) {
   while (cur) { chain.unshift(cur); cur = cur.parentId ? projItems.find(p => p.id === cur.parentId) : null; }
   return chain;
 }
+/* 프로젝트/공유 프로젝트 "폴더 이동" 공용 헬퍼 — 옮기려는 항목 자신과 그 하위 항목 전체로는
+   이동할 수 없게(순환 방지) 제외 집합을 만들고, 트리 순서(부모 먼저) + 들여쓰기로 선택지를 만든다. */
+function collectDescendantIds(items, rootId) {
+  const ids = new Set();
+  const queue = [rootId];
+  while (queue.length) {
+    const cur = queue.shift();
+    items.filter(x => (x.parentId || null) === cur).forEach(child => { ids.add(child.id); queue.push(child.id); });
+  }
+  return ids;
+}
+function folderPickerOptions(items, excludeSet) {
+  const byParent = {};
+  items.forEach(p => { const k = p.parentId || 'root'; (byParent[k] = byParent[k] || []).push(p); });
+  const out = [];
+  (function walk(parentKey, depth) {
+    (byParent[parentKey] || []).forEach(p => {
+      if (excludeSet.has(p.id)) return; // 자기 자신/하위 트리는 후보에서도, 그 아래로도 내려가지 않음
+      out.push({ id: p.id, label: (depth ? '　'.repeat(depth) + '└ ' : '') + p.title });
+      walk(p.id, depth + 1);
+    });
+  })('root', 0);
+  return out;
+}
 function projStatusMenuHtml() {
   const m = S.proj.statusMenu;
   if (!m) return '';
@@ -959,7 +983,35 @@ function projRowMenuHtml() {
     <div class="proj-status-menu" style="left:${m.x}px; top:${m.y}px;" data-stop-close>
       <button data-action="proj-duplicate" data-id="${m.id}">⧉ 복제</button>
       <button data-action="proj-open-edit" data-id="${m.id}">✎ 수정</button>
+      <button data-action="proj-open-move" data-id="${m.id}">📁 폴더 이동</button>
       <button data-action="proj-confirm-delete" data-id="${m.id}">✕ 삭제</button>
+    </div>`;
+}
+function projMoveModalHtml() {
+  const ids = S.proj.moveIds;
+  if (!ids || !ids.length) return '';
+  const moving = projItems.filter(p => ids.includes(p.id));
+  if (!moving.length) return '';
+  const excludeSet = new Set(ids);
+  ids.forEach(id => collectDescendantIds(projItems, id).forEach(d => excludeSet.add(d)));
+  const options = folderPickerOptions(projItems, excludeSet);
+  const currentParentId = moving.length === 1 ? (moving[0].parentId || '') : '';
+  return `
+    <div class="eq-modal-overlay">
+      <div class="eq-modal" data-stop-close style="max-width:420px;">
+        <div class="eq-modal-head"><h2>폴더 이동</h2><button class="eq-modal-close" data-action="proj-close-move-modal">✕</button></div>
+        <p style="color:var(--text-dim); font-size:13px; margin:-6px 0 16px;">${moving.length === 1 ? `"${esc(moving[0].title)}"` : `선택한 ${moving.length}개 항목`}을(를) 옮길 폴더를 선택해줘.</p>
+        <form data-form-role="proj-move-form">
+          <div class="eq-field">
+            <label>대상 폴더</label>
+            <select name="targetParentId">
+              <option value="">(최상위로 이동)</option>
+              ${options.map(o => `<option value="${o.id}" ${currentParentId === o.id ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}
+            </select>
+          </div>
+          <button type="submit" class="eq-modal-submit">이동</button>
+        </form>
+      </div>
     </div>`;
 }
 function projParentSummaryHtml(p) {
@@ -1067,6 +1119,7 @@ function projBulkBarHtml() {
       <span class="proj-bulk-count">${n}개 선택됨</span>
       <div class="proj-bulk-actions">
         ${PROJECT_COLUMNS.map(col => `<button data-action="proj-bulk-set-status" data-status="${col.id}"><span class="proj-row-dot" style="background:${col.color};"></span>${col.label}로 변경</button>`).join('')}
+        <button data-action="proj-bulk-move">📁 폴더 이동</button>
         <button class="danger" data-action="proj-bulk-delete">삭제</button>
       </div>
       <button class="proj-bulk-clear" data-action="proj-clear-selection">선택 해제</button>
@@ -1110,6 +1163,7 @@ function renderProjectsTab() {
     ${projModalHtml()}
     ${projStatusMenuHtml()}
     ${projRowMenuHtml()}
+    ${projMoveModalHtml()}
   `;
 }
 
@@ -1167,7 +1221,35 @@ function sharedRowMenuHtml() {
     <div class="proj-status-menu" style="left:${m.x}px; top:${m.y}px;" data-stop-close>
       <button data-action="shared-duplicate" data-id="${m.id}">⧉ 복제</button>
       <button data-action="shared-open-edit" data-id="${m.id}">✎ 수정</button>
+      <button data-action="shared-open-move" data-id="${m.id}">📁 폴더 이동</button>
       <button data-action="shared-confirm-delete" data-id="${m.id}">✕ 삭제</button>
+    </div>`;
+}
+function sharedMoveModalHtml() {
+  const ids = S.shared.moveIds;
+  if (!ids || !ids.length) return '';
+  const moving = sharedProjItems.filter(p => ids.includes(p.id));
+  if (!moving.length) return '';
+  const excludeSet = new Set(ids);
+  ids.forEach(id => collectDescendantIds(sharedProjItems, id).forEach(d => excludeSet.add(d)));
+  const options = folderPickerOptions(sharedProjItems, excludeSet);
+  const currentParentId = moving.length === 1 ? (moving[0].parentId || '') : '';
+  return `
+    <div class="eq-modal-overlay">
+      <div class="eq-modal" data-stop-close style="max-width:420px;">
+        <div class="eq-modal-head"><h2>폴더 이동</h2><button class="eq-modal-close" data-action="shared-close-move-modal">✕</button></div>
+        <p style="color:var(--text-dim); font-size:13px; margin:-6px 0 16px;">${moving.length === 1 ? `"${esc(moving[0].title)}"` : `선택한 ${moving.length}개 항목`}을(를) 옮길 폴더를 선택해줘.</p>
+        <form data-form-role="shared-move-form">
+          <div class="eq-field">
+            <label>대상 폴더</label>
+            <select name="targetParentId">
+              <option value="">(최상위로 이동)</option>
+              ${options.map(o => `<option value="${o.id}" ${currentParentId === o.id ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}
+            </select>
+          </div>
+          <button type="submit" class="eq-modal-submit">이동</button>
+        </form>
+      </div>
     </div>`;
 }
 function sharedParentSummaryHtml(p) {
@@ -1263,6 +1345,7 @@ function sharedBulkBarHtml() {
       <span class="proj-bulk-count">${n}개 선택됨</span>
       <div class="proj-bulk-actions">
         ${SHARED_STATUSES.map(st => `<button data-action="shared-bulk-set-status" data-status="${st.id}"><span class="proj-row-dot" style="background:${st.color};"></span>${st.label}로 변경</button>`).join('')}
+        <button data-action="shared-bulk-move">📁 폴더 이동</button>
         <button class="danger" data-action="shared-bulk-delete">삭제</button>
       </div>
       <button class="proj-bulk-clear" data-action="shared-clear-selection">선택 해제</button>
@@ -1306,6 +1389,7 @@ function renderSharedProjectsTab() {
     ${sharedModalHtml()}
     ${sharedStatusMenuHtml()}
     ${sharedRowMenuHtml()}
+    ${sharedMoveModalHtml()}
   `;
 }
 
@@ -2022,6 +2106,9 @@ function bootApp() {
         if (!S.proj.selectMode) S.proj.selectedIds = [];
         render();
         break;
+      case 'proj-open-move': S.proj.moveIds = [id]; S.proj.rowMenu = null; render(); break;
+      case 'proj-bulk-move': if (S.proj.selectedIds.length) { S.proj.moveIds = [...S.proj.selectedIds]; render(); } break;
+      case 'proj-close-move-modal': S.proj.moveIds = null; render(); break;
 
       /* shared projects */
       case 'shared-open-add': S.shared.editingId = null; S.shared.modalOpen = true; render(); break;
@@ -2082,6 +2169,9 @@ function bootApp() {
         if (!S.shared.selectMode) S.shared.selectedIds = [];
         render();
         break;
+      case 'shared-open-move': S.shared.moveIds = [id]; S.shared.rowMenu = null; render(); break;
+      case 'shared-bulk-move': if (S.shared.selectedIds.length) { S.shared.moveIds = [...S.shared.selectedIds]; render(); } break;
+      case 'shared-close-move-modal': S.shared.moveIds = null; render(); break;
       case 'shared-close-status-menu': S.shared.statusMenu = null; render(); break;
       case 'shared-close-row-menu': S.shared.rowMenu = null; render(); break;
       case 'shared-set-status': {
@@ -2370,6 +2460,13 @@ function bootApp() {
       else saveProjItems([{ id: uid(), serial: nextProjectSerial(projItems), createdAt: Date.now(), parentId: S.proj.currentParentId || null, ...payload }, ...projItems]);
       S.proj.modalOpen = false; S.proj.editingId = null;
       render();
+    } else if (form.matches('[data-form-role="proj-move-form"]')) {
+      const fd = new FormData(form);
+      const targetParentId = fd.get('targetParentId') || null;
+      const ids = new Set(S.proj.moveIds || []);
+      if (ids.size) saveProjItems(projItems.map(p => ids.has(p.id) ? { ...p, parentId: targetParentId } : p));
+      S.proj.moveIds = null; S.proj.selectedIds = [];
+      render();
     } else if (form.matches('[data-form-role="shared-form"]')) {
       const fd = new FormData(form);
       const title = (fd.get('title') || '').toString().trim();
@@ -2378,6 +2475,13 @@ function bootApp() {
       if (S.shared.editingId) saveSharedProjItems(sharedProjItems.map(p => p.id === S.shared.editingId ? { ...p, ...payload } : p));
       else saveSharedProjItems([{ id: uid(), serial: nextSharedSerial(sharedProjItems), createdAt: Date.now(), parentId: S.shared.currentParentId || null, ...payload }, ...sharedProjItems]);
       S.shared.modalOpen = false; S.shared.editingId = null;
+      render();
+    } else if (form.matches('[data-form-role="shared-move-form"]')) {
+      const fd = new FormData(form);
+      const targetParentId = fd.get('targetParentId') || null;
+      const ids = new Set(S.shared.moveIds || []);
+      if (ids.size) saveSharedProjItems(sharedProjItems.map(p => ids.has(p.id) ? { ...p, parentId: targetParentId, updatedBy: currentEditorName(), updatedAt: Date.now() } : p));
+      S.shared.moveIds = null; S.shared.selectedIds = [];
       render();
     } else if (form.matches('[data-form-role="task-form"]')) {
       const fd = new FormData(form);
