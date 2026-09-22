@@ -610,13 +610,18 @@ function eqModalHtml() {
       <div class="eq-modal" data-stop-close>
         <div class="eq-modal-head"><h2>${editing ? '장비 정보 수정' : '새 장비 등록'}</h2><button class="eq-modal-close" data-action="eq-close-modal">✕</button></div>
         <form data-form-role="eq-form">
+          <div class="eq-field"><label>장비 이름</label><input name="name" id="eqNameInput" autofocus value="${esc(f.name)}" placeholder="예: 소니 FX3" required /></div>
           <div class="eq-field">
             <label>사진</label>
             <div id="eqPhotoZone">${eqPhotoZoneHtml()}</div>
             <input id="eqFileInput" type="file" accept="image/*" style="display:none" />
             <div class="eq-photo-error" id="eqPhotoErrorMsg">${esc(currentEqPhotoError)}</div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              <button type="button" class="eq-chip" data-action="eq-search-photo">🔍 사진 검색</button>
+              <button type="button" class="eq-chip" data-action="eq-search-specs">📋 제원 검색</button>
+            </div>
+            <p class="eq-hint" style="margin-top:6px;">검색 결과에서 사진 주소를 복사해 위 사진란에 붙여넣기(⌘V)하면 바로 들어가요. 제원은 검색해서 무게·배터리·케이블 칸에 옮겨 적으면 돼.</p>
           </div>
-          <div class="eq-field"><label>장비 이름</label><input name="name" autofocus value="${esc(f.name)}" placeholder="예: 소니 FX3" required /></div>
           <div class="eq-field-row">
             <div class="eq-field"><label>카테고리</label><select name="category">${eqCategories.map(c => `<option value="${c.id}" ${f.category===c.id?'selected':''}>${esc(c.label)}</option>`).join('')}</select></div>
             <div class="eq-field"><label>보유 수량</label><input type="number" name="quantity" min="1" value="${esc(f.quantity)}" /></div>
@@ -1934,6 +1939,18 @@ function bootApp() {
         break;
       }
       case 'eq-photo-pick': { const inp = document.getElementById('eqFileInput'); if (inp) inp.click(); break; }
+      case 'eq-search-photo': {
+        const q = (document.getElementById('eqNameInput')?.value || '').trim();
+        if (!q) { alert('먼저 장비 이름을 입력해줘'); break; }
+        window.open('https://www.google.com/search?tbm=isch&q=' + encodeURIComponent(q), '_blank', 'noopener');
+        break;
+      }
+      case 'eq-search-specs': {
+        const q = (document.getElementById('eqNameInput')?.value || '').trim();
+        if (!q) { alert('먼저 장비 이름을 입력해줘'); break; }
+        window.open('https://www.google.com/search?q=' + encodeURIComponent(q + ' 제원 스펙'), '_blank', 'noopener');
+        break;
+      }
       case 'eq-open-detail': S.eq.detailId = id; render(); break;
       case 'eq-close-detail': S.eq.detailId = null; render(); break;
       case 'eq-close-detail-backdrop': if (!e.target.closest('[data-stop-close]')) { S.eq.detailId = null; render(); } break;
