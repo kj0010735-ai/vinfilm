@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>수입·지출 관리 · VINFILM STUDIO</title>
+<title>STUDIO FINANCE · VINFILM STUDIO</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 
@@ -184,7 +184,8 @@
 
 <script>
 /* =========================================================================
-   수입·지출 관리 (ledger/index.html, 내부적으로는 STUDIO FINANCE 컨셉) — VINFILM STUDIO 소규모 사업자용 장부.
+   STUDIO FINANCE (ledger/index.html) — VINFILM STUDIO 소규모 사업자용 장부. 화면에 뜨는 큰 제목("스튜디오의 돈, 한눈에." 자리)은
+   "수입·지출 관리"로 한글 표기하지만, 에이브로우/탭 제목은 원래대로 영문 "STUDIO FINANCE" 유지.
    매출/인건비(3.3% 원천세 자동계산)/지출을 한 장부에서 관리하고, 인건비는
    신고/납부/지급명세서 진행 상태를 별도로 체크한다. 구독료("디지털 월세")는
    원/달러 환산 없이 통화별로 따로 집계하는 별도 트래커.
@@ -438,8 +439,8 @@ function headerHtml() {
     </div>
     <div class="sf-header">
       <div>
-        <div class="sf-eyebrow">수입·지출 관리</div>
-        <div class="sf-title">스튜디오의 돈, 한눈에.</div>
+        <div class="sf-eyebrow">STUDIO FINANCE</div>
+        <div class="sf-title">수입·지출 관리</div>
         <p class="sf-subtitle">매출부터 인건비, 신고 확인까지.</p>
       </div>
       <div class="sf-header-controls">
@@ -1027,8 +1028,8 @@ function showAccessDenied(email) {
   document.getElementById('root').innerHTML = `
     <div class="sf-login-wrap">
       <div class="sf-login-box">
-        <div class="sf-eyebrow">수입·지출 관리</div>
-        <h1>스튜디오의 돈, 한눈에.</h1>
+        <div class="sf-eyebrow">STUDIO FINANCE</div>
+        <h1>수입·지출 관리</h1>
         <p class="sf-denied-note">${esc(email)} 계정에는 접근 권한이 없어요.</p>
         <button class="sf-logout" style="margin-top:14px;" data-action="sf-logout">로그아웃</button>
       </div>
@@ -1039,8 +1040,8 @@ function showLoginGate() {
   document.getElementById('root').innerHTML = `
     <div class="sf-login-wrap">
       <div class="sf-login-box">
-        <div class="sf-eyebrow">수입·지출 관리</div>
-        <h1>스튜디오의 돈, 한눈에.</h1>
+        <div class="sf-eyebrow">STUDIO FINANCE</div>
+        <h1>수입·지출 관리</h1>
         <button id="sfGoogleLoginBtn" class="sf-google-btn">
           <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.9 32.6 29.4 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.5 5.1 29.5 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.4-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 18.9 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34.5 6.1 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 10-2 13.6-5.2l-6.3-5.3C29.3 35.4 26.8 36 24 36c-5.3 0-9.8-3.4-11.3-8.1l-6.6 5.1C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.2-4.2 5.6l6.3 5.3C39.9 37.1 44 31.4 44 24c0-1.4-.1-2.7-.4-3.5z"/></svg>
           Google로 로그인
