@@ -11,11 +11,23 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-storage-compat.js"></script>
 <style>
+  /* 페이퍼로지(Paperozi) — 눈누(noonnu.cc) 배포 상업용 무료 폰트, OFL 라이선스.
+     굵기별 파일을 전부 같은 font-family로 등록해서 font-weight 숫자만 지정하면
+     알맞은 두께가 자동으로 선택됨. */
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-1Thin.woff2') format('woff2'); font-weight: 100; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-2ExtraLight.woff2') format('woff2'); font-weight: 200; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-3Light.woff2') format('woff2'); font-weight: 300; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-4Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-6SemiBold.woff2') format('woff2'); font-weight: 600; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-7Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-8ExtraBold.woff2') format('woff2'); font-weight: 800; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-9Black.woff2') format('woff2'); font-weight: 900; font-display: swap; }
   :root { --accent: #d98a3d; --bg: #0e0d0c; --fg: #f5f2ea; --line: #262420; --dim: #8c887f; }
   * { box-sizing: border-box; }
   html, body { margin:0; padding:0; background:var(--bg); }
-  body { color:var(--fg); font-family: -apple-system, 'Malgun Gothic', sans-serif; font-size:14px; }
-  h1, h2 { font-family: 'Helvetica Neue', Arial, sans-serif; }
+  body { color:var(--fg); font-family: 'Paperozi', -apple-system, 'Malgun Gothic', sans-serif; font-size:14px; }
+  h1, h2 { font-family: 'Paperozi', 'Helvetica Neue', Arial, sans-serif; }
   input, textarea { width:100%; background:#161412; border:1px solid var(--line); color:var(--fg); border-radius:4px; padding:9px 11px; font-size:13.5px; font-family:inherit; }
   input:focus, textarea:focus { outline:none; border-color:var(--accent); }
   label { display:block; font-size:12px; color:var(--dim); margin-bottom:6px; letter-spacing:0.3px; }

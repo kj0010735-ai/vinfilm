@@ -12,6 +12,18 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 
 <style>
+  /* 페이퍼로지(Paperozi) — 눈누(noonnu.cc) 배포 상업용 무료 폰트, OFL 라이선스.
+     굵기별 파일을 전부 같은 font-family로 등록해서 font-weight 숫자만 지정하면
+     알맞은 두께가 자동으로 선택되게 함(Anton처럼 별도 이름을 신경 쓸 필요 없음). */
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-1Thin.woff2') format('woff2'); font-weight: 100; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-2ExtraLight.woff2') format('woff2'); font-weight: 200; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-3Light.woff2') format('woff2'); font-weight: 300; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-4Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-6SemiBold.woff2') format('woff2'); font-weight: 600; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-7Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-8ExtraBold.woff2') format('woff2'); font-weight: 800; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-9Black.woff2') format('woff2'); font-weight: 900; font-display: swap; }
   :root {
     --sf-bg: #f2f4f8; --sf-card: #ffffff; --sf-border: #e5e8f0;
     --sf-navy: #142a4d; --sf-navy-text: #ffffff;
@@ -21,7 +33,7 @@
     --sf-amber: #c8790a; --sf-amber-soft: rgba(200,121,10,0.13);
     --sf-red: #d33d3d; --sf-red-soft: rgba(211,61,61,0.1);
     --sf-gray-soft: rgba(102,112,133,0.1);
-    --font-body: 'Noto Sans KR', 'Pretendard', 'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-body: 'Paperozi', 'Noto Sans KR', 'Pretendard', 'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
   }
   * { box-sizing: border-box; }
@@ -108,6 +120,9 @@
   .sf-subs-head { margin-bottom: 18px; }
   .sf-subs-head h2 { font-size:20px; font-weight:900; margin:0 0 6px; }
   .sf-subs-head p { font-size:13.5px; color: var(--sf-text-dim); margin:0; }
+  .sf-rate-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background: var(--sf-card); border:1px solid var(--sf-border); border-radius:10px; padding:10px 16px; margin-bottom: 18px; font-size: 13px; color: var(--sf-text-dim); }
+  .sf-rate-bar b { color: var(--sf-text); font-family: var(--font-mono); }
+  .sf-rate-edit { margin-left: auto; background:none; border:none; color: var(--sf-blue); cursor:pointer; font-family: var(--font-body); font-size:12.5px; font-weight:700; }
   .sf-quick-add { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom: 18px; font-size:13px; color: var(--sf-text-dim); }
   .sf-quick-add-btn { background: var(--sf-card); border:1px solid var(--sf-border); color: var(--sf-text); padding:8px 14px; border-radius:999px; font-family: var(--font-body); font-size:13px; font-weight:600; cursor:pointer; }
   .sf-quick-add-btn:hover { background: #eef0f5; }
@@ -186,6 +201,7 @@ const IS_LOCAL_DEV = ['localhost', '127.0.0.1', ''].includes(location.hostname) 
 
 const LS_ENTRIES = 'vinfilm-ledger-entries-v2';
 const LS_SUBS = 'vinfilm-ledger-subs-v2';
+const LS_SETTINGS = 'vinfilm-ledger-settings-v2';
 
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function pad2(n) { return String(n).padStart(2, '0'); }
@@ -235,6 +251,9 @@ const TABS = [
 
 let entries = loadJSON(LS_ENTRIES, []);
 let subs = loadJSON(LS_SUBS, []);
+/* 디지털 월세 탭 전용 환율 — 메인 장부(매출/인건비/지출)는 원화만 다뤄서 환율이 필요 없지만,
+   구독은 대부분 달러라 "월 구독료가 원화로 총 얼마인지" 보려면 환율이 있어야 함. 수동 입력 + 기준일 표시. */
+let settings = loadJSON(LS_SETTINGS, { usdKrwRate: 1380, rateDate: todayStr() });
 
 function getKnownPartners() {
   const set = new Set();
@@ -259,6 +278,7 @@ const S = {
   subEditingId: null,
   subConfirmDeleteId: null,
   subPrefillService: '',
+  rateModalOpen: false,
 };
 
 function saveEntries(next) {
@@ -272,6 +292,13 @@ function saveSubs(next) {
   subs = next;
   try { localStorage.setItem(LS_SUBS, JSON.stringify(next)); } catch (e) {}
   pushToCloud('ledgerSubscriptions', prev, next);
+}
+function saveSettings(next) {
+  settings = next;
+  try { localStorage.setItem(LS_SETTINGS, JSON.stringify(next)); } catch (e) {}
+  if (window.cloudSync && window.cloudSyncReady) {
+    window.cloudSync.setDoc('ledgerSettings', 'main', next).catch(e => console.warn('ledger settings sync failed', e));
+  }
 }
 
 /* ---- cloud sync bridge (works/index.html과 동일한 패턴) ---- */
@@ -307,6 +334,7 @@ function initCloudSync() {
     window.cloudSync = {
       async upsertMany(name, items) { await Promise.all(items.map(it => db.collection(name).doc(String(it.id)).set(it))); },
       async deleteMany(name, ids) { await Promise.all(ids.map(id => db.collection(name).doc(String(id)).delete())); },
+      async setDoc(name, id, data) { await db.collection(name).doc(id).set(data); },
     };
     [['ledgerEntries', 'entries'], ['ledgerSubscriptions', 'subs']].forEach(([name, varName]) => {
       let initialized = false;
@@ -322,6 +350,17 @@ function initCloudSync() {
         render();
       }, err => console.warn(name + ' sync error', err));
     });
+    let settingsInitialized = false;
+    db.collection('ledgerSettings').doc('main').onSnapshot(async (doc) => {
+      if (doc.exists) {
+        settings = doc.data();
+        try { localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); } catch (e) {}
+        render();
+      } else if (!settingsInitialized) {
+        await window.cloudSync.setDoc('ledgerSettings', 'main', settings);
+      }
+      settingsInitialized = true;
+    }, err => console.warn('ledgerSettings sync error', err));
     window.cloudSyncReady = true;
   } catch (e) { console.warn('initCloudSync failed', e); }
 }
@@ -354,9 +393,15 @@ function subsSummary() {
     const monthly = s.billingCycle === 'yearly' ? (s.amount || 0) / 12 : (s.amount || 0);
     if (s.currency === 'USD') usdMonthly += monthly; else krwMonthly += monthly;
   });
+  const rate = settings.usdKrwRate || 0;
+  const krwMonthlyTotal = krwMonthly + usdMonthly * rate; // 원화 환산 합계 — 결제 시점 환율과는 다를 수 있음
   const dueSoon = active.filter(s => { const d = daysUntil(s.nextPaymentDate); return d >= 0 && d <= 7; }).length;
   const overdue = active.filter(s => daysUntil(s.nextPaymentDate) < 0).length;
-  return { krwMonthly, usdMonthly, krwYearly: krwMonthly * 12, usdYearly: usdMonthly * 12, activeCount: active.length, dueSoon, overdue };
+  return {
+    krwMonthly, usdMonthly, krwYearly: krwMonthly * 12, usdYearly: usdMonthly * 12,
+    krwMonthlyTotal, krwYearlyTotal: krwMonthlyTotal * 12,
+    activeCount: active.length, dueSoon, overdue,
+  };
 }
 
 function subDday(dateStr) {
@@ -413,13 +458,13 @@ function summaryCardsHtml() {
       <div class="sf-summary-cards">
         <div class="sf-card sf-summary-card navy">
           <div class="sf-summary-label">월 환산 구독료</div>
-          <div class="sf-summary-value">${formatKrwSymbol(s.krwMonthly)}</div>
-          ${s.usdMonthly ? `<div class="sf-summary-sub">${formatUsd(s.usdMonthly)} / 월 · 달러 별도</div>` : ''}
+          <div class="sf-summary-value">${formatKrwSymbol(s.krwMonthlyTotal)}</div>
+          <div class="sf-summary-sub">${s.krwMonthly ? formatWon(s.krwMonthly) + ' + ' : ''}${formatUsd(s.usdMonthly)}${s.usdMonthly ? ' · 1$=' + formatKrwSymbol(settings.usdKrwRate) + ' 환산' : ''}</div>
         </div>
         <div class="sf-card sf-summary-card">
           <div class="sf-summary-label">연간 예상 구독료</div>
-          <div class="sf-summary-value">${formatKrwSymbol(s.krwYearly)}</div>
-          ${s.usdYearly ? `<div class="sf-summary-sub">${formatUsd(s.usdYearly)} / 년 · 현재 요금 유지 기준</div>` : ''}
+          <div class="sf-summary-value">${formatKrwSymbol(s.krwYearlyTotal)}</div>
+          <div class="sf-summary-sub">${s.krwYearly ? formatWon(s.krwYearly) + ' + ' : ''}${formatUsd(s.usdYearly)} / 년 · 현재 요금 유지 기준</div>
         </div>
         <div class="sf-card sf-summary-card">
           <div class="sf-summary-label">7일 내 결제 예정</div>
@@ -536,13 +581,15 @@ function subsRowHtml(s) {
   const monthly = s.billingCycle === 'yearly' ? (s.amount || 0) / 12 : (s.amount || 0);
   const dday = subDday(s.nextPaymentDate);
   const statusMeta = SUB_STATUS_META[s.status] || SUB_STATUS_META.active;
-  const amountFmt = s.currency === 'USD' ? formatUsd(s.amount) : formatWon(s.amount);
-  const monthlyFmt = s.currency === 'USD' ? formatUsd(monthly) : formatWon(monthly);
+  const isUsd = s.currency === 'USD';
+  const amountFmt = isUsd ? formatUsd(s.amount) : formatWon(s.amount);
+  const monthlyFmt = isUsd ? formatUsd(monthly) : formatWon(monthly);
+  const krwSub = isUsd ? `<div class="sf-cell-sub">≈ ${formatWon(monthly * (settings.usdKrwRate || 0))}</div>` : '';
   return `
     <tr>
       <td><div class="sf-cell-main">${esc(s.service)}</div><div class="sf-cell-sub">${esc(s.plan) || '요금제 미입력'}</div></td>
       <td><div class="sf-cell-amount">${amountFmt}</div><div class="sf-cell-sub">${s.billingCycle === 'yearly' ? '연간 결제' : '월간 결제'}</div></td>
-      <td><div class="sf-cell-amount">${monthlyFmt}</div></td>
+      <td><div class="sf-cell-amount">${monthlyFmt}</div>${krwSub}</td>
       <td><div class="sf-cell-main">${s.nextPaymentDate}</div><div class="sf-cell-sub"><span class="sf-badge ${dday.cls}">${dday.text}</span></div></td>
       <td><span class="sf-badge ${statusMeta.cls}">${statusMeta.label}</span></td>
       <td>${esc(s.paymentMethod) || '—'}</td>
@@ -557,6 +604,12 @@ function subsTabHtml() {
       <h2>디지털 월세</h2>
       <p>매달 빠져나가는 구독료와 다음 결제일을 한곳에서.</p>
     </div>
+    <div class="sf-rate-bar">
+      <span>적용 환율</span>
+      <b>1 USD = ${formatKrwSymbol(settings.usdKrwRate)}</b>
+      <span>(${settings.rateDate} 기준)</span>
+      <button class="sf-rate-edit" data-action="sf-open-rate">✎ 환율 수정</button>
+    </div>
     <div class="sf-quick-add">
       빠르게 추가:
       ${QUICK_ADD_SERVICES.map(q => `<button class="sf-quick-add-btn" data-action="sf-quick-add-sub" data-service="${esc(q.service)}">+ ${esc(q.short)}</button>`).join('')}
@@ -568,7 +621,7 @@ function subsTabHtml() {
         <tbody>${list.length ? list.map(subsRowHtml).join('') : `<tr class="sf-empty-row"><td colspan="7">등록된 구독이 없어요.</td></tr>`}</tbody>
       </table>
     </div>
-    <p class="sf-note">사용 중인 구독만 합산해. 연간 결제는 12개월로 나눈 월 환산액이며, 실제 출금액과 다를 수 있어. 원화·달러는 환율 변환 없이 따로 표시해.</p>
+    <p class="sf-note">사용 중인 구독만 합산해. 연간 결제는 12개월로 나눈 월 환산액이며, 실제 출금액과 다를 수 있어. 원화 환산에는 위 "적용 환율"이 쓰이고, 결제 시점 실제 환율과는 다를 수 있어.</p>
     <p class="sf-note">결제일이 지나면 실제 청구 내역을 확인하고 다음 결제일을 수정해줘. 구독 상태 변경은 이 장부에만 반영돼. 지출 장부에는 실제 결제 건을 따로 기록해.</p>`;
 }
 
@@ -764,6 +817,24 @@ function confirmDeleteModalHtml() {
     </div>`;
 }
 
+function rateModalHtml() {
+  if (!S.rateModalOpen) return '';
+  return `
+    <div class="sf-modal-overlay" data-action="sf-close-rate">
+      <div class="sf-modal" style="max-width:340px;">
+        <h3>환율 수정</h3>
+        <form id="sfRateForm">
+          <div class="sf-field"><label>1 USD = ₩</label><input type="number" name="rate" step="0.01" min="0" required value="${settings.usdKrwRate}" /></div>
+          <div class="sf-field"><label>기준일</label><input type="date" name="rateDate" required value="${settings.rateDate}" /></div>
+          <div class="sf-modal-actions">
+            <button type="button" class="sf-btn sf-btn-flat" data-action="sf-close-rate">취소</button>
+            <button type="submit" class="sf-btn sf-btn-fill">저장</button>
+          </div>
+        </form>
+      </div>
+    </div>`;
+}
+
 function confirmSubDeleteModalHtml() {
   if (!S.subConfirmDeleteId) return '';
   const s = subs.find(x => x.id === S.subConfirmDeleteId);
@@ -800,6 +871,7 @@ function render() {
     ${entryModalHtml()}
     ${filingStatusModalHtml()}
     ${subModalHtml()}
+    ${rateModalHtml()}
     ${confirmDeleteModalHtml()}
     ${confirmSubDeleteModalHtml()}
   `;
@@ -903,6 +975,12 @@ document.addEventListener('submit', e => {
     }
     S.subModalOpen = false; S.subEditingId = null; S.subPrefillService = '';
     render();
+  } else if (e.target.id === 'sfRateForm') {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    saveSettings({ usdKrwRate: parseFloat(fd.get('rate')) || settings.usdKrwRate, rateDate: fd.get('rateDate') });
+    S.rateModalOpen = false;
+    render();
   }
 });
 
@@ -934,6 +1012,8 @@ document.addEventListener('click', e => {
     case 'sf-confirm-sub-delete': S.subConfirmDeleteId = id; S.subModalOpen = false; render(); break;
     case 'sf-cancel-sub-delete': if (e.target === btn) { S.subConfirmDeleteId = null; render(); } break;
     case 'sf-sub-delete': saveSubs(subs.filter(x => x.id !== id)); S.subConfirmDeleteId = null; render(); break;
+    case 'sf-open-rate': S.rateModalOpen = true; render(); break;
+    case 'sf-close-rate': if (e.target === btn) { S.rateModalOpen = false; render(); } break;
     case 'sf-logout': firebase.auth().signOut(); break;
   }
 });
