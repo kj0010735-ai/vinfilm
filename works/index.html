@@ -2709,8 +2709,8 @@ document.addEventListener('DOMContentLoaded', () => {
   @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-8ExtraBold.woff2') format('woff2'); font-weight: 800; font-display: swap; }
   @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-9Black.woff2') format('woff2'); font-weight: 900; font-display: swap; }
   :root {
-    --bg: #0e0d0c; --surface: #17140f; --surface-hover: #1d1913; --border: rgba(245,242,234,0.14);
-    --text: #f5f2ea; --text-dim: #a8a49b; --text-faint: #79766f;
+    --bg: #1a1713; --surface: #24201a; --surface-hover: #2e2921; --border: rgba(245,242,234,0.2);
+    --text: #f5f2ea; --text-dim: #c2beb4; --text-faint: #98948a;
     --accent: #d98a3d; --accent-soft: rgba(217,138,61,0.14);
     --status-owned: #4cae7d; --status-lent: #5b8def; --status-repair: #e0a63c; --status-sold: #6b7080;
     --sched-shoot: #d98a3d; --sched-meeting: #5b8def; --sched-deadline: #d9534f; --sched-etc: #6b7080; --sched-calendar: #4cae7d;
@@ -2932,12 +2932,12 @@ document.addEventListener('DOMContentLoaded', () => {
   .proj-eyebrow { font-family:var(--font-display); font-size:11px; letter-spacing:2px; color:var(--text-faint); margin-bottom:8px; }
   /* 리스트: 검은 배경에 행이 묻히지 않게 — 행마다 한 톤 밝은 카드로 띄우고 행 사이에 간격을 준다 */
   .proj-list { background:transparent; border:none; border-radius:0; overflow:visible; display:flex; flex-direction:column; gap:8px; }
-  .proj-row { position:relative; display:grid; grid-template-columns:20px 118px 1.6fr 140px 118px 1.3fr 24px; align-items:center; gap:16px; padding:16px 16px; border:1px solid rgba(245,242,234,0.12); border-radius:10px; background:linear-gradient(var(--row-tint, transparent), var(--row-tint, transparent)), #1f1b15; box-shadow:0 1px 2px rgba(0,0,0,0.35); transition:background .12s ease, border-color .12s ease; }
+  .proj-row { position:relative; display:grid; grid-template-columns:20px 118px 1.6fr 140px 118px 1.3fr 24px; align-items:center; gap:16px; padding:16px 16px; border:1px solid rgba(245,242,234,0.22); border-radius:10px; background:linear-gradient(var(--row-tint, transparent), var(--row-tint, transparent)), #2d2820; box-shadow:0 2px 6px rgba(0,0,0,0.3); transition:background .12s ease, border-color .12s ease; }
   .proj-list.select-mode .proj-row { grid-template-columns:18px 20px 118px 1.6fr 140px 118px 1.3fr 24px; }
-  .proj-row:hover { background:linear-gradient(var(--row-tint, transparent), var(--row-tint, transparent)), #2a241b; border-color:rgba(217,138,61,0.5); }
+  .proj-row:hover { background:linear-gradient(var(--row-tint, transparent), var(--row-tint, transparent)), #39322a; border-color:rgba(217,138,61,0.5); }
   .proj-list.select-mode .proj-row:not(.proj-row-head) { cursor:pointer; }
-  .proj-row.selected, .proj-row.selected:hover { background:linear-gradient(var(--accent-soft), var(--accent-soft)), #2a241b; border-color:var(--accent); }
-  .proj-row.drag-over { background:linear-gradient(var(--accent-soft), var(--accent-soft)), #2a241b; box-shadow:inset 0 2px 0 var(--accent); }
+  .proj-row.selected, .proj-row.selected:hover { background:linear-gradient(var(--accent-soft), var(--accent-soft)), #39322a; border-color:var(--accent); }
+  .proj-row.drag-over { background:linear-gradient(var(--accent-soft), var(--accent-soft)), #39322a; box-shadow:inset 0 2px 0 var(--accent); }
   .proj-row-head { background:none !important; border:none !important; box-shadow:none !important; color:var(--text-dim); font-size:11.5px; font-weight:700; letter-spacing:0.02em; padding:2px 16px 4px; }
   .proj-row-check-cell { display:flex; align-items:center; justify-content:center; }
   .proj-row-checkbox { width:15px; height:15px; accent-color:var(--accent); cursor:pointer; margin:0; }
