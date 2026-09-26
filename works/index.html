@@ -216,7 +216,7 @@ const NAV_ITEMS = [
   { id: 'today', icon: '📊', label: '대시보드' },
   { id: 'equipment', icon: '🎥', label: '장비목록' },
   { id: 'shootprep', icon: '🎒', label: '촬영준비' },
-  { id: 'schedule', icon: '🗓', label: '스케줄' },
+  { id: 'schedule', icon: '🗓', label: '캘린더' },
   { id: 'projects', icon: '📋', label: '프로젝트' },
   { id: 'shared', icon: '🤝', label: '공유 프로젝트' },
   { id: 'notes', icon: '📝', label: '메모장' },
@@ -279,7 +279,7 @@ const S = {
   settingsOpen: false,
   activeTab: GUEST_MODE ? 'equipment' : 'today',
   eq: { search: '', categoryFilter: 'all', statusFilter: 'all', sortBy: 'recent', sortOpen: false, modalOpen: false, editingId: null, confirmDeleteId: null, categoryModalOpen: false, detailId: null },
-  sched: { search: '', categoryFilter: 'all', showPast: false, modalOpen: false, editingId: null, confirmDeleteId: null, importMsg: '', detailId: null, linkProjectId: null },
+  sched: { view: 'month', cursor: todayStr(), prefillDate: null, search: '', categoryFilter: 'all', showPast: false, modalOpen: false, editingId: null, confirmDeleteId: null, importMsg: '', detailId: null, linkProjectId: null },
   today: { viewMode: 'today', month: todayStr().slice(0, 7) },
   proj: { modalOpen: false, editingId: null, confirmDeleteId: null, addStatus: 'todo', search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [], selectMode: false, moveIds: null },
   shared: { modalOpen: false, editingId: null, confirmDeleteId: null, search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [], selectMode: false, moveIds: null },
@@ -848,6 +848,7 @@ function schedModalHtml() {
   const f = editing
     ? { title: editing.title, date: editing.date, time: editing.time || '', allDay: !editing.time, location: editing.location || '', contact: editing.contact || '', category: editing.category === 'calendar' ? 'etc' : editing.category, memo: editing.memo || '' }
     : { title: linkProject ? linkProject.title : '', date: todayStr(), time: '', allDay: false, location: '', contact: '', category: 'shoot', memo: '' };
+  if (!editing && S.sched.prefillDate) f.date = S.sched.prefillDate;
   return `
     <div class="eq-modal-overlay">
       <div class="eq-modal" data-stop-close>
@@ -911,11 +912,96 @@ function schedDetailModalHtml() {
       </div>
     </div>`;
 }
+/* ================= 캘린더 보기 (월/주) ================= */
+function ymd(d) { return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+function parseYmd(str) { const [y,m,d] = str.split('-').map(Number); return new Date(y, m-1, d); }
+function calFilteredItems() {
+  // 캘린더는 과거도 보여야 하므로 "지난 일정" 토글은 무시하고 카테고리/검색만 적용
+  const st = S.sched;
+  let list = [...schedItems];
+  if (st.categoryFilter !== 'all') list = list.filter(it => it.category === st.categoryFilter);
+  if (st.search.trim()) {
+    const q = st.search.trim().toLowerCase();
+    list = list.filter(it => it.title.toLowerCase().includes(q) || (it.location||'').toLowerCase().includes(q) || (it.memo||'').toLowerCase().includes(q));
+  }
+  list.sort((a,b) => `${a.date}T${a.time||'00:00'}`.localeCompare(`${b.date}T${b.time||'00:00'}`));
+  const byDate = {};
+  list.forEach(it => { (byDate[it.date] = byDate[it.date] || []).push(it); });
+  return byDate;
+}
+function calEventHtml(it, compact) {
+  const past = it.date < todayStr();
+  return `<button class="cal-ev ${past ? 'is-past' : ''}" style="--ev:var(--sched-${it.category})" data-action="sched-open-detail" data-id="${it.id}" title="${esc(it.title)}">${it.time ? `<span class="cal-ev-time">${esc(it.time)}</span>` : ''}<span class="cal-ev-title">${esc(it.title)}</span></button>`;
+}
+function calTitle() {
+  const c = parseYmd(S.sched.cursor);
+  if (S.sched.view === 'week') {
+    const start = new Date(c); start.setDate(c.getDate() - c.getDay());
+    const end = new Date(start); end.setDate(start.getDate() + 6);
+    return `${start.getFullYear()}년 ${start.getMonth()+1}월 ${start.getDate()}일 – ${end.getMonth()+1}월 ${end.getDate()}일`;
+  }
+  return `${c.getFullYear()}년 ${c.getMonth()+1}월`;
+}
+function calGridHtml() {
+  const byDate = calFilteredItems();
+  const c = parseYmd(S.sched.cursor);
+  const today = todayStr();
+  const weekdays = ['일','월','화','수','목','금','토'];
+  let start, weeks;
+  if (S.sched.view === 'week') {
+    start = new Date(c); start.setDate(c.getDate() - c.getDay()); weeks = 1;
+  } else {
+    const first = new Date(c.getFullYear(), c.getMonth(), 1);
+    start = new Date(first); start.setDate(1 - first.getDay());
+    const last = new Date(c.getFullYear(), c.getMonth() + 1, 0);
+    weeks = Math.ceil((first.getDay() + last.getDate()) / 7);
+  }
+  const maxShow = S.sched.view === 'week' ? 99 : 3;
+  let cells = '';
+  for (let i = 0; i < weeks * 7; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const key = ymd(d);
+    const items = byDate[key] || [];
+    const outside = S.sched.view === 'month' && d.getMonth() !== c.getMonth();
+    const shown = items.slice(0, maxShow);
+    cells += `
+      <div class="cal-cell ${outside ? 'is-outside' : ''} ${key === today ? 'is-today' : ''} ${d.getDay() === 0 ? 'is-sun' : ''} ${d.getDay() === 6 ? 'is-sat' : ''}" data-action="cal-add-on-date" data-date="${key}">
+        <div class="cal-daynum"><span>${d.getDate()}</span></div>
+        <div class="cal-evs">
+          ${shown.map(it => calEventHtml(it)).join('')}
+          ${items.length > shown.length ? `<button class="cal-more" data-action="cal-open-day" data-date="${key}">+${items.length - shown.length}개 더보기</button>` : ''}
+        </div>
+      </div>`;
+  }
+  return `
+    <div class="cal ${S.sched.view === 'week' ? 'cal-week' : ''}">
+      <div class="cal-head">${weekdays.map((w, i) => `<div class="${i===0?'is-sun':i===6?'is-sat':''}">${w}</div>`).join('')}</div>
+      <div class="cal-body" style="grid-template-rows:repeat(${weeks}, minmax(${S.sched.view === 'week' ? '420px' : '118px'}, 1fr));">${cells}</div>
+    </div>`;
+}
+function calToolbarHtml() {
+  const v = S.sched.view;
+  return `
+    <div class="cal-bar">
+      <div class="cal-nav">
+        <button class="cal-nav-btn" data-action="cal-prev" title="이전">‹</button>
+        <button class="cal-nav-btn" data-action="cal-next" title="다음">›</button>
+        <button class="cal-today-btn" data-action="cal-today">오늘</button>
+      </div>
+      <div class="cal-title">${calTitle()}</div>
+      <div class="cal-seg">
+        <button class="${v==='month'?'on':''}" data-action="cal-set-view" data-id="month">월</button>
+        <button class="${v==='week'?'on':''}" data-action="cal-set-view" data-id="week">주</button>
+        <button class="${v==='list'?'on':''}" data-action="cal-set-view" data-id="list">목록</button>
+      </div>
+    </div>`;
+}
+
 function renderScheduleTab() {
   const todayCount = schedItems.filter(it => it.date === todayStr()).length;
   return `
     <div class="eq-header">
-      <div class="eq-title-block"><h1 class="eq-title">스케줄</h1><div class="eq-stat">오늘 <b>${todayCount}</b> / 전체 <b>${schedItems.length}</b></div></div>
+      <div class="eq-title-block"><h1 class="eq-title">캘린더</h1><div class="eq-stat">오늘 <b>${todayCount}</b> / 전체 <b>${schedItems.length}</b></div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         ${schedFeedUrl
           ? `<button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border)" data-action="sched-refresh-feed">🔗 구독됨 · 새로고침</button>`
@@ -928,10 +1014,13 @@ function renderScheduleTab() {
     ${S.sched.importMsg ? `<div class="sched-import-msg"><span>${esc(S.sched.importMsg)}</span><button class="sched-clear-cal-btn" data-action="sched-clear-calendar">가져온 일정 모두 지우기</button></div>` : ''}
     <div class="eq-toolbar">
       <div class="eq-search"><input id="schedSearchInput" placeholder="제목, 장소, 메모로 검색" value="${esc(S.sched.search)}" /></div>
-      <div class="eq-chip-row">${SCHED_FILTER_CATEGORIES.map(c => `<button class="eq-chip ${S.sched.categoryFilter===c.id?'active':''}" data-action="sched-set-category-filter" data-id="${c.id}">${c.label}</button>`).join('')}</div>
-      <button class="eq-chip ${S.sched.showPast?'active':''}" data-action="sched-toggle-past">지난 일정 ${S.sched.showPast?'숨기기':'보기'}</button>
+      <div class="eq-chip-row">${SCHED_FILTER_CATEGORIES.map(c => `<button class="eq-chip ${S.sched.categoryFilter===c.id?'active':''}" data-action="sched-set-category-filter" data-id="${c.id}">${c.id !== 'all' ? `<span class="eq-chip-dot" style="background:var(--sched-${c.id})"></span>` : ''}${c.label}</button>`).join('')}</div>
+      ${S.sched.view === 'list' ? `<button class="eq-chip ${S.sched.showPast?'active':''}" data-action="sched-toggle-past">지난 일정 ${S.sched.showPast?'숨기기':'보기'}</button>` : ''}
     </div>
-    <div id="schedList">${schedGroupsHtml()}</div>
+    <div class="cal-card">
+      ${calToolbarHtml()}
+      ${S.sched.view === 'list' ? `<div id="schedList">${schedGroupsHtml()}</div>` : calGridHtml()}
+    </div>
     ${schedDetailModalHtml()}
   `;
 }
@@ -2101,7 +2190,20 @@ function bootApp() {
       }
 
       /* schedule */
-      case 'sched-open-add': S.sched.editingId = null; S.sched.linkProjectId = null; S.sched.modalOpen = true; render(); break;
+      case 'sched-open-add': S.sched.editingId = null; S.sched.linkProjectId = null; S.sched.prefillDate = null; S.sched.modalOpen = true; render(); break;
+      case 'cal-add-on-date':
+        if (e.target.closest('.cal-ev, .cal-more')) break;
+        S.sched.editingId = null; S.sched.linkProjectId = null; S.sched.prefillDate = el.dataset.date; S.sched.modalOpen = true; render(); break;
+      case 'cal-open-day': S.sched.view = 'week'; S.sched.cursor = el.dataset.date; render(); break;
+      case 'cal-set-view': S.sched.view = id; render(); break;
+      case 'cal-today': S.sched.cursor = todayStr(); render(); break;
+      case 'cal-prev': case 'cal-next': {
+        const dir = action === 'cal-next' ? 1 : -1;
+        const c = parseYmd(S.sched.cursor);
+        if (S.sched.view === 'week') c.setDate(c.getDate() + 7 * dir);
+        else { c.setDate(1); c.setMonth(c.getMonth() + dir); }
+        S.sched.cursor = ymd(c); render(); break;
+      }
       case 'sched-open-edit': S.sched.editingId = id; S.sched.linkProjectId = null; S.sched.modalOpen = true; render(); break;
       case 'sched-close-modal': S.sched.modalOpen = false; S.sched.editingId = null; S.sched.linkProjectId = null; render(); break;
       case 'sched-close-modal-backdrop': if (!e.target.closest('[data-stop-close]')) { S.sched.modalOpen = false; S.sched.editingId = null; S.sched.linkProjectId = null; render(); } break;
@@ -3284,6 +3386,47 @@ document.addEventListener('DOMContentLoaded', () => {
   .sc-edit { position:absolute; top:6px; right:6px; width:24px; height:24px; border-radius:7px; border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-size:11px; cursor:pointer; opacity:0; transition:opacity .15s ease; }
   .sc-wrap:hover .sc-edit { opacity:1; }
   .sc-edit:hover { color:var(--accent); border-color:var(--accent); }
+
+  /* 캘린더 (월/주) */
+  .cal-card { background:var(--surface); border:1px solid var(--border); border-radius:18px; box-shadow:var(--shadow-sm); padding:18px; }
+  .cal-bar { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:12px; margin-bottom:14px; }
+  .cal-nav { display:flex; gap:6px; }
+  .cal-nav-btn, .cal-today-btn { height:36px; min-width:36px; padding:0 12px; border-radius:10px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-family:var(--font-body); font-size:16px; cursor:pointer; transition:background .15s ease, border-color .15s ease; }
+  .cal-today-btn { font-size:13px; font-weight:600; }
+  .cal-nav-btn:hover, .cal-today-btn:hover { background:var(--surface-hover); border-color:var(--border-strong); }
+  .cal-title { font-size:19px; font-weight:800; letter-spacing:-0.02em; text-align:center; white-space:nowrap; }
+  .cal-seg { justify-self:end; display:flex; background:var(--bg); border:1px solid var(--border); border-radius:11px; padding:3px; }
+  .cal-seg button { border:none; background:none; color:var(--text-dim); font-family:var(--font-body); font-size:13px; font-weight:600; padding:6px 14px; border-radius:8px; cursor:pointer; transition:background .18s ease, color .18s ease; }
+  .cal-seg button.on { background:var(--surface); color:var(--text); box-shadow:var(--shadow-sm); }
+  .cal { border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .cal-head { display:grid; grid-template-columns:repeat(7, 1fr); background:var(--bg); border-bottom:1px solid var(--border); }
+  .cal-head div { text-align:center; font-size:12px; font-weight:700; color:var(--text-faint); padding:10px 0; }
+  .cal-head .is-sun, .cal-cell.is-sun .cal-daynum { color:#e5534b; }
+  .cal-head .is-sat, .cal-cell.is-sat .cal-daynum { color:#4a7dff; }
+  .cal-body { display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); }
+  .cal-cell { position:relative; border-right:1px solid var(--border); border-bottom:1px solid var(--border); padding:6px 6px 8px; min-width:0; cursor:pointer; transition:background .15s ease; }
+  .cal-cell:nth-child(7n) { border-right:none; }
+  .cal-cell:hover { background:var(--surface-hover); }
+  .cal-cell.is-outside { background:var(--bg); }
+  .cal-cell.is-outside .cal-daynum, .cal-cell.is-outside .cal-ev { opacity:.45; }
+  .cal-daynum { display:flex; justify-content:flex-end; font-size:12.5px; font-weight:700; color:var(--text-dim); margin-bottom:4px; }
+  .cal-daynum span { min-width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; border-radius:999px; padding:0 6px; }
+  .cal-cell.is-today { background:var(--accent-soft); }
+  .cal-cell.is-today .cal-daynum span { background:var(--accent); color:#fff; }
+  .cal-evs { display:flex; flex-direction:column; gap:3px; }
+  .cal-ev { display:flex; align-items:center; gap:5px; width:100%; text-align:left; border:none; border-left:3px solid var(--ev); background:color-mix(in srgb, var(--ev) 14%, transparent); color:var(--text); border-radius:6px; padding:3px 7px; font-family:var(--font-body); font-size:11.5px; font-weight:600; cursor:pointer; overflow:hidden; transition:filter .15s ease, transform .15s ease; }
+  .cal-ev:hover { filter:brightness(1.08); transform:translateX(1px); }
+  .cal-ev.is-past { opacity:.6; }
+  .cal-ev-time { color:var(--text-dim); font-weight:500; flex-shrink:0; }
+  .cal-ev-title { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cal-more { border:none; background:none; color:var(--text-faint); font-family:var(--font-body); font-size:11px; font-weight:600; text-align:left; padding:1px 4px; cursor:pointer; }
+  .cal-more:hover { color:var(--accent); }
+  .cal-week .cal-ev { font-size:12.5px; padding:6px 8px; }
+  .cal-card #schedList { margin-top:4px; }
+  @media (max-width: 860px) {
+    .cal-bar { grid-template-columns:1fr auto; } .cal-title { grid-column:1 / -1; order:-1; }
+    .cal-card { padding:10px; } .cal-ev-time { display:none; } .cal-ev { font-size:10.5px; padding:2px 4px; }
+  }
   @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
   @keyframes modalIn { from { opacity:0; transform:translateY(14px) scale(.98); } to { opacity:1; transform:none; } }
   ::-webkit-scrollbar { width:10px; height:10px; } ::-webkit-scrollbar-thumb { background:var(--border-strong); border-radius:8px; border:2px solid transparent; background-clip:padding-box; }
