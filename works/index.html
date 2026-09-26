@@ -2765,11 +2765,12 @@ document.addEventListener('DOMContentLoaded', () => {
   @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-8ExtraBold.woff2') format('woff2'); font-weight: 800; font-display: swap; }
   @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-9Black.woff2') format('woff2'); font-weight: 900; font-display: swap; }
   :root {
-    --bg: #1a1713; --surface: #24201a; --surface-hover: #2e2921; --border: rgba(245,242,234,0.2);
-    --border-strong: rgba(245,242,234,0.34); --sidebar-bg: #201c16; --shadow-sm: 0 1px 2px rgba(0,0,0,0.35); --shadow-md: 0 8px 22px rgba(0,0,0,0.4); --shadow-lg: 0 24px 60px rgba(0,0,0,0.55);
-    --row-bg: #2d2820; --row-bg-hover: #39322a; --row-border: rgba(245,242,234,0.22); --row-title: #fbf8f1; --row-text: #d6d1c6;
-    --text: #f5f2ea; --text-dim: #c2beb4; --text-faint: #98948a;
-    --accent: #d98a3d; --accent-soft: rgba(217,138,61,0.14);
+    /* 블랙 테마: 갈색/노랑 기운 없이 차분한 그래파이트 + 블루 포인트 (화이트 테마는 아래 [data-theme="light"]) */
+    --bg: #101216; --surface: #171a20; --surface-hover: #1f232b; --border: rgba(255,255,255,0.10);
+    --border-strong: rgba(255,255,255,0.24); --sidebar-bg: #14171c; --shadow-sm: 0 1px 2px rgba(0,0,0,0.4); --shadow-md: 0 8px 22px rgba(0,0,0,0.45); --shadow-lg: 0 24px 60px rgba(0,0,0,0.6);
+    --row-bg: #1b1f26; --row-bg-hover: #232832; --row-border: rgba(255,255,255,0.10); --row-title: #f1f3f7; --row-text: #c4c9d3;
+    --text: #eceef2; --text-dim: #a4abb8; --text-faint: #767e8d;
+    --accent: #7aa7ff; --accent-soft: rgba(122,167,255,0.14);
     --status-owned: #4cae7d; --status-lent: #5b8def; --status-repair: #e0a63c; --status-sold: #6b7080;
     --sched-shoot: #d98a3d; --sched-meeting: #5b8def; --sched-deadline: #d9534f; --sched-etc: #6b7080; --sched-calendar: #4cae7d;
     --font-body: 'Paperozi', 'Noto Sans KR', 'Pretendard', 'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -2882,7 +2883,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .eq-icon-btn[draggable="true"] { cursor:grab; }
   .eq-icon-btn[draggable="true"]:active { cursor:grabbing; }
   .eq-icon-btn:hover { color:var(--text); border-color:var(--accent); }
-  .eq-confirm-bar { position:absolute; inset:0; background:rgba(20,17,13,0.95); border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; z-index:3; }
+  .eq-confirm-bar { position:absolute; inset:0; background:rgba(16,18,22,0.95); border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; z-index:3; }
   .eq-confirm-bar span { font-size:12.5px; color:var(--text-dim); }
   .eq-confirm-actions { display:flex; gap:8px; }
   .eq-confirm-actions button { font-family:var(--font-body); font-size:12px; padding:6px 12px; border-radius:6px; border:1px solid var(--border); cursor:pointer; background:var(--surface); color:var(--text-dim); }
