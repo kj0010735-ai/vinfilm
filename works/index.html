@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<script>try{document.documentElement.setAttribute('data-theme', localStorage.getItem('vinfilm-works-theme')==='light'?'light':'dark');}catch(e){}</script>
+<script>try{document.documentElement.setAttribute('data-theme', localStorage.getItem('vinfilm-works-theme')==='dark'?'dark':'light');}catch(e){}</script>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>작업 관리</title>
@@ -448,7 +448,7 @@ function bagOptions() { return eqItems.filter(it => it.category === 'bag'); }
 
 /* ================= 설정(테마) ================= */
 const LS_THEME = 'vinfilm-works-theme';
-function currentTheme() { return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'; }
+function currentTheme() { return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'; }
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
   try { localStorage.setItem(LS_THEME, theme === 'light' ? 'light' : 'dark'); } catch (e) {}
@@ -476,8 +476,9 @@ function renderSidebar() {
   const items = GUEST_MODE ? NAV_ITEMS.filter(it => GUEST_ALLOWED_TABS.includes(it.id)) : NAV_ITEMS;
   return `
     <nav class="side-nav" id="sideNav">
-      <div class="side-nav-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.5" stroke="var(--accent)" stroke-width="2"/><circle cx="12" cy="12" r="2.6" fill="var(--accent)"/></svg></div>
+      <div class="side-nav-brand"><span class="side-nav-brand-dot"></span><div><b>VINFILM</b><small>작업 관리</small></div></div>
       ${GUEST_MODE ? `<div class="side-nav-guest-badge">👋 공유 보기</div>` : ''}
+      <div class="side-nav-indicator"></div>
       ${items.map(it => `
         <button class="side-nav-item ${S.activeTab===it.id?'active':''}" data-action="set-tab" data-id="${it.id}">
           <span class="side-nav-icon">${it.icon}</span><span class="side-nav-label">${it.label}</span>
@@ -1882,8 +1883,30 @@ function renderTab() {
 }
 function render() {
   document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderTab()}</main></div>${schedModalHtml()}${settingsModalHtml()}`;
+  positionNavIndicator();
+  const main = document.querySelector('.app-main');
+  if (main && window.__lastTab !== S.activeTab) { main.classList.add('tab-enter'); window.__lastTab = S.activeTab; }
   const af = document.querySelector('[autofocus]');
   if (af) { af.focus(); if (af.value) { const v = af.value; af.value = ''; af.value = v; } }
+}
+/* 사이드바 선택 표시가 이전 메뉴 위치에서 새 메뉴 위치로 미끄러지듯 움직이게 한다.
+   render()가 매번 DOM을 새로 만들기 때문에 CSS transition만으로는 안 움직여서, 이전 위치를 기억해 두었다가
+   새 요소를 이전 위치에 먼저 그린 뒤 다음 프레임에 새 위치로 옮긴다. */
+function positionNavIndicator() {
+  const ind = document.querySelector('.side-nav-indicator');
+  const act = document.querySelector('.side-nav-item.active');
+  if (!ind) return;
+  if (!act) { ind.style.opacity = '0'; window.__navY = null; return; }
+  const y = act.offsetTop, h = act.offsetHeight;
+  ind.style.height = h + 'px';
+  if (window.__navY != null && window.__navY !== y) {
+    ind.style.transform = `translateY(${window.__navY}px)`;
+    ind.getBoundingClientRect();
+    requestAnimationFrame(() => { ind.style.transform = `translateY(${y}px)`; });
+  } else {
+    ind.style.transform = `translateY(${y}px)`;
+  }
+  window.__navY = y;
 }
 
 /* ================= event handling ================= */
@@ -2727,7 +2750,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 <style>
-  html, body { margin: 0; padding: 0; height: 100%; background: #0e0d0c; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-body); }
   #root { min-height: 100vh; }
   /* 페이퍼로지(Paperozi) — 눈누(noonnu.cc) 배포 상업용 무료 폰트, OFL 라이선스.
      굵기별 파일을 전부 같은 font-family로 등록해서 font-weight 숫자만 지정하면
@@ -2743,26 +2766,25 @@ document.addEventListener('DOMContentLoaded', () => {
   @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-9Black.woff2') format('woff2'); font-weight: 900; font-display: swap; }
   :root {
     --bg: #1a1713; --surface: #24201a; --surface-hover: #2e2921; --border: rgba(245,242,234,0.2);
+    --border-strong: rgba(245,242,234,0.34); --sidebar-bg: #201c16; --shadow-sm: 0 1px 2px rgba(0,0,0,0.35); --shadow-md: 0 8px 22px rgba(0,0,0,0.4); --shadow-lg: 0 24px 60px rgba(0,0,0,0.55);
     --row-bg: #2d2820; --row-bg-hover: #39322a; --row-border: rgba(245,242,234,0.22); --row-title: #fbf8f1; --row-text: #d6d1c6;
     --text: #f5f2ea; --text-dim: #c2beb4; --text-faint: #98948a;
     --accent: #d98a3d; --accent-soft: rgba(217,138,61,0.14);
     --status-owned: #4cae7d; --status-lent: #5b8def; --status-repair: #e0a63c; --status-sold: #6b7080;
     --sched-shoot: #d98a3d; --sched-meeting: #5b8def; --sched-deadline: #d9534f; --sched-etc: #6b7080; --sched-calendar: #4cae7d;
     --font-body: 'Paperozi', 'Noto Sans KR', 'Pretendard', 'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, sans-serif;
-    --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+    --font-mono: var(--font-body); /* 숫자/코드 라벨도 페이퍼로지로 통일 (예전 모노스페이스는 한글이 다른 폰트로 폴백돼 섞여 보였음) */
     --font-display: 'Anton', sans-serif;
   }
   /* 화이트 테마 — 설정(⚙️)에서 전환, <html data-theme="light">. 색은 전부 변수로만 바꿔서 화면별 수정이 필요 없게 함. */
   :root[data-theme="light"] {
-    --bg: #f3efe7; --surface: #ffffff; --surface-hover: #f0eadd; --border: rgba(60,45,20,0.18);
-    --text: #211b12; --text-dim: #5a5245; --text-faint: #8a8171;
-    --accent: #c2701a; --accent-soft: rgba(194,112,26,0.14);
-    --row-bg: #ffffff; --row-bg-hover: #fbf4e6; --row-border: rgba(60,45,20,0.2); --row-title: #1a150d; --row-text: #3d362a;
+    --bg: #f6f7f9; --surface: #ffffff; --surface-hover: #f1f3f7; --border: rgba(20,28,45,0.10); --border-strong: rgba(20,28,45,0.22);
+    --text: #14171f; --text-dim: #566070; --text-faint: #8a93a3;
+    --accent: #c9761a; --accent-soft: rgba(201,118,26,0.11);
+    --sidebar-bg: #ffffff; --shadow-sm: 0 1px 2px rgba(16,24,40,0.05), 0 1px 3px rgba(16,24,40,0.05); --shadow-md: 0 6px 18px rgba(16,24,40,0.09); --shadow-lg: 0 24px 60px rgba(16,24,40,0.22);
+    --row-bg: #ffffff; --row-bg-hover: #fffaf2; --row-border: rgba(20,28,45,0.10); --row-title: #14171f; --row-text: #3a4353;
   }
-  .eq-status-option.theme-on { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); font-weight:700; }
   :root[data-theme="light"] .eq-confirm-bar { background:rgba(255,255,255,0.96); }
-  :root[data-theme="light"] .proj-row { box-shadow:0 1px 3px rgba(60,45,20,0.12); }
-  :root[data-theme="light"] .side-nav { box-shadow:1px 0 0 var(--border); }
   /* .eq-modal-overlay 계열(예: 스케줄 등록 모달)은 프로젝트 탭 등 다른 화면 위에서도 뜰 수 있게
      .app-shell 밖(전역 render())에서도 렌더링된다 — 그래서 위 색상 변수들은 .app-shell이 아니라
      :root에 둬야 한다. .app-shell 안에만 정의하면 그 바깥 요소는 변수를 못 받아 화면이 새까맣게 보인다
@@ -3091,6 +3113,75 @@ document.addEventListener('DOMContentLoaded', () => {
   .pack-item-row:active { cursor:grabbing; }
   .pack-item-row input { width:auto; flex-shrink:0; }
   .pack-group-empty { font-size:13px; color:var(--text-faint); padding:10px 4px; text-align:center; border:1px dashed var(--border); border-radius:6px; }
+
+  /* ===================== 프리미엄 레이어 (라이트/다크 공통, 전부 변수 기반) ===================== */
+  .side-nav { background:var(--sidebar-bg); padding-top:0; box-shadow:1px 0 0 var(--border); }
+  .side-nav-brand { display:flex; align-items:center; gap:10px; padding:22px 20px 20px; }
+  .side-nav-brand-dot { width:10px; height:10px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 4px var(--accent-soft); flex-shrink:0; }
+  .side-nav-brand b { display:block; font-family:var(--font-display); font-size:15px; letter-spacing:1.5px; font-weight:400; color:var(--text); line-height:1.1; }
+  .side-nav-brand small { display:block; font-size:11px; color:var(--text-faint); margin-top:3px; letter-spacing:0.02em; }
+  .side-nav-indicator { position:absolute; left:10px; right:10px; top:0; height:40px; border-radius:11px; background:var(--accent-soft); pointer-events:none; z-index:0; transition:transform .38s cubic-bezier(.4,0,.2,1), height .38s cubic-bezier(.4,0,.2,1), opacity .2s ease; }
+  .side-nav-indicator::before { content:''; position:absolute; left:0; top:22%; bottom:22%; width:3px; border-radius:0 3px 3px 0; background:var(--accent); }
+  .side-nav-item { position:relative; z-index:1; width:calc(100% - 20px); margin:2px 10px; padding:10px 12px; border-radius:11px; transition:color .2s ease, background .2s ease; }
+  .side-nav-item.active { background:none; }
+  .side-nav-item:hover { background:var(--surface-hover); }
+  .side-nav-item.active:hover { background:none; }
+  .side-nav-icon { transition:transform .25s cubic-bezier(.4,0,.2,1); }
+  .side-nav-item:hover .side-nav-icon { transform:translateX(2px) scale(1.08); }
+  .side-nav-item.active .side-nav-icon { transform:scale(1.1); }
+  .side-nav-sync { padding:11px 22px; }
+  .side-nav-guest-badge { margin:0 14px 10px !important; }
+  .tab-enter { animation:tabIn .38s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes tabIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+  @media (prefers-reduced-motion: reduce) { .tab-enter, .side-nav-indicator, .side-nav-icon { animation:none !important; transition:none !important; } }
+  @media (max-width: 720px) {
+    .side-nav-brand { padding:16px 0; justify-content:center; } .side-nav-brand div { display:none; }
+    .side-nav-item { width:calc(100% - 12px); margin:2px 6px; }
+    .side-nav-indicator { left:6px; right:6px; }
+  }
+
+  .app-main { padding:38px 44px 80px; }
+  .eq-header { margin-bottom:26px; }
+  .eq-title { font-size:28px; font-weight:800; letter-spacing:-0.025em; }
+  .eq-stat { font-size:13px; }
+  .eq-stat b { font-size:22px; font-weight:800; }
+  .proj-eyebrow { color:var(--accent); font-size:11px; letter-spacing:2.5px; }
+  .eq-add-btn { border-radius:12px; padding:11px 22px; box-shadow:var(--shadow-sm); transition:transform .18s ease, box-shadow .18s ease, filter .18s ease; }
+  .eq-add-btn:hover { transform:translateY(-1px); box-shadow:var(--shadow-md); filter:none; }
+  .eq-search input { background:var(--surface); border-radius:12px; padding:12px 16px; box-shadow:var(--shadow-sm); transition:box-shadow .18s ease, border-color .18s ease; }
+  .eq-search input:focus { box-shadow:0 0 0 4px var(--accent-soft); }
+  .eq-chip { background:var(--surface); box-shadow:var(--shadow-sm); padding:7px 14px; transition:all .18s ease; }
+  .eq-chip.active { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); font-weight:700; box-shadow:none; }
+
+  .eq-grid { grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:14px; }
+  .eq-cat-section { margin-bottom:30px; }
+  .eq-cat-section-head { font-size:15px; font-weight:800; color:var(--text); margin-bottom:12px; }
+  .eq-card { border-radius:14px; box-shadow:var(--shadow-sm); transition:transform .2s cubic-bezier(.2,.7,.2,1), box-shadow .2s ease, border-color .2s ease; }
+  .eq-card:hover { border-color:var(--border-strong); transform:translateY(-2px); box-shadow:var(--shadow-md); }
+  .eq-card-compact { padding:11px 13px; }
+  .eq-card-name-compact { font-size:14.5px; font-weight:700; }
+
+  .proj-list { gap:10px; }
+  .proj-row { border-radius:14px; box-shadow:var(--shadow-sm); padding:17px 18px; }
+  .proj-row:not(.proj-row-head):hover { transform:translateY(-1px); box-shadow:var(--shadow-md); }
+  .proj-row { transition:transform .18s ease, box-shadow .18s ease, background .12s ease, border-color .12s ease; }
+  .proj-row-head { font-size:11.5px; letter-spacing:0.04em; color:var(--text-faint); }
+  .proj-parent-card, .proj-breadcrumb { border-radius:14px; box-shadow:var(--shadow-sm); }
+  .sched-row, .task-note { border-radius:14px; box-shadow:var(--shadow-sm); transition:transform .18s ease, box-shadow .18s ease; }
+  .sched-row:hover, .task-note:hover { box-shadow:var(--shadow-md); }
+  .proj-list-add-btn { border-radius:12px; }
+  .proj-bulk-bar { border-radius:12px; }
+
+  .eq-modal-overlay { backdrop-filter:blur(5px); -webkit-backdrop-filter:blur(5px); animation:fadeIn .2s ease both; }
+  .eq-modal { border-radius:20px; padding:26px; box-shadow:var(--shadow-lg); border:1px solid var(--border); animation:modalIn .26s cubic-bezier(.2,.8,.2,1) both; }
+  .eq-modal-head h2 { font-size:19px; font-weight:800; letter-spacing:-0.02em; }
+  .eq-field input, .eq-field select, .eq-field textarea { border-radius:10px; background:var(--surface); }
+  .eq-modal-submit { border-radius:12px; padding:12px; }
+  .eq-status-option { border-radius:10px; }
+  .eq-status-option.theme-on { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); font-weight:700; }
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+  @keyframes modalIn { from { opacity:0; transform:translateY(14px) scale(.98); } to { opacity:1; transform:none; } }
+  ::-webkit-scrollbar { width:10px; height:10px; } ::-webkit-scrollbar-thumb { background:var(--border-strong); border-radius:8px; border:2px solid transparent; background-clip:padding-box; }
 </style>
 </body>
 </html>
