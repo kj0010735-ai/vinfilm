@@ -59,6 +59,8 @@
 - **sw.js의 `VERSION`이 바뀌어야 새 버전으로 인식된다.** 빌드 과정이 없어서 `.githooks/pre-commit`이 `works/` 아래 파일이 커밋에 들어가면 `VERSION`을 현재 시각으로 바꾸고 `works/sw.js`를 같이 스테이징한다 — 이 훅은 `git config core.hooksPath .githooks`를 켠 기기에서만 돈다(이 맥은 켜둠). 다른 기기/GitHub 웹에서 works를 고치면 VERSION을 손으로 바꿔야 알림이 뜬다.
 - Claude 앱의 내장 브라우저 창은 서비스 워커를 못 띄워서 거기서는 등록이 실패한다(정상). 실제 확인은 Safari/Chrome이나 아이폰에서.
 
+**손가락 확대(핀치 줌)는 막아둔다 — works/ledger(앱처럼 쓰는 화면)만**: viewport에 `maximum-scale=1, user-scalable=no, viewport-fit=cover`를 넣었지만 아이폰 Safari는 그걸 무시해서, `<head>`의 작은 스크립트가 `gesturestart/gesturechange/gestureend`와 두 손가락 `touchmove`(`{passive:false}`)를 `preventDefault` 한다(한 손가락 스크롤은 그대로). 두 번 탭 확대는 `html{touch-action:manipulation}`으로 막음. 공개 홈페이지·admin에는 넣지 않았다(일반 웹페이지라 확대가 필요할 수 있음).
+
 **긴 URL/메모가 화면 폭을 밀어내지 않게 할 것**: 아이폰에서 상위 프로젝트 메모에 들어간 공백 없는 긴 SharePoint 링크가 문서 폭을 넓혀서 페이지 전체가 절반 크기로 축소돼 보이고, 요약 카드의 ✎/✕가 카드 밖으로 밀려난 적이 있다. 그래서 `html,body{overflow-x:hidden}`, `.app-main{min-width:0; overflow-x:clip}`, 메모/링크/상세값에 `overflow-wrap:anywhere`를 걸어뒀고, 폰에서는 상위 요약 카드를 세로로 쌓아 버튼을 카드 안 오른쪽 아래에 둔다. 사용자 입력 텍스트를 새로 보여주는 곳에도 같은 줄바꿈 처리를 할 것.
 
 **폰트/전역 스타일 주의**: 전역 모달(`.eq-modal-overlay`)은 `.app-shell` 밖에 렌더되므로 폰트를 `.app-shell`에만 지정하면 모달 글씨가 브라우저 기본 명조체로 나온다(설정 모달에서 실제로 발생) — `html, body`에 `font-family:var(--font-body)`를 둔 이유. 또 `--font-mono`는 이제 `var(--font-body)`(페이퍼로지)를 가리킨다 — 예전 IBM Plex Mono는 로드도 안 돼서 코드·상태 라벨의 한글이 다른 폰트로 섞여 보였다. 숫자 정렬용 모노스페이스가 필요해지면 그때 따로 정의할 것.

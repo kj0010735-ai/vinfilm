@@ -3,7 +3,16 @@
 <head>
 <script>try{document.documentElement.setAttribute('data-theme', localStorage.getItem('vinfilm-works-theme')==='dark'?'dark':'light');}catch(e){}</script>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<script>
+/* 앱처럼 쓰는 화면이라 손가락 확대(핀치 줌)를 막는다 — 아이폰 Safari는 viewport만으로는 안 막혀서 제스처 이벤트도 막음 */
+(function () {
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (t) {
+    document.addEventListener(t, function (e) { e.preventDefault(); }, { passive: false });
+  });
+  document.addEventListener('touchmove', function (e) { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+})();
+</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -3897,6 +3906,7 @@ document.addEventListener('DOMContentLoaded', () => {
   @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
   @keyframes modalIn { from { opacity:0; transform:translateY(14px) scale(.98); } to { opacity:1; transform:none; } }
   ::-webkit-scrollbar { width:10px; height:10px; } ::-webkit-scrollbar-thumb { background:var(--border-strong); border-radius:8px; border:2px solid transparent; background-clip:padding-box; }
+  html { touch-action: manipulation; }
 </style>
 </body>
 </html>

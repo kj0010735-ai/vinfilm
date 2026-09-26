@@ -2,7 +2,16 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<script>
+/* 앱처럼 쓰는 화면이라 손가락 확대(핀치 줌)를 막는다 — 아이폰 Safari는 viewport만으로는 안 막혀서 제스처 이벤트도 막음 */
+(function () {
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (t) {
+    document.addEventListener(t, function (e) { e.preventDefault(); }, { passive: false });
+  });
+  document.addEventListener('touchmove', function (e) { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+})();
+</script>
 <title>STUDIO FINANCE · VINFILM STUDIO</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
@@ -179,6 +188,7 @@
     .sf-header-controls { width:100%; }
     .sf-month-input { flex:1; }
   }
+  html { touch-action: manipulation; }
 </style>
 </head>
 <body>
