@@ -476,7 +476,7 @@ function renderSidebar() {
   const items = GUEST_MODE ? NAV_ITEMS.filter(it => GUEST_ALLOWED_TABS.includes(it.id)) : NAV_ITEMS;
   return `
     <nav class="side-nav" id="sideNav">
-      <div class="side-nav-brand"><span class="side-nav-brand-dot"></span><div><b>VINFILM</b><small>작업 관리</small></div></div>
+      <div class="side-nav-brand"><img class="side-nav-logo" src="../assets/logo.png" alt="VINFILM STUDIO" width="112" height="56" /><small>작업 관리</small></div>
       ${GUEST_MODE ? `<div class="side-nav-guest-badge">👋 공유 보기</div>` : ''}
       <div class="side-nav-indicator"></div>
       ${items.map(it => `
@@ -1889,6 +1889,7 @@ function render() {
   const af = document.querySelector('[autofocus]');
   if (af) { af.focus(); if (af.value) { const v = af.value; af.value = ''; af.value = v; } }
 }
+window.addEventListener('resize', () => { window.__navY = null; positionNavIndicator(); });
 /* 사이드바 선택 표시가 이전 메뉴 위치에서 새 메뉴 위치로 미끄러지듯 움직이게 한다.
    render()가 매번 DOM을 새로 만들기 때문에 CSS transition만으로는 안 움직여서, 이전 위치를 기억해 두었다가
    새 요소를 이전 위치에 먼저 그린 뒤 다음 프레임에 새 위치로 옮긴다. */
@@ -3122,6 +3123,10 @@ document.addEventListener('DOMContentLoaded', () => {
   .side-nav-brand-dot { width:10px; height:10px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 4px var(--accent-soft); flex-shrink:0; }
   .side-nav-brand b { display:block; font-family:var(--font-display); font-size:15px; letter-spacing:1.5px; font-weight:400; color:var(--text); line-height:1.1; }
   .side-nav-brand small { display:block; font-size:11px; color:var(--text-faint); margin-top:3px; letter-spacing:0.02em; }
+  .side-nav-brand { flex-direction:column; align-items:flex-start; gap:8px; }
+  .side-nav-logo { width:112px; height:auto; aspect-ratio:1852/934; border-radius:6px; display:block; }
+  .side-nav-brand small { margin-top:0; }
+  @media (max-width: 720px) { .side-nav-brand { align-items:center; } .side-nav-logo { width:38px; border-radius:4px; } .side-nav-brand small { display:none; } }
   .side-nav-indicator { position:absolute; left:10px; right:10px; top:0; height:40px; border-radius:11px; background:var(--accent-soft); pointer-events:none; z-index:0; transition:transform .38s cubic-bezier(.4,0,.2,1), height .38s cubic-bezier(.4,0,.2,1), opacity .2s ease; }
   .side-nav-indicator::before { content:''; position:absolute; left:0; top:22%; bottom:22%; width:3px; border-radius:0 3px 3px 0; background:var(--accent); }
   .side-nav-item { position:relative; z-index:1; width:calc(100% - 20px); margin:2px 10px; padding:10px 12px; border-radius:11px; transition:color .2s ease, background .2s ease; }
