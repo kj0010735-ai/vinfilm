@@ -1,0 +1,8 @@
+#!/bin/bash
+URL="https://www.vinfilmstudio.com/works/"
+for B in "/Applications/Google Chrome.app" "/Applications/Microsoft Edge.app" "/Applications/Brave Browser.app" "/Applications/Chromium.app"; do
+  if [ -d "$B" ]; then
+    exec open -na "$B" --args --app="$URL" --window-size=1360,900
+  fi
+done
+exec open "$URL"
