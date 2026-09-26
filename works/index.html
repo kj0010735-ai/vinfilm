@@ -6,10 +6,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>작업 관리</title>
 <link rel="icon" type="image/png" href="../assets/works-icon.png">
-<link rel="apple-touch-icon" href="../assets/works-icon.png">
+<link rel="apple-touch-icon" sizes="512x512" href="../assets/works-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-title" content="VINFILM 작업관리">
-<link rel="icon" href="icon.png">
-<link rel="apple-touch-icon" href="icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <!-- 클라우드 동기화용 SDK. 인터넷이 없으면 아래 두 줄은 그냥 조용히 실패하고, 앱은 로컬 저장만으로 정상 동작해요. -->
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
@@ -85,81 +84,6 @@ function extractDroppedImageUrl(dataTransfer) {
   return null;
 }
 
-/* ================= ICS parsing ================= */
-function unescapeICS(s) {
-  if (!s) return '';
-  return s.replace(/\\n/gi, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\');
-}
-function parseICSDateValue(value) {
-  const m = /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z)?)?$/.exec(value);
-  if (!m) return null;
-  const [, y, mo, d, h, mi, s, z] = m;
-  if (h === undefined) return { date: `${y}-${mo}-${d}`, time: null };
-  if (z) {
-    const dt = new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi, +(s || 0)));
-    return { date: `${dt.getFullYear()}-${pad2(dt.getMonth()+1)}-${pad2(dt.getDate())}`, time: `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}` };
-  }
-  return { date: `${y}-${mo}-${d}`, time: `${h}:${mi}` };
-}
-function parseICS(text) {
-  const rawLines = text.split(/\r\n|\n|\r/);
-  const lines = [];
-  for (const line of rawLines) {
-    if ((line.startsWith(' ') || line.startsWith('\t')) && lines.length > 0) lines[lines.length - 1] += line.slice(1);
-    else lines.push(line);
-  }
-  const events = [];
-  let cur = null;
-  for (const line of lines) {
-    if (line === 'BEGIN:VEVENT') { cur = {}; continue; }
-    if (line === 'END:VEVENT') { if (cur) events.push(cur); cur = null; continue; }
-    if (!cur) continue;
-    const idx = line.indexOf(':');
-    if (idx === -1) continue;
-    const key = line.slice(0, idx).split(';')[0].toUpperCase();
-    const value = line.slice(idx + 1);
-    if (key === 'SUMMARY') cur.summary = unescapeICS(value);
-    else if (key === 'LOCATION') cur.location = unescapeICS(value);
-    else if (key === 'DESCRIPTION') cur.description = unescapeICS(value);
-    else if (key === 'UID') cur.uid = value;
-    else if (key === 'DTSTART') cur.dtstart = value;
-  }
-  return events.map(e => {
-    const start = e.dtstart ? parseICSDateValue(e.dtstart) : null;
-    return {
-      uid: e.uid || `${e.summary || ''}-${e.dtstart || Math.random()}`,
-      title: e.summary || '(제목 없음)',
-      date: start ? start.date : todayStr(),
-      time: start ? start.time : null,
-      location: e.location || '',
-      memo: e.description || '',
-    };
-  }).filter(e => e.date);
-}
-function mergeIcsText(text) {
-  const parsed = parseICS(text);
-  const merged = [...schedItems];
-  parsed.forEach(pe => {
-    const idx = merged.findIndex(it => it.source === 'calendar' && it.uid === pe.uid);
-    const data = { id: idx >= 0 ? merged[idx].id : uid(), uid: pe.uid, title: pe.title, date: pe.date, time: pe.time, location: pe.location, memo: pe.memo, category: 'calendar', source: 'calendar', createdAt: idx >= 0 ? merged[idx].createdAt : Date.now() };
-    if (idx >= 0) merged[idx] = data; else merged.push(data);
-  });
-  saveSchedItems(merged);
-  return parsed.length;
-}
-async function fetchScheduleFeed() {
-  if (!schedFeedUrl) return;
-  try {
-    const resp = await fetch(schedFeedUrl);
-    if (!resp.ok) throw new Error('bad response');
-    const text = await resp.text();
-    const n = mergeIcsText(text);
-    S.sched.importMsg = `구독 캘린더에서 ${n}개 일정을 동기화했어요. (방금)`;
-  } catch (err) {
-    S.sched.importMsg = '자동 동기화에 실패했어요 (인터넷 또는 링크 확인). "📥 캘린더 가져오기"로 수동으로도 불러올 수 있어.';
-  }
-}
-
 /* ================= constants ================= */
 const CATEGORY_COLOR_PALETTE = ['#5b8def', '#4cae7d', '#c9a227', '#e0a63c', '#8b5cf6', '#22b8cf', '#d9534f', '#8b90a0', '#ec4899', '#84cc16', '#a3703a', '#14b8a6', '#6366f1', '#f97316'];
 const DEFAULT_CATEGORIES = [
@@ -195,7 +119,7 @@ const SCHED_CATEGORIES = [
   { id: 'deadline', label: '마감' },
   { id: 'etc', label: '기타' },
 ];
-const SCHED_FILTER_CATEGORIES = [{ id: 'all', label: '전체' }, ...SCHED_CATEGORIES, { id: 'calendar', label: '캘린더' }];
+const SCHED_FILTER_CATEGORIES = [{ id: 'all', label: '전체' }, ...SCHED_CATEGORIES, { id: 'calendar', label: '📱 휴대폰' }];
 const PROJECT_COLUMNS = [
   { id: 'todo', label: '진행전', color: '#e0a63c' },
   { id: 'doing', label: '진행중', color: '#4cae7d' },
@@ -239,7 +163,6 @@ const LS_SCHEDULE = 'eq-manager-schedule';
 const LS_PROJECTS = 'eq-manager-projects';
 const LS_SHOOTS = 'eq-manager-shoots';
 const LS_PRESETS = 'eq-manager-presets';
-const LS_SCHED_FEED = 'eq-manager-sched-feed-url';
 const LS_TASKS = 'eq-manager-today-tasks';
 const LS_NOTES = 'eq-manager-notes';
 const LS_SHORTCUTS = 'eq-manager-shortcuts';
@@ -289,12 +212,11 @@ const S = {
   shortcut: { modalOpen: false, editingId: null },
 };
 let currentEqPhoto = '';
-let schedFeedUrl = localStorage.getItem(LS_SCHED_FEED) || '';
 let currentEqPhotoError = '';
 
 function saveEqItems(next) { const prev = eqItems; eqItems = next; try { localStorage.setItem(LS_ITEMS, JSON.stringify(next)); } catch (e) {} pushToCloud('equipment', prev, next); }
 function saveEqCategories(next) { const prev = eqCategories; eqCategories = next; try { localStorage.setItem(LS_CATEGORIES, JSON.stringify(next)); } catch (e) {} pushToCloud('categories', prev, next); }
-function saveSchedItems(next) { const prev = schedItems; schedItems = next; try { localStorage.setItem(LS_SCHEDULE, JSON.stringify(next)); } catch (e) {} pushToCloud('schedule', prev, next); }
+function saveSchedItems(next) { const prev = schedItems; schedItems = next; try { localStorage.setItem(LS_SCHEDULE, JSON.stringify(next)); } catch (e) {} pushToCloud('schedule', prev, next); if (typeof gcalSchedulePush === 'function') gcalSchedulePush(); }
 function saveProjItems(next) { const prev = projItems; projItems = next; try { localStorage.setItem(LS_PROJECTS, JSON.stringify(next)); } catch (e) {} pushToCloud('projects', prev, next); }
 function saveShoots(next) { const prev = shoots; shoots = next; try { localStorage.setItem(LS_SHOOTS, JSON.stringify(next)); } catch (e) {} pushToCloud('shoots', prev, next); }
 function savePresets(next) { const prev = presets; presets = next; try { localStorage.setItem(LS_PRESETS, JSON.stringify(next)); } catch (e) {} pushToCloud('presets', prev, next); }
@@ -766,9 +688,232 @@ function renderEquipmentTab() {
   `;
 }
 
+/* 예전 "캘린더 가져오기/구독 연결"로 복사해 온 일정(source:'calendar')은 새 휴대폰 연결과 겹치므로 화면에서 숨긴다(데이터는 지우지 않음). */
+function visibleSchedItems() { return schedItems.filter(it => it.source !== 'calendar'); }
+/* ================= 휴대폰(아이폰) 캘린더 연결 — Google 캘린더 경유 =================
+   정적 사이트라 서버가 없어서, 아이폰이 기본으로 동기화하는 Google 캘린더를 다리로 쓴다.
+   - VINFILM 일정 → Google의 "VINFILM STUDIO" 캘린더에 자동 반영(추가/수정/삭제) → 아이폰 캘린더 앱에 표시
+   - 아이폰/Google 캘린더의 다른 일정 → 이 캘린더 화면에 읽기 전용으로 함께 표시
+   권한은 Firebase Google 로그인 팝업에 calendar 범위를 추가해서 받고(액세스 토큰 1시간 유효), 만료되면 다시 연결 버튼을 누르면 된다.
+   로컬(IS_LOCAL_DEV)에서는 실제 Google 캘린더에 쓰지 않도록 꺼둔다. */
+const GCAL_API = 'https://www.googleapis.com/calendar/v3';
+const GCAL_LS = { token: 'vinfilm-gcal-token', enabled: 'vinfilm-gcal-enabled', calId: 'vinfilm-gcal-calid', pushed: 'vinfilm-gcal-pushed' };
+const GCAL_CAL_NAME = 'VINFILM STUDIO';
+const gcal = { token: null, exp: 0, calId: null, events: [], status: 'off', msg: '', lastSync: 0, busy: false, modalOpen: false, detailId: null };
+(function gcalLoad() {
+  try {
+    const t = JSON.parse(localStorage.getItem(GCAL_LS.token) || 'null');
+    if (t && t.exp > Date.now() + 60000) { gcal.token = t.token; gcal.exp = t.exp; }
+    gcal.calId = localStorage.getItem(GCAL_LS.calId) || null;
+    if (localStorage.getItem(GCAL_LS.enabled) === '1') gcal.status = gcal.token ? 'on' : 'expired';
+  } catch (e) {}
+})();
+function gcalTokenValid() { return !!gcal.token && gcal.exp > Date.now() + 30000; }
+function gcalSetMsg(m) { gcal.msg = m; }
+function gcalApiNotEnabled(body) {
+  const s = JSON.stringify(body || {});
+  return /accessNotConfigured|SERVICE_DISABLED|has not been used in project|is disabled/i.test(s);
+}
+const GCAL_ENABLE_URL = 'https://console.cloud.google.com/apis/library/calendar-json.googleapis.com?project=vinfilm-studio-app';
+async function gapiFetch(path, opts = {}) {
+  if (!gcalTokenValid()) { gcal.status = 'expired'; throw new Error('expired'); }
+  const r = await fetch(GCAL_API + path, { ...opts, headers: { Authorization: 'Bearer ' + gcal.token, 'Content-Type': 'application/json' } });
+  if (r.status === 204) return null;
+  let body = null; try { body = await r.json(); } catch (e) {}
+  if (r.status === 401) { gcal.status = 'expired'; gcal.token = null; throw new Error('expired'); }
+  if (r.status === 403 && gcalApiNotEnabled(body)) { gcal.status = 'error'; gcalSetMsg('api-disabled'); throw new Error('api-disabled'); }
+  if (!r.ok) { const e = new Error((body && body.error && body.error.message) || ('HTTP ' + r.status)); e.status = r.status; throw e; }
+  return body;
+}
+async function gcalConnect() {
+  if (IS_LOCAL_DEV) { gcalSetMsg('로컬 테스트 환경에서는 실제 Google 캘린더에 연결하지 않아요. 배포된 사이트에서 연결해주세요.'); render(); return; }
+  if (typeof firebase === 'undefined' || !firebase.auth) { gcalSetMsg('로그인 기능을 불러오지 못했어요. 인터넷 연결을 확인해주세요.'); render(); return; }
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.addScope('https://www.googleapis.com/auth/calendar');
+  const u = firebase.auth().currentUser;
+  if (u && u.email) provider.setCustomParameters({ login_hint: u.email });
+  gcal.status = 'connecting'; gcalSetMsg(''); render();
+  try {
+    const res = u ? await u.reauthenticateWithPopup(provider) : await firebase.auth().signInWithPopup(provider);
+    const token = res && res.credential && res.credential.accessToken;
+    if (!token) throw new Error('캘린더 권한을 받지 못했어요.');
+    gcal.token = token; gcal.exp = Date.now() + 55 * 60 * 1000;
+    try { localStorage.setItem(GCAL_LS.token, JSON.stringify({ token, exp: gcal.exp })); localStorage.setItem(GCAL_LS.enabled, '1'); } catch (e) {}
+    gcal.status = 'on';
+    await gcalSync(true);
+  } catch (err) {
+    gcal.status = localStorage.getItem(GCAL_LS.enabled) === '1' ? 'expired' : 'off';
+    if (err && err.code === 'auth/popup-closed-by-user') gcalSetMsg('연결을 취소했어요.');
+    else if (err && err.code === 'auth/user-mismatch') gcalSetMsg('지금 로그인한 계정과 같은 Google 계정을 골라주세요.');
+    else if (err && err.message !== 'api-disabled') gcalSetMsg('연결하지 못했어요: ' + (err.message || err));
+  }
+  render();
+}
+function gcalDisconnect() {
+  gcal.token = null; gcal.exp = 0; gcal.events = []; gcal.status = 'off'; gcalSetMsg('');
+  try { Object.values(GCAL_LS).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  gcal.calId = null;
+}
+async function gcalEnsureCalendar() {
+  if (gcal.calId) {
+    try { await gapiFetch('/calendars/' + encodeURIComponent(gcal.calId)); return gcal.calId; }
+    catch (e) { if (e.status !== 404 && e.status !== 403 && e.status !== 410) throw e; gcal.calId = null; }
+  }
+  const list = await gapiFetch('/users/me/calendarList?maxResults=250');
+  const found = (list.items || []).find(c => c.summary === GCAL_CAL_NAME && c.accessRole === 'owner');
+  if (found) gcal.calId = found.id;
+  else {
+    const created = await gapiFetch('/calendars', { method: 'POST', body: JSON.stringify({ summary: GCAL_CAL_NAME, description: 'VINFILM STUDIO 작업관리(www.vinfilmstudio.com/works)에서 자동으로 넣는 일정', timeZone: 'Asia/Seoul' }) });
+    gcal.calId = created.id;
+    try { await gapiFetch('/users/me/calendarList/' + encodeURIComponent(created.id), { method: 'PATCH', body: JSON.stringify({ colorId: '9' }) }); } catch (e) {}
+  }
+  try { localStorage.setItem(GCAL_LS.calId, gcal.calId); } catch (e) {}
+  return gcal.calId;
+}
+function gcalEventIdFor(item) { let h = ''; const s = String(item.id); for (let i = 0; i < s.length; i++) h += s.charCodeAt(i).toString(16).padStart(2, '0'); return 'vf' + h; }
+function addDaysYmd(dateStr, n) { const d = parseYmd(dateStr); d.setDate(d.getDate() + n); return ymd(d); }
+function gcalBodyFor(item) {
+  const cat = SCHED_CATEGORIES.find(c => c.id === item.category);
+  const desc = [item.memo || '', item.contact ? '연락처: ' + item.contact : '', cat ? '분류: ' + cat.label : ''].filter(Boolean).join('\n');
+  const body = { id: gcalEventIdFor(item), summary: item.title, location: item.location || '', description: desc, status: 'confirmed',
+    extendedProperties: { private: { vfId: String(item.id) } } };
+  if (item.time) {
+    const [h, m] = item.time.split(':').map(Number);
+    const endH = String(Math.min(h + 1, 23)).padStart(2, '0'), endM = h + 1 > 23 ? '59' : String(m).padStart(2, '0');
+    body.start = { dateTime: `${item.date}T${item.time}:00`, timeZone: 'Asia/Seoul' };
+    body.end = { dateTime: `${item.date}T${endH}:${endM}:00`, timeZone: 'Asia/Seoul' };
+  } else {
+    body.start = { date: item.date }; body.end = { date: addDaysYmd(item.date, 1) };
+  }
+  return body;
+}
+async function gcalPush() {
+  const calId = await gcalEnsureCalendar();
+  let pushed = {}; try { pushed = JSON.parse(localStorage.getItem(GCAL_LS.pushed) || '{}'); } catch (e) {}
+  const mine = schedItems.filter(it => it.source !== 'calendar' && it.date);
+  const want = {};
+  for (const it of mine) {
+    const body = gcalBodyFor(it); const sig = JSON.stringify(body); want[body.id] = true;
+    if (pushed[body.id] === sig) continue;
+    const base = '/calendars/' + encodeURIComponent(calId) + '/events';
+    try { await gapiFetch(base + '/' + body.id, { method: 'PUT', body: sig }); }
+    catch (e) { if (e.status === 404) await gapiFetch(base, { method: 'POST', body: sig }); else throw e; }
+    pushed[body.id] = sig;
+  }
+  // VINFILM에서 지운 일정은 Google 캘린더에서도 지운다 (우리가 만든 vf... 일정만)
+  const existing = await gapiFetch('/calendars/' + encodeURIComponent(calId) + '/events?maxResults=2500&showDeleted=false');
+  for (const ev of (existing.items || [])) {
+    if (ev.id && ev.id.startsWith('vf') && !want[ev.id]) {
+      try { await gapiFetch('/calendars/' + encodeURIComponent(calId) + '/events/' + ev.id, { method: 'DELETE' }); } catch (e) { if (e.status !== 404 && e.status !== 410) throw e; }
+      delete pushed[ev.id];
+    }
+  }
+  Object.keys(pushed).forEach(k => { if (!want[k]) delete pushed[k]; });
+  try { localStorage.setItem(GCAL_LS.pushed, JSON.stringify(pushed)); } catch (e) {}
+}
+async function gcalPull() {
+  const now = new Date();
+  const min = new Date(now); min.setMonth(now.getMonth() - 3);
+  const max = new Date(now); max.setMonth(now.getMonth() + 9);
+  const list = await gapiFetch('/users/me/calendarList?maxResults=250');
+  const cals = (list.items || []).filter(c => c.id !== gcal.calId && c.selected !== false && !c.deleted);
+  const out = [];
+  for (const c of cals) {
+    let data;
+    try { data = await gapiFetch('/calendars/' + encodeURIComponent(c.id) + '/events?singleEvents=true&orderBy=startTime&maxResults=2500&timeMin=' + encodeURIComponent(min.toISOString()) + '&timeMax=' + encodeURIComponent(max.toISOString())); }
+    catch (e) { if (e.message === 'expired' || e.message === 'api-disabled') throw e; continue; }
+    for (const ev of (data.items || [])) {
+      if (ev.status === 'cancelled' || !ev.start) continue;
+      let date, time = null, endDate;
+      if (ev.start.date) { date = ev.start.date; endDate = ev.end && ev.end.date ? addDaysYmd(ev.end.date, -1) : date; }
+      else { const s = new Date(ev.start.dateTime); date = ymd(s); time = `${pad2(s.getHours())}:${pad2(s.getMinutes())}`; const e2 = ev.end && ev.end.dateTime ? new Date(ev.end.dateTime) : s; endDate = ymd(e2); }
+      out.push({ id: 'g-' + c.id + '-' + ev.id, title: ev.summary || '(제목 없음)', date, endDate: endDate < date ? date : endDate, time, location: ev.location || '', memo: ev.description || '', category: 'calendar', source: 'google', calName: c.summaryOverride || c.summary || '', htmlLink: ev.htmlLink || '' });
+    }
+  }
+  gcal.events = out;
+}
+async function gcalSync(full) {
+  if (IS_LOCAL_DEV || gcal.busy) return;
+  if (!gcalTokenValid()) { if (localStorage.getItem(GCAL_LS.enabled) === '1') { gcal.status = 'expired'; render(); } return; }
+  gcal.busy = true; render();
+  try {
+    await gcalPush();
+    await gcalPull();
+    gcal.status = 'on'; gcal.lastSync = Date.now(); if (gcal.msg !== 'api-disabled') gcalSetMsg('');
+  } catch (e) {
+    if (e.message === 'expired') gcal.status = 'expired';
+    else if (e.message !== 'api-disabled') gcalSetMsg('동기화 중 문제가 생겼어요: ' + e.message);
+  }
+  gcal.busy = false; render();
+}
+let gcalPushTimer = null;
+function gcalSchedulePush() {
+  if (IS_LOCAL_DEV || !gcalTokenValid()) return;
+  clearTimeout(gcalPushTimer);
+  gcalPushTimer = setTimeout(() => { gcalSync(false); }, 1500);
+}
+/* 캘린더 화면에 보여줄 Google 일정 — 여러 날 종일 일정은 날짜마다 펼친다(최대 31일) */
+function gcalEventsByDate() {
+  const by = {};
+  gcal.events.forEach(ev => {
+    let d = ev.date, n = 0;
+    while (d <= ev.endDate && n < 31) { (by[d] = by[d] || []).push(ev); d = addDaysYmd(d, 1); n++; }
+  });
+  return by;
+}
+function gcalButtonHtml() {
+  if (gcal.status === 'on') return `<button class="eq-add-btn gcal-btn is-on" data-action="gcal-open">📱 휴대폰 캘린더 연결됨${gcal.busy ? ' · 동기화 중…' : ''}</button>`;
+  if (gcal.status === 'expired') return `<button class="eq-add-btn gcal-btn is-warn" data-action="gcal-connect">📱 휴대폰 캘린더 다시 연결</button>`;
+  if (gcal.status === 'connecting') return `<button class="eq-add-btn gcal-btn" disabled>📱 연결 중…</button>`;
+  return `<button class="eq-add-btn gcal-btn" data-action="gcal-open">📱 휴대폰 캘린더 연결</button>`;
+}
+function gcalNoticeHtml() {
+  if (gcal.msg === 'api-disabled') return `<div class="gcal-notice is-warn">Google 캘린더 기능이 아직 꺼져 있어요. <a href="${GCAL_ENABLE_URL}" target="_blank" rel="noopener">여기서 "사용" 버튼</a>을 한 번 누른 뒤 1~2분 기다렸다가 다시 연결해주세요.</div>`;
+  if (gcal.msg) return `<div class="gcal-notice">${esc(gcal.msg)}</div>`;
+  if (gcal.status === 'expired') return `<div class="gcal-notice">보안상 Google 연결은 1시간마다 갱신이 필요해요. "다시 연결"을 누르면 휴대폰 일정이 다시 보이고, 그동안 바뀐 일정도 한 번에 반영돼요.</div>`;
+  return '';
+}
+function gcalModalHtml() {
+  if (!gcal.modalOpen) return '';
+  const on = gcal.status === 'on';
+  const last = gcal.lastSync ? new Date(gcal.lastSync) : null;
+  return `
+    <div class="eq-modal-overlay" data-action="gcal-close-backdrop">
+      <div class="eq-modal" data-stop-close style="max-width:460px;">
+        <div class="eq-modal-head"><h2>📱 휴대폰 캘린더 연결</h2><button class="eq-modal-close" data-action="gcal-close">✕</button></div>
+        <ol class="gcal-steps">
+          <li class="${on ? 'done' : ''}"><b>Google 계정 연결</b><span>이 사이트에 로그인한 Google 계정으로 캘린더 권한을 허용해요.</span>
+            ${on ? `<em>연결됨${last ? ` · 마지막 동기화 ${pad2(last.getHours())}:${pad2(last.getMinutes())}` : ''}</em>` : `<button class="eq-modal-submit" data-action="gcal-connect" style="margin-top:10px;">Google 계정으로 연결</button>`}</li>
+          <li><b>아이폰에 같은 Google 계정 추가</b><span>아이폰 <b>설정 → 캘린더 → 계정 → 계정 추가 → Google</b>로 ${esc((typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser && firebase.auth().currentUser.email) || '같은 계정')}을 추가하고 <b>캘린더</b>를 켜요. 캘린더 앱의 "캘린더" 목록에 <b>VINFILM STUDIO</b>가 생기면 여기 일정이 그대로 보여요.</span></li>
+          <li><b>아이폰에서 만든 일정도 여기 보이게</b><span>아이폰 <b>설정 → 캘린더 → 기본 캘린더</b>를 Google 계정의 캘린더로 바꿔두면, 아이폰에서 새로 만든 일정이 이 캘린더에 "📱 휴대폰" 색으로 함께 떠요. (iCloud 캘린더에 만든 일정은 Google을 거치지 않아서 안 보여요.)</span></li>
+        </ol>
+        ${gcalNoticeHtml()}
+        ${on ? `<div style="display:flex; gap:8px; margin-top:6px;"><button class="eq-modal-submit eq-modal-submit-secondary" data-action="gcal-sync-now" style="margin:0;">${gcal.busy ? '동기화 중…' : '지금 동기화'}</button></div>
+          <button class="eq-modal-delete-link" data-action="gcal-disconnect">연결 해제 (Google 캘린더의 일정은 그대로 남아요)</button>` : ''}
+      </div>
+    </div>`;
+}
+function gcalDetailModalHtml() {
+  if (!gcal.detailId) return '';
+  const ev = gcal.events.find(x => x.id === gcal.detailId);
+  if (!ev) return '';
+  return `
+    <div class="eq-modal-overlay" data-action="gcal-close-detail-backdrop">
+      <div class="eq-modal" data-stop-close style="max-width:420px;">
+        <div class="eq-modal-head"><h2>${esc(ev.title)}</h2><button class="eq-modal-close" data-action="gcal-close-detail">✕</button></div>
+        <div class="eq-detail-row"><span>날짜</span><b>${dateLabel(ev.date)}${ev.endDate && ev.endDate !== ev.date ? ' – ' + dateLabel(ev.endDate) : ''}${ev.time ? ' ' + esc(ev.time) : ' (종일)'}</b></div>
+        <div class="eq-detail-row"><span>캘린더</span><b><span class="eq-status-dot" style="background:var(--sched-calendar)"></span> 📱 ${esc(ev.calName || '휴대폰')}</b></div>
+        ${ev.location ? `<div class="eq-detail-row"><span>장소</span><b>${esc(ev.location)}</b></div>` : ''}
+        ${ev.memo ? `<div class="eq-detail-row"><span>메모</span><b style="white-space:pre-wrap;">${esc(ev.memo)}</b></div>` : ''}
+        <p class="eq-hint" style="margin:14px 0 10px;">휴대폰(Google) 캘린더의 일정이라 여기서는 보기만 할 수 있어요.</p>
+        ${ev.htmlLink ? `<a class="eq-modal-submit" style="display:block; text-align:center; text-decoration:none;" href="${esc(ev.htmlLink)}" target="_blank" rel="noopener">Google 캘린더에서 열기</a>` : ''}
+      </div>
+    </div>`;
+}
+
 /* ================= render: schedule tab ================= */
 function getFilteredSchedule() {
-  let list = [...schedItems];
+  let list = visibleSchedItems();
   const st = S.sched;
   if (st.categoryFilter !== 'all') list = list.filter(it => it.category === st.categoryFilter);
   if (!st.showPast) list = list.filter(it => it.date >= todayStr());
@@ -918,7 +1063,7 @@ function parseYmd(str) { const [y,m,d] = str.split('-').map(Number); return new 
 function calFilteredItems() {
   // 캘린더는 과거도 보여야 하므로 "지난 일정" 토글은 무시하고 카테고리/검색만 적용
   const st = S.sched;
-  let list = [...schedItems];
+  let list = visibleSchedItems();
   if (st.categoryFilter !== 'all') list = list.filter(it => it.category === st.categoryFilter);
   if (st.search.trim()) {
     const q = st.search.trim().toLowerCase();
@@ -927,11 +1072,20 @@ function calFilteredItems() {
   list.sort((a,b) => `${a.date}T${a.time||'00:00'}`.localeCompare(`${b.date}T${b.time||'00:00'}`));
   const byDate = {};
   list.forEach(it => { (byDate[it.date] = byDate[it.date] || []).push(it); });
+  if (st.categoryFilter === 'all' || st.categoryFilter === 'calendar') {
+    const q = st.search.trim().toLowerCase();
+    const g = gcalEventsByDate();
+    Object.keys(g).forEach(d => {
+      const evs = g[d].filter(ev => !q || ev.title.toLowerCase().includes(q) || (ev.location||'').toLowerCase().includes(q));
+      if (evs.length) byDate[d] = [...(byDate[d] || []), ...evs].sort((a,b) => (a.time||'').localeCompare(b.time||''));
+    });
+  }
   return byDate;
 }
 function calEventHtml(it, compact) {
   const past = it.date < todayStr();
-  return `<button class="cal-ev ${past ? 'is-past' : ''}" style="--ev:var(--sched-${it.category})" data-action="sched-open-detail" data-id="${it.id}" title="${esc(it.title)}">${it.time ? `<span class="cal-ev-time">${esc(it.time)}</span>` : ''}<span class="cal-ev-title">${esc(it.title)}</span></button>`;
+  const g = it.source === 'google';
+  return `<button class="cal-ev ${past ? 'is-past' : ''} ${g ? 'is-phone' : ''}" style="--ev:var(--sched-${it.category})" data-action="${g ? 'gcal-open-detail' : 'sched-open-detail'}" data-id="${esc(it.id)}" title="${esc(it.title)}${g && it.calName ? ' · 📱 ' + esc(it.calName) : ''}">${it.time ? `<span class="cal-ev-time">${esc(it.time)}</span>` : ''}<span class="cal-ev-title">${esc(it.title)}</span></button>`;
 }
 function calTitle() {
   const c = parseYmd(S.sched.cursor);
@@ -976,7 +1130,7 @@ function calGridHtml() {
   return `
     <div class="cal ${S.sched.view === 'week' ? 'cal-week' : ''}">
       <div class="cal-head">${weekdays.map((w, i) => `<div class="${i===0?'is-sun':i===6?'is-sat':''}">${w}</div>`).join('')}</div>
-      <div class="cal-body" style="grid-template-rows:repeat(${weeks}, minmax(${S.sched.view === 'week' ? '420px' : '118px'}, 1fr));">${cells}</div>
+      <div class="cal-body" style="grid-template-rows:repeat(${weeks}, minmax(${S.sched.view === 'week' ? '300px' : '84px'}, 1fr));">${cells}</div>
     </div>`;
 }
 function calToolbarHtml() {
@@ -998,20 +1152,16 @@ function calToolbarHtml() {
 }
 
 function renderScheduleTab() {
-  const todayCount = schedItems.filter(it => it.date === todayStr()).length;
+  const todayCount = visibleSchedItems().filter(it => it.date === todayStr()).length + (gcalEventsByDate()[todayStr()] || []).length;
   return `
     <div class="eq-header">
       <div class="eq-title-block"><h1 class="eq-title">캘린더</h1><div class="eq-stat">오늘 <b>${todayCount}</b> / 전체 <b>${schedItems.length}</b></div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${schedFeedUrl
-          ? `<button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border)" data-action="sched-refresh-feed">🔗 구독됨 · 새로고침</button>`
-          : `<button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border)" data-action="sched-connect-feed">🔗 구독 연결</button>`}
-        <button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border)" data-action="sched-import-pick">📥 캘린더 가져오기</button>
+        ${gcalButtonHtml()}
         <button class="eq-add-btn" data-action="sched-open-add">+ 일정 등록</button>
       </div>
-      <input id="schedIcsInput" type="file" accept=".ics" style="display:none" />
     </div>
-    ${S.sched.importMsg ? `<div class="sched-import-msg"><span>${esc(S.sched.importMsg)}</span><button class="sched-clear-cal-btn" data-action="sched-clear-calendar">가져온 일정 모두 지우기</button></div>` : ''}
+    ${gcalNoticeHtml()}
     <div class="eq-toolbar">
       <div class="eq-search"><input id="schedSearchInput" placeholder="제목, 장소, 메모로 검색" value="${esc(S.sched.search)}" /></div>
       <div class="eq-chip-row">${SCHED_FILTER_CATEGORIES.map(c => `<button class="eq-chip ${S.sched.categoryFilter===c.id?'active':''}" data-action="sched-set-category-filter" data-id="${c.id}">${c.id !== 'all' ? `<span class="eq-chip-dot" style="background:var(--sched-${c.id})"></span>` : ''}${c.label}</button>`).join('')}</div>
@@ -1812,7 +1962,7 @@ function todayCardHtml(item) {
         ${item.memo ? `<div class="today-card-memo">${esc(item.memo)}</div>` : ''}
       </div>
       <div class="today-card-actions">
-        ${linkedShoot
+        ${item.source === 'google' ? `<button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border)" data-action="gcal-open-detail" data-id="${esc(item.id)}">📱 휴대폰 일정</button>` : linkedShoot
           ? `<button class="eq-add-btn" data-action="today-open-shoot" data-id="${linkedShoot.id}">🎒 패킹 체크 열기</button>`
           : `<button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border)" data-action="today-open-shootprep">🎒 촬영준비에서 만들기</button>`}
       </div>
@@ -1873,7 +2023,7 @@ function todayMonthNavHtml() {
     </div>`;
 }
 function todayMonthListHtml() {
-  const list = schedItems
+  const list = visibleSchedItems()
     .filter(it => (it.date || '').startsWith(S.today.month))
     .slice()
     .sort((a, b) => `${a.date}T${a.time || '00:00'}`.localeCompare(`${b.date}T${b.time || '00:00'}`));
@@ -1939,7 +2089,7 @@ function shortcutModalHtml() {
 
 function renderTodayTab() {
   const isMonth = S.today.viewMode === 'month';
-  const list = [...schedItems]
+  const list = [...visibleSchedItems(), ...(gcalEventsByDate()[todayStr()] || [])]
     .filter(it => it.date === todayStr())
     .sort((a,b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
   const dueToday = projItems.filter(p => p.dueDate === todayStr());
@@ -2036,7 +2186,8 @@ function renderTab() {
   return '';
 }
 function render() {
-  document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderTab()}</main></div>${schedModalHtml()}${settingsModalHtml()}`;
+  document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderTab()}</main></div>${schedModalHtml()}${settingsModalHtml()}${gcalModalHtml()}${gcalDetailModalHtml()}`;
+  fitCalendar();
   positionNavIndicator();
   const main = document.querySelector('.app-main');
   if (main && window.__lastTab !== S.activeTab) { main.classList.add('tab-enter'); window.__lastTab = S.activeTab; }
@@ -2047,6 +2198,15 @@ window.addEventListener('resize', () => { window.__navY = null; positionNavIndic
 /* 사이드바 선택 표시가 이전 메뉴 위치에서 새 메뉴 위치로 미끄러지듯 움직이게 한다.
    render()가 매번 DOM을 새로 만들기 때문에 CSS transition만으로는 안 움직여서, 이전 위치를 기억해 두었다가
    새 요소를 이전 위치에 먼저 그린 뒤 다음 프레임에 새 위치로 옮긴다. */
+/* 캘린더를 화면 아래 끝까지 빈틈없이 채운다 — 위쪽 헤더/필터 높이가 상황마다 달라서 CSS만으로 못 맞추고 렌더 후 실제 위치로 계산 */
+function fitCalendar() {
+  const cal = document.querySelector('.cal-card .cal');
+  if (!cal) return;
+  const top = cal.getBoundingClientRect().top + window.scrollY;
+  const h = Math.max(window.innerHeight - top - 40, 460);
+  cal.style.height = h + 'px';
+}
+window.addEventListener('resize', () => fitCalendar());
 function positionNavIndicator() {
   const ind = document.querySelector('.side-nav-indicator');
   const act = document.querySelector('.side-nav-item.active');
@@ -2065,7 +2225,6 @@ function positionNavIndicator() {
 }
 
 /* ================= event handling ================= */
-function withFileText(file) { return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsText(file); }); }
 
 function showLightbox(url) {
   const overlay = document.createElement('div');
@@ -2083,6 +2242,8 @@ async function handlePhotoFile(file) {
 
 function bootApp() {
   render();
+  if (gcalTokenValid()) gcalSync(false);
+  else if (localStorage.getItem(GCAL_LS.enabled) === '1') { gcal.status = 'expired'; }
 
   const root = document.getElementById('root');
 
@@ -2101,7 +2262,7 @@ function bootApp() {
         if (GUEST_MODE && !GUEST_ALLOWED_TABS.includes(id)) return;
         S.activeTab = id;
         render();
-        if (id === 'schedule' && schedFeedUrl) { fetchScheduleFeed().then(render); }
+        if (id === 'schedule' && gcalTokenValid()) gcalSync(false);
         break;
       case 'open-settings': S.settingsOpen = true; render(); break;
       case 'close-settings': S.settingsOpen = false; render(); break;
@@ -2212,7 +2373,6 @@ function bootApp() {
       case 'sched-delete': saveSchedItems(schedItems.filter(it => it.id !== id)); S.sched.confirmDeleteId = null; refreshSchedList(); break;
       case 'sched-set-category-filter': S.sched.categoryFilter = id; render(); break;
       case 'sched-toggle-past': S.sched.showPast = !S.sched.showPast; render(); break;
-      case 'sched-import-pick': { const inp = document.getElementById('schedIcsInput'); if (inp) inp.click(); break; }
       case 'sched-open-detail': S.sched.detailId = id; render(); break;
       case 'sched-close-detail': S.sched.detailId = null; render(); break;
       case 'sched-close-detail-backdrop': if (!e.target.closest('[data-stop-close]')) { S.sched.detailId = null; render(); } break;
@@ -2226,37 +2386,16 @@ function bootApp() {
         }
         break;
       }
-      case 'sched-connect-feed': {
-        const url = window.prompt('아이클라우드에서 해당 캘린더를 "공개 캘린더"로 켠 뒤 나오는 webcal:// 링크를 붙여넣어줘 (webcal은 자동으로 https로 바꿔줄게). 연결을 끊으려면 빈 칸으로 확인을 눌러줘.', schedFeedUrl || '');
-        if (url === null) break;
-        const trimmed = url.trim();
-        if (!trimmed) {
-          schedFeedUrl = '';
-          try { localStorage.removeItem(LS_SCHED_FEED); } catch (e2) {}
-          render();
-          break;
-        }
-        schedFeedUrl = trimmed.replace(/^webcal:\/\//i, 'https://');
-        try { localStorage.setItem(LS_SCHED_FEED, schedFeedUrl); } catch (e2) {}
-        S.sched.importMsg = '동기화하는 중...';
-        render();
-        fetchScheduleFeed().then(render);
-        break;
-      }
-      case 'sched-refresh-feed':
-        S.sched.importMsg = '동기화하는 중...';
-        render();
-        fetchScheduleFeed().then(render);
-        break;
-      case 'sched-clear-calendar':
-        if (window.confirm('가져온 캘린더 일정을 모두 지울까요? 직접 등록한 일정은 유지돼요.')) {
-          saveSchedItems(schedItems.filter(it => it.source !== 'calendar'));
-          S.sched.importMsg = '';
-          render();
-        }
-        break;
+      case 'gcal-open': gcal.modalOpen = true; render(); break;
+      case 'gcal-close': gcal.modalOpen = false; render(); break;
+      case 'gcal-close-backdrop': if (!e.target.closest('[data-stop-close]')) { gcal.modalOpen = false; render(); } break;
+      case 'gcal-connect': gcalConnect(); break;
+      case 'gcal-sync-now': gcalSync(true); break;
+      case 'gcal-disconnect': if (window.confirm('휴대폰 캘린더 연결을 해제할까요? (Google 캘린더에 들어간 일정은 그대로 남아요)')) { gcalDisconnect(); gcal.modalOpen = false; render(); } break;
+      case 'gcal-open-detail': gcal.detailId = el.dataset.id; render(); break;
+      case 'gcal-close-detail': gcal.detailId = null; render(); break;
+      case 'gcal-close-detail-backdrop': if (!e.target.closest('[data-stop-close]')) { gcal.detailId = null; render(); } break;
 
-      /* projects */
       case 'proj-open-add': S.proj.editingId = null; S.proj.addStatus = id; S.proj.modalOpen = true; render(); break;
       case 'proj-open-edit': S.proj.editingId = id; S.proj.modalOpen = true; S.proj.rowMenu = null; render(); break;
       case 'proj-duplicate': {
@@ -2585,17 +2724,6 @@ function bootApp() {
       if (file) handlePhotoFile(file);
       e.target.value = '';
     }
-    if (e.target.id === 'schedIcsInput') {
-      const file = e.target.files && e.target.files[0];
-      if (file) {
-        withFileText(file).then(text => {
-          const n = mergeIcsText(text);
-          S.sched.importMsg = `${n}개의 일정을 가져왔어요.`;
-          render();
-        });
-      }
-      e.target.value = '';
-    }
     if (e.target.dataset && e.target.dataset.role === 'confirm-toggle') {
       const shoot = shoots.find(s => s.id === S.shoot.selectedShootId);
       if (!shoot) return;
@@ -2910,6 +3038,8 @@ function bootApp() {
     if (S.task.modalOpen) { S.task.modalOpen = false; S.task.editingId = null; changed = true; }
     if (S.note.modalOpen) { S.note.modalOpen = false; S.note.editingId = null; changed = true; }
     if (S.shortcut.modalOpen) { S.shortcut.modalOpen = false; S.shortcut.editingId = null; changed = true; }
+    if (gcal.modalOpen) { gcal.modalOpen = false; changed = true; }
+    if (gcal.detailId) { gcal.detailId = null; changed = true; }
     if (changed) render();
   });
 
@@ -3427,6 +3557,26 @@ document.addEventListener('DOMContentLoaded', () => {
     .cal-bar { grid-template-columns:1fr auto; } .cal-title { grid-column:1 / -1; order:-1; }
     .cal-card { padding:10px; } .cal-ev-time { display:none; } .cal-ev { font-size:10.5px; padding:2px 4px; }
   }
+
+  /* 캘린더 꽉 채우기 + 휴대폰 연결 */
+  .cal { display:flex; flex-direction:column; }
+  .cal-head { flex:0 0 auto; }
+  .cal-body { flex:1 1 auto; min-height:0; }
+  .cal-cell { overflow:hidden; }
+  .cal-evs { overflow:hidden; }
+  .cal-ev.is-phone { border-left-style:dotted; }
+  .gcal-btn.is-on { background:var(--surface); color:var(--text); border:1px solid var(--border); }
+  .gcal-btn.is-warn { background:var(--surface); color:#e0a63c; border:1px solid #e0a63c; }
+  .gcal-notice { background:var(--accent-soft); border:1px solid var(--border); color:var(--text-dim); border-radius:12px; padding:10px 14px; font-size:12.5px; margin:0 0 14px; line-height:1.6; }
+  .gcal-notice.is-warn { color:var(--text); border-color:#e0a63c; background:rgba(224,166,60,0.12); }
+  .gcal-notice a { color:var(--accent); font-weight:700; }
+  .gcal-steps { margin:0 0 14px; padding:0; list-style:none; counter-reset:step; display:flex; flex-direction:column; gap:12px; }
+  .gcal-steps li { counter-increment:step; position:relative; padding:12px 14px 12px 46px; border:1px solid var(--border); border-radius:12px; background:var(--bg); font-size:12.5px; color:var(--text-dim); line-height:1.6; }
+  .gcal-steps li::before { content:counter(step); position:absolute; left:14px; top:12px; width:22px; height:22px; border-radius:50%; background:var(--accent-soft); color:var(--accent); font-weight:800; font-size:12px; display:flex; align-items:center; justify-content:center; }
+  .gcal-steps li.done::before { content:'✓'; background:var(--accent); color:#fff; }
+  .gcal-steps li > b { display:block; color:var(--text); font-size:13.5px; margin-bottom:3px; }
+  .gcal-steps li > span { display:block; }
+  .gcal-steps li > em { display:block; font-style:normal; color:var(--accent); font-weight:700; margin-top:6px; }
   @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
   @keyframes modalIn { from { opacity:0; transform:translateY(14px) scale(.98); } to { opacity:1; transform:none; } }
   ::-webkit-scrollbar { width:10px; height:10px; } ::-webkit-scrollbar-thumb { background:var(--border-strong); border-radius:8px; border:2px solid transparent; background-clip:padding-box; }

@@ -1,0 +1,13 @@
+{
+  "name": "VINFILM 작업관리",
+  "short_name": "VINFILM 작업관리",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f7f9",
+  "theme_color": "#2f6fee",
+  "icons": [
+    { "src": "../assets/works-icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}
