@@ -387,6 +387,67 @@ function eqStatusOf(id) { return EQ_STATUSES.find(s => s.id === id) || EQ_STATUS
 function eqById(id) { return eqItems.find(it => it.id === id); }
 function bagOptions() { return eqItems.filter(it => it.category === 'bag'); }
 
+/* ================= 새 버전 알림 + 자동 반영 (HISPLAN 운영툴과 같은 방식) =================
+   홈 화면 앱은 켜둔 채 뒤로 보냈다가 다시 여는 경우가 많아서, 배포해도 옛 화면이 며칠씩 남는다.
+   - 앱으로 돌아올 때(visibilitychange)와 켜져 있는 동안 20분마다 reg.update()로 새 버전 확인
+   - 새 버전이 있으면 화면 아래 가운데 "새 버전이 나왔어요 [업데이트]" — 쓰던 글이 날아가지 않게 누를 때만 적용
+   - 새 버전을 받아 둔 채 1분 넘게 뒤에 뒀다가 돌아오면 묻지 않고 바로 적용
+   sw.js는 캐시를 안 하고 SKIP_WAITING 메시지만 처리한다. 알림 DOM은 #root 밖(body)에 붙여서 render()가 지우지 않는다. */
+const appUpdate = { reg: null, pending: false, applying: false, hiddenAt: 0, started: false };
+function renderUpdateToast() {
+  let el = document.getElementById('updToast');
+  if (!appUpdate.pending) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('div'); el.id = 'updToast'; el.className = 'upd-toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+  el.innerHTML = `<span>새 버전이 나왔어요</span><button type="button" ${appUpdate.applying ? 'disabled' : ''} onclick="applyAppUpdate()">${appUpdate.applying ? '적용 중…' : '업데이트'}</button>`;
+}
+function markUpdatePending() { if (appUpdate.pending) return; appUpdate.pending = true; renderUpdateToast(); }
+function watchInstallingWorker(w) {
+  if (!w) return;
+  w.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) markUpdatePending(); });
+}
+function checkAppUpdate() { if (appUpdate.reg && navigator.onLine) appUpdate.reg.update().catch(() => {}); }
+function startAppUpdates() {
+  if (appUpdate.started || !('serviceWorker' in navigator) || location.protocol === 'file:') return;
+  appUpdate.started = true;
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+    appUpdate.reg = reg;
+    if (reg.waiting && navigator.serviceWorker.controller) markUpdatePending();
+    watchInstallingWorker(reg.installing);
+    reg.addEventListener('updatefound', () => watchInstallingWorker(reg.installing));
+    setInterval(checkAppUpdate, 20 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') { appUpdate.hiddenAt = Date.now(); return; }
+      if (appUpdate.pending && appUpdate.hiddenAt && Date.now() - appUpdate.hiddenAt > 60 * 1000) applyAppUpdate();
+      else checkAppUpdate();
+    });
+  }).catch(() => {});
+}
+/* 라이브러리식 updateSW(true)는 아이폰에서 가끔 새로고침이 안 일어나 버튼이 먹통처럼 보여서 직접 처리한다.
+   GitHub Pages가 HTML을 10분간 캐시하므로, 새로고침 전에 cache:'reload'로 한 번 받아 캐시를 갈아끼운다. */
+function applyAppUpdate() {
+  if (appUpdate.applying) return;
+  appUpdate.applying = true; renderUpdateToast();
+  let done = false;
+  const reload = () => {
+    if (done) return; done = true;
+    fetch(location.pathname, { cache: 'reload', credentials: 'same-origin' }).catch(() => {}).finally(() => location.reload());
+  };
+  if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('controllerchange', reload, { once: true });
+  const reg = appUpdate.reg;
+  if (reg && reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+  setTimeout(reload, 1500);
+}
+/* 설정의 "새로고침" 버튼: update() → 0.8초 기다림 → waiting 있으면 적용, 없으면 그냥 새로고침 */
+async function refreshToLatest() {
+  const reg = appUpdate.reg;
+  if (reg) {
+    try { await reg.update(); } catch (e) {}
+    await new Promise(r => setTimeout(r, 800));
+    if (reg.waiting) { applyAppUpdate(); return; }
+  }
+  fetch(location.pathname, { cache: 'reload', credentials: 'same-origin' }).catch(() => {}).finally(() => location.reload());
+}
+
 /* ================= 설정(테마) ================= */
 const LS_THEME = 'vinfilm-works-theme';
 function currentTheme() { return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'; }
@@ -407,6 +468,10 @@ function settingsModalHtml() {
             <button type="button" class="eq-status-option ${cur === 'dark' ? 'theme-on' : ''}" data-action="set-theme" data-theme="dark">🌙 블랙</button>
             <button type="button" class="eq-status-option ${cur === 'light' ? 'theme-on' : ''}" data-action="set-theme" data-theme="light">☀️ 화이트</button>
           </div>
+        </div>
+        <div class="eq-field" style="margin-bottom:0;">
+          <label>앱 버전 <span class="eq-hint">(화면이 예전 그대로면 눌러주세요)</span></label>
+          <button type="button" class="eq-modal-submit eq-modal-submit-secondary" data-action="app-refresh" style="margin-top:0;">새로고침</button>
         </div>
       </div>
     </div>`;
@@ -2372,6 +2437,7 @@ async function handlePhotoFile(file) {
 
 function bootApp() {
   render();
+  startAppUpdates();
   if (gcalTokenValid()) gcalSync(false);
   else if (localStorage.getItem(GCAL_LS.enabled) === '1') { gcal.status = 'expired'; }
 
@@ -2396,6 +2462,7 @@ function bootApp() {
         render();
         if (id === 'schedule' && gcalTokenValid()) gcalSync(false);
         break;
+      case 'app-refresh': el.disabled = true; el.textContent = '확인 중…'; refreshToLatest(); break;
       case 'open-settings': S.settingsOpen = true; S.moreOpen = false; render(); break;
       case 'm-more': S.moreOpen = !S.moreOpen; render(); break;
       case 'm-more-close': S.moreOpen = false; render(); break;
@@ -3805,6 +3872,13 @@ document.addEventListener('DOMContentLoaded', () => {
     .proj-row-actions-cell { grid-area:chev; }
     .proj-row-check-cell { display:none !important; }
   }
+
+  /* 새 버전 알림 — 화면 아래 가운데 알약. 폰에서는 하단 탭바 위 */
+  .upd-toast { position:fixed; left:50%; transform:translateX(-50%); bottom:1.5rem; z-index:500; display:flex; align-items:center; gap:12px; padding:9px 9px 9px 18px; border-radius:999px; background:var(--text); color:var(--bg); font-family:var(--font-body); font-size:13.5px; font-weight:600; box-shadow:var(--shadow-lg); white-space:nowrap; animation:updIn .3s cubic-bezier(.2,.8,.2,1) both; }
+  .upd-toast button { border:none; border-radius:999px; padding:7px 14px; background:var(--bg); color:var(--text); font-family:var(--font-body); font-size:13px; font-weight:800; cursor:pointer; }
+  .upd-toast button:disabled { opacity:.6; cursor:default; }
+  @keyframes updIn { from { opacity:0; transform:translate(-50%, 12px); } to { opacity:1; transform:translate(-50%, 0); } }
+  @media (max-width: 720px) { .upd-toast { bottom:calc(80px + env(safe-area-inset-bottom)); } }
   @keyframes sheetUp { from { transform:translateY(100%); } to { transform:none; } }
   @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
   @keyframes modalIn { from { opacity:0; transform:translateY(14px) scale(.98); } to { opacity:1; transform:none; } }

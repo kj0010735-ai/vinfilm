@@ -1,0 +1,10 @@
+#!/bin/sh
+# works/ 아래 파일이 커밋에 들어가면 works/sw.js 의 VERSION 을 바꿔서,
+# 홈 화면에 설치된 작업관리 앱이 "새 버전이 나왔어요" 알림을 띄울 수 있게 한다.
+# (이 훅은 `git config core.hooksPath .githooks` 로 켠 기기에서만 동작)
+changed=$(git diff --cached --name-only -- works/ | grep -v '^works/sw.js$')
+[ -z "$changed" ] && exit 0
+v=$(date -u +%Y%m%d%H%M%S)
+perl -pi -e "s/^const VERSION = '.*';/const VERSION = '$v';/" works/sw.js
+git add works/sw.js
+exit 0
