@@ -42,7 +42,9 @@
   #root { min-height: 100vh; }
 
   .sf-shell { max-width: 1180px; margin: 0 auto; padding: 22px 24px 70px; }
-  .sf-topline { display:flex; justify-content:flex-end; gap:8px; margin-bottom: 6px; }
+  .sf-topline { display:flex; justify-content:flex-end; align-items:center; gap:8px; margin-bottom: 14px; }
+  .sf-logo { height:38px; width:auto; border-radius:5px; display:block; margin-right:auto; }
+  .sf-login-logo { width:132px; height:auto; border-radius:6px; display:block; margin:0 auto 18px; }
   .sf-logout { background:none; border:1px solid var(--sf-border); color: var(--sf-text-dim); border-radius:999px; padding:6px 14px; font-family: var(--font-body); font-size:12px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; }
   .sf-logout:hover { background: #eef0f5; }
 
@@ -434,6 +436,7 @@ function downloadCsv(rows, filename) {
 function headerHtml() {
   return `
     <div class="sf-topline">
+      <img class="sf-logo" src="../assets/logo.png" alt="VINFILM STUDIO" width="76" height="38" />
       <a class="sf-logout" href="../works/">🎬 작업 관리로</a>
       <button class="sf-logout" data-action="sf-logout">로그아웃</button>
     </div>
@@ -1028,6 +1031,7 @@ function showAccessDenied(email) {
   document.getElementById('root').innerHTML = `
     <div class="sf-login-wrap">
       <div class="sf-login-box">
+        <img class="sf-login-logo" src="../assets/logo.png" alt="VINFILM STUDIO" width="132" height="67" />
         <div class="sf-eyebrow">STUDIO FINANCE</div>
         <h1>수입·지출 관리</h1>
         <p class="sf-denied-note">${esc(email)} 계정에는 접근 권한이 없어요.</p>
@@ -1040,6 +1044,7 @@ function showLoginGate() {
   document.getElementById('root').innerHTML = `
     <div class="sf-login-wrap">
       <div class="sf-login-box">
+        <img class="sf-login-logo" src="../assets/logo.png" alt="VINFILM STUDIO" width="132" height="67" />
         <div class="sf-eyebrow">STUDIO FINANCE</div>
         <h1>수입·지출 관리</h1>
         <button id="sfGoogleLoginBtn" class="sf-google-btn">
