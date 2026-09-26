@@ -210,7 +210,7 @@ function getKnownClients() {
   return [...set].sort((a, b) => a.localeCompare(b, 'ko'));
 }
 const NAV_ITEMS = [
-  { id: 'today', icon: '🎬', label: '오늘 할 일' },
+  { id: 'today', icon: '📊', label: '대시보드' },
   { id: 'equipment', icon: '🎥', label: '장비목록' },
   { id: 'shootprep', icon: '🎒', label: '촬영준비' },
   { id: 'schedule', icon: '🗓', label: '스케줄' },
@@ -239,6 +239,13 @@ const LS_PRESETS = 'eq-manager-presets';
 const LS_SCHED_FEED = 'eq-manager-sched-feed-url';
 const LS_TASKS = 'eq-manager-today-tasks';
 const LS_NOTES = 'eq-manager-notes';
+const LS_SHORTCUTS = 'eq-manager-shortcuts';
+/* 대시보드 바로가기 기본값 — 처음 한 번만 쓰이고, 이후엔 사용자가 추가/수정/삭제한 목록이 클라우드(shortcuts)에 저장됨 */
+const DEFAULT_SHORTCUTS = [
+  { id: 'sc-suno', name: 'SUNO', url: 'https://suno.com' },
+  { id: 'sc-splice', name: 'SPLICE', url: 'splice://', iconDomain: 'splice.com' }, // splice:// = 설치된 Splice 데스크톱 앱 열기
+  { id: 'sc-elevenlabs', name: 'ElevenLabs', url: 'https://elevenlabs.io' },
+];
 const LS_SHARED = 'eq-manager-shared-projects';
 const TASK_COLOR_PALETTE = ['#5b8def', '#4cae7d', '#c9a227', '#e0a63c', '#8b5cf6', '#22b8cf', '#d9534f', '#8b90a0', '#ec4899', '#84cc16', '#a3703a', '#14b8a6', '#6366f1', '#f97316'];
 
@@ -262,6 +269,7 @@ let shoots = loadJSON(LS_SHOOTS, []);
 let presets = loadJSON(LS_PRESETS, []);
 let todayTasks = loadJSON(LS_TASKS, []);
 let notes = loadJSON(LS_NOTES, []);
+let shortcuts = loadJSON(LS_SHORTCUTS, DEFAULT_SHORTCUTS);
 let sharedProjItems = loadJSON(LS_SHARED, []);
 
 const S = {
@@ -275,6 +283,7 @@ const S = {
   shoot: { formOpen: false, editingParamsId: null, selectedShootId: null, mode: 'pack', confirmDeleteShootId: null, confirmDeletePresetId: null, applyPresetId: null },
   task: { modalOpen: false, editingId: null, confirmDeleteId: null },
   note: { modalOpen: false, editingId: null, confirmDeleteId: null },
+  shortcut: { modalOpen: false, editingId: null },
 };
 let currentEqPhoto = '';
 let schedFeedUrl = localStorage.getItem(LS_SCHED_FEED) || '';
@@ -287,6 +296,7 @@ function saveProjItems(next) { const prev = projItems; projItems = next; try { l
 function saveShoots(next) { const prev = shoots; shoots = next; try { localStorage.setItem(LS_SHOOTS, JSON.stringify(next)); } catch (e) {} pushToCloud('shoots', prev, next); }
 function savePresets(next) { const prev = presets; presets = next; try { localStorage.setItem(LS_PRESETS, JSON.stringify(next)); } catch (e) {} pushToCloud('presets', prev, next); }
 function saveTodayTasks(next) { const prev = todayTasks; todayTasks = next; try { localStorage.setItem(LS_TASKS, JSON.stringify(next)); } catch (e) {} pushToCloud('todayTasks', prev, next); }
+function saveShortcuts(next) { const prev = shortcuts; shortcuts = next; try { localStorage.setItem(LS_SHORTCUTS, JSON.stringify(next)); } catch (e) {} pushToCloud('shortcuts', prev, next); }
 function saveNotes(next) { const prev = notes; notes = next; try { localStorage.setItem(LS_NOTES, JSON.stringify(next)); } catch (e) {} pushToCloud('notes', prev, next); }
 function saveSharedProjItems(next) { const prev = sharedProjItems; sharedProjItems = next; try { localStorage.setItem(LS_SHARED, JSON.stringify(next)); } catch (e) {} pushToCloud('sharedProjects', prev, next); }
 
@@ -301,6 +311,7 @@ function getLocalArrayFor(name) {
     case 'presets': return presets;
     case 'todayTasks': return todayTasks;
     case 'notes': return notes;
+    case 'shortcuts': return shortcuts;
     case 'sharedProjects': return sharedProjItems;
     default: return [];
   }
@@ -315,6 +326,7 @@ function applyCloudUpdate(name, items) {
     case 'presets': presets = items; try { localStorage.setItem(LS_PRESETS, JSON.stringify(items)); } catch (e) {} break;
     case 'todayTasks': todayTasks = items; try { localStorage.setItem(LS_TASKS, JSON.stringify(items)); } catch (e) {} break;
     case 'notes': notes = items; try { localStorage.setItem(LS_NOTES, JSON.stringify(items)); } catch (e) {} break;
+    case 'shortcuts': shortcuts = items; try { localStorage.setItem(LS_SHORTCUTS, JSON.stringify(items)); } catch (e) {} break;
     case 'sharedProjects': sharedProjItems = items; try { localStorage.setItem(LS_SHARED, JSON.stringify(items)); } catch (e) {} break;
   }
   render();
@@ -330,7 +342,7 @@ async function pushToCloud(name, prevArr, nextArr) {
   } catch (e) { console.warn('cloud sync push failed for', name, e); }
 }
 
-const CLOUD_COLLECTIONS = ['equipment', 'categories', 'schedule', 'projects', 'shoots', 'presets', 'todayTasks', 'notes', 'sharedProjects'];
+const CLOUD_COLLECTIONS = ['equipment', 'categories', 'schedule', 'projects', 'shoots', 'presets', 'todayTasks', 'notes', 'shortcuts', 'sharedProjects'];
 /* 공유 링크(?guest=1)로 접속했을 때는 이 목록만 동기화한다 — 스케줄/메모장 등 내부 데이터는 외부 브라우저로 아예 내려받지 않는다. */
 const GUEST_CLOUD_COLLECTIONS = ['equipment', 'categories', 'sharedProjects'];
 const FIREBASE_CONFIG = {
@@ -1786,6 +1798,53 @@ function todayMonthListHtml() {
       ${g.items.map(todayCardHtml).join('')}
     </div>`).join('');
 }
+/* ================= 대시보드: 바로가기 ================= */
+function shortcutHost(url) { try { return new URL(url).hostname; } catch (e) { return ''; } }
+function isWebUrl(url) { return /^https?:\/\//i.test(url || ''); }
+function normalizeUrl(u) { u = (u || '').trim(); if (!u) return ''; return /^[a-z][a-z0-9+.-]*:\/\//i.test(u) ? u : 'https://' + u; }
+function shortcutsSectionHtml() {
+  return `
+    <div class="dash-section-head">
+      <h2 class="shoot-section-title dash-section-title" style="margin:0;">바로가기</h2>
+      <button class="eq-chip" data-action="shortcut-open-add">+ 추가</button>
+    </div>
+    <div class="sc-grid">
+      ${shortcuts.map(sc => {
+        const web = isWebUrl(sc.url);
+        const host = web ? shortcutHost(sc.url) : '';
+        const iconHost = sc.iconDomain || host;
+        const sub = web ? host : '앱 열기';
+        return `
+        <div class="sc-wrap">
+          <a class="sc-card" href="${esc(sc.url)}" ${web ? 'target="_blank" rel="noopener"' : ''}>
+            ${iconHost ? `<img class="sc-icon" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(iconHost)}&sz=64" alt="" onerror="this.style.visibility='hidden'" />` : `<span class="sc-icon sc-icon-app">🖥️</span>`}
+            <span class="sc-text"><b>${esc(sc.name)}</b><small>${esc(sub)}</small></span>
+            <span class="sc-arrow">${web ? '↗' : '⧉'}</span>
+          </a>
+          <button class="sc-edit" title="수정" data-action="shortcut-open-edit" data-id="${sc.id}">✎</button>
+        </div>`;
+      }).join('')}
+      ${shortcuts.length === 0 ? `<div class="task-note-empty">자주 쓰는 사이트를 추가해두면 여기서 바로 열 수 있어요.</div>` : ''}
+    </div>`;
+}
+function shortcutModalHtml() {
+  if (!S.shortcut.modalOpen) return '';
+  const editing = S.shortcut.editingId ? shortcuts.find(x => x.id === S.shortcut.editingId) : null;
+  return `
+    <div class="eq-modal-overlay">
+      <div class="eq-modal" data-stop-close style="max-width:400px;">
+        <div class="eq-modal-head"><h2>${editing ? '바로가기 수정' : '바로가기 추가'}</h2><button class="eq-modal-close" data-action="shortcut-close-modal">✕</button></div>
+        <form data-form-role="shortcut-form">
+          <div class="eq-field"><label>이름</label><input name="name" autofocus value="${esc(editing ? editing.name : '')}" placeholder="예: SUNO" required /></div>
+          <div class="eq-field"><label>주소 <span class="eq-hint">(설치된 앱은 splice:// 처럼 앱 주소를 넣으면 앱이 열려요)</span></label><input name="url" value="${esc(editing ? editing.url : '')}" placeholder="예: suno.com" required /></div>
+          <div class="eq-field"><label>아이콘용 사이트 <span class="eq-hint">(선택 · 앱 주소일 때만, 예: splice.com)</span></label><input name="iconDomain" value="${esc(editing ? (editing.iconDomain || '') : '')}" placeholder="비워두면 주소에서 자동" /></div>
+          <button type="submit" class="eq-modal-submit">${editing ? '수정 완료' : '추가하기'}</button>
+          ${editing ? `<button type="button" class="eq-modal-delete-link" data-action="shortcut-delete" data-id="${editing.id}">이 바로가기 삭제</button>` : ''}
+        </form>
+      </div>
+    </div>`;
+}
+
 function renderTodayTab() {
   const isMonth = S.today.viewMode === 'month';
   const list = [...schedItems]
@@ -1794,8 +1853,10 @@ function renderTodayTab() {
   const dueToday = projItems.filter(p => p.dueDate === todayStr());
   return `
     <div class="eq-header">
-      <div class="eq-title-block"><h1 class="eq-title">오늘 할 일</h1><div class="eq-stat">${dateLabel(todayStr())}</div></div>
+      <div class="eq-title-block"><h1 class="eq-title">대시보드</h1><div class="eq-stat">${dateLabel(todayStr())}</div></div>
     </div>
+    ${shortcutsSectionHtml()}
+    <h2 class="shoot-section-title dash-section-title">오늘 할 일</h2>
     <div class="eq-chip-row" style="margin-bottom:18px;">
       <button class="eq-chip ${!isMonth?'active':''}" data-action="today-set-view" data-id="today">오늘</button>
       <button class="eq-chip ${isMonth?'active':''}" data-action="today-set-view" data-id="month">월별 보기</button>
@@ -1820,6 +1881,7 @@ function renderTodayTab() {
       </div>
     `}
     ${taskModalHtml()}
+    ${shortcutModalHtml()}
   `;
 }
 
@@ -2303,6 +2365,10 @@ function bootApp() {
       case 'task-confirm-delete': S.task.confirmDeleteId = id; render(); break;
       case 'task-cancel-delete': S.task.confirmDeleteId = null; render(); break;
       case 'task-delete': saveTodayTasks(todayTasks.filter(t => t.id !== id)); S.task.confirmDeleteId = null; render(); break;
+      case 'shortcut-open-add': S.shortcut.editingId = null; S.shortcut.modalOpen = true; render(); break;
+      case 'shortcut-open-edit': S.shortcut.editingId = id; S.shortcut.modalOpen = true; render(); break;
+      case 'shortcut-close-modal': S.shortcut.modalOpen = false; S.shortcut.editingId = null; render(); break;
+      case 'shortcut-delete': saveShortcuts(shortcuts.filter(x => x.id !== id)); S.shortcut.modalOpen = false; S.shortcut.editingId = null; render(); break;
       case 'note-open-add': S.note.editingId = null; S.note.modalOpen = true; render(); break;
       case 'note-open-edit': S.note.editingId = id; S.note.modalOpen = true; render(); break;
       case 'note-close-modal': S.note.modalOpen = false; S.note.editingId = null; render(); break;
@@ -2564,6 +2630,16 @@ function bootApp() {
       else saveTodayTasks([...todayTasks, { id: uid(), text, color: TASK_COLOR_PALETTE[todayTasks.length % TASK_COLOR_PALETTE.length], createdAt: Date.now() }]);
       S.task.modalOpen = false; S.task.editingId = null;
       render();
+    } else if (form.matches('[data-form-role="shortcut-form"]')) {
+      const fd = new FormData(form);
+      const name = (fd.get('name') || '').toString().trim();
+      const url = normalizeUrl((fd.get('url') || '').toString());
+      if (!name || !url) return;
+      const iconDomain = (fd.get('iconDomain') || '').toString().trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
+      if (S.shortcut.editingId) saveShortcuts(shortcuts.map(x => x.id === S.shortcut.editingId ? { ...x, name, url, iconDomain } : x));
+      else saveShortcuts([...shortcuts, { id: uid(), name, url, iconDomain }]);
+      S.shortcut.modalOpen = false; S.shortcut.editingId = null;
+      render();
     } else if (form.matches('[data-form-role="note-form"]')) {
       const fd = new FormData(form);
       const content = (fd.get('content') || '').toString().trim();
@@ -2728,6 +2804,7 @@ function bootApp() {
     if (S.shoot.formOpen) { S.shoot.formOpen = false; S.shoot.editingParamsId = null; S.shoot.applyPresetId = null; changed = true; }
     if (S.task.modalOpen) { S.task.modalOpen = false; S.task.editingId = null; changed = true; }
     if (S.note.modalOpen) { S.note.modalOpen = false; S.note.editingId = null; changed = true; }
+    if (S.shortcut.modalOpen) { S.shortcut.modalOpen = false; S.shortcut.editingId = null; changed = true; }
     if (changed) render();
   });
 
@@ -3186,6 +3263,24 @@ document.addEventListener('DOMContentLoaded', () => {
   .eq-modal-submit { border-radius:12px; padding:12px; }
   .eq-status-option { border-radius:10px; }
   .eq-status-option.theme-on { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); font-weight:700; }
+
+  /* 대시보드 바로가기 */
+  .dash-section-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:4px 0 12px; }
+  .dash-section-title { font-size:15px; font-weight:800; color:var(--text); margin-top:26px; }
+  .sc-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:12px; margin-bottom:6px; }
+  .sc-wrap { position:relative; }
+  .sc-card { display:flex; align-items:center; gap:12px; padding:14px 16px; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow-sm); color:var(--text); text-decoration:none; transition:transform .2s cubic-bezier(.2,.7,.2,1), box-shadow .2s ease, border-color .2s ease; }
+  .sc-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-md); border-color:var(--accent); opacity:1; }
+  .sc-icon { width:30px; height:30px; border-radius:8px; background:var(--surface-hover); object-fit:contain; flex-shrink:0; }
+  .sc-icon-app { display:flex; align-items:center; justify-content:center; font-size:16px; }
+  .sc-text { display:flex; flex-direction:column; min-width:0; flex:1; }
+  .sc-text b { font-size:14.5px; font-weight:800; letter-spacing:-0.01em; }
+  .sc-text small { font-size:11.5px; color:var(--text-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sc-arrow { color:var(--text-faint); font-size:15px; transition:transform .2s ease, color .2s ease; }
+  .sc-card:hover .sc-arrow { color:var(--accent); transform:translate(2px,-2px); }
+  .sc-edit { position:absolute; top:6px; right:6px; width:24px; height:24px; border-radius:7px; border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-size:11px; cursor:pointer; opacity:0; transition:opacity .15s ease; }
+  .sc-wrap:hover .sc-edit { opacity:1; }
+  .sc-edit:hover { color:var(--accent); border-color:var(--accent); }
   @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
   @keyframes modalIn { from { opacity:0; transform:translateY(14px) scale(.98); } to { opacity:1; transform:none; } }
   ::-webkit-scrollbar { width:10px; height:10px; } ::-webkit-scrollbar-thumb { background:var(--border-strong); border-radius:8px; border:2px solid transparent; background-clip:padding-box; }

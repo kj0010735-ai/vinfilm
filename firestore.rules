@@ -20,6 +20,7 @@ service cloud.firestore {
     match /presets/{id} { allow read, write: if isOwner(); }
     match /todayTasks/{id} { allow read, write: if isOwner(); }
     match /notes/{id} { allow read, write: if isOwner(); }
+    match /shortcuts/{id} { allow read, write: if isOwner(); }
 
     // STUDIO FINANCE 통합장부(ledger/index.html) — 재무 데이터라 owner만 읽고 쓸 수 있다.
     match /ledgerEntries/{id} { allow read, write: if isOwner(); }
