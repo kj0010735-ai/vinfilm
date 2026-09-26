@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+<script>try{document.documentElement.setAttribute('data-theme', localStorage.getItem('vinfilm-works-theme')==='light'?'light':'dark');}catch(e){}</script>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>작업 관리</title>
@@ -264,6 +265,7 @@ let notes = loadJSON(LS_NOTES, []);
 let sharedProjItems = loadJSON(LS_SHARED, []);
 
 const S = {
+  settingsOpen: false,
   activeTab: GUEST_MODE ? 'equipment' : 'today',
   eq: { search: '', categoryFilter: 'all', statusFilter: 'all', sortBy: 'recent', sortOpen: false, modalOpen: false, editingId: null, confirmDeleteId: null, categoryModalOpen: false, detailId: null },
   sched: { search: '', categoryFilter: 'all', showPast: false, modalOpen: false, editingId: null, confirmDeleteId: null, importMsg: '', detailId: null, linkProjectId: null },
@@ -444,6 +446,31 @@ function eqStatusOf(id) { return EQ_STATUSES.find(s => s.id === id) || EQ_STATUS
 function eqById(id) { return eqItems.find(it => it.id === id); }
 function bagOptions() { return eqItems.filter(it => it.category === 'bag'); }
 
+/* ================= 설정(테마) ================= */
+const LS_THEME = 'vinfilm-works-theme';
+function currentTheme() { return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'; }
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
+  try { localStorage.setItem(LS_THEME, theme === 'light' ? 'light' : 'dark'); } catch (e) {}
+}
+function settingsModalHtml() {
+  if (!S.settingsOpen) return '';
+  const cur = currentTheme();
+  return `
+    <div class="eq-modal-overlay" data-action="close-settings-backdrop">
+      <div class="eq-modal" data-stop-close style="max-width:360px;">
+        <div class="eq-modal-head"><h2>설정</h2><button class="eq-modal-close" data-action="close-settings">✕</button></div>
+        <div class="eq-field">
+          <label>화면 테마 <span class="eq-hint">(이 기기에만 저장돼요)</span></label>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="eq-status-option ${cur === 'dark' ? 'theme-on' : ''}" data-action="set-theme" data-theme="dark">🌙 블랙</button>
+            <button type="button" class="eq-status-option ${cur === 'light' ? 'theme-on' : ''}" data-action="set-theme" data-theme="light">☀️ 화이트</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
 /* ================= render: sidebar ================= */
 function renderSidebar() {
   const items = GUEST_MODE ? NAV_ITEMS.filter(it => GUEST_ALLOWED_TABS.includes(it.id)) : NAV_ITEMS;
@@ -462,6 +489,7 @@ function renderSidebar() {
       <a class="side-nav-item" href="../ledger/" style="text-decoration:none;">
         <span class="side-nav-icon">💰</span><span class="side-nav-label">STUDIO FINANCE</span>
       </a>` : ''}
+      <button class="side-nav-item" data-action="open-settings"><span class="side-nav-icon">⚙️</span><span class="side-nav-label">설정</span></button>
       ${!GUEST_MODE ? `<button class="side-nav-item" data-action="logout" style="opacity:0.6;"><span class="side-nav-icon">🚪</span><span class="side-nav-label">로그아웃</span></button>` : ''}
     </nav>`;
 }
@@ -1853,7 +1881,7 @@ function renderTab() {
   return '';
 }
 function render() {
-  document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderTab()}</main></div>${schedModalHtml()}`;
+  document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderTab()}</main></div>${schedModalHtml()}${settingsModalHtml()}`;
   const af = document.querySelector('[autofocus]');
   if (af) { af.focus(); if (af.value) { const v = af.value; af.value = ''; af.value = v; } }
 }
@@ -1897,6 +1925,10 @@ function bootApp() {
         render();
         if (id === 'schedule' && schedFeedUrl) { fetchScheduleFeed().then(render); }
         break;
+      case 'open-settings': S.settingsOpen = true; render(); break;
+      case 'close-settings': S.settingsOpen = false; render(); break;
+      case 'close-settings-backdrop': if (!e.target.closest('[data-stop-close]')) { S.settingsOpen = false; render(); } break;
+      case 'set-theme': applyTheme(el.dataset.theme); render(); break;
       case 'logout': logout(); break;
 
       /* equipment */
@@ -2665,6 +2697,7 @@ function bootApp() {
     if (S.proj.modalOpen) { S.proj.modalOpen = false; S.proj.editingId = null; changed = true; }
     if (S.proj.statusMenu) { S.proj.statusMenu = null; changed = true; }
     if (S.proj.rowMenu) { S.proj.rowMenu = null; changed = true; }
+    if (S.settingsOpen) { S.settingsOpen = false; changed = true; }
     if (S.shared.modalOpen) { S.shared.modalOpen = false; S.shared.editingId = null; changed = true; }
     if (S.shared.statusMenu) { S.shared.statusMenu = null; changed = true; }
     if (S.shared.rowMenu) { S.shared.rowMenu = null; changed = true; }
@@ -2710,6 +2743,7 @@ document.addEventListener('DOMContentLoaded', () => {
   @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-9Black.woff2') format('woff2'); font-weight: 900; font-display: swap; }
   :root {
     --bg: #1a1713; --surface: #24201a; --surface-hover: #2e2921; --border: rgba(245,242,234,0.2);
+    --row-bg: #2d2820; --row-bg-hover: #39322a; --row-border: rgba(245,242,234,0.22); --row-title: #fbf8f1; --row-text: #d6d1c6;
     --text: #f5f2ea; --text-dim: #c2beb4; --text-faint: #98948a;
     --accent: #d98a3d; --accent-soft: rgba(217,138,61,0.14);
     --status-owned: #4cae7d; --status-lent: #5b8def; --status-repair: #e0a63c; --status-sold: #6b7080;
@@ -2718,6 +2752,17 @@ document.addEventListener('DOMContentLoaded', () => {
     --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
     --font-display: 'Anton', sans-serif;
   }
+  /* 화이트 테마 — 설정(⚙️)에서 전환, <html data-theme="light">. 색은 전부 변수로만 바꿔서 화면별 수정이 필요 없게 함. */
+  :root[data-theme="light"] {
+    --bg: #f3efe7; --surface: #ffffff; --surface-hover: #f0eadd; --border: rgba(60,45,20,0.18);
+    --text: #211b12; --text-dim: #5a5245; --text-faint: #8a8171;
+    --accent: #c2701a; --accent-soft: rgba(194,112,26,0.14);
+    --row-bg: #ffffff; --row-bg-hover: #fbf4e6; --row-border: rgba(60,45,20,0.2); --row-title: #1a150d; --row-text: #3d362a;
+  }
+  .eq-status-option.theme-on { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); font-weight:700; }
+  :root[data-theme="light"] .eq-confirm-bar { background:rgba(255,255,255,0.96); }
+  :root[data-theme="light"] .proj-row { box-shadow:0 1px 3px rgba(60,45,20,0.12); }
+  :root[data-theme="light"] .side-nav { box-shadow:1px 0 0 var(--border); }
   /* .eq-modal-overlay 계열(예: 스케줄 등록 모달)은 프로젝트 탭 등 다른 화면 위에서도 뜰 수 있게
      .app-shell 밖(전역 render())에서도 렌더링된다 — 그래서 위 색상 변수들은 .app-shell이 아니라
      :root에 둬야 한다. .app-shell 안에만 정의하면 그 바깥 요소는 변수를 못 받아 화면이 새까맣게 보인다
@@ -2726,17 +2771,24 @@ document.addEventListener('DOMContentLoaded', () => {
     display: flex; min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font-body);
   }
   .app-shell * { box-sizing: border-box; }
-  .app-main { margin-left: 56px; width: 100%; padding: 32px 28px 60px; }
+  .app-main { margin-left: 168px; width: 100%; padding: 32px 28px 60px; }
 
-  .side-nav { position: fixed; top: 0; left: 0; height: 100vh; width: 56px; background: var(--surface); border-right: 1px solid var(--border); z-index: 50; display: flex; flex-direction: column; padding-top: 20px; }
+  .side-nav { position: fixed; top: 0; left: 0; height: 100vh; width: 168px; background: var(--surface); border-right: 1px solid var(--border); z-index: 50; display: flex; flex-direction: column; padding-top: 20px; }
   .side-nav-mark { width: 100%; text-align: center; color: var(--accent); font-size: 10px; margin-bottom: 18px; }
-  .side-nav-item { position: relative; display: flex; align-items: center; justify-content: center; padding: 12px 0; background: none; border: none; color: var(--text-dim); cursor: pointer; white-space: nowrap; font-family: var(--font-body); font-size: 13.5px; width: 100%; text-align: left; }
+  .side-nav-item { position: relative; display: flex; align-items: center; justify-content: flex-start; gap: 11px; padding: 11px 18px; background: none; border: none; color: var(--text-dim); cursor: pointer; white-space: nowrap; font-family: var(--font-body); font-size: 13.5px; width: 100%; text-align: left; }
   .side-nav-item:hover { background: var(--surface-hover); color: var(--text); }
-  .side-nav-item.active { color: var(--accent); background: var(--accent-soft); }
+  .side-nav-item.active { color: var(--accent); background: var(--accent-soft); font-weight: 700; }
   .side-nav-icon { font-size: 16px; flex-shrink: 0; width: 20px; text-align: center; }
-  .side-nav-label { position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 12.5px; color: var(--text); opacity: 0; pointer-events: none; transition: opacity .1s ease; box-shadow: 4px 4px 16px rgba(0,0,0,0.4); z-index: 60; }
-  .side-nav-item:hover .side-nav-label, .side-nav-sync:hover .side-nav-label { opacity: 1; }
-  .side-nav-sync { position: relative; margin-top: auto; display: flex; align-items: center; justify-content: center; padding: 12px 0; font-size: 11px; color: var(--text-faint); white-space: nowrap; }
+  .side-nav-label { font-size: 13.5px; }
+  .side-nav-sync { position: relative; margin-top: auto; display: flex; align-items: center; gap: 11px; padding: 11px 18px; font-size: 12px; color: var(--text-faint); white-space: nowrap; }
+  .side-nav-sync .side-nav-label { font-size: 12px; }
+  /* 좁은 화면(폰)에서는 다시 아이콘만 — 이름을 넣으면 본문이 너무 좁아짐 */
+  @media (max-width: 720px) {
+    .side-nav { width: 56px; }
+    .app-main { margin-left: 56px; padding: 24px 16px 60px; }
+    .side-nav-item, .side-nav-sync { justify-content: center; padding: 12px 0; }
+    .side-nav-label { display: none; }
+  }
 
   .eq-header { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; margin-bottom:28px; flex-wrap:wrap; }
   .eq-title-block { display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; }
@@ -2932,12 +2984,12 @@ document.addEventListener('DOMContentLoaded', () => {
   .proj-eyebrow { font-family:var(--font-display); font-size:11px; letter-spacing:2px; color:var(--text-faint); margin-bottom:8px; }
   /* 리스트: 검은 배경에 행이 묻히지 않게 — 행마다 한 톤 밝은 카드로 띄우고 행 사이에 간격을 준다 */
   .proj-list { background:transparent; border:none; border-radius:0; overflow:visible; display:flex; flex-direction:column; gap:8px; }
-  .proj-row { position:relative; display:grid; grid-template-columns:20px 118px 1.6fr 140px 118px 1.3fr 24px; align-items:center; gap:16px; padding:16px 16px; border:1px solid rgba(245,242,234,0.22); border-radius:10px; background:linear-gradient(var(--row-tint, transparent), var(--row-tint, transparent)), #2d2820; box-shadow:0 2px 6px rgba(0,0,0,0.3); transition:background .12s ease, border-color .12s ease; }
+  .proj-row { position:relative; display:grid; grid-template-columns:20px 118px 1.6fr 140px 118px 1.3fr 24px; align-items:center; gap:16px; padding:16px 16px; border:1px solid var(--row-border); border-radius:10px; background:linear-gradient(var(--row-tint, transparent), var(--row-tint, transparent)), var(--row-bg); box-shadow:0 2px 6px rgba(0,0,0,0.3); transition:background .12s ease, border-color .12s ease; }
   .proj-list.select-mode .proj-row { grid-template-columns:18px 20px 118px 1.6fr 140px 118px 1.3fr 24px; }
-  .proj-row:hover { background:linear-gradient(var(--row-tint, transparent), var(--row-tint, transparent)), #39322a; border-color:rgba(217,138,61,0.5); }
+  .proj-row:hover { background:linear-gradient(var(--row-tint, transparent), var(--row-tint, transparent)), var(--row-bg-hover); border-color:rgba(217,138,61,0.5); }
   .proj-list.select-mode .proj-row:not(.proj-row-head) { cursor:pointer; }
-  .proj-row.selected, .proj-row.selected:hover { background:linear-gradient(var(--accent-soft), var(--accent-soft)), #39322a; border-color:var(--accent); }
-  .proj-row.drag-over { background:linear-gradient(var(--accent-soft), var(--accent-soft)), #39322a; box-shadow:inset 0 2px 0 var(--accent); }
+  .proj-row.selected, .proj-row.selected:hover { background:linear-gradient(var(--accent-soft), var(--accent-soft)), var(--row-bg-hover); border-color:var(--accent); }
+  .proj-row.drag-over { background:linear-gradient(var(--accent-soft), var(--accent-soft)), var(--row-bg-hover); box-shadow:inset 0 2px 0 var(--accent); }
   .proj-row-head { background:none !important; border:none !important; box-shadow:none !important; color:var(--text-dim); font-size:11.5px; font-weight:700; letter-spacing:0.02em; padding:2px 16px 4px; }
   .proj-row-check-cell { display:flex; align-items:center; justify-content:center; }
   .proj-row-checkbox { width:15px; height:15px; accent-color:var(--accent); cursor:pointer; margin:0; }
@@ -2946,16 +2998,16 @@ document.addEventListener('DOMContentLoaded', () => {
   .proj-row:hover .proj-row-drag-handle { opacity:1; }
   .proj-row-pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:600; white-space:nowrap; }
   .proj-row-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
-  .proj-row-title { font-size:15px; font-weight:700; color:#fbf8f1; }
-  .proj-row-code { font-size:10.5px; color:#8f8b82; letter-spacing:0.03em; margin-top:2px; }
-  .proj-row-client { font-size:12.5px; color:#d6d1c6; }
-  .proj-row-due { font-size:12.5px; color:#d6d1c6; }
-  .proj-row-due-input { width:100%; background:none; border:1px solid transparent; border-radius:5px; color:#d6d1c6; font-family:var(--font-body); font-size:12.5px; padding:3px 4px; margin:-3px -4px; cursor:pointer; }
+  .proj-row-title { font-size:15px; font-weight:700; color:var(--row-title); }
+  .proj-row-code { font-size:10.5px; color:var(--text-faint); letter-spacing:0.03em; margin-top:2px; }
+  .proj-row-client { font-size:12.5px; color:var(--row-text); }
+  .proj-row-due { font-size:12.5px; color:var(--row-text); }
+  .proj-row-due-input { width:100%; background:none; border:1px solid transparent; border-radius:5px; color:var(--row-text); font-family:var(--font-body); font-size:12.5px; padding:3px 4px; margin:-3px -4px; cursor:pointer; }
   .proj-row-due-input:hover { border-color:var(--border); }
   .proj-row-due-input:focus { border-color:var(--accent); color:var(--text); background:var(--surface); cursor:text; outline:none; }
   .proj-row-due-input::-webkit-calendar-picker-indicator { filter:invert(0.7); cursor:pointer; }
   .proj-row-dday { display:inline-block; margin-top:3px; font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:5px; }
-  .proj-row-note { font-size:12.5px; color:#a8a49b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border-radius:5px; padding:3px 4px; margin:-3px -4px; }
+  .proj-row-note { font-size:12.5px; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border-radius:5px; padding:3px 4px; margin:-3px -4px; }
   .proj-row-note[contenteditable] { cursor:text; }
   .proj-row-note[contenteditable]:hover { background:var(--surface-hover); }
   .proj-row-note[contenteditable]:focus { outline:1px solid var(--accent); background:var(--surface); white-space:normal; overflow:visible; position:relative; z-index:1; }
@@ -2982,7 +3034,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .proj-status-menu button { display:flex; align-items:center; gap:8px; background:none; border:none; color:var(--text); font-size:13px; padding:8px 10px; border-radius:6px; cursor:pointer; text-align:left; font-family:var(--font-body); white-space:nowrap; }
   .proj-status-menu button:hover { background:var(--surface-hover); }
   .shared-guest-note { font-size:12px; color:var(--text-dim); background:var(--accent-soft); border-radius:8px; padding:10px 14px; margin-bottom:14px; max-width:640px; }
-  .side-nav-guest-badge { font-size:11.5px; font-weight:700; color:var(--accent); background:var(--accent-soft); border-radius:6px; padding:6px 10px; margin:0 17px 10px; text-align:center; }
+  .side-nav-guest-badge { font-size:11.5px; font-weight:700; color:var(--accent); background:var(--accent-soft); border-radius:6px; padding:6px 10px; margin:0 12px 10px; text-align:center; }
 
   /* shoot prep */
   /* today prep */
