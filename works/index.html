@@ -2781,10 +2781,11 @@ document.addEventListener('DOMContentLoaded', () => {
   :root[data-theme="light"] {
     --bg: #f6f7f9; --surface: #ffffff; --surface-hover: #f1f3f7; --border: rgba(20,28,45,0.10); --border-strong: rgba(20,28,45,0.22);
     --text: #14171f; --text-dim: #566070; --text-faint: #8a93a3;
-    --accent: #c9761a; --accent-soft: rgba(201,118,26,0.11);
+    --accent: #2f6fee; --accent-soft: rgba(47,111,238,0.10);
     --sidebar-bg: #ffffff; --shadow-sm: 0 1px 2px rgba(16,24,40,0.05), 0 1px 3px rgba(16,24,40,0.05); --shadow-md: 0 6px 18px rgba(16,24,40,0.09); --shadow-lg: 0 24px 60px rgba(16,24,40,0.22);
-    --row-bg: #ffffff; --row-bg-hover: #fffaf2; --row-border: rgba(20,28,45,0.10); --row-title: #14171f; --row-text: #3a4353;
+    --row-bg: #ffffff; --row-bg-hover: #f5f8ff; --row-border: rgba(20,28,45,0.10); --row-title: #14171f; --row-text: #3a4353;
   }
+  :root[data-theme="light"] .eq-add-btn, :root[data-theme="light"] .eq-modal-submit, :root[data-theme="light"] .eq-cat-add-row button, :root[data-theme="light"] .sched-dday-badge.is-today { color:#fff; }
   :root[data-theme="light"] .eq-confirm-bar { background:rgba(255,255,255,0.96); }
   /* .eq-modal-overlay 계열(예: 스케줄 등록 모달)은 프로젝트 탭 등 다른 화면 위에서도 뜰 수 있게
      .app-shell 밖(전역 render())에서도 렌더링된다 — 그래서 위 색상 변수들은 .app-shell이 아니라
