@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5b8dff"/><stop offset="1" stop-color="#2a55d6"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".2"/><stop offset=".55" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <!-- 웹앱(Safari Dock 추가/홈 화면)용: OS가 모서리를 직접 둥글게 깎으므로 여백/라운드 없이 꽉 채움 -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#shine)"/>
+  <path d="M258 500 L446 704 L770 328" fill="none" stroke="#ffffff" stroke-width="118" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
