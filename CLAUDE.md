@@ -59,6 +59,8 @@
 - **sw.js의 `VERSION`이 바뀌어야 새 버전으로 인식된다.** 빌드 과정이 없어서 `.githooks/pre-commit`이 `works/` 아래 파일이 커밋에 들어가면 `VERSION`을 현재 시각으로 바꾸고 `works/sw.js`를 같이 스테이징한다 — 이 훅은 `git config core.hooksPath .githooks`를 켠 기기에서만 돈다(이 맥은 켜둠). 다른 기기/GitHub 웹에서 works를 고치면 VERSION을 손으로 바꿔야 알림이 뜬다.
 - Claude 앱의 내장 브라우저 창은 서비스 워커를 못 띄워서 거기서는 등록이 실패한다(정상). 실제 확인은 Safari/Chrome이나 아이폰에서.
 
+**긴 URL/메모가 화면 폭을 밀어내지 않게 할 것**: 아이폰에서 상위 프로젝트 메모에 들어간 공백 없는 긴 SharePoint 링크가 문서 폭을 넓혀서 페이지 전체가 절반 크기로 축소돼 보이고, 요약 카드의 ✎/✕가 카드 밖으로 밀려난 적이 있다. 그래서 `html,body{overflow-x:hidden}`, `.app-main{min-width:0; overflow-x:clip}`, 메모/링크/상세값에 `overflow-wrap:anywhere`를 걸어뒀고, 폰에서는 상위 요약 카드를 세로로 쌓아 버튼을 카드 안 오른쪽 아래에 둔다. 사용자 입력 텍스트를 새로 보여주는 곳에도 같은 줄바꿈 처리를 할 것.
+
 **폰트/전역 스타일 주의**: 전역 모달(`.eq-modal-overlay`)은 `.app-shell` 밖에 렌더되므로 폰트를 `.app-shell`에만 지정하면 모달 글씨가 브라우저 기본 명조체로 나온다(설정 모달에서 실제로 발생) — `html, body`에 `font-family:var(--font-body)`를 둔 이유. 또 `--font-mono`는 이제 `var(--font-body)`(페이퍼로지)를 가리킨다 — 예전 IBM Plex Mono는 로드도 안 돼서 코드·상태 라벨의 한글이 다른 폰트로 섞여 보였다. 숫자 정렬용 모노스페이스가 필요해지면 그때 따로 정의할 것.
 
 **사이드바 이동 애니메이션 + 화면 전환 효과**: `render()`가 매번 DOM을 새로 만들어서 CSS transition만으로는 선택 표시가 안 움직이므로, `positionNavIndicator()`가 이전 메뉴 위치(`window.__navY`)를 기억했다가 새 `.side-nav-indicator`를 이전 위치에 그린 뒤 다음 프레임에 새 위치로 옮겨 미끄러지듯 이동시킨다(활성 항목은 `offsetTop` 기준). 탭이 바뀔 때만(`window.__lastTab`) `.app-main`에 `tab-enter`(살짝 떠오르며 페이드인)를 붙인다 — 모달/동기화로 인한 재렌더에는 안 붙게 해서 깜빡임 방지. `prefers-reduced-motion`이면 끔. 카드/행은 hover 시 살짝 떠오르고 모달은 블러 배경 + 튀어나오는 애니메이션. 이런 시각 규칙은 `<style>` 맨 끝 "프리미엄 레이어" 블록에 모아뒀다(기존 규칙을 덮어쓰는 구조).

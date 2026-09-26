@@ -1013,7 +1013,6 @@ function renderMobileTopBar() {
     <header class="m-topbar">
       <img class="m-logo" src="../assets/logo.png" alt="VINFILM STUDIO" width="86" height="43" />
       <div class="m-top-actions">
-        ${window.cloudSyncReady ? '<span class="m-sync" title="클라우드 동기화됨">☁︎</span>' : ''}
         <button class="m-icon-btn" data-action="open-settings" aria-label="설정">${MI.gear}</button>
       </div>
     </header>`;
@@ -3879,6 +3878,21 @@ document.addEventListener('DOMContentLoaded', () => {
   .upd-toast button:disabled { opacity:.6; cursor:default; }
   @keyframes updIn { from { opacity:0; transform:translate(-50%, 12px); } to { opacity:1; transform:translate(-50%, 0); } }
   @media (max-width: 720px) { .upd-toast { bottom:calc(80px + env(safe-area-inset-bottom)); } }
+
+  /* 긴 URL/메모가 화면 폭을 밀어내지 않게 (아이폰에서 페이지 전체가 절반 크기로 줄어 보이던 원인) */
+  html, body { overflow-x:hidden; }
+  .app-main { min-width:0; overflow-x:clip; }
+  .proj-parent-card > div { min-width:0; }
+  .proj-parent-card > div > div:first-child { min-width:0; flex:1 1 auto; }
+  .proj-parent-notes, .proj-parent-meta, .proj-parent-card a, .proj-row-note, .sched-row, .eq-detail-row b, .today-card-memo, .task-note { overflow-wrap:anywhere; word-break:break-word; }
+  @media (max-width: 720px) {
+    .proj-parent-card { border-radius:16px; padding:16px; }
+    .proj-parent-card > div { flex-direction:column; gap:12px !important; }
+    .proj-parent-card > div > div:last-child { align-self:flex-end; }
+    .proj-parent-notes { max-width:100%; }
+    .proj-breadcrumb { border-radius:12px; font-size:13.5px; }
+    .eq-header { align-items:flex-start; }
+  }
   @keyframes sheetUp { from { transform:translateY(100%); } to { transform:none; } }
   @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
   @keyframes modalIn { from { opacity:0; transform:translateY(14px) scale(.98); } to { opacity:1; transform:none; } }
