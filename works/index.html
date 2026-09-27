@@ -1407,6 +1407,7 @@ function projModalHtml() {
   const f = editing
     ? { title: editing.title, client: editing.client || '', status: editing.status || 'todo', type: editing.type || '', color: editing.color || '', dueDate: editing.dueDate || '', notes: editing.notes || '' }
     : { title: '', client: '', status: S.proj.addStatus || 'todo', type: '', color: '', dueDate: '', notes: '' };
+  const ls = editing && editing.scheduleId ? schedItems.find(s => s.id === editing.scheduleId) : null;
   return `
     <div class="eq-modal-overlay">
       <div class="eq-modal" data-stop-close>
@@ -1443,6 +1444,14 @@ function projModalHtml() {
             </div>
           </div>
           <div class="eq-field"><label>마감일</label><input type="date" name="dueDate" value="${esc(f.dueDate)}" /></div>
+          <div class="eq-field"><label>📅 캘린더 일정 <span style="color:var(--text-faint); font-weight:400;">(날짜를 넣으면 캘린더에 자동 등록, 비우면 빠짐)</span></label>
+            <div class="eq-field-row">
+              <div class="eq-field" style="margin:0; flex:1.4; min-width:0"><input type="date" name="schedDate" value="${esc(ls ? ls.date : '')}" data-role="sched-date-conflict" /></div>
+              <div class="eq-field" style="margin:0; min-width:0"><input type="time" name="schedTime" value="${esc(ls && ls.time ? ls.time : '')}" title="시간(비우면 하루 종일)" /></div>
+              <div class="eq-field" style="margin:0; flex:0 0 84px"><select name="schedCategory">${SCHED_CATEGORIES.map(c => `<option value="${c.id}" ${(ls ? ls.category : 'shoot')===c.id?'selected':''}>${c.label}</option>`).join('')}</select></div>
+            </div>
+            <div id="schedConflict">${ls ? schedConflictHtml(ls.date) : ''}</div>
+          </div>
           <div class="eq-field"><label>메모</label><textarea name="notes" class="sched-memo-textarea" placeholder="진행 상황, 참고사항 등">${esc(f.notes)}</textarea></div>
           <button type="submit" class="eq-modal-submit">${editing ? '수정 완료' : '등록하기'}</button>
         </form>
@@ -3072,8 +3081,29 @@ function bootApp() {
       const title = (fd.get('title') || '').toString().trim();
       if (!title) return;
       const payload = { title, client: fd.get('client') || '', status: fd.get('status') || 'todo', type: fd.get('type') || '', color: fd.get('color') || '', dueDate: fd.get('dueDate') || '', notes: fd.get('notes') || '' };
-      if (S.proj.editingId) saveProjItems(projItems.map(p => p.id === S.proj.editingId ? { ...p, ...payload } : p));
-      else saveProjItems([{ id: uid(), serial: nextProjectSerial(projItems), createdAt: Date.now(), parentId: S.proj.currentParentId || null, ...payload }, ...projItems]);
+      /* 📅 캘린더 일정: 날짜가 있으면 연결된 스케줄을 만들거나 고치고(→ Google 캘린더/아이폰까지), 비우면 연결된 스케줄을 지운다 */
+      const editingProj = S.proj.editingId ? projItems.find(p => p.id === S.proj.editingId) : null;
+      const projId = editingProj ? editingProj.id : uid();
+      const sDate = (fd.get('schedDate') || '').toString();
+      const sTime = (fd.get('schedTime') || '').toString() || null;
+      const sCat = (fd.get('schedCategory') || 'shoot').toString();
+      const linked = editingProj && editingProj.scheduleId ? schedItems.find(s => s.id === editingProj.scheduleId) : null;
+      let scheduleId = linked ? linked.id : null;
+      if (sDate && linked) {
+        // 일정 제목을 따로 바꿔둔 경우엔 그대로 두고, 프로젝트 이름과 같을 때만 따라 바꾼다
+        const sTitle = linked.title === editingProj.title ? title : linked.title;
+        if (linked.date !== sDate || (linked.time || null) !== sTime || linked.category !== sCat || linked.title !== sTitle)
+          saveSchedItems(schedItems.map(s => s.id === linked.id ? { ...s, title: sTitle, date: sDate, time: sTime, category: sCat } : s));
+      } else if (sDate) {
+        scheduleId = uid();
+        saveSchedItems([{ id: scheduleId, createdAt: Date.now(), source: 'manual', projectId: projId, title, date: sDate, time: sTime, location: '', contact: '', category: sCat, memo: '' }, ...schedItems]);
+      } else if (linked) {
+        saveSchedItems(schedItems.filter(s => s.id !== linked.id));
+        scheduleId = null;
+      }
+      payload.scheduleId = scheduleId;
+      if (editingProj) saveProjItems(projItems.map(p => p.id === editingProj.id ? { ...p, ...payload } : p));
+      else saveProjItems([{ id: projId, serial: nextProjectSerial(projItems), createdAt: Date.now(), parentId: S.proj.currentParentId || null, ...payload }, ...projItems]);
       S.proj.modalOpen = false; S.proj.editingId = null;
       render();
     } else if (form.matches('[data-form-role="proj-move-form"]')) {
