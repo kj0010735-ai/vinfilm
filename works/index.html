@@ -801,6 +801,7 @@ function gcalSourceLabel(ev) { return ev.tag === 'hisplan' ? 'HISPLAN' : '📱 �
     if (localStorage.getItem(GCAL_LS.enabled) === '1') gcal.status = gcal.token ? 'on' : 'expired';
   } catch (e) {}
 })();
+const GCAL_TAB_SYNC_GAP = 5 * 60 * 1000;
 function gcalTokenValid() { return !!gcal.token && gcal.exp > Date.now() + 30000; }
 function gcalSetMsg(m) { gcal.msg = m; }
 function gcalApiNotEnabled(body) {
@@ -851,8 +852,9 @@ function gcalDisconnect() {
   gcal.calId = null;
 }
 async function gcalEnsureCalendar() {
+  if (gcal.calId && gcal.calChecked) return gcal.calId;
   if (gcal.calId) {
-    try { await gapiFetch('/calendars/' + encodeURIComponent(gcal.calId)); return gcal.calId; }
+    try { await gapiFetch('/calendars/' + encodeURIComponent(gcal.calId)); gcal.calChecked = true; return gcal.calId; }
     catch (e) { if (e.status !== 404 && e.status !== 403 && e.status !== 410) throw e; gcal.calId = null; }
   }
   const list = await gapiFetch('/users/me/calendarList?maxResults=250');
@@ -864,6 +866,7 @@ async function gcalEnsureCalendar() {
     try { await gapiFetch('/users/me/calendarList/' + encodeURIComponent(created.id), { method: 'PATCH', body: JSON.stringify({ colorId: '9' }) }); } catch (e) {}
   }
   try { localStorage.setItem(GCAL_LS.calId, gcal.calId); } catch (e) {}
+  gcal.calChecked = true;
   return gcal.calId;
 }
 function gcalEventIdFor(item) { let h = ''; const s = String(item.id); for (let i = 0; i < s.length; i++) h += s.charCodeAt(i).toString(16).padStart(2, '0'); return 'vf' + h; }
@@ -2512,8 +2515,9 @@ function bootApp() {
         S.moreOpen = false;
         window.scrollTo(0, 0);
         render();
-        if (id === 'schedule' && gcalTokenValid()) gcalSync(false);
-        else if (id === 'schedule' && !IS_LOCAL_DEV && localStorage.getItem(GCAL_LS.enabled) === '1' && gcal.msg !== 'api-disabled') gcalConnect();
+        // 캘린더 탭을 누를 때마다 동기화하지 않는다 — 마지막 동기화 후 5분이 지났을 때만 조용히 가져온다.
+        // (저장할 때는 gcalSchedulePush가 따로 올려준다. 로그인이 만료되면 팝업을 자동으로 띄우지 않고 "📱 탭해서 동기화" 버튼만 보여준다)
+        if (id === 'schedule' && gcalTokenValid() && Date.now() - gcal.lastSync > GCAL_TAB_SYNC_GAP) gcalSync(false);
         break;
       case 'app-refresh': el.disabled = true; el.textContent = '확인 중…'; refreshToLatest(); break;
       case 'open-settings': S.settingsOpen = true; S.moreOpen = false; render(); break;
