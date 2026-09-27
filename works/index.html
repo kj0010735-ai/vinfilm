@@ -767,6 +767,13 @@ function renderEquipmentTab() {
 }
 
 /* 예전 "캘린더 가져오기/구독 연결"로 복사해 온 일정(source:'calendar')은 새 휴대폰 연결과 겹치므로 화면에서 숨긴다(데이터는 지우지 않음). */
+/* 같은 날 HISPLAN(및 켜둔 휴대폰 캘린더) 일정이 있으면 등록 창에 알려준다 — 두 곳 일정이 겹치지 않게 */
+function schedConflictHtml(date) {
+  if (!date) return '';
+  const evs = (gcalEventsByDate()[date] || []);
+  if (!evs.length) return '';
+  return `<div class="sched-conflict">⚠️ 이 날 ${evs.map(ev => `<b>${gcalSourceLabel(ev)}</b> ${esc(ev.time ? ev.time + ' ' : '')}${esc(ev.title)}`).join(', ')} 일정이 있어요</div>`;
+}
 function visibleSchedItems() { return schedItems.filter(it => it.source !== 'calendar'); }
 /* ================= 휴대폰(아이폰) 캘린더 연결 — Google 캘린더 경유 =================
    정적 사이트라 서버가 없어서, 아이폰이 기본으로 동기화하는 Google 캘린더를 다리로 쓴다.
@@ -779,7 +786,13 @@ const GCAL_LS = { token: 'vinfilm-gcal-token', enabled: 'vinfilm-gcal-enabled', 
 const GCAL_CAL_NAME = 'VINFILM STUDIO';
 const gcal = { token: null, exp: 0, calId: null, events: [], status: 'off', msg: '', lastSync: 0, busy: false, modalOpen: false, detailId: null, calendars: [] };
 /* 가져와서 보여줄 캘린더: 기본은 "VINFILM STUDIO" 캘린더만(아이폰에서 이 캘린더에 만든 일정). 공휴일/개인 캘린더는 설정에서 켠 것만. */
-function gcalExtraCals() { try { return JSON.parse(localStorage.getItem(GCAL_LS.extra) || '[]'); } catch (e) { return []; } }
+const HISPLAN_RE = /hisplan|히스플랜/i;
+/* 사용자가 한 번도 고르지 않았으면 이름에 HISPLAN/히스플랜이 들어간 캘린더만 기본으로 켠다(일정 겹침 확인용) */
+function gcalExtraCals() {
+  try { const raw = localStorage.getItem(GCAL_LS.extra); if (raw) return JSON.parse(raw); } catch (e) {}
+  return gcal.calendars.filter(c => HISPLAN_RE.test(c.name)).map(c => c.id);
+}
+function gcalSourceLabel(ev) { return ev.tag === 'hisplan' ? 'HISPLAN' : '📱 휴대폰'; }
 (function gcalLoad() {
   try {
     const t = JSON.parse(localStorage.getItem(GCAL_LS.token) || 'null');
@@ -914,7 +927,7 @@ async function gcalPull() {
       let date, time = null, endDate;
       if (ev.start.date) { date = ev.start.date; endDate = ev.end && ev.end.date ? addDaysYmd(ev.end.date, -1) : date; }
       else { const s = new Date(ev.start.dateTime); date = ymd(s); time = `${pad2(s.getHours())}:${pad2(s.getMinutes())}`; const e2 = ev.end && ev.end.dateTime ? new Date(ev.end.dateTime) : s; endDate = ymd(e2); }
-      out.push({ id: 'g-' + c.id + '-' + ev.id, title: ev.summary || '(제목 없음)', date, endDate: endDate < date ? date : endDate, time, location: ev.location || '', memo: ev.description || '', category: 'calendar', source: 'google', calName: c.summaryOverride || c.summary || '', htmlLink: ev.htmlLink || '' });
+      out.push({ tag: HISPLAN_RE.test(c.summaryOverride || c.summary || '') ? 'hisplan' : 'phone', id: 'g-' + c.id + '-' + ev.id, title: ev.summary || '(제목 없음)', date, endDate: endDate < date ? date : endDate, time, location: ev.location || '', memo: ev.description || '', category: 'calendar', source: 'google', calName: c.summaryOverride || c.summary || '', htmlLink: ev.htmlLink || '' });
     }
   }
   gcal.events = out;
@@ -976,7 +989,7 @@ function gcalModalHtml() {
         </ol>
         ${gcalNoticeHtml()}
         ${on && gcal.calendars.length ? `<div class="eq-field"><label>함께 볼 다른 캘린더 <span class="eq-hint">(기본은 꺼짐)</span></label>
-          <div class="gcal-cal-list">${gcal.calendars.map(c => `<label class="gcal-cal-row"><input type="checkbox" data-role="gcal-extra" value="${esc(c.id)}" ${gcalExtraCals().includes(c.id) ? 'checked' : ''} /><span>${esc(c.name)}${c.holiday ? ' <small>공휴일</small>' : ''}</span></label>`).join('')}</div></div>` : ''}
+          <div class="gcal-cal-list">${gcal.calendars.map(c => `<label class="gcal-cal-row"><input type="checkbox" data-role="gcal-extra" value="${esc(c.id)}" ${gcalExtraCals().includes(c.id) ? 'checked' : ''} /><span>${esc(c.name)}${c.holiday ? ' <small>공휴일</small>' : ''}${HISPLAN_RE.test(c.name) ? ' <small>일정 겹침 확인용</small>' : ''}</span></label>`).join('')}</div></div>` : ''}
         ${on ? `<div style="display:flex; gap:8px; margin-top:6px;"><button class="eq-modal-submit eq-modal-submit-secondary" data-action="gcal-sync-now" style="margin:0;">${gcal.busy ? '동기화 중…' : '지금 동기화'}</button></div>
           <button class="eq-modal-delete-link" data-action="gcal-disconnect">연결 해제 (Google 캘린더의 일정은 그대로 남아요)</button>` : ''}
       </div>
@@ -991,7 +1004,7 @@ function gcalDetailModalHtml() {
       <div class="eq-modal" data-stop-close style="max-width:420px;">
         <div class="eq-modal-head"><h2>${esc(ev.title)}</h2><button class="eq-modal-close" data-action="gcal-close-detail">✕</button></div>
         <div class="eq-detail-row"><span>날짜</span><b>${dateLabel(ev.date)}${ev.endDate && ev.endDate !== ev.date ? ' – ' + dateLabel(ev.endDate) : ''}${ev.time ? ' ' + esc(ev.time) : ' (종일)'}</b></div>
-        <div class="eq-detail-row"><span>캘린더</span><b><span class="eq-status-dot" style="background:var(--sched-calendar)"></span> 📱 ${esc(ev.calName || '휴대폰')}</b></div>
+        <div class="eq-detail-row"><span>캘린더</span><b><span class="eq-status-dot" style="background:${ev.tag === 'hisplan' ? 'var(--sched-hisplan)' : 'var(--sched-calendar)'}"></span> ${ev.tag === 'hisplan' ? 'HISPLAN' : '📱'} ${esc(ev.calName || '휴대폰')}</b></div>
         ${ev.location ? `<div class="eq-detail-row"><span>장소</span><b>${esc(ev.location)}</b></div>` : ''}
         ${ev.memo ? `<div class="eq-detail-row"><span>메모</span><b style="white-space:pre-wrap;">${esc(ev.memo)}</b></div>` : ''}
         <p class="eq-hint" style="margin:14px 0 10px;">휴대폰(Google) 캘린더의 일정이라 여기서는 보기만 할 수 있어요.</p>
@@ -1103,8 +1116,8 @@ function dashUpcomingHtml() {
         const g2 = it.source === 'google';
         return `<button class="dash-row" data-action="${g2 ? 'gcal-open-detail' : 'sched-open-detail'}" data-id="${esc(it.id)}">
           <span class="dash-date ${it.date === today ? 'is-today' : ''}"><b>${d.getDate()}</b><small>${it.date === today ? '오늘' : WEEKDAYS_KO[d.getDay()]}</small></span>
-          <span class="dash-row-main"><b>${esc(it.title)}</b><small>${it.time ? esc(it.time) : '종일'}${it.location ? ' · ' + esc(it.location) : ''}${g2 ? ' · 📱 휴대폰' : ''}</small></span>
-          <span class="dash-dot" style="background:var(--sched-${it.category})"></span>
+          <span class="dash-row-main"><b>${esc(it.title)}</b><small>${it.time ? esc(it.time) : '종일'}${it.location ? ' · ' + esc(it.location) : ''}${g2 ? ' · ' + gcalSourceLabel(it) : ''}</small></span>
+          <span class="dash-dot" style="background:${g2 && it.tag === 'hisplan' ? 'var(--sched-hisplan)' : `var(--sched-${it.category})`}"></span>
         </button>`; }).join('')}</div>`}
     </div>`;
 }
@@ -1213,7 +1226,7 @@ function schedModalHtml() {
         <form data-form-role="sched-form">
           <div class="eq-field"><label>제목</label><input name="title" autofocus value="${esc(f.title)}" placeholder="예: OO 브랜드 촬영" required /></div>
           <div class="eq-field-row">
-            <div class="eq-field"><label>날짜</label><input type="date" name="date" value="${esc(f.date)}" required /></div>
+            <div class="eq-field"><label>날짜</label><input type="date" name="date" value="${esc(f.date)}" required data-role="sched-date-conflict" /><div id="schedConflict">${schedConflictHtml(f.date, editing ? editing.id : null)}</div></div>
             <div class="eq-field"><label>시간(콜타임)</label><input type="time" name="time" id="schedTimeInput" value="${esc(f.time)}" ${f.allDay?'disabled':''} /></div>
           </div>
           <div class="sched-allday-toggle"><input type="checkbox" name="allDay" id="schedAllDayCb" ${f.allDay?'checked':''} /><label for="schedAllDayCb" style="margin:0">하루 종일</label></div>
@@ -1297,7 +1310,7 @@ function calFilteredItems() {
 function calEventHtml(it, compact) {
   const past = it.date < todayStr();
   const g = it.source === 'google';
-  return `<button class="cal-ev ${past ? 'is-past' : ''} ${g ? 'is-phone' : ''}" style="--ev:var(--sched-${it.category})" data-action="${g ? 'gcal-open-detail' : 'sched-open-detail'}" data-id="${esc(it.id)}" title="${esc(it.title)}${g && it.calName ? ' · 📱 ' + esc(it.calName) : ''}">${it.time ? `<span class="cal-ev-time">${esc(it.time)}</span>` : ''}<span class="cal-ev-title">${esc(it.title)}</span></button>`;
+  return `<button class="cal-ev ${past ? 'is-past' : ''} ${g ? 'is-phone' : ''}" style="--ev:${g && it.tag === 'hisplan' ? 'var(--sched-hisplan)' : `var(--sched-${it.category})`}" data-action="${g ? 'gcal-open-detail' : 'sched-open-detail'}" data-id="${esc(it.id)}" title="${esc(it.title)}${g ? ' · ' + gcalSourceLabel(it) : ''}">${it.time ? `<span class="cal-ev-time">${esc(it.time)}</span>` : ''}<span class="cal-ev-title">${esc(it.title)}</span></button>`;
 }
 function calTitle() {
   const c = parseYmd(S.sched.cursor);
@@ -2945,6 +2958,9 @@ function bootApp() {
       if (file) handlePhotoFile(file);
       e.target.value = '';
     }
+    if (e.target.dataset && e.target.dataset.role === 'sched-date-conflict') {
+      const box = document.getElementById('schedConflict'); if (box) box.innerHTML = schedConflictHtml(e.target.value);
+    }
     if (e.target.dataset && e.target.dataset.role === 'gcal-extra') {
       const cur = new Set(gcalExtraCals());
       if (e.target.checked) cur.add(e.target.value); else cur.delete(e.target.value);
@@ -3314,7 +3330,7 @@ document.addEventListener('DOMContentLoaded', () => {
     --text: #eceef2; --text-dim: #a4abb8; --text-faint: #767e8d;
     --accent: #7aa7ff; --accent-soft: rgba(122,167,255,0.14);
     --status-owned: #4cae7d; --status-lent: #5b8def; --status-repair: #e0a63c; --status-sold: #6b7080;
-    --sched-shoot: #d98a3d; --sched-meeting: #5b8def; --sched-deadline: #d9534f; --sched-etc: #6b7080; --sched-calendar: #4cae7d;
+    --sched-shoot: #d98a3d; --sched-meeting: #5b8def; --sched-deadline: #d9534f; --sched-etc: #6b7080; --sched-calendar: #4cae7d; --sched-hisplan: #8b5cf6;
     --font-body: 'Paperozi', 'Noto Sans KR', 'Pretendard', 'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-mono: var(--font-body); /* 숫자/코드 라벨도 페이퍼로지로 통일 (예전 모노스페이스는 한글이 다른 폰트로 폴백돼 섞여 보였음) */
     --font-display: 'Anton', sans-serif;
@@ -3927,6 +3943,9 @@ document.addEventListener('DOMContentLoaded', () => {
   .gcal-cal-row:hover { background:var(--surface-hover); }
   .gcal-cal-row input { width:16px; height:16px; accent-color:var(--accent); }
   .gcal-cal-row small { color:var(--text-faint); font-size:11px; margin-left:4px; }
+
+  .sched-conflict { margin-top:8px; padding:9px 12px; border-radius:10px; background:rgba(139,92,246,0.10); border:1px solid rgba(139,92,246,0.35); color:var(--text); font-size:12.5px; line-height:1.55; }
+  .sched-conflict b { color:#8b5cf6; font-weight:800; }
   @keyframes sheetUp { from { transform:translateY(100%); } to { transform:none; } }
   @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
   @keyframes modalIn { from { opacity:0; transform:translateY(14px) scale(.98); } to { opacity:1; transform:none; } }
