@@ -225,11 +225,11 @@ function loadJSON(key, fallback) { try { const raw = localStorage.getItem(key); 
 let eqItems = loadJSON(LS_ITEMS, []);
 let eqCategories = loadJSON(LS_CATEGORIES, DEFAULT_CATEGORIES);
 let schedItems = loadJSON(LS_SCHEDULE, []);
-let projItems = loadJSON(LS_PROJECTS, []);
-let shoots = loadJSON(LS_SHOOTS, []);
-let presets = loadJSON(LS_PRESETS, []);
-let todayTasks = loadJSON(LS_TASKS, []);
-let notes = loadJSON(LS_NOTES, []);
+let projItems = GUEST_MODE ? [] : loadJSON(LS_PROJECTS, []);
+let shoots = GUEST_MODE ? [] : loadJSON(LS_SHOOTS, []);
+let presets = GUEST_MODE ? [] : loadJSON(LS_PRESETS, []);
+let todayTasks = GUEST_MODE ? [] : loadJSON(LS_TASKS, []);
+let notes = GUEST_MODE ? [] : loadJSON(LS_NOTES, []);
 let shortcuts = loadJSON(LS_SHORTCUTS, DEFAULT_SHORTCUTS);
 let sharedProjItems = loadJSON(LS_SHARED, []);
 const LS_COLLABS = 'eq-manager-collabs';
@@ -961,6 +961,7 @@ function hisplanSaveUrl(u) {
 }
 /* 화면에 쓰는 외부 일정 = Google에서 받은 것 + HISPLAN 피드. HISPLAN 피드가 있으면 Google 쪽 HISPLAN 캘린더는 중복이라 뺀다 */
 function extEvents() {
+  if (GUEST_MODE) return []; // 휴대폰·HISPLAN 일정은 대표님 전용
   const g = hisplan.events.length ? gcal.events.filter(ev => ev.tag !== 'hisplan') : gcal.events;
   return [...g, ...hisplan.events];
 }
@@ -1064,6 +1065,7 @@ function gcalBodyFor(item) {
   return body;
 }
 async function gcalPush() {
+  if (GUEST_MODE) return;
   const calId = await gcalEnsureCalendar();
   let pushed = {}; try { pushed = JSON.parse(localStorage.getItem(GCAL_LS.pushed) || '{}'); } catch (e) {}
   const mine = schedItems.filter(it => it.source !== 'calendar' && it.date);
@@ -1114,7 +1116,8 @@ async function gcalPull() {
   try { localStorage.setItem(GCAL_LS.events, JSON.stringify({ events: out, calendars: gcal.calendars, lastSync: Date.now() })); } catch (e) {}
 }
 async function gcalSync(full) {
-  if (IS_LOCAL_DEV || gcal.busy) return;
+  // 협업자/게스트 화면에선 절대 돌리지 않는다 — schedItems가 그 공간 일정뿐이라 푸시하면 대표님 Google 캘린더 일정이 지워질 수 있음
+  if (IS_LOCAL_DEV || GUEST_MODE || gcal.busy) return;
   if (!gcalTokenValid()) { if (localStorage.getItem(GCAL_LS.enabled) === '1') { gcal.status = 'expired'; render(); } return; }
   gcal.busy = true; render();
   try {
@@ -1129,7 +1132,7 @@ async function gcalSync(full) {
 }
 let gcalPushTimer = null;
 function gcalSchedulePush() {
-  if (IS_LOCAL_DEV || !gcalTokenValid()) return;
+  if (IS_LOCAL_DEV || GUEST_MODE || !gcalTokenValid()) return;
   clearTimeout(gcalPushTimer);
   gcalPushTimer = setTimeout(() => { gcalSync(false); }, 1500);
 }
@@ -1483,6 +1486,7 @@ function ymd(d) { return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.ge
 function parseYmd(str) { const [y,m,d] = str.split('-').map(Number); return new Date(y, m-1, d); }
 /* 프로젝트 마감일 → 캘린더/대시보드에 읽기 전용 '마감' 일정으로 표시 (완료된 프로젝트는 제외, 저장은 안 함 — 매번 projItems에서 만든다) */
 function projDueEvents() {
+  if (GUEST_MODE) return [];
   // 촬영처럼 마감 개념이 없는 프로젝트는 캘린더 일정과 마감일이 같은 날이면 '마감' 칩을 따로 띄우지 않는다(중복 방지)
   return projItems.filter(p => p.dueDate && p.status !== 'done')
     .filter(p => { const s = p.scheduleId && schedItems.find(x => x.id === p.scheduleId); return !(s && s.date === p.dueDate); })
@@ -1599,7 +1603,7 @@ function renderScheduleTab() {
     ${GUEST_MODE ? '' : gcalNoticeHtml()}
     <div class="eq-toolbar">
       <div class="eq-search"><input id="schedSearchInput" placeholder="제목, 장소, 메모로 검색" value="${esc(S.sched.search)}" /></div>
-      <div class="eq-chip-row">${SCHED_FILTER_CATEGORIES.map(c => `<button class="eq-chip ${S.sched.categoryFilter===c.id?'active':''}" data-action="sched-set-category-filter" data-id="${c.id}">${c.id !== 'all' ? `<span class="eq-chip-dot" style="background:var(--sched-${c.id})"></span>` : ''}${c.label}</button>`).join('')}</div>
+      <div class="eq-chip-row">${SCHED_FILTER_CATEGORIES.filter(c => !GUEST_MODE || c.id !== 'calendar').map(c => `<button class="eq-chip ${S.sched.categoryFilter===c.id?'active':''}" data-action="sched-set-category-filter" data-id="${c.id}">${c.id !== 'all' ? `<span class="eq-chip-dot" style="background:var(--sched-${c.id})"></span>` : ''}${c.label}</button>`).join('')}</div>
       ${S.sched.view === 'list' ? `<button class="eq-chip ${S.sched.showPast?'active':''}" data-action="sched-toggle-past">지난 일정 ${S.sched.showPast?'숨기기':'보기'}</button>` : ''}
     </div>
     <div class="cal-card">
@@ -2715,7 +2719,7 @@ const QUOTE_ITEM_PRESETS = [
 const QUOTE_CATS = ['기획', '촬영', '장비', '인건비', '편집', '기타'];
 const QUOTE_DEFAULTS = { validDays: 14, deposit: 50, revisions: 2, vatMode: 'separate', delivery: '최종 편집본 MP4(FHD/4K) 온라인 전달', memo: '' };
 const LS_QUOTES = 'eq-manager-quotes';
-let quotes = loadJSON(LS_QUOTES, []);
+let quotes = GUEST_MODE ? [] : loadJSON(LS_QUOTES, []);
 function saveQuotes(next) { const prev = quotes; quotes = next; try { localStorage.setItem(LS_QUOTES, JSON.stringify(next)); } catch (e) {} pushToCloud('quotes', prev, next); }
 
 /* 사업자 정보 — 견적서 하단/공급자 칸에 들어간다. Firestore appSettings/business(owner 전용) + 기기 캐시 */
@@ -3066,7 +3070,7 @@ const CONTRACT_STATUSES = [
 ];
 function contractStatusOf(id) { return CONTRACT_STATUSES.find(s => s.id === id) || CONTRACT_STATUSES[0]; }
 const LS_CONTRACTS = 'eq-manager-contracts';
-let contracts = loadJSON(LS_CONTRACTS, []);
+let contracts = GUEST_MODE ? [] : loadJSON(LS_CONTRACTS, []);
 function saveContracts(next) { const prev = contracts; contracts = next; try { localStorage.setItem(LS_CONTRACTS, JSON.stringify(next)); } catch (e) {} pushToCloud('contracts', prev, next); }
 function nextContractNumber(date) {
   const prefix = `VC-${date.slice(2, 4)}${date.slice(5, 7)}-`;
