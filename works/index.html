@@ -782,7 +782,7 @@ function visibleSchedItems() { return schedItems.filter(it => it.source !== 'cal
    권한은 Firebase Google 로그인 팝업에 calendar 범위를 추가해서 받고(액세스 토큰 1시간 유효), 만료되면 다시 연결 버튼을 누르면 된다.
    로컬(IS_LOCAL_DEV)에서는 실제 Google 캘린더에 쓰지 않도록 꺼둔다. */
 const GCAL_API = 'https://www.googleapis.com/calendar/v3';
-const GCAL_LS = { token: 'vinfilm-gcal-token', enabled: 'vinfilm-gcal-enabled', calId: 'vinfilm-gcal-calid', pushed: 'vinfilm-gcal-pushed', extra: 'vinfilm-gcal-extra-cals' };
+const GCAL_LS = { token: 'vinfilm-gcal-token', enabled: 'vinfilm-gcal-enabled', calId: 'vinfilm-gcal-calid', pushed: 'vinfilm-gcal-pushed', extra: 'vinfilm-gcal-extra-cals', events: 'vinfilm-gcal-events' };
 const GCAL_CAL_NAME = 'VINFILM STUDIO';
 const gcal = { token: null, exp: 0, calId: null, events: [], status: 'off', msg: '', lastSync: 0, busy: false, modalOpen: false, detailId: null, calendars: [] };
 /* 가져와서 보여줄 캘린더: 기본은 "VINFILM STUDIO" 캘린더만(아이폰에서 이 캘린더에 만든 일정). 공휴일/개인 캘린더는 설정에서 켠 것만. */
@@ -798,7 +798,12 @@ function gcalSourceLabel(ev) { return ev.tag === 'hisplan' ? 'HISPLAN' : '📱 �
     const t = JSON.parse(localStorage.getItem(GCAL_LS.token) || 'null');
     if (t && t.exp > Date.now() + 60000) { gcal.token = t.token; gcal.exp = t.exp; }
     gcal.calId = localStorage.getItem(GCAL_LS.calId) || null;
-    if (localStorage.getItem(GCAL_LS.enabled) === '1') gcal.status = gcal.token ? 'on' : 'expired';
+    if (localStorage.getItem(GCAL_LS.enabled) === '1') {
+      gcal.status = gcal.token ? 'on' : 'expired';
+      // 마지막으로 받아온 휴대폰/HISPLAN 일정을 기기에 보관해 두고 바로 보여준다 — 로그인(1시간)이 만료돼도 화면에서 사라지지 않게
+      const cached = JSON.parse(localStorage.getItem(GCAL_LS.events) || 'null');
+      if (cached && Array.isArray(cached.events)) { gcal.events = cached.events; gcal.calendars = cached.calendars || []; gcal.lastSync = cached.lastSync || 0; }
+    }
   } catch (e) {}
 })();
 const GCAL_TAB_SYNC_GAP = 5 * 60 * 1000;
@@ -934,6 +939,7 @@ async function gcalPull() {
     }
   }
   gcal.events = out;
+  try { localStorage.setItem(GCAL_LS.events, JSON.stringify({ events: out, calendars: gcal.calendars, lastSync: Date.now() })); } catch (e) {}
 }
 async function gcalSync(full) {
   if (IS_LOCAL_DEV || gcal.busy) return;
@@ -966,7 +972,11 @@ function gcalEventsByDate() {
 }
 function gcalButtonHtml() {
   if (gcal.status === 'on') return `<button class="eq-add-btn gcal-btn is-on" data-action="gcal-open">📱 휴대폰 캘린더 연결됨${gcal.busy ? ' · 동기화 중…' : ''}</button>`;
-  if (gcal.status === 'expired') return `<button class="eq-add-btn gcal-btn is-warn" data-action="gcal-connect">📱 탭해서 동기화</button>`;
+  if (gcal.status === 'expired') {
+    const t = gcal.lastSync ? new Date(gcal.lastSync) : null;
+    const when = t ? (ymd(t) === todayStr() ? `${pad2(t.getHours())}:${pad2(t.getMinutes())}` : `${t.getMonth() + 1}/${t.getDate()}`) : '';
+    return `<button class="eq-add-btn gcal-btn is-warn" data-action="gcal-connect">📱 탭해서 동기화${when ? ` · ${when} 기준` : ''}</button>`;
+  }
   if (gcal.status === 'connecting') return `<button class="eq-add-btn gcal-btn" disabled>📱 연결 중…</button>`;
   return `<button class="eq-add-btn gcal-btn" data-action="gcal-connect">📱 휴대폰 캘린더 연결</button>`;
 }
