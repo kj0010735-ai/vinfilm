@@ -792,6 +792,30 @@ function gcalExtraCals() {
   try { const raw = localStorage.getItem(GCAL_LS.extra); if (raw) return JSON.parse(raw); } catch (e) {}
   return gcal.calendars.filter(c => HISPLAN_RE.test(c.name)).map(c => c.id);
 }
+/* 아이폰 '구독 캘린더' 방식(HISPLAN과 같은 방식): Google의 VINFILM STUDIO 캘린더가 주는 "iCal 형식의 비공개 주소"를
+   아이폰이 구독하게 한다 — 아이폰에 Google 계정을 추가하지 않아도 된다. 주소는 비밀 링크라 공개 저장소 코드엔 넣지 않고
+   Firestore appSettings/gcal(owner 전용)에 둬서 컴퓨터에서 붙여넣은 걸 아이폰에서 그대로 쓴다. */
+const GCAL_ICS_LS = 'vinfilm-gcal-ics';
+gcal.icsUrl = (() => { try { return localStorage.getItem(GCAL_ICS_LS) || ''; } catch (e) { return ''; } })();
+function gcalIcsValid(u) { return /^https:\/\/calendar\.google\.com\/calendar\/ical\/[^\s]+\.ics$/.test(u || ''); }
+function gcalSettingsUrl() {
+  try { if (gcal.calId) return 'https://calendar.google.com/calendar/u/0/r/settings/calendar/' + btoa(gcal.calId).replace(/=+$/, ''); } catch (e) {}
+  return 'https://calendar.google.com/calendar/u/0/r/settings';
+}
+async function gcalLoadIcs() {
+  if (IS_LOCAL_DEV || typeof firebase === 'undefined' || !firebase.firestore) return;
+  try {
+    const d = await firebase.firestore().collection('appSettings').doc('gcal').get();
+    const u = d.exists ? (d.data().icsUrl || '') : '';
+    if (u && u !== gcal.icsUrl) { gcal.icsUrl = u; try { localStorage.setItem(GCAL_ICS_LS, u); } catch (e) {} render(); }
+  } catch (e) {}
+}
+function gcalSaveIcs(u) {
+  gcal.icsUrl = u;
+  try { localStorage.setItem(GCAL_ICS_LS, u); } catch (e) {}
+  if (IS_LOCAL_DEV || typeof firebase === 'undefined' || !firebase.firestore) return;
+  firebase.firestore().collection('appSettings').doc('gcal').set({ icsUrl: u, updatedAt: Date.now() }, { merge: true }).catch(() => {});
+}
 function gcalSourceLabel(ev) { return ev.tag === 'hisplan' ? 'HISPLAN' : '📱 휴대폰'; }
 (function gcalLoad() {
   try {
@@ -997,8 +1021,13 @@ function gcalModalHtml() {
         <ol class="gcal-steps">
           <li class="${on ? 'done' : ''}"><b>Google 계정 연결</b><span>이 사이트에 로그인한 Google 계정으로 캘린더 권한을 허용해요.</span>
             ${on ? `<em>연결됨${last ? ` · 마지막 동기화 ${pad2(last.getHours())}:${pad2(last.getMinutes())}` : ''}</em>` : `<button class="eq-modal-submit" data-action="gcal-connect" style="margin-top:10px;">Google 계정으로 연결</button>`}</li>
-          <li><b>아이폰에 같은 Google 계정 추가</b><span>아이폰 <b>설정 → 캘린더 → 계정 → 계정 추가 → Google</b>로 ${esc((typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser && firebase.auth().currentUser.email) || '같은 계정')}을 추가하고 <b>캘린더</b>를 켜요. 캘린더 앱의 "캘린더" 목록에 <b>VINFILM STUDIO</b>가 생기면 여기 일정이 그대로 보여요.</span></li>
-          <li><b>아이폰에서 만든 일정도 여기 보이게</b><span>아이폰에서 일정을 만들 때 캘린더를 <b>VINFILM STUDIO</b>로 고르면 여기 "📱 휴대폰" 일정으로 떠요. 자주 쓰면 <b>설정 → 캘린더 → 기본 캘린더</b>를 VINFILM STUDIO로 해두세요. 공휴일·개인 캘린더는 아래에서 켠 것만 보여요.</span></li>
+          <li class="${gcalIcsValid(gcal.icsUrl) ? 'done' : ''}"><b>아이폰 캘린더에 구독으로 추가 <small class="eq-hint">(HISPLAN과 같은 방식)</small></b>
+            <span>① <b>컴퓨터</b>에서 <a href="${gcalSettingsUrl()}" target="_blank" rel="noopener">Google 캘린더 → VINFILM STUDIO 설정</a>을 열고, <b>캘린더 통합 → iCal 형식의 비공개 주소</b>를 복사해 아래 칸에 붙여넣어요.<br>② <b>아이폰</b>에서 이 창을 열어 <b>📲 아이폰 캘린더에 추가</b> → <b>구독</b>을 누르면 끝. (주소는 한 번만 넣으면 아이폰에도 그대로 떠요)</span>
+            <input class="gcal-ics-input" data-role="gcal-ics" inputmode="url" autocomplete="off" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics" value="${esc(gcal.icsUrl)}" />
+            ${gcalIcsValid(gcal.icsUrl) ? `<a class="eq-modal-submit gcal-ics-btn" href="${esc(gcal.icsUrl.replace(/^https:/, 'webcal:'))}">📲 아이폰 캘린더에 추가</a>`
+              : gcal.icsUrl ? `<em class="gcal-ics-warn">"iCal 형식의 비공개 주소"(…/basic.ics)를 넣어주세요.</em>` : ''}
+            <span class="gcal-ics-alt">또는 아이폰 <b>설정 → 캘린더 → 계정 → 계정 추가 → Google</b>로 ${esc((typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser && firebase.auth().currentUser.email) || '같은 계정')}을 추가해도 돼요(아래 3번까지 쓰려면 이 방법).</span></li>
+          <li><b>아이폰에서 만든 일정도 여기 보이게 <small class="eq-hint">(Google 계정을 추가한 경우)</small></b><span>아이폰에서 일정을 만들 때 캘린더를 <b>VINFILM STUDIO</b>로 고르면 여기 "📱 휴대폰" 일정으로 떠요. 자주 쓰면 <b>설정 → 캘린더 → 기본 캘린더</b>를 VINFILM STUDIO로 해두세요. 공휴일·개인 캘린더는 아래에서 켠 것만 보여요.</span></li>
         </ol>
         ${gcalNoticeHtml()}
         ${on && gcal.calendars.length ? `<div class="eq-field"><label>함께 볼 다른 캘린더 <span class="eq-hint">(기본은 꺼짐)</span></label>
@@ -2656,7 +2685,7 @@ function bootApp() {
         }
         break;
       }
-      case 'gcal-open': gcal.modalOpen = true; render(); break;
+      case 'gcal-open': gcal.modalOpen = true; render(); gcalLoadIcs(); break;
       case 'gcal-close': gcal.modalOpen = false; render(); break;
       case 'gcal-close-backdrop': if (!e.target.closest('[data-stop-close]')) { gcal.modalOpen = false; render(); } break;
       case 'gcal-connect': gcalConnect(); break;
@@ -2964,6 +2993,8 @@ function bootApp() {
 
   /* text search (targeted refresh, no full render → keeps focus) */
   root.addEventListener('input', (e) => {
+    // 비공개 iCal 주소를 붙여넣으면 바로 저장하고 '아이폰 캘린더에 추가' 버튼을 띄운다
+    if (e.target.dataset && e.target.dataset.role === 'gcal-ics' && gcalIcsValid(e.target.value.trim()) && e.target.value.trim() !== gcal.icsUrl) { gcalSaveIcs(e.target.value.trim()); render(); return; }
     if (e.target.id === 'eqSearchInput') { S.eq.search = e.target.value; refreshEqGrid(); }
     else if (e.target.id === 'schedSearchInput') { S.sched.search = e.target.value; refreshSchedList(); }
     else if (e.target.id === 'projSearchInput') { S.proj.search = e.target.value; refreshProjList(); }
@@ -2997,6 +3028,7 @@ function bootApp() {
     if (e.target.dataset && e.target.dataset.role === 'sched-date-conflict') {
       const box = document.getElementById('schedConflict'); if (box) box.innerHTML = schedConflictHtml(e.target.value);
     }
+    if (e.target.dataset && e.target.dataset.role === 'gcal-ics') { gcalSaveIcs(e.target.value.trim()); render(); }
     if (e.target.dataset && e.target.dataset.role === 'gcal-extra') {
       const cur = new Set(gcalExtraCals());
       if (e.target.checked) cur.add(e.target.value); else cur.delete(e.target.value);
@@ -3880,6 +3912,11 @@ document.addEventListener('DOMContentLoaded', () => {
   .gcal-steps li::before { content:counter(step); position:absolute; left:14px; top:12px; width:22px; height:22px; border-radius:50%; background:var(--accent-soft); color:var(--accent); font-weight:800; font-size:12px; display:flex; align-items:center; justify-content:center; }
   .gcal-steps li.done::before { content:'✓'; background:var(--accent); color:#fff; }
   .gcal-steps li > b { display:block; color:var(--text); font-size:13.5px; margin-bottom:3px; }
+  .gcal-steps li a { color:var(--accent); font-weight:700; }
+  .gcal-ics-input { display:block; width:100%; box-sizing:border-box; margin:10px 0 0; padding:9px 11px; border:1px solid var(--border); border-radius:10px; background:var(--surface); color:var(--text); font-family:var(--font-body); font-size:12px; }
+  .gcal-steps li a.gcal-ics-btn { display:block; box-sizing:border-box; width:100%; text-align:center; text-decoration:none; margin-top:10px; color:#fff; }
+  .gcal-ics-warn { display:block; margin-top:6px; color:#e0a63c; font-style:normal; }
+  .gcal-ics-alt { display:block; margin-top:10px; font-size:11.5px; color:var(--text-faint); }
   .gcal-steps li > span { display:block; }
   .gcal-steps li > em { display:block; font-style:normal; color:var(--accent); font-weight:700; margin-top:6px; }
 

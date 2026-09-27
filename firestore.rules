@@ -21,6 +21,8 @@ service cloud.firestore {
     match /todayTasks/{id} { allow read, write: if isOwner(); }
     match /notes/{id} { allow read, write: if isOwner(); }
     match /shortcuts/{id} { allow read, write: if isOwner(); }
+    // 앱 설정(예: 아이폰 구독용 Google 캘린더 비공개 iCal 주소) — 비밀 링크라 owner만.
+    match /appSettings/{id} { allow read, write: if isOwner(); }
 
     // STUDIO FINANCE 통합장부(ledger/index.html) — 재무 데이터라 owner만 읽고 쓸 수 있다.
     match /ledgerEntries/{id} { allow read, write: if isOwner(); }
