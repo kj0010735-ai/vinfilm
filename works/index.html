@@ -40,6 +40,15 @@ function colorMarkerStyle(color, basePadding) {
   if (!color) return '';
   return `--row-tint:${color}22; border-left:6px solid ${color}; padding-left:${basePadding - 6}px;`;
 }
+/* 메모 속 http(s) 주소를 눌러서 바로 열리는 링크로 — esc() 한 뒤에 감싸므로 안전. 링크를 눌러도 카드 클릭(data-action)이
+   같이 실행되지 않게 stopPropagation. 끝에 붙은 문장부호/괄호는 링크에서 뺀다. */
+function linkify(text) {
+  return esc(text).replace(/https?:\/\/(?:(?!&quot;|&#39;|&lt;|&gt;)[^\s<>"'])+/g, (m) => {
+    const trail = (m.match(/[).,;:!?\]}]+$/) || [''])[0];
+    const url = trail ? m.slice(0, -trail.length) : m;
+    return `<a class="memo-link" href="${url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${url}</a>${trail}`;
+  });
+}
 function pad2(n) { return String(n).padStart(2, '0'); }
 function todayStr() { const d = new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
 const WEEKDAYS_KO = ['일','월','화','수','목','금','토'];
@@ -593,7 +602,7 @@ function eqDetailModalHtml() {
         ${item.cables ? `<div class="eq-detail-row"><span>케이블</span><b>${esc(item.cables)}</b></div>` : ''}
         ${bag ? `<div class="eq-detail-row"><span>보관 가방</span><b>${esc(bag.name)}</b></div>` : ''}
         ${companions.length ? `<div class="eq-detail-row"><span>동반 장비</span><b>${companions.map(c => esc(c.name)).join(', ')}</b></div>` : ''}
-        ${item.notes ? `<div class="eq-detail-notes">${esc(item.notes)}</div>` : ''}
+        ${item.notes ? `<div class="eq-detail-notes">${linkify(item.notes)}</div>` : ''}
         ${item.updatedBy ? `<div class="eq-detail-row"><span>마지막 수정</span><b>${esc(item.updatedBy)} · ${formatUpdated(item.updatedAt)}</b></div>` : ''}
         <div class="eq-subitems eq-subitems-in-detail">
           ${children.length > 0 ? `
@@ -1160,7 +1169,7 @@ function gcalDetailModalHtml() {
         <div class="eq-detail-row"><span>날짜</span><b>${dateLabel(ev.date)}${ev.endDate && ev.endDate !== ev.date ? ' – ' + dateLabel(ev.endDate) : ''}${ev.time ? ' ' + esc(ev.time) : ' (종일)'}</b></div>
         <div class="eq-detail-row"><span>캘린더</span><b><span class="eq-status-dot" style="background:${ev.tag === 'hisplan' ? 'var(--sched-hisplan)' : 'var(--sched-calendar)'}"></span> ${ev.tag === 'hisplan' ? 'HISPLAN' : '📱'} ${esc(ev.calName || '휴대폰')}</b></div>
         ${ev.location ? `<div class="eq-detail-row"><span>장소</span><b>${esc(ev.location)}</b></div>` : ''}
-        ${ev.memo ? `<div class="eq-detail-row"><span>메모</span><b style="white-space:pre-wrap;">${esc(ev.memo)}</b></div>` : ''}
+        ${ev.memo ? `<div class="eq-detail-row"><span>메모</span><b style="white-space:pre-wrap;">${linkify(ev.memo)}</b></div>` : ''}
         <p class="eq-hint" style="margin:14px 0 10px;">휴대폰(Google) 캘린더의 일정이라 여기서는 보기만 할 수 있어요.</p>
         ${ev.htmlLink ? `<a class="eq-modal-submit" style="display:block; text-align:center; text-decoration:none;" href="${esc(ev.htmlLink)}" target="_blank" rel="noopener">Google 캘린더에서 열기</a>` : ''}
       </div>
@@ -1356,7 +1365,7 @@ function schedGroupsHtml() {
             </div>
             ${item.location ? `<div class="sched-meta">📍 ${esc(item.location)}</div>` : ''}
             ${item.contact ? `<div class="sched-meta">👤 ${esc(item.contact)}</div>` : ''}
-            ${item.memo ? `<div class="sched-memo">${esc(item.memo)}</div>` : ''}
+            ${item.memo ? `<div class="sched-memo">${linkify(item.memo)}</div>` : ''}
           </div>
           <div class="sched-row-actions">
             <button class="eq-icon-btn" data-action="sched-open-edit" data-id="${item.id}">✎</button>
@@ -1430,7 +1439,7 @@ function schedDetailModalHtml() {
         <div class="eq-detail-row"><span>카테고리</span><b><span class="eq-status-dot" style="background:var(--sched-${item.category})"></span> ${esc(catLabel)}${item.source === 'calendar' ? ' <span class="sched-badge-cal">캘린더</span>' : ''}</b></div>
         ${item.location ? `<div class="eq-detail-row"><span>장소</span><b>${esc(item.location)}</b></div>` : ''}
         ${item.contact ? `<div class="eq-detail-row"><span>담당자</span><b>${esc(item.contact)}</b></div>` : ''}
-        ${item.memo ? `<div class="eq-detail-notes">${esc(item.memo)}</div>` : ''}
+        ${item.memo ? `<div class="eq-detail-notes">${linkify(item.memo)}</div>` : ''}
         ${linkedProject ? `<div class="eq-detail-row"><span>관련 프로젝트</span><b><a href="#" data-action="today-open-project-detail" data-id="${linkedProject.id}">${esc(linkedProject.title)}</a></b></div>` : ''}
         <div class="eq-detail-actions">
           ${item.source !== 'calendar' ? `<button class="eq-modal-submit" data-action="sched-detail-edit" data-id="${item.id}">수정하기</button>` : ''}
@@ -1719,7 +1728,7 @@ function projParentSummaryHtml(p) {
           <span class="proj-row-pill" data-status-menu-id="${p.id}" style="background:${col.color}26; color:${col.color}; cursor:context-menu;"><span class="proj-row-dot" style="background:${col.color};"></span>${col.label}</span>
           ${ptype ? `<span class="proj-row-pill" style="background:var(--border); color:var(--text-dim); margin-left:6px;">${ptype.icon} ${ptype.label}</span>` : ''}
           <div class="proj-parent-meta">${esc(meta)}</div>
-          ${p.notes ? `<div class="proj-parent-notes">${esc(p.notes)}</div>` : ''}
+          ${p.notes ? `<div class="proj-parent-notes">${linkify(p.notes)}</div>` : ''}
           ${linkedSched
             ? `<button class="proj-sched-link" data-action="proj-view-schedule" data-id="${p.id}">📅 ${dateLabel(linkedSched.date)} ${linkedSched.time || ''} ${linkedSched.location ? '· ' + esc(linkedSched.location) : ''}</button>`
             : `<button class="proj-sched-link proj-sched-link-add" data-action="proj-create-schedule" data-id="${p.id}">+ 촬영 스케줄 만들기</button>`}
@@ -1967,7 +1976,7 @@ function sharedParentSummaryHtml(p) {
           <span class="proj-row-pill" data-shared-status-menu-id="${p.id}" style="background:${st.color}26; color:${st.color}; cursor:context-menu;"><span class="proj-row-dot" style="background:${st.color};"></span>${st.label}</span>
           <div class="proj-parent-meta">${esc(meta)}</div>
           ${p.link ? `<div class="proj-parent-meta"><a href="${esc(p.link)}" target="_blank" rel="noopener">${esc(p.link)}</a></div>` : ''}
-          ${p.notes ? `<div class="proj-parent-notes">${esc(p.notes)}</div>` : ''}
+          ${p.notes ? `<div class="proj-parent-notes">${linkify(p.notes)}</div>` : ''}
           ${p.updatedBy ? `<div class="proj-parent-meta">마지막 수정 · ${esc(p.updatedBy)} · ${formatUpdated(p.updatedAt)}</div>` : ''}
         </div>
         <div style="display:flex; gap:4px; flex-shrink:0;">
@@ -2375,7 +2384,7 @@ function todayCardHtml(item) {
         <h3 class="today-card-title">${esc(item.title)}</h3>
         ${item.location ? `<div class="today-card-row">📍 ${esc(item.location)}</div>` : ''}
         ${item.contact ? `<div class="today-card-row">👤 ${esc(item.contact)}</div>` : ''}
-        ${item.memo ? `<div class="today-card-memo">${esc(item.memo)}</div>` : ''}
+        ${item.memo ? `<div class="today-card-memo">${linkify(item.memo)}</div>` : ''}
       </div>
       <div class="today-card-actions">
         ${item.source === 'google' ? `<button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border)" data-action="gcal-open-detail" data-id="${esc(item.id)}">📱 휴대폰 일정</button>` : linkedShoot
@@ -2419,7 +2428,7 @@ function projectDueCardHtml(p) {
       <div class="today-card-body">
         <div class="sched-title-row"><span class="sched-title">${esc(p.title)}</span><span class="proj-due-today-badge">오늘 마감</span></div>
         ${p.client ? `<div class="today-card-row">${esc(p.client)}</div>` : ''}
-        ${p.notes ? `<div class="today-card-memo">${esc(p.notes)}</div>` : ''}
+        ${p.notes ? `<div class="today-card-memo">${linkify(p.notes)}</div>` : ''}
       </div>
       <div class="today-card-actions">
         <button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border)" data-action="today-open-project">프로젝트 보기</button>
@@ -2557,7 +2566,7 @@ function noteCardHtml(note) {
         </div>` : ''}
       <button class="task-note-delete" data-action="note-confirm-delete" data-id="${note.id}">✕</button>
       ${note.title ? `<div class="note-card-title">${esc(note.title)}</div>` : ''}
-      <div class="task-note-text">${esc(note.content)}</div>
+      <div class="task-note-text">${linkify(note.content)}</div>
     </div>`;
 }
 function noteModalHtml() {
@@ -4985,6 +4994,8 @@ document.addEventListener('DOMContentLoaded', () => {
   .sign-pad-actions button { background:none; border:1px solid var(--border); border-radius:8px; padding:4px 10px; color:var(--text-dim); font-family:var(--font-body); cursor:pointer; }
   .biz-sign-current { display:block; max-height:70px; margin:0 0 8px; background:#fff; border-radius:8px; border:1px solid var(--border); padding:4px 10px; }
   @media (max-width: 720px) { .c-article textarea { font-size:16px; } }
+  .memo-link { color:var(--accent); text-decoration:underline; text-underline-offset:2px; overflow-wrap:anywhere; word-break:break-all; }
+  .memo-link:hover { opacity:.8; }
 </style>
 </body>
 </html>
