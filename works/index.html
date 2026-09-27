@@ -819,6 +819,9 @@ async function gcalConnect() {
     try { localStorage.setItem(GCAL_LS.token, JSON.stringify({ token, exp: gcal.exp })); localStorage.setItem(GCAL_LS.enabled, '1'); } catch (e) {}
     gcal.status = 'on';
     await gcalSync(true);
+    try {
+      if (!localStorage.getItem('vinfilm-gcal-setup-shown') && gcal.msg !== 'api-disabled') { localStorage.setItem('vinfilm-gcal-setup-shown', '1'); gcal.modalOpen = true; }
+    } catch (e) {}
   } catch (err) {
     gcal.status = localStorage.getItem(GCAL_LS.enabled) === '1' ? 'expired' : 'off';
     if (err && err.code === 'auth/popup-closed-by-user') gcalSetMsg('연결을 취소했어요.');
@@ -941,14 +944,14 @@ function gcalEventsByDate() {
 }
 function gcalButtonHtml() {
   if (gcal.status === 'on') return `<button class="eq-add-btn gcal-btn is-on" data-action="gcal-open">📱 휴대폰 캘린더 연결됨${gcal.busy ? ' · 동기화 중…' : ''}</button>`;
-  if (gcal.status === 'expired') return `<button class="eq-add-btn gcal-btn is-warn" data-action="gcal-connect">📱 휴대폰 캘린더 다시 연결</button>`;
+  if (gcal.status === 'expired') return `<button class="eq-add-btn gcal-btn is-warn" data-action="gcal-connect">📱 탭해서 동기화</button>`;
   if (gcal.status === 'connecting') return `<button class="eq-add-btn gcal-btn" disabled>📱 연결 중…</button>`;
-  return `<button class="eq-add-btn gcal-btn" data-action="gcal-open">📱 휴대폰 캘린더 연결</button>`;
+  return `<button class="eq-add-btn gcal-btn" data-action="gcal-connect">📱 휴대폰 캘린더 연결</button>`;
 }
 function gcalNoticeHtml() {
   if (gcal.msg === 'api-disabled') return `<div class="gcal-notice is-warn">Google 캘린더 기능이 아직 꺼져 있어요. <a href="${GCAL_ENABLE_URL}" target="_blank" rel="noopener">여기서 "사용" 버튼</a>을 한 번 누른 뒤 1~2분 기다렸다가 다시 연결해주세요.</div>`;
   if (gcal.msg) return `<div class="gcal-notice">${esc(gcal.msg)}</div>`;
-  if (gcal.status === 'expired') return `<div class="gcal-notice">보안상 Google 연결은 1시간마다 갱신이 필요해요. "다시 연결"을 누르면 휴대폰 일정이 다시 보이고, 그동안 바뀐 일정도 한 번에 반영돼요.</div>`;
+  if (gcal.status === 'expired') return '';
   return '';
 }
 function gcalModalHtml() {
@@ -2469,6 +2472,7 @@ function bootApp() {
         window.scrollTo(0, 0);
         render();
         if (id === 'schedule' && gcalTokenValid()) gcalSync(false);
+        else if (id === 'schedule' && !IS_LOCAL_DEV && localStorage.getItem(GCAL_LS.enabled) === '1' && gcal.msg !== 'api-disabled') gcalConnect();
         break;
       case 'app-refresh': el.disabled = true; el.textContent = '확인 중…'; refreshToLatest(); break;
       case 'open-settings': S.settingsOpen = true; S.moreOpen = false; render(); break;
