@@ -138,6 +138,16 @@
 - **`vinfilm-studio-app`은 Standard 등급 Firestore라 자동 백업/시점 복구(PITR)가 없다.** 한 번 지워진 데이터는 서버 쪽에서 되돌릴 방법이 없으니, 실제 데이터가 걸린 컬렉션(특히 `sharedProjects`, `projects`처럼 게스트도 쓰는 것)에 테스트/더미 데이터를 넣는 작업은 각별히 조심할 것.
 - **`works/index.html`은 로컬(`localhost`/`127.0.0.1`/`file://`)로 열면 `IS_LOCAL_DEV`가 켜지면서 클라우드 동기화 자체가 꺼진다** (`initCloudSync()` 맨 위에서 조기 리턴, `window.cloudSyncReady`가 아예 안 켜짐 → `pushToCloud`가 항상 no-op). 실제 배포 도메인에서만 정상 동기화됨. 이건 안전장치이지 회피 수단이 아니다 — 예전에 `bootApp()`을 콘솔에서 직접 호출해 로그인 게이트를 우회하고 로컬 서버로 프로젝트/공유 프로젝트 탭을 테스트하다가, `saveProjItems`/`saveSharedProjItems`가 실제 운영 Firestore와 diff-sync(`pushToCloud`)를 태워서 실제 등록된 데이터를 지워버린 사고가 있었다 (로그인 여부와 무관하게 `initCloudSync()`가 켜졌고, `sharedProjects`는 `allow read, write: if true`라 막아주지도 않았음). 지금은 로컬에서 아무리 `saveXxxItems([])` 같은 걸 실행해도 `IS_LOCAL_DEV` 덕분에 localStorage만 바뀌고 실제 데이터는 안전하다 — 다만 이 안전장치를 믿고 방심하지 말고, 실제 배포 도메인에서 직접 확인해야 할 때는 되도록 읽기만 하고 쓰기 테스트는 피할 것.
 
+## 협업자별 공유 공간 — works/index.html?c={id} (현재 방식)
+
+"협업자마다 다른 프로젝트를 보여주고, 대표님은 전부, 협업자는 자기 것만(캘린더 포함)" 요청으로 만든 구조. **아래 옛 `?guest=1` 공용 링크 설명보다 이게 우선** — 규칙이 바뀌어 `?guest=1`로는 이제 collabId 없는 공유 프로젝트를 못 읽는다(장비목록만).
+- **공간**: Firestore `collabs/{32자 hex}` = `{id, name, mode:'login'|'link', members:[소문자 이메일], showEquipment}`. id가 곧 링크 `works/?c={id}`(`crypto.getRandomValues`로 생성). 대표님은 공유 프로젝트 탭 "👥 협업자 관리"에서 만들기·수정·📤 링크 보내기(navigator.share)·🔗 복사·↻ 링크 새로 발급(새 id로 옮기고 그 공간 항목의 collabId 일괄 변경, 옛 링크 즉시 무효)·삭제(항목은 지우지 않고 "나만 보기"로). 장기 협업자는 🔐 구글 로그인(members 이메일만), 단기는 🔗 링크만(로그인 없이).
+- **배정**: `sharedProjects.collabId`, `schedule.collabId`. 공유 프로젝트 등록/수정 창의 "👥 볼 수 있는 협업자"(''=나만 보기; 하위 항목은 부모 공간을 따르고, 공간을 바꾸면 하위 트리도 같이 바뀜, 폴더 이동 시 대상 부모의 공간을 따름), 일정 등록 창의 "👥 협업자에게 공유". 대표님 공유 탭엔 협업자 필터 칩 + 행에 "👥 이름/나만 보기" 태그, 캘린더 칩엔 👥, 일정 상세에 "공유" 줄.
+- **규칙**(`collabOk(cid)`: 32자 + collabs 문서 존재 + (mode=='link' 또는 로그인 이메일.lower() ∈ members)): `sharedProjects`/`schedule`은 isOwner 또는 collabOk(collabId)일 때 읽기/쓰기, 협업자는 collabId를 못 바꿈. `collabs`는 get만 공개 조건부, list/쓰기는 owner. 로그인 안 한 별도 Firebase 앱으로 확인함: 자기 공간 프로젝트·일정·공간정보 ✓, 전체 목록/대표님 일정/다른 공간 추측/협업자 목록/projects 전부 permission-denied.
+- **협업자 화면**(`COLLAB_MODE`, GUEST_MODE도 켜짐): `collabBoot()`가 공간 문서를 먼저 읽고(실패하면 로그인 게이트 → 로그인 후 재시도 → 그래도 안 되면 "접근 권한이 없어요"), 탭은 공유 프로젝트·캘린더(+showEquipment면 장비목록). 클라우드는 `where('collabId','==',id)` 쿼리로 자기 공간만 구독, 저장 시 collabId 자동 부착(`saveSharedProjItems`/`saveSchedItems`). localStorage 키는 `LS_NS`(`-c{id 앞 8자}`)로 분리.
+- **⚠️ 대표님 기기에서 협업자 링크를 열어도 안전하게**: GUEST_MODE에선 대표님 전용 localStorage(projItems/shoots/presets/tasks/notes/quotes/contracts)를 아예 읽지 않고, `extEvents()`(휴대폰·HISPLAN)·`projDueEvents()`는 빈 배열, **`gcalSync`/`gcalPush`/`gcalSchedulePush`는 GUEST_MODE면 즉시 return** — 안 막으면 협업자 일정만 가진 schedItems로 푸시해서 대표님 Google 캘린더의 다른 일정을 지울 수 있다(실제로 발견해서 막음). 새 기능이 schedItems 전체를 어딘가로 보내거나 지우는 동작이면 GUEST_MODE 가드를 꼭 넣을 것.
+- 예시 공간 "단기팀 (예시)"(link, 장비목록 켬) + 예시 프로젝트/일정 1개씩이 운영 데이터에 있다(사용자 확인용) — 지워달라고 하면 협업자 관리에서 삭제 + 예시 항목 삭제.
+
 ## 외부 공유(guest) 모드 — works/index.html
 
 `works/index.html?guest=1`로 접속하면 `GUEST_MODE`가 켜지며 사이드바에 장비목록/공유 프로젝트 탭만 보이고, 로그인 절차도 없다.
