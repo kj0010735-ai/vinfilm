@@ -1771,6 +1771,14 @@ function projRowHtml(p) {
       </div>
     </div>`;
 }
+/* 목록 정렬: 'due'(기본, 완료는 아래 + 마감 임박순) / 'name'(제목 번호순). 폴더 안에서는 상위 프로젝트의 childSort에 저장해
+   기기 간 동기화되고, 최상위 목록은 이 기기 localStorage에 저장한다. */
+const PROJ_TOP_SORT_LS = 'vinfilm-proj-top-sort';
+function projSortMode() {
+  const pid = S.proj.currentParentId;
+  if (pid) { const p = projItems.find(x => x.id === pid); return (p && p.childSort) || 'due'; }
+  try { return localStorage.getItem(PROJ_TOP_SORT_LS) || 'due'; } catch (e) { return 'due'; }
+}
 function projListHtml() {
   const parentId = S.proj.currentParentId || null;
   const q = (S.proj.search || '').trim().toLowerCase();
@@ -1780,7 +1788,10 @@ function projListHtml() {
     if (!q) return true;
     return (p.title || '').toLowerCase().includes(q) || (p.client || '').toLowerCase().includes(q) || (p.notes || '').toLowerCase().includes(q);
   });
-  items = items.slice().sort((a, b) => {
+  if (projSortMode() === 'name') {
+    // 번호순: "나레이션 녹음/ 2"가 "…/ 10"보다 앞에 오도록 숫자를 숫자로 비교(상태·마감과 무관)
+    items = items.slice().sort((a, b) => (a.title || '').localeCompare(b.title || '', 'ko', { numeric: true }));
+  } else items = items.slice().sort((a, b) => {
     const aDone = a.status === 'done' ? 1 : 0, bDone = b.status === 'done' ? 1 : 0;
     if (aDone !== bDone) return aDone - bDone;
     if (!a.dueDate && !b.dueDate) return 0;
@@ -1842,7 +1853,8 @@ function renderProjectsTab() {
         <button class="eq-chip ${S.proj.statusFilter==='all'?'active':''}" data-action="proj-set-status-filter" data-id="all">전체 ${counts.all}</button>
         ${PROJECT_COLUMNS.map(col => `<button class="eq-chip ${S.proj.statusFilter===col.id?'active':''}" data-action="proj-set-status-filter" data-id="${col.id}"><span class="eq-chip-dot" style="background:${col.color}"></span>${col.label} ${counts[col.id]}</button>`).join('')}
       </div>
-      <button class="eq-chip ${S.proj.selectMode ? 'active' : ''}" style="margin-left:auto;" data-action="proj-toggle-select-mode">${S.proj.selectMode ? '선택 취소' : '☑ 선택'}</button>
+      <button class="eq-chip" style="margin-left:auto;" data-action="proj-toggle-sort" title="정렬 바꾸기">${projSortMode() === 'name' ? '↕ 번호순' : '↕ 마감순'}</button>
+      <button class="eq-chip ${S.proj.selectMode ? 'active' : ''}" data-action="proj-toggle-select-mode">${S.proj.selectMode ? '선택 취소' : '☑ 선택'}</button>
       <button class="eq-chip active" style="cursor:default;">마감일순</button>
     </div>
     ${breadcrumb.length ? `
@@ -3577,6 +3589,13 @@ function bootApp() {
           render();
         }
         break;
+      }
+      case 'proj-toggle-sort': {
+        const nextMode = projSortMode() === 'name' ? 'due' : 'name';
+        const pid = S.proj.currentParentId;
+        if (pid) saveProjItems(projItems.map(p => p.id === pid ? { ...p, childSort: nextMode } : p));
+        else { try { localStorage.setItem(PROJ_TOP_SORT_LS, nextMode); } catch (e2) {} }
+        render(); break;
       }
       case 'proj-create-schedule': S.sched.editingId = null; S.sched.linkProjectId = id; S.sched.modalOpen = true; render(); break;
       case 'proj-view-schedule': {
