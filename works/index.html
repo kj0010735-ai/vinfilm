@@ -1291,7 +1291,9 @@ function ymd(d) { return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.ge
 function parseYmd(str) { const [y,m,d] = str.split('-').map(Number); return new Date(y, m-1, d); }
 /* 프로젝트 마감일 → 캘린더/대시보드에 읽기 전용 '마감' 일정으로 표시 (완료된 프로젝트는 제외, 저장은 안 함 — 매번 projItems에서 만든다) */
 function projDueEvents() {
+  // 촬영처럼 마감 개념이 없는 프로젝트는 캘린더 일정과 마감일이 같은 날이면 '마감' 칩을 따로 띄우지 않는다(중복 방지)
   return projItems.filter(p => p.dueDate && p.status !== 'done')
+    .filter(p => { const s = p.scheduleId && schedItems.find(x => x.id === p.scheduleId); return !(s && s.date === p.dueDate); })
     .map(p => ({ id: 'due-' + p.id, projectId: p.id, source: 'due', title: p.title, date: p.dueDate, time: null, category: 'deadline' }));
 }
 function calFilteredItems() {
@@ -1457,12 +1459,12 @@ function projModalHtml() {
                 </label>`).join('')}
             </div>
           </div>
-          <div class="eq-field"><label>마감일</label><input type="date" name="dueDate" value="${esc(f.dueDate)}" /></div>
+          <div class="eq-field"><label>마감일 <span style="color:var(--text-faint); font-weight:400;">(촬영만 하는 건은 비워두세요)</span></label><input type="date" name="dueDate" value="${esc(f.dueDate)}" /></div>
           <div class="eq-field"><label>📅 캘린더 일정 <span style="color:var(--text-faint); font-weight:400;">(날짜를 넣으면 캘린더에 자동 등록, 비우면 빠짐)</span></label>
             <div class="eq-field-row">
               <div class="eq-field" style="margin:0; flex:1.4; min-width:0"><input type="date" name="schedDate" value="${esc(ls ? ls.date : '')}" data-role="sched-date-conflict" /></div>
               <div class="eq-field" style="margin:0; min-width:0"><input type="time" name="schedTime" value="${esc(ls && ls.time ? ls.time : '')}" title="시간(비우면 하루 종일)" /></div>
-              <div class="eq-field" style="margin:0; flex:0 0 84px"><select name="schedCategory">${SCHED_CATEGORIES.map(c => `<option value="${c.id}" ${(ls ? ls.category : 'shoot')===c.id?'selected':''}>${c.label}</option>`).join('')}</select></div>
+              <div class="eq-field" style="margin:0; flex:0 0 84px; display:flex"><select name="schedCategory" style="flex:1; height:auto">${SCHED_CATEGORIES.map(c => `<option value="${c.id}" ${(ls ? ls.category : 'shoot')===c.id?'selected':''}>${c.label}</option>`).join('')}</select></div>
             </div>
             <div id="schedConflict">${ls ? schedConflictHtml(ls.date) : ''}</div>
           </div>
