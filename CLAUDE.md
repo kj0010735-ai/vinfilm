@@ -65,7 +65,7 @@
 
 **모달이 옆으로 드래그되던 문제**: 종류/상태/색상 선택지의 숨긴 라디오(`.eq-status-option input`/`.eq-color-swatch input`)가 `position:absolute` + 전역 `input{width:100%}` 때문에 모달 폭만큼 넓어져 오른쪽으로 삐져나가 아이폰에서 수정 창이 좌우로 밀렸다 — 지금은 1px로 줄이고 `.eq-status-option{position:relative}`, `.eq-modal{overflow-x:hidden}`, 폰에서는 모달 입력칸 16px(아이폰 포커스 자동확대 방지) + `touch-action:pan-y`. 숨긴 입력을 새로 만들 때 폭을 꼭 줄일 것.
 
-**메모 속 링크는 눌러서 바로 열린다**: `linkify(text)`(esc 후 http(s) 주소만 `<a target=_blank>`로 감쌈, 끝의 `).,` 등은 링크에서 제외, `onclick` stopPropagation으로 카드 클릭 액션과 분리)를 상위 프로젝트 요약 카드·장비 상세·일정 상세/목록·대시보드 카드·메모장 카드·휴대폰 일정 상세의 메모에 쓴다. 단 리스트 행의 인라인 편집 메모(`contenteditable`)는 편집이 우선이라 그대로 텍스트. 새로 메모를 보여주는 곳엔 `esc()` 대신 `linkify()`를 쓸 것.
+**메모 속 링크는 눌러서 바로 열린다**: `linkify(text)`(esc 후 http(s) 주소만 `<a target=_blank>`로 감쌈, 끝의 `).,` 등은 링크에서 제외, `onclick` stopPropagation으로 카드 클릭 액션과 분리)를 상위 프로젝트 요약 카드·장비 상세·일정 상세/목록·대시보드 카드·메모장 카드·휴대폰 일정 상세의 메모에 쓴다. 리스트 행의 인라인 편집 메모(`contenteditable`)도 linkify로 그리는데, 편집 칸 안의 링크는 브라우저가 안 열어줘서 링크의 `openMemoLink()`가 contenteditable 안일 때만 `window.open`으로 직접 연다(저장은 textContent라 태그는 안 남음). 새로 메모를 보여주는 곳엔 `esc()` 대신 `linkify()`를 쓸 것.
 
 **긴 URL/메모가 화면 폭을 밀어내지 않게 할 것**: 아이폰에서 상위 프로젝트 메모에 들어간 공백 없는 긴 SharePoint 링크가 문서 폭을 넓혀서 페이지 전체가 절반 크기로 축소돼 보이고, 요약 카드의 ✎/✕가 카드 밖으로 밀려난 적이 있다. 그래서 `html,body{overflow-x:hidden}`, `.app-main{min-width:0; overflow-x:clip}`, 메모/링크/상세값에 `overflow-wrap:anywhere`를 걸어뒀고, 폰에서는 상위 요약 카드를 세로로 쌓아 버튼을 카드 안 오른쪽 아래에 둔다. 사용자 입력 텍스트를 새로 보여주는 곳에도 같은 줄바꿈 처리를 할 것.
 

@@ -46,8 +46,14 @@ function linkify(text) {
   return esc(text).replace(/https?:\/\/(?:(?!&quot;|&#39;|&lt;|&gt;)[^\s<>"'])+/g, (m) => {
     const trail = (m.match(/[).,;:!?\]}]+$/) || [''])[0];
     const url = trail ? m.slice(0, -trail.length) : m;
-    return `<a class="memo-link" href="${url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${url}</a>${trail}`;
+    return `<a class="memo-link" href="${url}" target="_blank" rel="noopener" onclick="openMemoLink(event)">${url}</a>${trail}`;
   });
+}
+/* 편집 가능한(contenteditable) 행 메모 안의 링크는 브라우저가 열어주지 않아서 직접 연다. 저장은 textContent라 링크 태그는 저장되지 않음 */
+function openMemoLink(e) {
+  e.stopPropagation();
+  const a = e.target.closest && e.target.closest('a.memo-link');
+  if (a && a.closest('[contenteditable="true"]')) { e.preventDefault(); window.open(a.href, '_blank', 'noopener'); }
 }
 function pad2(n) { return String(n).padStart(2, '0'); }
 function todayStr() { const d = new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
@@ -1774,7 +1780,7 @@ function projRowHtml(p) {
         <input type="date" class="proj-row-due-input" value="${esc(p.dueDate || '')}" data-role="proj-due-inline" data-id="${p.id}" onclick="event.stopPropagation()" />
         ${dday ? `<div class="proj-row-dday" style="background:${ddayBg}; color:${ddayColor};">${dday.text}</div>` : ''}
       </div>
-      <div class="proj-row-note" contenteditable="true" data-role="proj-notes-inline" data-id="${p.id}" onclick="event.stopPropagation()">${esc(p.notes) || ''}</div>
+      <div class="proj-row-note" contenteditable="true" data-role="proj-notes-inline" data-id="${p.id}" onclick="openMemoLink(event)">${linkify(p.notes || '')}</div>
       <div class="proj-row-actions-cell">
         <span class="proj-row-chevron">›</span>
       </div>
@@ -2012,7 +2018,7 @@ function sharedRowHtml(p) {
         <input type="date" class="proj-row-due-input" value="${esc(p.dueDate || '')}" data-role="shared-due-inline" data-id="${p.id}" onclick="event.stopPropagation()" />
         ${dday ? `<div class="proj-row-dday" style="background:${ddayBg}; color:${ddayColor};">${dday.text}</div>` : ''}
       </div>
-      <div class="proj-row-note" contenteditable="true" data-role="shared-notes-inline" data-id="${p.id}" onclick="event.stopPropagation()">${esc(p.notes) || ''}</div>
+      <div class="proj-row-note" contenteditable="true" data-role="shared-notes-inline" data-id="${p.id}" onclick="openMemoLink(event)">${linkify(p.notes || '')}</div>
       <div class="proj-row-actions-cell">
         <span class="proj-row-chevron">›</span>
       </div>
