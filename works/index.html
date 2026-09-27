@@ -775,9 +775,11 @@ function visibleSchedItems() { return schedItems.filter(it => it.source !== 'cal
    권한은 Firebase Google 로그인 팝업에 calendar 범위를 추가해서 받고(액세스 토큰 1시간 유효), 만료되면 다시 연결 버튼을 누르면 된다.
    로컬(IS_LOCAL_DEV)에서는 실제 Google 캘린더에 쓰지 않도록 꺼둔다. */
 const GCAL_API = 'https://www.googleapis.com/calendar/v3';
-const GCAL_LS = { token: 'vinfilm-gcal-token', enabled: 'vinfilm-gcal-enabled', calId: 'vinfilm-gcal-calid', pushed: 'vinfilm-gcal-pushed' };
+const GCAL_LS = { token: 'vinfilm-gcal-token', enabled: 'vinfilm-gcal-enabled', calId: 'vinfilm-gcal-calid', pushed: 'vinfilm-gcal-pushed', extra: 'vinfilm-gcal-extra-cals' };
 const GCAL_CAL_NAME = 'VINFILM STUDIO';
-const gcal = { token: null, exp: 0, calId: null, events: [], status: 'off', msg: '', lastSync: 0, busy: false, modalOpen: false, detailId: null };
+const gcal = { token: null, exp: 0, calId: null, events: [], status: 'off', msg: '', lastSync: 0, busy: false, modalOpen: false, detailId: null, calendars: [] };
+/* 가져와서 보여줄 캘린더: 기본은 "VINFILM STUDIO" 캘린더만(아이폰에서 이 캘린더에 만든 일정). 공휴일/개인 캘린더는 설정에서 켠 것만. */
+function gcalExtraCals() { try { return JSON.parse(localStorage.getItem(GCAL_LS.extra) || '[]'); } catch (e) { return []; } }
 (function gcalLoad() {
   try {
     const t = JSON.parse(localStorage.getItem(GCAL_LS.token) || 'null');
@@ -897,7 +899,10 @@ async function gcalPull() {
   const min = new Date(now); min.setMonth(now.getMonth() - 3);
   const max = new Date(now); max.setMonth(now.getMonth() + 9);
   const list = await gapiFetch('/users/me/calendarList?maxResults=250');
-  const cals = (list.items || []).filter(c => c.id !== gcal.calId && c.selected !== false && !c.deleted);
+  const all = (list.items || []).filter(c => !c.deleted);
+  gcal.calendars = all.filter(c => c.id !== gcal.calId).map(c => ({ id: c.id, name: c.summaryOverride || c.summary || c.id, holiday: /#holiday@group\.v\.calendar\.google\.com$/.test(c.id) }));
+  const extra = gcalExtraCals();
+  const cals = all.filter(c => c.id === gcal.calId || extra.includes(c.id));
   const out = [];
   for (const c of cals) {
     let data;
@@ -905,6 +910,7 @@ async function gcalPull() {
     catch (e) { if (e.message === 'expired' || e.message === 'api-disabled') throw e; continue; }
     for (const ev of (data.items || [])) {
       if (ev.status === 'cancelled' || !ev.start) continue;
+      if (c.id === gcal.calId && ev.id && ev.id.startsWith('vf')) continue; // 이 앱이 올린 일정은 이미 화면에 있음
       let date, time = null, endDate;
       if (ev.start.date) { date = ev.start.date; endDate = ev.end && ev.end.date ? addDaysYmd(ev.end.date, -1) : date; }
       else { const s = new Date(ev.start.dateTime); date = ymd(s); time = `${pad2(s.getHours())}:${pad2(s.getMinutes())}`; const e2 = ev.end && ev.end.dateTime ? new Date(ev.end.dateTime) : s; endDate = ymd(e2); }
@@ -966,9 +972,11 @@ function gcalModalHtml() {
           <li class="${on ? 'done' : ''}"><b>Google 계정 연결</b><span>이 사이트에 로그인한 Google 계정으로 캘린더 권한을 허용해요.</span>
             ${on ? `<em>연결됨${last ? ` · 마지막 동기화 ${pad2(last.getHours())}:${pad2(last.getMinutes())}` : ''}</em>` : `<button class="eq-modal-submit" data-action="gcal-connect" style="margin-top:10px;">Google 계정으로 연결</button>`}</li>
           <li><b>아이폰에 같은 Google 계정 추가</b><span>아이폰 <b>설정 → 캘린더 → 계정 → 계정 추가 → Google</b>로 ${esc((typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser && firebase.auth().currentUser.email) || '같은 계정')}을 추가하고 <b>캘린더</b>를 켜요. 캘린더 앱의 "캘린더" 목록에 <b>VINFILM STUDIO</b>가 생기면 여기 일정이 그대로 보여요.</span></li>
-          <li><b>아이폰에서 만든 일정도 여기 보이게</b><span>아이폰 <b>설정 → 캘린더 → 기본 캘린더</b>를 Google 계정의 캘린더로 바꿔두면, 아이폰에서 새로 만든 일정이 이 캘린더에 "📱 휴대폰" 색으로 함께 떠요. (iCloud 캘린더에 만든 일정은 Google을 거치지 않아서 안 보여요.)</span></li>
+          <li><b>아이폰에서 만든 일정도 여기 보이게</b><span>아이폰에서 일정을 만들 때 캘린더를 <b>VINFILM STUDIO</b>로 고르면 여기 "📱 휴대폰" 일정으로 떠요. 자주 쓰면 <b>설정 → 캘린더 → 기본 캘린더</b>를 VINFILM STUDIO로 해두세요. 공휴일·개인 캘린더는 아래에서 켠 것만 보여요.</span></li>
         </ol>
         ${gcalNoticeHtml()}
+        ${on && gcal.calendars.length ? `<div class="eq-field"><label>함께 볼 다른 캘린더 <span class="eq-hint">(기본은 꺼짐)</span></label>
+          <div class="gcal-cal-list">${gcal.calendars.map(c => `<label class="gcal-cal-row"><input type="checkbox" data-role="gcal-extra" value="${esc(c.id)}" ${gcalExtraCals().includes(c.id) ? 'checked' : ''} /><span>${esc(c.name)}${c.holiday ? ' <small>공휴일</small>' : ''}</span></label>`).join('')}</div></div>` : ''}
         ${on ? `<div style="display:flex; gap:8px; margin-top:6px;"><button class="eq-modal-submit eq-modal-submit-secondary" data-action="gcal-sync-now" style="margin:0;">${gcal.busy ? '동기화 중…' : '지금 동기화'}</button></div>
           <button class="eq-modal-delete-link" data-action="gcal-disconnect">연결 해제 (Google 캘린더의 일정은 그대로 남아요)</button>` : ''}
       </div>
@@ -2937,6 +2945,13 @@ function bootApp() {
       if (file) handlePhotoFile(file);
       e.target.value = '';
     }
+    if (e.target.dataset && e.target.dataset.role === 'gcal-extra') {
+      const cur = new Set(gcalExtraCals());
+      if (e.target.checked) cur.add(e.target.value); else cur.delete(e.target.value);
+      try { localStorage.setItem(GCAL_LS.extra, JSON.stringify([...cur])); } catch (e2) {}
+      if (gcalTokenValid()) { gcal.busy = false; gcalPull().then(render).catch(() => {}); }
+      return;
+    }
     if (e.target.dataset && e.target.dataset.role === 'confirm-toggle') {
       const shoot = shoots.find(s => s.id === S.shoot.selectedShootId);
       if (!shoot) return;
@@ -3906,6 +3921,12 @@ document.addEventListener('DOMContentLoaded', () => {
     .proj-breadcrumb { border-radius:12px; font-size:13.5px; }
     .eq-header { align-items:flex-start; }
   }
+
+  .gcal-cal-list { display:flex; flex-direction:column; gap:2px; max-height:190px; overflow:auto; border:1px solid var(--border); border-radius:12px; padding:6px; }
+  .gcal-cal-row { display:flex; align-items:center; gap:10px; padding:8px 8px; border-radius:8px; font-size:13.5px; color:var(--text); cursor:pointer; }
+  .gcal-cal-row:hover { background:var(--surface-hover); }
+  .gcal-cal-row input { width:16px; height:16px; accent-color:var(--accent); }
+  .gcal-cal-row small { color:var(--text-faint); font-size:11px; margin-left:4px; }
   @keyframes sheetUp { from { transform:translateY(100%); } to { transform:none; } }
   @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
   @keyframes modalIn { from { opacity:0; transform:translateY(14px) scale(.98); } to { opacity:1; transform:none; } }
