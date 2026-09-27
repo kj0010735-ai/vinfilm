@@ -146,7 +146,6 @@
 - **규칙**(`collabOk(cid)`: 32자 + collabs 문서 존재 + (mode=='link' 또는 로그인 이메일.lower() ∈ members)): `sharedProjects`/`schedule`은 isOwner 또는 collabOk(collabId)일 때 읽기/쓰기, 협업자는 collabId를 못 바꿈. `collabs`는 get만 공개 조건부, list/쓰기는 owner. 로그인 안 한 별도 Firebase 앱으로 확인함: 자기 공간 프로젝트·일정·공간정보 ✓, 전체 목록/대표님 일정/다른 공간 추측/협업자 목록/projects 전부 permission-denied.
 - **협업자 화면**(`COLLAB_MODE`, GUEST_MODE도 켜짐): `collabBoot()`가 공간 문서를 먼저 읽고(실패하면 로그인 게이트 → 로그인 후 재시도 → 그래도 안 되면 "접근 권한이 없어요"), 탭은 공유 프로젝트·캘린더(+showEquipment면 장비목록). 클라우드는 `where('collabId','==',id)` 쿼리로 자기 공간만 구독, 저장 시 collabId 자동 부착(`saveSharedProjItems`/`saveSchedItems`). localStorage 키는 `LS_NS`(`-c{id 앞 8자}`)로 분리.
 - **⚠️ 대표님 기기에서 협업자 링크를 열어도 안전하게**: GUEST_MODE에선 대표님 전용 localStorage(projItems/shoots/presets/tasks/notes/quotes/contracts)를 아예 읽지 않고, `extEvents()`(휴대폰·HISPLAN)·`projDueEvents()`는 빈 배열, **`gcalSync`/`gcalPush`/`gcalSchedulePush`는 GUEST_MODE면 즉시 return** — 안 막으면 협업자 일정만 가진 schedItems로 푸시해서 대표님 Google 캘린더의 다른 일정을 지울 수 있다(실제로 발견해서 막음). 새 기능이 schedItems 전체를 어딘가로 보내거나 지우는 동작이면 GUEST_MODE 가드를 꼭 넣을 것.
-- 예시 공간 "단기팀 (예시)"(link, 장비목록 켬) + 예시 프로젝트/일정 1개씩이 운영 데이터에 있다(사용자 확인용) — 지워달라고 하면 협업자 관리에서 삭제 + 예시 항목 삭제.
 
 ## 외부 공유(guest) 모드 — works/index.html
 
