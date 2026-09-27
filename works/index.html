@@ -1804,9 +1804,9 @@ const PROJ_SORTS = [
   { id: 'client', label: '클라이언트순' }, { id: 'client-desc', label: '클라이언트 역순' },
 ];
 const PROJ_HEAD_SORT = { status: ['status', 'status-desc'], name: ['name', 'name-desc'], client: ['client', 'client-desc'], due: ['due-asc', 'due-desc'] };
-function projSorter(mode) {
+function projSorter(mode, statuses) {
   const byName = (a, b) => (a.title || '').localeCompare(b.title || '', 'ko', { numeric: true });
-  const statusIdx = s => { const i = PROJECT_COLUMNS.findIndex(c => c.id === s); return i < 0 ? 0 : i; };
+  const statusIdx = s => { const i = (statuses || PROJECT_COLUMNS).findIndex(c => c.id === s); return i < 0 ? 0 : i; };
   const dueCmp = (a, b, dir) => { if (!a.dueDate && !b.dueDate) return 0; if (!a.dueDate) return 1; if (!b.dueDate) return -1; return dir * a.dueDate.localeCompare(b.dueDate); };
   switch (mode) {
     case 'name': return byName;
@@ -1827,6 +1827,23 @@ function setProjSortMode(mode) {
   if (pid) saveProjItems(projItems.map(p => p.id === pid ? { ...p, childSort: mode } : p));
   else { try { localStorage.setItem(PROJ_TOP_SORT_LS, mode); } catch (e) {} }
   render();
+}
+const SHARED_TOP_SORT_LS = 'vinfilm-shared-top-sort';
+function sharedSortMode() {
+  const pid = S.shared.currentParentId;
+  if (pid) { const p = sharedProjItems.find(x => x.id === pid); return (p && p.childSort) || 'due'; }
+  try { return localStorage.getItem(SHARED_TOP_SORT_LS) || 'due'; } catch (e) { return 'due'; }
+}
+function setSharedSortMode(mode) {
+  const pid = S.shared.currentParentId;
+  if (pid) saveSharedProjItems(sharedProjItems.map(p => p.id === pid ? { ...p, childSort: mode } : p));
+  else { try { localStorage.setItem(SHARED_TOP_SORT_LS, mode); } catch (e) {} }
+  render();
+}
+function sharedHeadCell(key, label, cls) {
+  const [a, d] = PROJ_HEAD_SORT[key]; const m = sharedSortMode();
+  const arrow = m === a ? ' ▲' : m === d ? ' ▼' : '';
+  return `<div class="proj-head-sort ${cls || ''} ${arrow ? 'on' : ''}" data-action="shared-sort-by" data-id="${key}" title="눌러서 정렬">${label}${arrow}</div>`;
 }
 function projHeadCell(key, label, cls) {
   const [a, d] = PROJ_HEAD_SORT[key]; const m = projSortMode();
@@ -2062,14 +2079,7 @@ function sharedListHtml() {
     if (!q) return true;
     return (p.title || '').toLowerCase().includes(q) || (p.client || '').toLowerCase().includes(q) || (p.notes || '').toLowerCase().includes(q);
   });
-  items = items.slice().sort((a, b) => {
-    const aDone = a.status === 'done' ? 1 : 0, bDone = b.status === 'done' ? 1 : 0;
-    if (aDone !== bDone) return aDone - bDone;
-    if (!a.dueDate && !b.dueDate) return 0;
-    if (!a.dueDate) return 1;
-    if (!b.dueDate) return -1;
-    return a.dueDate.localeCompare(b.dueDate);
-  });
+  items = items.slice().sort(projSorter(sharedSortMode(), SHARED_STATUSES));
   const addBtn = `<button class="proj-list-add-btn" data-action="shared-open-add">+ 새 공유 프로젝트 추가</button>`;
   const bulkBar = sharedBulkBarHtml();
   if (items.length === 0) {
@@ -2080,7 +2090,7 @@ function sharedListHtml() {
   return `
     ${bulkBar}
     <div class="proj-list ${S.shared.selectMode ? 'select-mode' : ''}">
-      <div class="proj-row proj-row-head">${S.shared.selectMode ? `<div class="proj-row-check-cell"><input type="checkbox" class="proj-row-checkbox" data-role="shared-select-all" data-ids="${items.map(p => p.id).join(',')}" ${allChecked ? 'checked' : ''} /></div>` : ''}<div class="proj-row-drag-cell"></div><div>상태</div><div>프로젝트</div><div class="proj-row-head-narrow">클라이언트</div><div>마감</div><div class="proj-row-head-narrow">메모</div><div></div></div>
+      <div class="proj-row proj-row-head">${S.shared.selectMode ? `<div class="proj-row-check-cell"><input type="checkbox" class="proj-row-checkbox" data-role="shared-select-all" data-ids="${items.map(p => p.id).join(',')}" ${allChecked ? 'checked' : ''} /></div>` : ''}<div class="proj-row-drag-cell"></div>${sharedHeadCell('status', '상태')}${sharedHeadCell('name', '프로젝트')}${sharedHeadCell('client', '클라이언트', 'proj-row-head-narrow')}${sharedHeadCell('due', '마감')}<div class="proj-row-head-narrow">메모</div><div></div></div>
       ${items.map(sharedRowHtml).join('')}
     </div>
     ${addBtn}`;
@@ -2124,7 +2134,8 @@ function renderSharedProjectsTab() {
         <button class="eq-chip ${S.shared.statusFilter==='all'?'active':''}" data-action="shared-set-status-filter" data-id="all">전체 ${counts.all}</button>
         ${SHARED_STATUSES.map(st => `<button class="eq-chip ${S.shared.statusFilter===st.id?'active':''}" data-action="shared-set-status-filter" data-id="${st.id}"><span class="eq-chip-dot" style="background:${st.color}"></span>${st.label} ${counts[st.id]}</button>`).join('')}
       </div>
-      <button class="eq-chip ${S.shared.selectMode ? 'active' : ''}" style="margin-left:auto;" data-action="shared-toggle-select-mode">${S.shared.selectMode ? '선택 취소' : '☑ 선택'}</button>
+      <select class="proj-sort-select" style="margin-left:auto;" data-role="shared-sort" title="정렬">${PROJ_SORTS.map(s => `<option value="${s.id}" ${sharedSortMode() === s.id ? 'selected' : ''}>↕ ${s.label}</option>`).join('')}</select>
+      <button class="eq-chip ${S.shared.selectMode ? 'active' : ''}" data-action="shared-toggle-select-mode">${S.shared.selectMode ? '선택 취소' : '☑ 선택'}</button>
       <button class="eq-chip active" style="cursor:default;">마감일순</button>
     </div>
     ${breadcrumb.length ? `
@@ -3634,6 +3645,7 @@ function bootApp() {
         }
         break;
       }
+      case 'shared-sort-by': { const [a, d] = PROJ_HEAD_SORT[id]; setSharedSortMode(sharedSortMode() === a ? d : a); break; }
       case 'proj-sort-by': { const [a, d] = PROJ_HEAD_SORT[id]; setProjSortMode(projSortMode() === a ? d : a); break; }
       case 'proj-create-schedule': S.sched.editingId = null; S.sched.linkProjectId = id; S.sched.modalOpen = true; render(); break;
       case 'proj-view-schedule': {
@@ -3884,6 +3896,7 @@ function bootApp() {
   /* checkboxes: allDay, photo file, ics import, shoot confirm/pack toggles */
   root.addEventListener('change', (e) => {
     if (e.target.dataset && e.target.dataset.role === 'proj-sort') { setProjSortMode(e.target.value); return; }
+    if (e.target.dataset && e.target.dataset.role === 'shared-sort') { setSharedSortMode(e.target.value); return; }
     if (S.quote.draft && handleQuoteInput(e)) return;
     if (S.quote.cdraft && handleContractInput(e)) return;
     if (e.target.dataset && e.target.dataset.role === 'proj-due-inline') {
