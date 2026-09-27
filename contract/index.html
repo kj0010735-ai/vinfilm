@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>계약서 · VINFILM STUDIO</title>
+<link rel="icon" type="image/png" href="../assets/works-icon.png">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<style>
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-4Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-6SemiBold.woff2') format('woff2'); font-weight: 600; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-7Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-8ExtraBold.woff2') format('woff2'); font-weight: 800; font-display: swap; }
+  :root { --ink:#15171c; --dim:#5d6470; --faint:#9aa1ad; --line:#e3e6eb; --soft:#f5f7fa; --accent:#2f6fee; --ok:#2e9e6a; --bg:#eceff3; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; background:var(--bg); color:var(--ink); font-family:'Paperozi','Noto Sans KR',-apple-system,sans-serif; -webkit-text-size-adjust:100%; overflow-x:hidden; }
+  .bar { position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:8px; justify-content:space-between; padding:calc(10px + env(safe-area-inset-top)) 16px 10px; background:rgba(236,239,243,0.9); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+  .bar .brand { font-weight:800; letter-spacing:0.04em; font-size:13px; }
+  .bar .actions { display:flex; gap:8px; }
+  .btn { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:10px; padding:9px 14px; font:600 13px 'Paperozi',sans-serif; cursor:pointer; }
+  .btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .btn:disabled { opacity:.5; cursor:default; }
+  .sheet { width:min(820px, calc(100% - 24px)); margin:8px auto 24px; background:#fff; border-radius:16px; box-shadow:0 10px 40px rgba(20,30,50,0.10); padding:44px 48px; }
+  .head { text-align:center; border-bottom:2px solid var(--ink); padding-bottom:18px; }
+  .head h1 { margin:0; font-size:28px; font-weight:800; letter-spacing:0.18em; }
+  .head .sub { margin-top:8px; font-size:13px; color:var(--dim); }
+  .head .meta { margin-top:6px; font-size:12px; color:var(--faint); }
+  .lead { margin:20px 0; font-size:13.5px; line-height:1.85; }
+  .parties { width:100%; border-collapse:collapse; font-size:12.5px; margin:10px 0 6px; }
+  .parties th { width:70px; background:var(--soft); color:var(--dim); font-weight:600; border:1px solid var(--line); padding:8px; text-align:center; }
+  .parties td { border:1px solid var(--line); padding:8px 10px; vertical-align:top; overflow-wrap:anywhere; }
+  .parties .role { font-weight:800; color:var(--ink); }
+  article.art { margin:18px 0; break-inside:avoid; }
+  article.art h3 { margin:0 0 6px; font-size:14px; font-weight:700; }
+  article.art p { margin:0; font-size:13.5px; line-height:1.85; white-space:pre-wrap; overflow-wrap:anywhere; color:#2c3038; }
+  h2 { font-size:14px; margin:30px 0 10px; }
+  table.items { width:100%; border-collapse:collapse; font-size:12.5px; }
+  table.items th { text-align:left; font-weight:600; color:var(--dim); font-size:12px; border-bottom:1px solid var(--ink); padding:7px 6px; }
+  table.items td { border-bottom:1px solid var(--line); padding:8px 6px; overflow-wrap:anywhere; }
+  table.items th.num { text-align:right; }
+  .num { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .tot td { font-weight:800; border-bottom:none; border-top:2px solid var(--ink); }
+  .closing { margin:30px 0 16px; text-align:center; font-size:13.5px; line-height:1.9; }
+  .signs { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .sign-box { border:1px solid var(--line); border-radius:12px; padding:14px 16px; min-height:150px; position:relative; }
+  .sign-box h4 { margin:0 0 6px; font-size:12px; color:var(--faint); font-weight:600; letter-spacing:.06em; }
+  .sign-box .who { font-size:14px; font-weight:700; }
+  .sign-box .sub { font-size:12px; color:var(--dim); margin-top:2px; overflow-wrap:anywhere; }
+  .sign-box img { display:block; height:64px; max-width:100%; margin-top:8px; object-fit:contain; object-position:left; }
+  .sign-box .empty { margin-top:18px; color:var(--faint); font-size:12.5px; }
+  .sign-box .when { font-size:11.5px; color:var(--dim); margin-top:4px; }
+  .hash { margin-top:18px; font-size:11px; color:var(--faint); text-align:center; word-break:break-all; }
+  .panel { width:min(820px, calc(100% - 24px)); margin:0 auto 60px; background:#fff; border-radius:16px; padding:22px 24px; box-shadow:0 10px 40px rgba(20,30,50,0.08); }
+  .panel h3 { margin:0 0 6px; font-size:17px; } .panel p { margin:0 0 14px; color:var(--dim); font-size:13px; line-height:1.65; }
+  .field { margin-bottom:12px; } .field label { display:block; font-size:12.5px; color:var(--dim); margin-bottom:5px; font-weight:600; }
+  .field input[type=text], .field input[type=tel] { width:100%; border:1px solid var(--line); border-radius:10px; padding:11px 12px; font:500 16px 'Paperozi',sans-serif; }
+  .pad { display:block; width:100%; height:170px; border:1.5px dashed #c9ced6; border-radius:12px; background:#fff; touch-action:none; cursor:crosshair; }
+  .pad-row { display:flex; justify-content:space-between; align-items:center; margin-top:6px; font-size:12px; color:var(--faint); }
+  .agree { display:flex; gap:10px; align-items:flex-start; font-size:13px; line-height:1.55; color:#2c3038; margin:10px 0; }
+  .agree input { width:20px; height:20px; flex:none; margin-top:1px; }
+  .err { color:#c0392b; font-size:12.5px; margin-top:8px; min-height:1em; }
+  .done { display:flex; gap:12px; align-items:center; color:var(--ok); font-weight:700; font-size:16px; }
+  .done span.ic { width:36px; height:36px; border-radius:50%; background:var(--ok); color:#fff; display:flex; align-items:center; justify-content:center; font-size:19px; flex:none; }
+  .done small { display:block; color:var(--dim); font-weight:500; font-size:12.5px; margin-top:3px; }
+  .notice { width:min(820px, calc(100% - 24px)); margin:40px auto; background:#fff; border-radius:16px; padding:40px 24px; text-align:center; color:var(--dim); line-height:1.7; }
+  @media (max-width: 640px) {
+    .sheet { padding:26px 18px; border-radius:14px; }
+    .head h1 { font-size:23px; letter-spacing:0.1em; }
+    .signs { grid-template-columns:1fr; }
+    .parties th { width:54px; }
+  }
+  @page { size:A4; margin:14mm; }
+  @media print {
+    html, body { background:#fff; }
+    .bar, .panel, .no-print { display:none !important; }
+    .sheet { width:auto; margin:0; padding:0; box-shadow:none; border-radius:0; }
+    .signs { grid-template-columns:1fr 1fr; }
+    .sign-box, table.items tr { break-inside:avoid; }
+  }
+</style>
+</head>
+<body>
+<div id="root"><div class="notice">계약서를 불러오는 중…</div></div>
+<script>
+/* VINFILM STUDIO 전자계약서 — 작업관리(works) "견적·계약" 탭에서 만든 계약서를 보여주고 클라이언트가 전자서명한다.
+   ?t={비밀 id}  : Firestore contractsPublic/{id}. 서명하면 signing {name, signature(PNG), at, hash, ua}만 기록한다 —
+                   firestore.rules가 hash가 문서의 hash와 같은지, signing 외 필드는 안 바뀌는지, 이미 서명됐는지를 검사한다.
+   ?preview=1    : 작업관리가 localStorage('vinfilm-contract-preview')에 넣어둔 계약서를 그린다(미리보기·PDF, 서명 불가). */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAVJ6ZZ6L-3RtgoYe2dDSn_lCHXv3CeBGc",
+  authDomain: "vinfilm-studio-app.firebaseapp.com",
+  projectId: "vinfilm-studio-app",
+  storageBucket: "vinfilm-studio-app.firebasestorage.app",
+  messagingSenderId: "1072224922970",
+  appId: "1:1072224922970:web:bb2cf2544b1c92a7211763",
+};
+const params = new URLSearchParams(location.search);
+const PREVIEW = params.get('preview') === '1';
+const TOKEN = params.get('t') || '';
+const root = document.getElementById('root');
+let pad = null, docRef = null, contract = null;
+
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function won(n) { return (Math.round(Number(n) || 0)).toLocaleString('ko-KR'); }
+function dateKo(s) { if (!s) return ''; const [y, m, d] = s.split('-'); return `${y}년 ${+m}월 ${+d}일`; }
+function totals(q) {
+  const sub = (q.items || []).reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
+  let supply = sub, vat = 0;
+  if (q.vatMode === 'separate') vat = Math.round(sub * 0.1);
+  else if (q.vatMode === 'included') { supply = Math.round(sub / 1.1); vat = sub - supply; }
+  return { supply, vat, total: supply + vat };
+}
+function isSafeImg(s) { return typeof s === 'string' && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(s); }
+
+function render(c) {
+  const t = totals(c), b = c.biz || {}, s = c.signing;
+  root.innerHTML = `
+    <div class="bar">
+      <span class="brand">VINFILM STUDIO</span>
+      <span class="actions">
+        ${PREVIEW ? `<button class="btn" onclick="history.length > 1 ? history.back() : window.close()">← 돌아가기</button>` : ''}
+        <button class="btn primary" onclick="window.print()">PDF 저장 · 인쇄</button>
+      </span>
+    </div>
+    <article class="sheet">
+      <div class="head">
+        <h1>영상 제작 계약서</h1>
+        <div class="sub">${esc(c.projectTitle || '')}</div>
+        <div class="meta">계약번호 ${esc(c.number || '')}${c.quoteNumber ? ` · 견적번호 ${esc(c.quoteNumber)}` : ''}</div>
+      </div>
+      <p class="lead"><b>${esc(c.clientName || '갑')}</b>(이하 "갑")와 <b>${esc(b.name || 'VINFILM STUDIO')}</b>(이하 "을")는 아래와 같이 영상 제작 계약을 체결한다.</p>
+      <table class="parties">
+        <tr><th class="role">갑</th><td><b>${esc(c.clientName || '')}</b>${c.clientRep ? `<br>${esc(c.clientRep)}` : ''}${c.clientContact ? `<br>${esc(c.clientContact)}` : ''}</td></tr>
+        <tr><th class="role">을</th><td><b>${esc(b.name || 'VINFILM STUDIO')}</b>${b.ceo ? ` · 대표 ${esc(b.ceo)}` : ''}${b.bizNo ? `<br>사업자등록번호 ${esc(b.bizNo)}` : ''}${b.address ? `<br>${esc(b.address)}` : ''}${b.phone || b.email ? `<br>${esc([b.phone, b.email].filter(Boolean).join(' · '))}` : ''}</td></tr>
+      </table>
+      ${(c.articles || []).map((a, i) => `<article class="art"><h3>제${i + 1}조 (${esc(a.title)})</h3><p>${esc(a.body)}</p></article>`).join('')}
+      <h2>별첨 · 견적 내역</h2>
+      <table class="items">
+        <thead><tr><th>내용</th><th class="num">수량</th><th class="num">금액</th></tr></thead>
+        <tbody>
+          ${(c.items || []).map(it => `<tr><td>${esc(it.cat)} · ${esc(it.desc)}</td><td class="num">${esc(String(it.qty))}${esc(it.unit || '')}</td><td class="num">${won((Number(it.qty) || 0) * (Number(it.price) || 0))}</td></tr>`).join('')}
+          <tr><td>공급가액</td><td></td><td class="num">${won(t.supply)}</td></tr>
+          <tr><td>부가세</td><td></td><td class="num">${won(t.vat)}</td></tr>
+          <tr class="tot"><td>계약금액</td><td></td><td class="num">₩${won(t.total)}</td></tr>
+        </tbody>
+      </table>
+      <p class="closing">본 계약의 내용을 증명하기 위해 갑과 을은 전자서명으로 계약을 체결하고,<br>각자 전자문서(PDF)로 보관한다.<br><b>${esc(dateKo(s ? ymd(new Date(s.at)) : c.contractDate))}</b></p>
+      <div class="signs">
+        <div class="sign-box"><h4>갑</h4><div class="who">${esc(c.clientName || '')}</div>${c.clientRep ? `<div class="sub">${esc(c.clientRep)}</div>` : ''}
+          ${s ? `<div class="sub">서명자 ${esc(s.name)}</div>${isSafeImg(s.signature) ? `<img src="${s.signature}" alt="갑 서명" />` : ''}<div class="when">${new Date(s.at).toLocaleString('ko-KR')} 전자서명</div>` : `<div class="empty">서명 전</div>`}</div>
+        <div class="sign-box"><h4>을</h4><div class="who">${esc(b.name || 'VINFILM STUDIO')}</div>${b.ceo ? `<div class="sub">대표 ${esc(b.ceo)}</div>` : ''}
+          ${isSafeImg(b.signature) ? `<img src="${b.signature}" alt="을 서명" />` : `<div class="empty">(서명)</div>`}</div>
+      </div>
+      ${c.hash ? `<div class="hash">문서 확인 코드 ${esc(c.hash.slice(0, 16).toUpperCase())}${s ? ' · 서명 시 같은 코드로 확인됨' : ''}</div>` : ''}
+    </article>
+    ${PREVIEW ? `<div class="panel no-print"><p style="margin:0">미리보기 화면이에요. 작업관리에서 <b>서명 링크 보내기</b>를 누르면 클라이언트는 이 아래에서 이름을 적고 서명할 수 있어요.</p></div>` : s ? doneHtml(s) : signFormHtml(c)}`;
+  if (!PREVIEW && !s) {
+    const cv = document.getElementById('signPad');
+    if (cv) pad = initSignPad(cv, updateSubmit);
+    updateSubmit();
+  }
+}
+function ymd(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function doneHtml(s) {
+  return `<div class="panel"><div class="done"><span class="ic">✓</span><div>계약이 체결됐어요<small>${esc(s.name)}님 · ${new Date(s.at).toLocaleString('ko-KR')} 전자서명</small></div></div>
+    <p style="margin:14px 0 0">위 <b>PDF 저장 · 인쇄</b>를 눌러 계약서를 보관해 주세요. 이 링크에서도 언제든 다시 볼 수 있어요.</p></div>`;
+}
+function signFormHtml(c) {
+  return `<div class="panel">
+    <h3>전자서명</h3>
+    <p>계약 내용을 모두 읽어보신 뒤, 서명하시는 분의 성함을 적고 아래 칸에 서명해 주세요. 서명하면 계약이 체결되고 VINFILM STUDIO에 바로 전달돼요.</p>
+    <form id="signForm" autocomplete="on">
+      <div class="field"><label>서명자 성함 ${c.clientRep ? '' : '(회사라면 "회사명 대표 성함")'}</label><input type="text" name="name" maxlength="60" required placeholder="예: 김OO / OO컴퍼니 대표 김OO" autocomplete="name" /></div>
+      <div class="field"><label>서명</label><canvas id="signPad" class="pad"></canvas>
+        <div class="pad-row"><span>손가락이나 마우스로 서명해 주세요</span><button type="button" class="btn" style="padding:5px 12px" id="padClear">지우기</button></div></div>
+      <label class="agree"><input type="checkbox" name="agree1" required /> 위 계약서의 모든 조항과 계약금액을 확인했으며 이에 동의합니다.</label>
+      <label class="agree"><input type="checkbox" name="agree2" required /> 전자서명으로 계약을 체결하는 데 동의하며, 전자서명이 자필 서명과 같은 효력을 갖는다는 것을 이해합니다.</label>
+      <button class="btn primary" type="submit" id="signBtn" style="width:100%;padding:13px;font-size:15px;margin-top:6px">서명하고 계약하기</button>
+      <div class="err" id="signErr"></div>
+    </form>
+  </div>`;
+}
+function updateSubmit() {
+  const f = document.getElementById('signForm'); if (!f) return;
+  const ok = f.name.value.trim() && pad && !pad.isEmpty() && f.agree1.checked && f.agree2.checked;
+  document.getElementById('signBtn').disabled = !ok;
+}
+/* 손서명 패드 — works/index.html의 initSignPad와 같은 코드 */
+function initSignPad(canvas, onChange) {
+  const ctx = canvas.getContext('2d');
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.round(rect.width * dpr); canvas.height = Math.round(rect.height * dpr);
+  ctx.scale(dpr, dpr); ctx.lineWidth = 2.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#111';
+  canvas.style.touchAction = 'none';
+  let drawing = false, last = null, dirty = false;
+  const pos = e => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  canvas.addEventListener('pointerdown', e => { drawing = true; last = pos(e); try { canvas.setPointerCapture(e.pointerId); } catch (x) {} e.preventDefault(); });
+  canvas.addEventListener('pointermove', e => { if (!drawing) return; const p = pos(e); ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke(); last = p; dirty = true; e.preventDefault(); });
+  const end = () => { if (drawing) { drawing = false; if (onChange) onChange(); } };
+  canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end); canvas.addEventListener('pointerleave', end);
+  return {
+    clear() { ctx.clearRect(0, 0, canvas.width, canvas.height); dirty = false; if (onChange) onChange(); },
+    isEmpty() { return !dirty; },
+    toDataURL() { const w = Math.min(600, rect.width * 2), h = Math.round(w * rect.height / rect.width); const o = document.createElement('canvas'); o.width = w; o.height = h; o.getContext('2d').drawImage(canvas, 0, 0, w, h); return o.toDataURL('image/png'); },
+  };
+}
+document.addEventListener('input', updateSubmit);
+document.addEventListener('change', updateSubmit);
+document.addEventListener('click', e => { if (e.target.id === 'padClear' && pad) pad.clear(); });
+document.addEventListener('submit', async e => {
+  if (e.target.id !== 'signForm') return;
+  e.preventDefault();
+  const f = e.target, name = f.name.value.trim();
+  if (!name || !pad || pad.isEmpty() || !f.agree1.checked || !f.agree2.checked) return;
+  const btn = document.getElementById('signBtn'); btn.disabled = true; btn.textContent = '서명 저장 중…';
+  try {
+    const signing = { name, signature: pad.toDataURL(), at: Date.now(), hash: contract.hash, ua: navigator.userAgent.slice(0, 380) };
+    await docRef.update({ signing });
+    contract = { ...contract, signing };
+    render(contract);
+    window.scrollTo(0, document.body.scrollHeight);
+  } catch (err) {
+    btn.disabled = false; btn.textContent = '서명하고 계약하기';
+    document.getElementById('signErr').textContent = '서명을 저장하지 못했어요. 이미 서명됐거나 계약서가 바뀌었을 수 있어요. 새로고침 후 다시 시도하거나 VINFILM STUDIO로 연락 주세요.';
+  }
+});
+
+async function main() {
+  if (PREVIEW) {
+    let c = null; try { c = JSON.parse(localStorage.getItem('vinfilm-contract-preview') || 'null'); } catch (e) {}
+    if (!c) { root.innerHTML = `<div class="notice">미리볼 계약서가 없어요. 작업관리에서 다시 열어주세요.</div>`; return; }
+    document.title = `${c.number} 계약서 미리보기 · VINFILM STUDIO`;
+    render(c); return;
+  }
+  if (!/^[0-9a-f]{32}$/.test(TOKEN)) { root.innerHTML = `<div class="notice">계약서 주소가 올바르지 않아요.<br>받으신 링크를 다시 확인해 주세요.</div>`; return; }
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    docRef = firebase.firestore().collection('contractsPublic').doc(TOKEN);
+    const snap = await docRef.get();
+    if (!snap.exists) { root.innerHTML = `<div class="notice">계약서를 찾을 수 없어요.<br>삭제되었거나 주소가 바뀌었을 수 있어요.</div>`; return; }
+    contract = snap.data();
+    document.title = `${contract.projectTitle ? contract.projectTitle + ' ' : ''}계약서 · VINFILM STUDIO`;
+    render(contract);
+  } catch (e) {
+    root.innerHTML = `<div class="notice">계약서를 불러오지 못했어요.<br>인터넷 연결을 확인하고 새로고침해 주세요.</div>`;
+  }
+}
+main();
+</script>
+</body>
+</html>

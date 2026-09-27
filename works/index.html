@@ -154,7 +154,7 @@ const NAV_ITEMS = [
   { id: 'shootprep', icon: '🎒', label: '촬영준비' },
   { id: 'schedule', icon: '🗓', label: '캘린더' },
   { id: 'projects', icon: '📋', label: '프로젝트' },
-  { id: 'quotes', icon: '🧾', label: '견적서' },
+  { id: 'quotes', icon: '🧾', label: '견적·계약' },
   { id: 'shared', icon: '🤝', label: '공유 프로젝트' },
   { id: 'notes', icon: '📝', label: '메모장' },
 ];
@@ -224,7 +224,7 @@ const S = {
   task: { modalOpen: false, editingId: null, confirmDeleteId: null },
   note: { modalOpen: false, editingId: null, confirmDeleteId: null },
   shortcut: { modalOpen: false, editingId: null },
-  quote: { draft: null, bizOpen: false, msg: '' },
+  quote: { view: 'quotes', draft: null, cdraft: null, bizOpen: false, bizSignCleared: false, msg: '' },
 };
 let currentEqPhoto = '';
 let currentEqPhotoError = '';
@@ -254,6 +254,7 @@ function getLocalArrayFor(name) {
     case 'shortcuts': return shortcuts;
     case 'sharedProjects': return sharedProjItems;
     case 'quotes': return quotes;
+    case 'contracts': return contracts;
     default: return [];
   }
 }
@@ -270,6 +271,7 @@ function applyCloudUpdate(name, items) {
     case 'shortcuts': shortcuts = items; try { localStorage.setItem(LS_SHORTCUTS, JSON.stringify(items)); } catch (e) {} break;
     case 'sharedProjects': sharedProjItems = items; try { localStorage.setItem(LS_SHARED, JSON.stringify(items)); } catch (e) {} break;
     case 'quotes': quotes = items; try { localStorage.setItem(LS_QUOTES, JSON.stringify(items)); } catch (e) {} break;
+    case 'contracts': contracts = items; try { localStorage.setItem(LS_CONTRACTS, JSON.stringify(items)); } catch (e) {} break;
   }
   render();
 }
@@ -284,7 +286,7 @@ async function pushToCloud(name, prevArr, nextArr) {
   } catch (e) { console.warn('cloud sync push failed for', name, e); }
 }
 
-const CLOUD_COLLECTIONS = ['equipment', 'categories', 'schedule', 'projects', 'shoots', 'presets', 'todayTasks', 'notes', 'shortcuts', 'sharedProjects', 'quotes'];
+const CLOUD_COLLECTIONS = ['equipment', 'categories', 'schedule', 'projects', 'shoots', 'presets', 'todayTasks', 'notes', 'shortcuts', 'sharedProjects', 'quotes', 'contracts'];
 /* 공유 링크(?guest=1)로 접속했을 때는 이 목록만 동기화한다 — 스케줄/메모장 등 내부 데이터는 외부 브라우저로 아예 내려받지 않는다. */
 const GUEST_CLOUD_COLLECTIONS = ['equipment', 'categories', 'sharedProjects'];
 const FIREBASE_CONFIG = {
@@ -1220,7 +1222,7 @@ function mobileMoreSheetHtml() {
     <div class="m-sheet">
       <div class="m-sheet-grip"></div>
       ${row('data-action="set-tab" data-id="shootprep"', MI.bag, '촬영준비')}
-      ${row('data-action="set-tab" data-id="quotes"', MI.quote, '견적서')}
+      ${row('data-action="set-tab" data-id="quotes"', MI.quote, '견적·계약')}
       ${row('data-action="set-tab" data-id="shared"', MI.shared, '공유 프로젝트')}
       ${row('data-action="set-tab" data-id="notes"', MI.note, '메모장')}
       <a class="m-sheet-row" href="../ledger/"><span class="m-sheet-ic">${MI.money}</span><span>수입·지출 관리</span><i>${MI.chev}</i></a>
@@ -1241,7 +1243,7 @@ function dashQuickHtml() {
   const tiles = [
     { attrs: 'data-action="set-tab" data-id="schedule"', icon: MI.cal, label: '캘린더', tone: 't-blue' },
     { attrs: 'data-action="set-tab" data-id="projects"', icon: MI.proj, label: '프로젝트', tone: 't-violet' },
-    { attrs: 'data-action="set-tab" data-id="quotes"', icon: MI.quote, label: '견적서', tone: 't-blue' },
+    { attrs: 'data-action="set-tab" data-id="quotes"', icon: MI.quote, label: '견적·계약', tone: 't-blue' },
     { attrs: 'data-action="set-tab" data-id="shared"', icon: MI.shared, label: '공유 프로젝트', tone: 't-green' },
     { attrs: 'data-action="set-tab" data-id="equipment"', icon: MI.eq, label: '장비목록', tone: 't-slate' },
     { attrs: 'data-action="set-tab" data-id="shootprep"', icon: MI.bag, label: '촬영준비', tone: 't-orange' },
@@ -2665,7 +2667,7 @@ function blankQuote() {
 function quoteSnapshot(q) {
   return { v: 1, number: q.number, issueDate: q.issueDate, validUntil: q.validUntil, clientName: q.clientName, clientContact: q.clientContact, projectTitle: q.projectTitle,
     items: (q.items || []).map(it => ({ cat: it.cat, desc: it.desc, qty: Number(it.qty) || 0, unit: it.unit, price: Number(it.price) || 0 })),
-    vatMode: q.vatMode, deposit: Number(q.deposit) || 0, revisions: Number(q.revisions) || 0, delivery: q.delivery || '', memo: q.memo || '', biz: { ...biz }, publishedAt: Date.now() };
+    vatMode: q.vatMode, deposit: Number(q.deposit) || 0, revisions: Number(q.revisions) || 0, delivery: q.delivery || '', memo: q.memo || '', biz: (({ signature, ...rest }) => rest)(biz), publishedAt: Date.now() };
 }
 function randomShareId() { const a = new Uint8Array(16); crypto.getRandomValues(a); return [...a].map(b => b.toString(16).padStart(2, '0')).join(''); }
 async function publishQuote(q) {
@@ -2761,6 +2763,11 @@ function quoteBizModalHtml() {
         <p class="q-hint">견적서의 공급자 칸과 입금 계좌에 들어가요. 한 번만 넣으면 모든 견적서에 쓰여요.</p>
         <form data-form-role="quote-biz-form">
           ${BIZ_FIELDS.map(f => `<div class="eq-field"><label>${f.label}</label><input name="${f.key}" value="${esc(biz[f.key] || '')}" placeholder="${esc(f.ph)}" /></div>`).join('')}
+          <div class="eq-field"><label>대표 서명 <span class="eq-hint">(계약서 '을' 서명란에 들어가요)</span></label>
+            ${biz.signature ? `<img id="bizSignCurrent" class="biz-sign-current" src="${biz.signature}" alt="현재 서명" />` : ''}
+            <canvas id="bizSignPad" class="sign-pad"></canvas>
+            <div class="sign-pad-actions"><span>${biz.signature ? '위 칸에 새로 그리면 서명이 바뀌어요' : '위 칸에 손가락이나 마우스로 서명해 주세요'}</span><button type="button" data-action="biz-sign-clear">지우기</button></div>
+          </div>
           <button type="submit" class="eq-modal-submit">저장</button>
         </form>
       </div>
@@ -2834,6 +2841,7 @@ function quoteEditorHtml() {
             <button class="eq-modal-submit eq-modal-submit-secondary" data-action="quote-preview">👀 미리보기 · PDF</button>
             <button class="eq-modal-submit q-share-btn" data-action="quote-share">📤 ${d.shareId ? '링크 다시 보내기' : '링크로 보내기'}</button>
             ${d.shareId ? `<button class="q-linkcopy" data-action="quote-copy-link">🔗 링크 복사</button>` : ''}
+            <button class="eq-modal-submit eq-modal-submit-secondary" data-action="contract-from-quote">📝 ${d.contractId && contracts.some(c => c.id === d.contractId) ? '계약서 보기' : '계약서 만들기'}</button>
             <div class="q-side-links">
               ${isNew ? '' : `<button data-action="quote-duplicate">⧉ 복제</button><button data-action="quote-delete" class="is-danger">✕ 삭제</button>`}
             </div>
@@ -2843,19 +2851,24 @@ function quoteEditorHtml() {
     </div>`;
 }
 function renderQuotesTab() {
-  loadBiz(); checkQuoteApprovals();
+  loadBiz(); checkQuoteApprovals(); checkContractSignatures();
+  if (S.quote.cdraft) return contractEditorHtml() + quoteBizModalHtml();
   if (S.quote.draft) return quoteEditorHtml() + quoteBizModalHtml();
+  const isC = S.quote.view === 'contracts';
   const approvedSum = quotes.filter(q => q.status === 'approved').reduce((s, q) => s + quoteTotals(q).total, 0);
   return `
     <div class="eq-header">
-      <div class="eq-title-block"><h1 class="eq-title">견적서</h1><div class="eq-stat">전체 <b>${quotes.length}</b> · 승인 <b>${quotes.filter(q => q.status === 'approved').length}</b>${approvedSum ? ` · 승인 합계 <b>₩${won(approvedSum)}</b>` : ''}</div></div>
+      <div class="eq-title-block"><h1 class="eq-title">견적·계약</h1><div class="eq-stat">${isC
+        ? `계약 <b>${contracts.length}</b> · 완료 <b>${contracts.filter(c => c.status === 'signed').length}</b>`
+        : `견적 <b>${quotes.length}</b> · 승인 <b>${quotes.filter(q => q.status === 'approved').length}</b>${approvedSum ? ` · 승인 합계 <b>₩${won(approvedSum)}</b>` : ''}`}</div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="eq-add-btn gcal-btn is-on" data-action="quote-biz-open">🏢 사업자 정보</button>
-        <button class="eq-add-btn" data-action="quote-new">+ 새 견적서</button>
+        ${isC ? '' : `<button class="eq-add-btn" data-action="quote-new">+ 새 견적서</button>`}
       </div>
     </div>
-    ${bizMissing() ? `<div class="gcal-notice is-warn">견적서 하단에 들어갈 <b>사업자 정보</b>(사업자번호·입금 계좌 등)를 먼저 넣어주세요. <button class="q-inline-link" data-action="quote-biz-open">지금 입력</button></div>` : ''}
-    ${quoteListHtml()}
+    <div class="cal-seg q-seg"><button class="${isC ? '' : 'on'}" data-action="quote-view" data-id="quotes">🧾 견적서</button><button class="${isC ? 'on' : ''}" data-action="quote-view" data-id="contracts">📝 계약서</button></div>
+    ${bizMissing() || !biz.signature ? `<div class="gcal-notice is-warn">${bizMissing() ? '견적서·계약서에 들어갈 <b>사업자 정보</b>(사업자번호·입금 계좌 등)' : '계약서에 들어갈 <b>대표 서명</b>'}을 먼저 넣어주세요. <button class="q-inline-link" data-action="quote-biz-open">지금 입력</button></div>` : ''}
+    ${isC ? contractListHtml() : quoteListHtml()}
     ${quoteBizModalHtml()}`;
 }
 /* 클릭 액션 — 메인 click 위임에서 quote- 로 시작하면 여기로 넘긴다. 처리했으면 true */
@@ -2919,6 +2932,335 @@ function handleQuoteInput(e) {
   return false;
 }
 
+/* ================= 전자계약서 =================
+   견적서에서 "📝 계약서 만들기" → contracts 컬렉션(owner 전용)에 견적 내용 + 기본 조항으로 계약서 생성 → "링크로 보내기"로
+   contractsPublic/{비밀 id}에 클라이언트용 사본 게시(내용 SHA-256 해시 포함) → contract/?t={id}에서 클라이언트가 이름·동의·손서명 →
+   signing 필드만 기록(규칙이 hash 일치·signing 외 필드 불변을 강제하고, 서명 후엔 owner도 사본을 못 고침) →
+   작업관리가 서명을 확인하면 '계약 완료'로 바꾸고 수입·지출 관리(ledgerEntries)에 계약금/잔금 매출을 한 번만 자동 등록. */
+const CONTRACT_STATUSES = [
+  { id: 'draft', label: '작성중', color: '#8b90a0' },
+  { id: 'sent', label: '서명 대기', color: '#5b8def' },
+  { id: 'signed', label: '계약 완료', color: '#4cae7d' },
+  { id: 'canceled', label: '취소', color: '#d9534f' },
+];
+function contractStatusOf(id) { return CONTRACT_STATUSES.find(s => s.id === id) || CONTRACT_STATUSES[0]; }
+const LS_CONTRACTS = 'eq-manager-contracts';
+let contracts = loadJSON(LS_CONTRACTS, []);
+function saveContracts(next) { const prev = contracts; contracts = next; try { localStorage.setItem(LS_CONTRACTS, JSON.stringify(next)); } catch (e) {} pushToCloud('contracts', prev, next); }
+function nextContractNumber(date) {
+  const prefix = `VC-${date.slice(2, 4)}${date.slice(5, 7)}-`;
+  let max = 0;
+  contracts.forEach(c => { if ((c.number || '').startsWith(prefix)) max = Math.max(max, parseInt(c.number.slice(prefix.length), 10) || 0); });
+  return prefix + String(max + 1).padStart(3, '0');
+}
+function dateKoStr(s) { if (!s) return ''; const [y, m, d] = s.split('-'); return `${y}년 ${+m}월 ${+d}일`; }
+/* 기본 조항 — 계약서 값(금액·일정·수정 횟수 등)을 넣어 문장을 만든다. 계약서마다 문구를 자유롭게 고칠 수 있다. */
+function defaultContractArticles(c) {
+  const t = quoteTotals(c);
+  const dep = Number(c.deposit) || 0;
+  const depAmt = Math.round(t.total * dep / 100), balAmt = t.total - depAmt;
+  const vatTxt = c.vatMode === 'none' ? '부가세 없음' : '부가세 포함';
+  const acct = [biz.bank, biz.account, biz.holder ? `예금주 ${biz.holder}` : ''].filter(Boolean).join(' ');
+  const client = c.clientName || '갑';
+  const pay = dep > 0 && dep < 100
+    ? `갑은 계약금 ${dep}%(금 ${won(depAmt)}원)를 계약 체결일로부터 7일 이내에, 잔금 ${100 - dep}%(금 ${won(balAmt)}원)를 최종 납품일로부터 7일 이내에`
+    : dep >= 100 ? '갑은 계약금액 전액을 계약 체결일로부터 7일 이내에' : '갑은 계약금액 전액을 최종 납품일로부터 7일 이내에';
+  return [
+    { title: '목적', body: `본 계약은 ${client}(이하 "갑")가 ${biz.name || 'VINFILM STUDIO'}(이하 "을")에게 「${c.projectTitle || '영상 제작'}」 영상 제작을 의뢰하고, 을이 이를 수행하는 데 필요한 사항을 정함을 목적으로 한다.` },
+    { title: '작업 범위', body: `작업 범위는 본 계약서에 첨부된 견적 내역${c.quoteNumber ? `(견적번호 ${c.quoteNumber})` : ''}과 같다. 견적 내역에 없는 작업은 갑과 을이 협의하여 별도로 정한다.` },
+    { title: '일정 및 납품', body: `촬영일: ${c.shootDate ? dateKoStr(c.shootDate) : '갑과 을이 협의하여 정함'}\n최종 납품일: ${c.deliveryDate ? dateKoStr(c.deliveryDate) : '갑과 을이 협의하여 정함'}\n납품 방식: ${c.delivery || '갑과 을이 협의하여 정함'}\n갑의 자료 제공 지연, 촬영 대상·장소 변경 등 갑의 사유로 일정이 늦어지는 경우 납품일은 그만큼 연장된다.` },
+    { title: '계약금액 및 지급', body: `총 계약금액은 금 ${won(t.total)}원(${vatTxt})으로 한다.\n${pay} 을이 지정한 계좌${acct ? `(${acct})` : ''}로 지급한다. 을은 대금 수령 후 세금계산서 등 적격 증빙을 발행한다.` },
+    { title: '수정', body: `납품 전 편집본 수정은 ${Number(c.revisions) || 0}회까지 계약금액에 포함된다. 이를 초과하는 수정이나 확정된 기획·구성 자체를 바꾸는 수정은 갑과 을이 협의하여 추가 비용을 정한다.` },
+    { title: '저작권 및 사용 범위', body: '잔금 지급이 완료되면 갑은 납품된 최종 영상물을 갑의 홍보 등 목적으로 기간·매체 제한 없이 사용할 수 있다. 촬영 원본 소스와 프로젝트 파일에 대한 권리는 을에게 있으며, 제공이 필요한 경우 별도로 협의한다. 영상에 쓰인 음원·폰트 등 제3자 저작물은 해당 라이선스가 허용하는 범위 안에서만 사용한다.' },
+    { title: '포트폴리오 활용', body: '을은 납품된 영상물을 을의 포트폴리오(웹사이트, SNS 등)에 게시할 수 있다. 다만 갑이 비공개를 요청하거나 영상이 아직 공개되기 전인 경우에는 그러하지 아니하다.' },
+    { title: '계약 해지 및 환불', body: '갑의 사정으로 계약을 해지하는 경우, 촬영일 7일 전까지는 계약금에서 이미 진행된 기획 비용을 뺀 금액을 돌려주고, 촬영일 7일 이내에 해지하면 계약금은 돌려주지 않는다. 촬영 이후 해지하는 경우 갑은 진행된 작업에 해당하는 비용을 지급한다. 천재지변 등 불가항력으로 촬영이 불가능한 경우 갑과 을은 일정을 다시 협의한다.' },
+    { title: '비밀유지', body: '갑과 을은 본 계약을 수행하면서 알게 된 상대방의 영업상 비밀을 상대방의 동의 없이 제3자에게 알리지 않는다.' },
+    { title: '기타', body: `본 계약에 정하지 않은 사항은 갑과 을이 서로 협의하여 정하며, 분쟁이 생긴 경우 을의 사업장 소재지를 관할하는 법원을 관할 법원으로 한다.${c.memo ? `\n특약사항: ${c.memo}` : ''}` },
+  ];
+}
+function contractFromQuote(q) {
+  const today = todayStr();
+  const c = { id: uid(), number: nextContractNumber(today), status: 'draft', createdAt: Date.now(), contractDate: today, quoteId: q.id, quoteNumber: q.number,
+    clientName: q.clientName || '', clientRep: '', clientContact: q.clientContact || '', projectTitle: q.projectTitle || '', shootDate: '', deliveryDate: '',
+    items: JSON.parse(JSON.stringify(q.items || [])), vatMode: q.vatMode, deposit: q.deposit, revisions: q.revisions, delivery: q.delivery || '', memo: q.memo || '',
+    articles: [], shareId: '', signing: null, ledgerSynced: false };
+  const linked = projItems.find(p => p.title === q.projectTitle && p.scheduleId);
+  const sched = linked ? schedItems.find(s => s.id === linked.scheduleId) : null;
+  if (sched) c.shootDate = sched.date;
+  const proj = projItems.find(p => p.title === q.projectTitle && p.dueDate);
+  if (proj) c.deliveryDate = proj.dueDate;
+  c.articles = defaultContractArticles(c);
+  return c;
+}
+function contractSnapshot(c) {
+  return { v: 1, number: c.number, contractDate: c.contractDate, quoteNumber: c.quoteNumber || '', clientName: c.clientName, clientRep: c.clientRep || '', clientContact: c.clientContact || '',
+    projectTitle: c.projectTitle, shootDate: c.shootDate || '', deliveryDate: c.deliveryDate || '',
+    items: (c.items || []).map(it => ({ cat: it.cat, desc: it.desc, qty: Number(it.qty) || 0, unit: it.unit, price: Number(it.price) || 0 })),
+    vatMode: c.vatMode, deposit: Number(c.deposit) || 0, revisions: Number(c.revisions) || 0,
+    articles: (c.articles || []).filter(a => (a.title || '').trim() || (a.body || '').trim()).map(a => ({ title: a.title || '', body: a.body || '' })),
+    biz: { ...biz } };
+}
+async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function publishContract(c) {
+  if (IS_LOCAL_DEV || typeof firebase === 'undefined' || !firebase.firestore) return false;
+  const body = contractSnapshot(c);
+  const hash = await sha256Hex(JSON.stringify(body));
+  const ref = firebase.firestore().collection('contractsPublic').doc(c.shareId);
+  const cur = await ref.get();
+  if (cur.exists && cur.data().signing) return false; // 서명된 계약서는 바꾸지 않는다(규칙도 막음)
+  await ref.set({ ...body, hash, publishedAt: Date.now(), signing: null });
+  return true;
+}
+function contractShareUrl(c) { return `${location.origin}/contract/?t=${c.shareId}`; }
+
+/* 서명 완료 → 수입·지출 관리에 매출 등록(계약금/잔금 나눠서, 한 번만). id가 고정이라 다시 돌아도 중복 안 생김 */
+async function contractToLedger(c) {
+  if (IS_LOCAL_DEV || typeof firebase === 'undefined' || !firebase.firestore) return false;
+  const t = quoteTotals(c);
+  const dep = Number(c.deposit) || 0;
+  const signedDate = c.signing ? ymd(new Date(c.signing.at)) : todayStr();
+  const base = { category: 'revenue', partner: c.clientName || '(클라이언트)', project: c.projectTitle || '', withholdingTax: 0, paymentStatus: 'scheduled', evidence: 'missing', filingStatus: 'before', taxPaymentStatus: 'before', docStatus: 'before', createdAt: Date.now() };
+  const rows = [];
+  if (dep > 0 && dep < 100) {
+    const depAmt = Math.round(t.total * dep / 100);
+    rows.push({ id: `ct-${c.id}-dep`, ...base, date: signedDate, totalAmount: depAmt, actualAmount: depAmt, memo: `계약금 ${dep}% · 계약서 ${c.number}` });
+    rows.push({ id: `ct-${c.id}-bal`, ...base, date: c.deliveryDate || signedDate, totalAmount: t.total - depAmt, actualAmount: t.total - depAmt, memo: `잔금 ${100 - dep}% · 계약서 ${c.number}${c.deliveryDate ? '' : ' (납품일 미정 — 날짜 확인)'}` });
+  } else {
+    rows.push({ id: `ct-${c.id}-all`, ...base, date: dep >= 100 ? signedDate : (c.deliveryDate || signedDate), totalAmount: t.total, actualAmount: t.total, memo: `계약금액 전액 · 계약서 ${c.number}` });
+  }
+  const db = firebase.firestore();
+  await Promise.all(rows.map(r => db.collection('ledgerEntries').doc(r.id).set(r)));
+  return true;
+}
+let contractSignCheckedAt = 0;
+async function checkContractSignatures() {
+  if (IS_LOCAL_DEV || typeof firebase === 'undefined' || !firebase.firestore || Date.now() - contractSignCheckedAt < 60000) return;
+  contractSignCheckedAt = Date.now();
+  const pending = contracts.filter(c => c.shareId && (!c.signing || !c.ledgerSynced) && c.status !== 'canceled');
+  if (!pending.length) return;
+  const updates = {};
+  await Promise.all(pending.map(async c => {
+    try {
+      let signing = c.signing;
+      if (!signing) { const d = await firebase.firestore().collection('contractsPublic').doc(c.shareId).get(); signing = d.exists ? d.data().signing : null; }
+      if (!signing) return;
+      const next = { ...c, signing: { name: signing.name, at: signing.at, hash: signing.hash }, status: 'signed' };
+      if (!c.ledgerSynced) next.ledgerSynced = await contractToLedger(next).catch(() => false);
+      updates[c.id] = next;
+    } catch (e) {}
+  }));
+  if (Object.keys(updates).length) {
+    saveContracts(contracts.map(c => updates[c.id] || c));
+    const signedQuoteIds = new Set(Object.values(updates).map(c => c.quoteId).filter(Boolean));
+    if (signedQuoteIds.size) saveQuotes(quotes.map(q => signedQuoteIds.has(q.id) && q.status !== 'approved' ? { ...q, status: 'approved' } : q));
+  }
+}
+
+/* ---- 손서명 패드(대표 서명용) — contract/index.html에도 같은 코드가 있다 ---- */
+function initSignPad(canvas, onChange) {
+  const ctx = canvas.getContext('2d');
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.round(rect.width * dpr); canvas.height = Math.round(rect.height * dpr);
+  ctx.scale(dpr, dpr); ctx.lineWidth = 2.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#111';
+  canvas.style.touchAction = 'none';
+  let drawing = false, last = null, dirty = false;
+  const pos = e => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  canvas.addEventListener('pointerdown', e => { drawing = true; last = pos(e); try { canvas.setPointerCapture(e.pointerId); } catch (x) {} e.preventDefault(); });
+  canvas.addEventListener('pointermove', e => { if (!drawing) return; const p = pos(e); ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke(); last = p; dirty = true; e.preventDefault(); });
+  const end = () => { if (drawing) { drawing = false; if (onChange) onChange(); } };
+  canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end); canvas.addEventListener('pointerleave', end);
+  return {
+    clear() { ctx.clearRect(0, 0, canvas.width, canvas.height); dirty = false; if (onChange) onChange(); },
+    isEmpty() { return !dirty; },
+    toDataURL() { const w = Math.min(600, rect.width * 2), h = Math.round(w * rect.height / rect.width); const o = document.createElement('canvas'); o.width = w; o.height = h; o.getContext('2d').drawImage(canvas, 0, 0, w, h); return o.toDataURL('image/png'); },
+  };
+}
+function autoGrow(ta) { ta.style.height = 'auto'; ta.style.height = (ta.scrollHeight + 2) + 'px'; }
+function quoteAfterRender() {
+  document.querySelectorAll('.c-article textarea').forEach(autoGrow);
+  const cv = document.getElementById('bizSignPad');
+  if (cv && !cv.__pad) { cv.__pad = initSignPad(cv); window.__bizPad = cv.__pad; }
+}
+
+/* ---- 계약서 편집기 ---- */
+function contractOpenEditor(c) { S.quote.cdraft = JSON.parse(JSON.stringify(c)); S.quote.draft = null; S.quote.view = 'contracts'; S.quote.msg = ''; window.scrollTo(0, 0); render(); }
+function contractCommitDraft() {
+  const d = S.quote.cdraft; if (!d) return null;
+  d.updatedAt = Date.now();
+  const exists = contracts.some(c => c.id === d.id);
+  saveContracts(exists ? contracts.map(c => c.id === d.id ? JSON.parse(JSON.stringify(d)) : c) : [JSON.parse(JSON.stringify(d)), ...contracts]);
+  if (d.quoteId) { const q = quotes.find(x => x.id === d.quoteId); if (q && q.contractId !== d.id) saveQuotes(quotes.map(x => x.id === q.id ? { ...x, contractId: d.id } : x)); }
+  if (d.shareId && !d.signing) publishContract(d).catch(() => {});
+  return d;
+}
+function contractPreview(c) {
+  try { localStorage.setItem('vinfilm-contract-preview', JSON.stringify(contractSnapshot(c))); } catch (e) {}
+  const url = '../contract/?preview=1';
+  if (isStandaloneApp()) location.href = url; else window.open(url, '_blank');
+}
+async function contractShare() {
+  const d = contractCommitDraft(); if (!d) return;
+  if (IS_LOCAL_DEV) { S.quote.msg = '로컬 테스트 환경에서는 계약서 링크를 만들지 않아요. 미리보기로 확인해 주세요.'; render(); return; }
+  if (bizMissing() || !biz.signature) { S.quote.bizOpen = true; S.quote.msg = '계약서를 보내기 전에 사업자 정보와 대표 서명을 먼저 넣어주세요.'; render(); return; }
+  if (!d.clientName.trim()) { S.quote.msg = '계약 상대방(클라이언트) 이름을 넣어주세요.'; render(); return; }
+  try {
+    if (!d.shareId) d.shareId = randomShareId();
+    if (d.status === 'draft') d.status = 'sent';
+    if (!d.sentAt) d.sentAt = Date.now();
+    saveContracts(contracts.map(c => c.id === d.id ? JSON.parse(JSON.stringify(d)) : c));
+    await publishContract(d);
+    const url = contractShareUrl(d);
+    const title = `[VINFILM STUDIO] ${d.projectTitle || '영상 제작'} 계약서`;
+    if (navigator.share) {
+      try { await navigator.share({ title, text: `${d.clientName}님, VINFILM STUDIO 계약서예요. 내용 확인 후 서명 부탁드려요.`, url }); S.quote.msg = '공유했어요.'; }
+      catch (e) { if (e && e.name === 'AbortError') S.quote.msg = ''; else throw e; }
+    } else { await navigator.clipboard.writeText(url); S.quote.msg = '링크를 복사했어요. 카카오톡·문자에 붙여넣어 보내세요.'; }
+  } catch (e) { S.quote.msg = '링크를 만들지 못했어요: ' + (e.message || e); }
+  render();
+}
+function contractListHtml() {
+  const list = [...contracts].sort((a, b) => (b.contractDate || '').localeCompare(a.contractDate || '') || (b.createdAt || 0) - (a.createdAt || 0));
+  if (!list.length) return `<div class="task-note-empty">아직 계약서가 없어요. 견적서를 열고 <b>📝 계약서 만들기</b>를 누르면 견적 내용으로 계약서가 만들어져요.</div>`;
+  return `<div class="q-list">${list.map(c => {
+    const st = contractStatusOf(c.status); const t = quoteTotals(c);
+    return `<button class="q-row" data-action="contract-open" data-id="${c.id}">
+      <span class="q-row-no">${esc(c.number || '')}</span>
+      <span class="q-row-main"><b>${esc(c.projectTitle || '(프로젝트명 없음)')}</b><small>${esc(c.clientName || '클라이언트 미정')} · ${esc(c.contractDate || '')}${c.signing ? ` · ${esc(c.signing.name)} 서명` : ''}</small></span>
+      <span class="q-row-total">₩${won(t.total)}</span>
+      <span class="q-badge" style="--c:${st.color}">${st.label}</span>
+    </button>`; }).join('')}</div>`;
+}
+function contractEditorHtml() {
+  const d = S.quote.cdraft;
+  const t = quoteTotals(d);
+  const st = contractStatusOf(d.status);
+  const locked = !!d.signing;
+  const dis = locked ? 'disabled' : '';
+  const f = (key, label, attrs = '') => `<div class="eq-field"><label>${label}</label><input data-c-field="${key}" value="${esc(d[key] ?? '')}" ${attrs} ${dis} /></div>`;
+  const dep = Number(d.deposit) || 0, depAmt = Math.round(t.total * dep / 100);
+  return `
+    <div class="q-editor">
+      <div class="q-editor-top">
+        <button class="q-back" data-action="contract-back">‹ 목록</button>
+        <div class="q-editor-title"><h1 class="eq-title">계약서</h1><span class="q-no">${esc(d.number)}</span><span class="q-badge" style="--c:${st.color}">${st.label}</span></div>
+      </div>
+      ${S.quote.msg ? `<div class="gcal-notice">${esc(S.quote.msg)}</div>` : ''}
+      ${locked ? `<div class="q-approved">✓ <b>${esc(d.signing.name)}</b>님이 ${new Date(d.signing.at).toLocaleString('ko-KR')}에 서명했어요. 서명된 계약서는 수정할 수 없어요.${d.ledgerSynced ? ' 수입·지출 관리에 매출이 등록됐어요.' : ''}</div>` : ''}
+      <div class="q-grid">
+        <div class="q-main">
+          <section class="q-card"><h3>계약 당사자 · 일정</h3>
+            <div class="eq-field-row">${f('clientName', '갑 (클라이언트)', 'list="clientList" placeholder="예: OO컴퍼니"')}${f('clientRep', '대표자 / 담당자', 'placeholder="예: 대표 김OO"')}</div>
+            ${f('clientContact', '연락처', 'placeholder="010-…"')}
+            ${f('projectTitle', '프로젝트명')}
+            <datalist id="clientList">${getKnownClients().map(c => `<option value="${esc(c)}"></option>`).join('')}</datalist>
+            <div class="eq-field-row">
+              <div class="eq-field"><label>계약일</label><input type="date" data-c-field="contractDate" value="${esc(d.contractDate)}" ${dis} /></div>
+              <div class="eq-field"><label>촬영일</label><input type="date" data-c-field="shootDate" value="${esc(d.shootDate)}" ${dis} /></div>
+              <div class="eq-field"><label>납품일</label><input type="date" data-c-field="deliveryDate" value="${esc(d.deliveryDate)}" ${dis} /></div>
+            </div>
+          </section>
+          <section class="q-card"><h3>계약 조항 <span class="eq-hint">(문구를 자유롭게 고칠 수 있어요)</span></h3>
+            <div class="c-articles">
+              ${(d.articles || []).map((a, i) => `
+                <div class="c-article">
+                  <div class="c-article-head"><span>제${i + 1}조</span><input data-c-art="${i}" data-c-key="title" value="${esc(a.title)}" ${dis} />${locked ? '' : `<button class="qi-del" data-action="contract-del-article" data-idx="${i}" title="조항 삭제">✕</button>`}</div>
+                  <textarea data-c-art="${i}" data-c-key="body" rows="3" ${dis}>${esc(a.body)}</textarea>
+                </div>`).join('')}
+            </div>
+            ${locked ? '' : `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+              <button class="proj-list-add-btn" style="flex:1" data-action="contract-add-article">+ 조항 추가</button>
+              <button class="proj-list-add-btn" style="flex:1" data-action="contract-reset-articles">↺ 기본 조항으로 다시 채우기</button>
+            </div>`}
+          </section>
+          <section class="q-card"><h3>계약 금액 <span class="eq-hint">(견적 ${esc(d.quoteNumber || '')} 기준 — 금액을 바꾸려면 견적서를 고친 뒤 계약서를 새로 만드세요)</span></h3>
+            ${(d.items || []).map(it => `<div class="c-item"><span>${esc(it.cat)} · ${esc(it.desc)} <small>${esc(String(it.qty))}${esc(it.unit || '')}</small></span><b>${won((Number(it.qty) || 0) * (Number(it.price) || 0))}</b></div>`).join('')}
+          </section>
+        </div>
+        <aside class="q-side">
+          <div class="q-card q-sum">
+            <div><span>공급가액</span><b>${won(t.supply)}</b></div>
+            <div><span>부가세</span><b>${won(t.vat)}</b></div>
+            <div class="q-sum-total"><span>계약금액</span><b>₩${won(t.total)}</b></div>
+            ${dep > 0 && dep < 100 ? `<div><span>계약금 ${dep}%</span><b>${won(depAmt)}</b></div><div><span>잔금 ${100 - dep}%</span><b>${won(t.total - depAmt)}</b></div>` : ''}
+            ${locked ? '' : `<button class="eq-modal-submit" data-action="contract-save">저장</button>`}
+            <button class="eq-modal-submit eq-modal-submit-secondary" data-action="contract-preview">👀 미리보기 · PDF</button>
+            ${locked ? (d.shareId ? `<button class="eq-modal-submit eq-modal-submit-secondary" data-action="contract-open-signed">📄 서명된 계약서 보기</button>` : '') : `<button class="eq-modal-submit q-share-btn" data-action="contract-share">✍️ ${d.shareId ? '서명 링크 다시 보내기' : '서명 링크 보내기'}</button>`}
+            ${d.shareId && !locked ? `<button class="q-linkcopy" data-action="contract-copy-link">🔗 링크 복사</button>` : ''}
+            ${!biz.signature ? `<p class="q-hint" style="margin:10px 0 0">대표 서명이 아직 없어요. <button class="q-inline-link" data-action="quote-biz-open">사업자 정보에서 서명하기</button></p>` : ''}
+            <div class="q-side-links">
+              ${d.quoteId ? `<button data-action="contract-open-quote">🧾 견적서 보기</button>` : ''}
+              ${contracts.some(c => c.id === d.id) ? `<button data-action="contract-delete" class="is-danger">✕ 삭제</button>` : ''}
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>`;
+}
+function handleContractAction(action, el, e) {
+  const d = S.quote.cdraft;
+  switch (action) {
+    case 'contract-from-quote': {
+      const q = quoteCommitDraft(); if (!q) return true;
+      const existing = q.contractId && contracts.find(c => c.id === q.contractId);
+      if (existing) { contractOpenEditor(existing); return true; }
+      const c = contractFromQuote(q);
+      S.quote.draft = null;
+      contractOpenEditor(c);
+      contractCommitDraft();
+      S.quote.msg = '견적 내용으로 계약서를 만들었어요. 일정·조항을 확인하고 서명 링크를 보내세요.'; render();
+      return true;
+    }
+    case 'contract-open': { const c = contracts.find(x => x.id === el.dataset.id); if (c) contractOpenEditor(c); return true; }
+    case 'contract-back': S.quote.cdraft = null; S.quote.msg = ''; render(); return true;
+    case 'contract-save': contractCommitDraft(); S.quote.msg = '저장했어요.'; render(); return true;
+    case 'contract-add-article': d.articles.push({ title: '', body: '' }); render(); return true;
+    case 'contract-del-article': d.articles.splice(+el.dataset.idx, 1); render(); return true;
+    case 'contract-reset-articles': if (confirm('조항을 기본 문구로 다시 채울까요? 고친 문구는 사라져요.')) { d.articles = defaultContractArticles(d); render(); } return true;
+    case 'contract-preview': { const saved = d.signing ? d : contractCommitDraft(); if (saved) contractPreview(saved); return true; }
+    case 'contract-open-signed': { const url = contractShareUrl(d); if (isStandaloneApp()) location.href = url; else window.open(url, '_blank'); return true; }
+    case 'contract-share': contractShare(); return true;
+    case 'contract-copy-link': {
+      const url = contractShareUrl(d);
+      (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(() => { S.quote.msg = '링크를 복사했어요.'; render(); }).catch(() => { prompt('아래 링크를 복사하세요', url); });
+      return true;
+    }
+    case 'contract-open-quote': { const q = quotes.find(x => x.id === d.quoteId); if (q) { S.quote.cdraft = null; S.quote.view = 'quotes'; quoteOpenEditor(q); } return true; }
+    case 'contract-delete': {
+      if (!confirm(`${d.number} 계약서를 삭제할까요?${d.signing ? '\n서명된 계약서예요. 삭제하면 클라이언트 링크도 열리지 않아요. PDF를 먼저 저장해 두세요.' : d.shareId ? '\n보낸 서명 링크도 더 이상 열리지 않아요.' : ''}`)) return true;
+      if (d.shareId && !IS_LOCAL_DEV && typeof firebase !== 'undefined') firebase.firestore().collection('contractsPublic').doc(d.shareId).delete().catch(() => {});
+      saveContracts(contracts.filter(c => c.id !== d.id));
+      if (d.quoteId) saveQuotes(quotes.map(q => q.id === d.quoteId && q.contractId === d.id ? { ...q, contractId: '' } : q));
+      S.quote.cdraft = null; S.quote.msg = ''; render(); return true;
+    }
+    case 'quote-view': S.quote.view = el.dataset.id; S.quote.draft = null; S.quote.cdraft = null; S.quote.msg = ''; render(); return true;
+    case 'biz-sign-clear': if (window.__bizPad) window.__bizPad.clear(); S.quote.bizSignCleared = true; { const img = document.getElementById('bizSignCurrent'); if (img) img.remove(); } return true;
+  }
+  return false;
+}
+function handleContractInput(e) {
+  const d = S.quote.cdraft; if (!d || d.signing) return false;
+  const t = e.target;
+  if (t.dataset.cField) {
+    // 날짜·이름 등을 바꾸면, 손대지 않은(기본 문구 그대로인) 조항은 새 값으로 같이 바꿔준다
+    const before = defaultContractArticles(d);
+    d[t.dataset.cField] = t.value;
+    const after = defaultContractArticles(d);
+    (d.articles || []).forEach((a, i) => {
+      if (before[i] && after[i] && a.body === before[i].body && a.body !== after[i].body) {
+        a.body = after[i].body;
+        const ta = document.querySelector(`textarea[data-c-art="${i}"]`); if (ta) { ta.value = a.body; autoGrow(ta); }
+      }
+    });
+    return true;
+  }
+  if (t.dataset.cArt != null) { const a = d.articles[+t.dataset.cArt]; if (a) a[t.dataset.cKey] = t.value; if (t.tagName === 'TEXTAREA') autoGrow(t); return true; }
+  return false;
+}
+
 /* ================= main render ================= */
 function renderTab() {
   if (GUEST_MODE && !GUEST_ALLOWED_TABS.includes(S.activeTab)) S.activeTab = 'equipment';
@@ -2936,6 +3278,7 @@ function render() {
   document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderMobileTopBar()}${renderTab()}</main>${renderMobileTabBar()}</div>${schedModalHtml()}${settingsModalHtml()}${gcalModalHtml()}${gcalDetailModalHtml()}`;
   fitCalendar();
   positionNavIndicator();
+  quoteAfterRender();
   const main = document.querySelector('.app-main');
   if (main && window.__lastTab !== S.activeTab) { main.classList.add('tab-enter'); window.__lastTab = S.activeTab; }
   const af = document.querySelector('[autofocus]');
@@ -3007,7 +3350,7 @@ function bootApp() {
     /* 게스트는 장비목록을 보기만 할 수 있다 — 등록/수정/삭제/카테고리 관리 전부 차단. */
     const EQ_WRITE_ACTIONS = ['eq-open-add', 'eq-open-edit', 'eq-confirm-delete', 'eq-delete', 'eq-open-category-modal', 'eq-add-category', 'eq-delete-category', 'eq-detail-edit', 'eq-detail-delete', 'eq-open-add-child', 'eq-request-delete-in-modal'];
     if (GUEST_MODE && EQ_WRITE_ACTIONS.includes(action)) return;
-    if (action.startsWith('quote-') && !GUEST_MODE && handleQuoteAction(action, el, e)) return;
+    if (/^(quote-|contract-|biz-sign)/.test(action) && !GUEST_MODE && (handleQuoteAction(action, el, e) || handleContractAction(action, el, e))) return;
 
     switch (action) {
       case 'set-tab':
@@ -3456,6 +3799,7 @@ function bootApp() {
   /* text search (targeted refresh, no full render → keeps focus) */
   root.addEventListener('input', (e) => {
     if (S.quote.draft && handleQuoteInput(e)) return;
+    if (S.quote.cdraft && handleContractInput(e)) return;
     if (e.target.id === 'eqSearchInput') { S.eq.search = e.target.value; refreshEqGrid(); }
     else if (e.target.id === 'schedSearchInput') { S.sched.search = e.target.value; refreshSchedList(); }
     else if (e.target.id === 'projSearchInput') { S.proj.search = e.target.value; refreshProjList(); }
@@ -3465,6 +3809,7 @@ function bootApp() {
   /* checkboxes: allDay, photo file, ics import, shoot confirm/pack toggles */
   root.addEventListener('change', (e) => {
     if (S.quote.draft && handleQuoteInput(e)) return;
+    if (S.quote.cdraft && handleContractInput(e)) return;
     if (e.target.dataset && e.target.dataset.role === 'proj-due-inline') {
       const id = e.target.dataset.id;
       saveProjItems(projItems.map(p => p.id === id ? { ...p, dueDate: e.target.value } : p));
@@ -3672,7 +4017,10 @@ function bootApp() {
       const fd = new FormData(form);
       const next = {}; BIZ_FIELDS.forEach(f => { next[f.key] = (fd.get(f.key) || '').toString().trim(); });
       if (!next.name) next.name = 'VINFILM STUDIO';
-      saveBiz(next); S.quote.bizOpen = false; if (/사업자 정보/.test(S.quote.msg)) S.quote.msg = '';
+      if (window.__bizPad && !window.__bizPad.isEmpty()) next.signature = window.__bizPad.toDataURL();
+      else if (!S.quote.bizSignCleared && biz.signature) next.signature = biz.signature;
+      S.quote.bizSignCleared = false;
+      saveBiz(next); S.quote.bizOpen = false; if (/사업자 정보|대표 서명/.test(S.quote.msg)) S.quote.msg = '';
       render();
     } else if (form.matches('[data-form-role="note-form"]')) {
       const fd = new FormData(form);
@@ -4582,6 +4930,23 @@ document.addEventListener('DOMContentLoaded', () => {
     .q-item input, .q-item select { background:var(--surface); font-size:16px; }
     .qi-cat { grid-area:cat; } .qi-desc { grid-area:desc; } .qi-qty { grid-area:qty; } .qi-unit { grid-area:unit; } .qi-price { grid-area:price; } .qi-amount { grid-area:amount; font-size:15px; } .qi-del { grid-area:del; }
   }
+
+  /* ===== 계약서 ===== */
+  .q-seg { margin:0 0 14px; display:inline-flex; }
+  .c-articles { display:flex; flex-direction:column; gap:10px; }
+  .c-article { border:1px solid var(--border); border-radius:12px; padding:10px 12px; background:var(--bg); }
+  .c-article-head { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .c-article-head > span { font-size:12.5px; font-weight:800; color:var(--accent); white-space:nowrap; }
+  .c-article-head input { flex:1; min-width:0; border:none; background:transparent; color:var(--text); font-family:var(--font-body); font-size:14px; font-weight:700; padding:4px 2px; }
+  .c-article textarea { width:100%; box-sizing:border-box; min-height:74px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); font-family:var(--font-body); font-size:13px; line-height:1.65; padding:8px 10px; resize:vertical; }
+  .c-article textarea:disabled, .c-article input:disabled, .q-card input:disabled { opacity:.75; }
+  .c-item { display:flex; justify-content:space-between; gap:12px; padding:7px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  .c-item small { color:var(--text-faint); margin-left:4px; } .c-item b { font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .sign-pad { display:block; width:100%; height:150px; border:1.5px dashed var(--border-strong, var(--border)); border-radius:12px; background:#fff; cursor:crosshair; }
+  .sign-pad-actions { display:flex; justify-content:space-between; align-items:center; margin-top:6px; font-size:12px; color:var(--text-faint); }
+  .sign-pad-actions button { background:none; border:1px solid var(--border); border-radius:8px; padding:4px 10px; color:var(--text-dim); font-family:var(--font-body); cursor:pointer; }
+  .biz-sign-current { display:block; max-height:70px; margin:0 0 8px; background:#fff; border-radius:8px; border:1px solid var(--border); padding:4px 10px; }
+  @media (max-width: 720px) { .c-article textarea { font-size:16px; } }
 </style>
 </body>
 </html>

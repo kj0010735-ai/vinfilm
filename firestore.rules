@@ -42,6 +42,31 @@ service cloud.firestore {
       );
     }
 
+    // 전자계약서 — 원본은 owner만. 서명용 사본(contractsPublic/{비밀 id})은 단건 조회만 공개.
+    // owner는 서명 전까지만 사본을 고칠 수 있고(서명된 계약서는 owner도 못 바꿈), 클라이언트는 서명 전 문서에
+    // signing 필드 하나만, 문서 내용 해시(hash)가 일치할 때만 채울 수 있다.
+    match /contracts/{id} { allow read, write: if isOwner(); }
+    match /contractsPublic/{id} {
+      allow get: if true;
+      allow list, create, delete: if isOwner();
+      allow update: if (isOwner() && resource.data.signing == null) || (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['signing'])
+        && resource.data.signing == null
+        && request.resource.data.signing is map
+        && request.resource.data.signing.keys().hasOnly(['name', 'signature', 'at', 'hash', 'ua'])
+        && request.resource.data.signing.name is string
+        && request.resource.data.signing.name.size() > 0
+        && request.resource.data.signing.name.size() <= 60
+        && request.resource.data.signing.signature is string
+        && request.resource.data.signing.signature.size() < 400000
+        && request.resource.data.signing.signature.matches('^data:image/png;base64,[A-Za-z0-9+/=]+$')
+        && request.resource.data.signing.at is int
+        && request.resource.data.signing.hash == resource.data.hash
+        && request.resource.data.signing.ua is string
+        && request.resource.data.signing.ua.size() <= 400
+      );
+    }
+
     // STUDIO FINANCE 통합장부(ledger/index.html) — 재무 데이터라 owner만 읽고 쓸 수 있다.
     match /ledgerEntries/{id} { allow read, write: if isOwner(); }
     match /ledgerSubscriptions/{id} { allow read, write: if isOwner(); }
