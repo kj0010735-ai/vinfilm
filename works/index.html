@@ -1884,7 +1884,7 @@ function projListHtml() {
   const q = (S.proj.search || '').trim().toLowerCase();
   let items = projItems.filter(p => {
     if ((p.parentId || null) !== parentId) return false;
-    if (S.proj.statusFilter !== 'all' && p.status !== S.proj.statusFilter) return false;
+    if (S.proj.statusFilter === 'all' ? p.status === 'done' : p.status !== S.proj.statusFilter) return false; // 'all' = 진행 중 탭(완료 제외)
     if (!q) return true;
     return (p.title || '').toLowerCase().includes(q) || (p.client || '').toLowerCase().includes(q) || (p.notes || '').toLowerCase().includes(q);
   });
@@ -1892,7 +1892,7 @@ function projListHtml() {
   const addBtn = `<button class="proj-list-add-btn" data-action="proj-open-add" data-id="todo">+ 새 프로젝트 추가</button>`;
   const bulkBar = projBulkBarHtml();
   if (items.length === 0) {
-    const msg = (q || S.proj.statusFilter !== 'all') ? '조건에 맞는 프로젝트가 없어요' : (parentId ? '하위 프로젝트가 없어요' : '등록된 프로젝트가 없어요');
+    const msg = S.proj.statusFilter === 'done' && !q ? '진행완료된 프로젝트가 없어요' : (q || S.proj.statusFilter !== 'all') ? '조건에 맞는 프로젝트가 없어요' : projItems.some(p => (p.parentId || null) === parentId) ? '진행 중인 프로젝트가 없어요. 끝난 건 ✅ 진행완료 탭에 있어요' : (parentId ? '하위 프로젝트가 없어요' : '등록된 프로젝트가 없어요');
     return `${bulkBar}<div class="proj-empty">${msg}</div>${addBtn}`;
   }
   const allChecked = items.every(p => S.proj.selectedIds.includes(p.id));
@@ -1939,10 +1939,10 @@ function renderProjectsTab() {
     </div>
     <div class="eq-toolbar">
       <div class="eq-search"><input id="projSearchInput" placeholder="제목, 클라이언트, 메모로 검색" value="${esc(S.proj.search)}" /></div>
-      <div class="eq-chip-row">
-        <button class="eq-chip ${S.proj.statusFilter==='all'?'active':''}" data-action="proj-set-status-filter" data-id="all">전체 ${counts.all}</button>
-        ${PROJECT_COLUMNS.map(col => `<button class="eq-chip ${S.proj.statusFilter===col.id?'active':''}" data-action="proj-set-status-filter" data-id="${col.id}"><span class="eq-chip-dot" style="background:${col.color}"></span>${col.label} ${counts[col.id]}</button>`).join('')}
-      </div>
+      <div class="cal-seg done-seg"><button class="${S.proj.statusFilter !== 'done' ? 'on' : ''}" data-action="proj-set-status-filter" data-id="all">📂 진행 중 ${counts.all - counts.done}</button><button class="${S.proj.statusFilter === 'done' ? 'on' : ''}" data-action="proj-set-status-filter" data-id="done">✅ 진행완료 ${counts.done}</button></div>
+      ${S.proj.statusFilter !== 'done' ? `<div class="eq-chip-row">
+        ${PROJECT_COLUMNS.filter(col => col.id !== 'done').map(col => `<button class="eq-chip ${S.proj.statusFilter===col.id?'active':''}" data-action="proj-set-status-filter" data-id="${S.proj.statusFilter===col.id ? 'all' : col.id}"><span class="eq-chip-dot" style="background:${col.color}"></span>${col.label} ${counts[col.id]}</button>`).join('')}
+      </div>` : ''}
       <select class="proj-sort-select" style="margin-left:auto;" data-role="proj-sort" title="정렬">${PROJ_SORTS.map(s => `<option value="${s.id}" ${projSortMode() === s.id ? 'selected' : ''}>↕ ${s.label}</option>`).join('')}</select>
       <button class="eq-chip ${S.proj.selectMode ? 'active' : ''}" data-action="proj-toggle-select-mode">${S.proj.selectMode ? '선택 취소' : '☑ 선택'}</button>
     </div>
@@ -2112,7 +2112,7 @@ function sharedListHtml() {
   let items = sharedProjItems.filter(p => {
     if ((p.parentId || null) !== parentId) return false;
     if (!parentId && !sharedCollabMatch(p)) return false;
-    if (S.shared.statusFilter !== 'all' && p.status !== S.shared.statusFilter) return false;
+    if (S.shared.statusFilter === 'all' ? p.status === 'done' : p.status !== S.shared.statusFilter) return false;
     if (!q) return true;
     return (p.title || '').toLowerCase().includes(q) || (p.client || '').toLowerCase().includes(q) || (p.notes || '').toLowerCase().includes(q);
   });
@@ -2120,7 +2120,7 @@ function sharedListHtml() {
   const addBtn = `<button class="proj-list-add-btn" data-action="shared-open-add">+ 새 공유 프로젝트 추가</button>`;
   const bulkBar = sharedBulkBarHtml();
   if (items.length === 0) {
-    const msg = (q || S.shared.statusFilter !== 'all') ? '조건에 맞는 프로젝트가 없어요' : (parentId ? '하위 프로젝트가 없어요' : '등록된 공유 프로젝트가 없어요');
+    const msg = S.shared.statusFilter === 'done' && !q ? '완료된 프로젝트가 없어요' : (q || S.shared.statusFilter !== 'all') ? '조건에 맞는 프로젝트가 없어요' : sharedProjItems.some(p => (p.parentId || null) === parentId) ? '진행 중인 프로젝트가 없어요. 끝난 건 ✅ 완료 탭에 있어요' : (parentId ? '하위 프로젝트가 없어요' : '등록된 공유 프로젝트가 없어요');
     return `${bulkBar}<div class="proj-empty">${msg}</div>${addBtn}`;
   }
   const allChecked = items.every(p => S.shared.selectedIds.includes(p.id));
@@ -2176,8 +2176,8 @@ function renderSharedProjectsTab() {
     <div class="eq-toolbar">
       <div class="eq-search"><input id="sharedProjSearchInput" placeholder="제목, 클라이언트, 메모로 검색" value="${esc(S.shared.search)}" /></div>
       <div class="eq-chip-row">
-        <button class="eq-chip ${S.shared.statusFilter==='all'?'active':''}" data-action="shared-set-status-filter" data-id="all">전체 ${counts.all}</button>
-        ${SHARED_STATUSES.map(st => `<button class="eq-chip ${S.shared.statusFilter===st.id?'active':''}" data-action="shared-set-status-filter" data-id="${st.id}"><span class="eq-chip-dot" style="background:${st.color}"></span>${st.label} ${counts[st.id]}</button>`).join('')}
+        <span class="cal-seg done-seg"><button class="${S.shared.statusFilter !== 'done' ? 'on' : ''}" data-action="shared-set-status-filter" data-id="all">📂 진행 중 ${counts.all - counts.done}</button><button class="${S.shared.statusFilter === 'done' ? 'on' : ''}" data-action="shared-set-status-filter" data-id="done">✅ 완료 ${counts.done}</button></span>
+        ${S.shared.statusFilter !== 'done' ? SHARED_STATUSES.filter(st => st.id !== 'done').map(st => `<button class="eq-chip ${S.shared.statusFilter===st.id?'active':''}" data-action="shared-set-status-filter" data-id="${S.shared.statusFilter===st.id ? 'all' : st.id}"><span class="eq-chip-dot" style="background:${st.color}"></span>${st.label} ${counts[st.id]}</button>`).join('') : ''}
       </div>
       <select class="proj-sort-select" style="margin-left:auto;" data-role="shared-sort" title="정렬">${PROJ_SORTS.map(s => `<option value="${s.id}" ${sharedSortMode() === s.id ? 'selected' : ''}>↕ ${s.label}</option>`).join('')}</select>
       <button class="eq-chip ${S.shared.selectMode ? 'active' : ''}" data-action="shared-toggle-select-mode">${S.shared.selectMode ? '선택 취소' : '☑ 선택'}</button>
@@ -5334,6 +5334,8 @@ document.addEventListener('DOMContentLoaded', () => {
   :root[data-theme="light"] .gcal-btn.is-on { color:var(--text); }
   :root[data-theme="light"] .gcal-btn.is-warn { color:#b7791f; }
   .collab-actions button.is-on { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+  .done-seg { display:inline-flex; flex-shrink:0; }
+  .done-seg button { white-space:nowrap; }
 </style>
 </body>
 </html>
