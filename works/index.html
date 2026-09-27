@@ -1104,7 +1104,7 @@ function dashUpcomingHtml() {
   const today = todayStr();
   const end = addDaysYmd(today, 13);
   const g = gcalEventsByDate();
-  let list = visibleSchedItems().filter(it => it.date >= today && it.date <= end);
+  let list = [...visibleSchedItems(), ...projDueEvents()].filter(it => it.date >= today && it.date <= end);
   Object.keys(g).forEach(d => { if (d >= today && d <= end) g[d].forEach(ev => { if (ev.date === d || d === today) list.push({ ...ev, date: d }); }); });
   list.sort((a, b) => `${a.date}T${a.time || '00:00'}`.localeCompare(`${b.date}T${b.time || '00:00'}`));
   const shown = list.slice(0, 6);
@@ -1114,9 +1114,10 @@ function dashUpcomingHtml() {
       ${shown.length === 0 ? `<p class="dash-empty">없습니다.</p>` : `<div class="dash-list">${shown.map(it => {
         const d = parseYmd(it.date);
         const g2 = it.source === 'google';
-        return `<button class="dash-row" data-action="${g2 ? 'gcal-open-detail' : 'sched-open-detail'}" data-id="${esc(it.id)}">
+        const due = it.source === 'due';
+        return `<button class="dash-row" data-action="${due ? 'today-open-project-detail' : g2 ? 'gcal-open-detail' : 'sched-open-detail'}" data-id="${esc(due ? it.projectId : it.id)}">
           <span class="dash-date ${it.date === today ? 'is-today' : ''}"><b>${d.getDate()}</b><small>${it.date === today ? '오늘' : WEEKDAYS_KO[d.getDay()]}</small></span>
-          <span class="dash-row-main"><b>${esc(it.title)}</b><small>${it.time ? esc(it.time) : '종일'}${it.location ? ' · ' + esc(it.location) : ''}${g2 ? ' · ' + gcalSourceLabel(it) : ''}</small></span>
+          <span class="dash-row-main"><b>${esc(it.title)}</b><small>${due ? '프로젝트 마감' : it.time ? esc(it.time) : '종일'}${it.location ? ' · ' + esc(it.location) : ''}${g2 ? ' · ' + gcalSourceLabel(it) : ''}</small></span>
           <span class="dash-dot" style="background:${g2 && it.tag === 'hisplan' ? 'var(--sched-hisplan)' : `var(--sched-${it.category})`}"></span>
         </button>`; }).join('')}</div>`}
     </div>`;
@@ -1285,6 +1286,11 @@ function schedDetailModalHtml() {
 /* ================= 캘린더 보기 (월/주) ================= */
 function ymd(d) { return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
 function parseYmd(str) { const [y,m,d] = str.split('-').map(Number); return new Date(y, m-1, d); }
+/* 프로젝트 마감일 → 캘린더/대시보드에 읽기 전용 '마감' 일정으로 표시 (완료된 프로젝트는 제외, 저장은 안 함 — 매번 projItems에서 만든다) */
+function projDueEvents() {
+  return projItems.filter(p => p.dueDate && p.status !== 'done')
+    .map(p => ({ id: 'due-' + p.id, projectId: p.id, source: 'due', title: p.title, date: p.dueDate, time: null, category: 'deadline' }));
+}
 function calFilteredItems() {
   // 캘린더는 과거도 보여야 하므로 "지난 일정" 토글은 무시하고 카테고리/검색만 적용
   const st = S.sched;
@@ -1293,6 +1299,10 @@ function calFilteredItems() {
   if (st.search.trim()) {
     const q = st.search.trim().toLowerCase();
     list = list.filter(it => it.title.toLowerCase().includes(q) || (it.location||'').toLowerCase().includes(q) || (it.memo||'').toLowerCase().includes(q));
+  }
+  if (st.categoryFilter === 'all' || st.categoryFilter === 'deadline') {
+    const q = st.search.trim().toLowerCase();
+    list = [...list, ...projDueEvents().filter(ev => !q || ev.title.toLowerCase().includes(q))];
   }
   list.sort((a,b) => `${a.date}T${a.time||'00:00'}`.localeCompare(`${b.date}T${b.time||'00:00'}`));
   const byDate = {};
@@ -1310,6 +1320,7 @@ function calFilteredItems() {
 function calEventHtml(it, compact) {
   const past = it.date < todayStr();
   const g = it.source === 'google';
+  if (it.source === 'due') return `<button class="cal-ev is-due ${past ? 'is-past' : ''}" style="--ev:var(--sched-deadline)" data-action="today-open-project-detail" data-id="${esc(it.projectId)}" title="마감 · ${esc(it.title)}"><span class="cal-ev-time">마감</span><span class="cal-ev-title">${esc(it.title)}</span></button>`;
   return `<button class="cal-ev ${past ? 'is-past' : ''} ${g ? 'is-phone' : ''}" style="--ev:${g && it.tag === 'hisplan' ? 'var(--sched-hisplan)' : `var(--sched-${it.category})`}" data-action="${g ? 'gcal-open-detail' : 'sched-open-detail'}" data-id="${esc(it.id)}" title="${esc(it.title)}${g ? ' · ' + gcalSourceLabel(it) : ''}">${it.time ? `<span class="cal-ev-time">${esc(it.time)}</span>` : ''}<span class="cal-ev-title">${esc(it.title)}</span></button>`;
 }
 function calTitle() {
@@ -3480,7 +3491,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .eq-empty { grid-column: 1 / -1; text-align:center; padding:70px 20px; color:var(--text-faint); }
   .eq-empty p { margin:4px 0; font-size:13.5px; }
   .eq-modal-overlay { position:fixed; inset:0; background:rgba(10,11,14,0.65); display:flex; align-items:center; justify-content:center; z-index:100; padding:20px; }
-  .eq-modal { background:var(--surface); border:1px solid var(--border); border-radius:12px; width:100%; max-width:420px; padding:22px; max-height:88vh; overflow-y:auto; }
+  .eq-modal { background:var(--surface); border:1px solid var(--border); border-radius:12px; width:100%; max-width:420px; padding:22px; max-height:88vh; overflow-y:auto; overflow-x:hidden; box-sizing:border-box; }
   .eq-modal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
   .eq-modal-head h2 { font-size:16px; margin:0; font-weight:700; }
   .eq-modal-close { background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:16px; }
@@ -3494,7 +3505,8 @@ document.addEventListener('DOMContentLoaded', () => {
   .eq-field-row .eq-field { flex:1; }
   .eq-status-picker { display:flex; gap:6px; flex-wrap:wrap; }
   .eq-status-option { flex:1; min-width:70px; text-align:center; padding:8px 6px; border-radius:7px; border:1px solid var(--border); background:var(--bg); color:var(--text-dim); font-size:12px; cursor:pointer; font-family:var(--font-mono); display:block; }
-  .eq-status-option input { position:absolute; opacity:0; pointer-events:none; }
+  .eq-status-option { position:relative; }
+  .eq-status-option input, .eq-color-swatch input { position:absolute; left:0; top:0; width:1px !important; height:1px; margin:0; padding:0; opacity:0; pointer-events:none; }
   .eq-status-option:has(input:checked) { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
   .eq-color-swatches { display:flex; gap:9px; flex-wrap:wrap; }
   .eq-color-swatch { width:26px; height:26px; border-radius:50%; cursor:pointer; position:relative; border:2px solid transparent; display:inline-block; }
@@ -3840,6 +3852,8 @@ document.addEventListener('DOMContentLoaded', () => {
   .cal-cell { overflow:hidden; }
   .cal-evs { overflow:hidden; }
   .cal-ev.is-phone { border-left-style:dotted; }
+  .cal-ev.is-due { background:transparent; border:1px dashed var(--ev); border-left:3px solid var(--ev); }
+  .cal-ev.is-due .cal-ev-time { display:inline; color:var(--ev); font-weight:700; }
   .gcal-btn.is-on { background:var(--surface); color:var(--text); border:1px solid var(--border); }
   .gcal-btn.is-warn { background:var(--surface); color:#e0a63c; border:1px solid #e0a63c; }
   .gcal-notice { background:var(--accent-soft); border:1px solid var(--border); color:var(--text-dim); border-radius:12px; padding:10px 14px; font-size:12.5px; margin:0 0 14px; line-height:1.6; }
@@ -3929,6 +3943,12 @@ document.addEventListener('DOMContentLoaded', () => {
     .eq-add-btn { padding:10px 16px; font-size:13.5px; }
     .eq-modal-overlay { align-items:flex-end; padding:0; }
     .eq-modal { max-width:100% !important; border-radius:22px 22px 0 0; max-height:90vh; padding-bottom:calc(22px + env(safe-area-inset-bottom)); }
+    /* 수정 창이 옆으로 밀리지 않게: 가로 스크롤 금지 + 입력칸이 창 폭을 넘지 않게 + 16px 미만 글씨 입력칸에서 아이폰이 자동 확대하는 것 방지 */
+    .eq-modal-overlay { overflow:hidden; }
+    .eq-modal { box-sizing:border-box; overflow-x:hidden; overscroll-behavior:contain; touch-action:pan-y; }
+    .eq-modal input, .eq-modal select, .eq-modal textarea { font-size:16px !important; max-width:100%; min-width:0; box-sizing:border-box; }
+    .eq-modal .eq-field-row { min-width:0; }
+    .eq-modal .eq-field-row .eq-field { min-width:0; }
     .tab-enter { animation-duration:.28s; }
   }
 
