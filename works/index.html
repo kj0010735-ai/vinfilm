@@ -179,15 +179,22 @@ const SHARED_STATUSES = [
   { id: 'done', label: '완료', color: '#8b90a0' },
 ];
 /* 외부인과 공유하는 링크는 index.html?guest=1 형태로 접속 — 장비목록/공유 프로젝트 탭만 노출된다. */
-const GUEST_MODE = new URLSearchParams(location.search).get('guest') === '1';
-const GUEST_ALLOWED_TABS = ['equipment', 'shared'];
+/* 협업자 공간: works/?c={32자 hex}. 협업자마다 다른 공간(collabs/{id})이고, 그 공간에 배정된 공유 프로젝트(sharedProjects.collabId)와
+   캘린더 일정(schedule.collabId)만 보인다. 공간마다 접속 방식이 다르다 — 'link'(링크만 알면 로그인 없이) / 'login'(등록된 구글 계정만).
+   ?guest=1은 예전 공용 링크 — 규칙상 collabId 없는 공유 프로젝트는 더 이상 못 읽는다(장비목록만 보임). */
+const COLLAB_ID = (new URLSearchParams(location.search).get('c') || '').trim().toLowerCase();
+const COLLAB_MODE = /^[0-9a-f]{32}$/.test(COLLAB_ID);
+const GUEST_MODE = new URLSearchParams(location.search).get('guest') === '1' || COLLAB_MODE;
+let GUEST_ALLOWED_TABS = COLLAB_MODE ? ['shared', 'schedule'] : ['equipment', 'shared'];
+let collabInfo = null; // 협업자 화면에서 읽어온 공간 정보 {name, mode, members, showEquipment}
 /* 로컬(localhost/127.0.0.1)로 열었을 때는 실제 운영 Firestore를 절대 건드리지 않는다 —
    테스트하다가 실수로 실제 데이터를 지운 사고가 있어서, 로컬에서는 클라우드 동기화 자체를
    끄고 localStorage만으로 동작하게 함. 실제 배포 도메인에서는 정상적으로 동기화됨. */
+const LS_NS = COLLAB_MODE ? '-c' + COLLAB_ID.slice(0, 8) : '';
 const IS_LOCAL_DEV = ['localhost', '127.0.0.1', ''].includes(location.hostname) || location.protocol === 'file:';
-const LS_ITEMS = 'eq-manager-items';
-const LS_CATEGORIES = 'eq-manager-categories';
-const LS_SCHEDULE = 'eq-manager-schedule';
+const LS_ITEMS = 'eq-manager-items' + LS_NS;
+const LS_CATEGORIES = 'eq-manager-categories' + LS_NS;
+const LS_SCHEDULE = 'eq-manager-schedule' + LS_NS;
 const LS_PROJECTS = 'eq-manager-projects';
 const LS_SHOOTS = 'eq-manager-shoots';
 const LS_PRESETS = 'eq-manager-presets';
@@ -200,7 +207,7 @@ const DEFAULT_SHORTCUTS = [
   { id: 'sc-splice', name: 'SPLICE', url: 'splice://', iconDomain: 'splice.com' }, // splice:// = 설치된 Splice 데스크톱 앱 열기
   { id: 'sc-elevenlabs', name: 'ElevenLabs', url: 'https://elevenlabs.io' },
 ];
-const LS_SHARED = 'eq-manager-shared-projects';
+const LS_SHARED = 'eq-manager-shared-projects' + LS_NS;
 const TASK_COLOR_PALETTE = ['#5b8def', '#4cae7d', '#c9a227', '#e0a63c', '#8b5cf6', '#22b8cf', '#d9534f', '#8b90a0', '#ec4899', '#84cc16', '#a3703a', '#14b8a6', '#6366f1', '#f97316'];
 
 const SHOOT_TYPE_SUGGESTIONS = ['인터뷰', '행사 스케치', '광고 촬영', '공연 촬영', '여행 촬영', '다큐멘터리', '브이로그'];
@@ -225,16 +232,22 @@ let todayTasks = loadJSON(LS_TASKS, []);
 let notes = loadJSON(LS_NOTES, []);
 let shortcuts = loadJSON(LS_SHORTCUTS, DEFAULT_SHORTCUTS);
 let sharedProjItems = loadJSON(LS_SHARED, []);
+const LS_COLLABS = 'eq-manager-collabs';
+let collabs = GUEST_MODE ? [] : loadJSON(LS_COLLABS, []);
+function saveCollabs(next) { const prev = collabs; collabs = next; try { localStorage.setItem(LS_COLLABS, JSON.stringify(next)); } catch (e) {} pushToCloud('collabs', prev, next); }
+function collabById(id) { return collabs.find(x => x.id === id) || null; }
+function collabName(id) { const x = collabById(id); return x ? x.name : ''; }
 
 const S = {
   settingsOpen: false,
   moreOpen: false,
-  activeTab: GUEST_MODE ? 'equipment' : 'today',
+  activeTab: COLLAB_MODE ? 'shared' : GUEST_MODE ? 'equipment' : 'today',
   eq: { search: '', categoryFilter: 'all', statusFilter: 'all', sortBy: 'recent', sortOpen: false, modalOpen: false, editingId: null, confirmDeleteId: null, categoryModalOpen: false, detailId: null },
   sched: { view: 'month', cursor: todayStr(), prefillDate: null, search: '', categoryFilter: 'all', showPast: false, modalOpen: false, editingId: null, confirmDeleteId: null, importMsg: '', detailId: null, linkProjectId: null },
   today: { viewMode: 'today', month: todayStr().slice(0, 7) },
   proj: { modalOpen: false, editingId: null, confirmDeleteId: null, addStatus: 'todo', search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [], selectMode: false, moveIds: null },
-  shared: { modalOpen: false, editingId: null, confirmDeleteId: null, search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [], selectMode: false, moveIds: null },
+  collab: { open: false, editingId: null, msg: '' },
+  shared: { collabFilter: 'all', modalOpen: false, editingId: null, confirmDeleteId: null, search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [], selectMode: false, moveIds: null },
   shoot: { formOpen: false, editingParamsId: null, selectedShootId: null, mode: 'pack', confirmDeleteShootId: null, confirmDeletePresetId: null, applyPresetId: null },
   task: { modalOpen: false, editingId: null, confirmDeleteId: null },
   note: { modalOpen: false, editingId: null, confirmDeleteId: null },
@@ -246,14 +259,14 @@ let currentEqPhotoError = '';
 
 function saveEqItems(next) { const prev = eqItems; eqItems = next; try { localStorage.setItem(LS_ITEMS, JSON.stringify(next)); } catch (e) {} pushToCloud('equipment', prev, next); }
 function saveEqCategories(next) { const prev = eqCategories; eqCategories = next; try { localStorage.setItem(LS_CATEGORIES, JSON.stringify(next)); } catch (e) {} pushToCloud('categories', prev, next); }
-function saveSchedItems(next) { const prev = schedItems; schedItems = next; try { localStorage.setItem(LS_SCHEDULE, JSON.stringify(next)); } catch (e) {} pushToCloud('schedule', prev, next); if (typeof gcalSchedulePush === 'function') gcalSchedulePush(); }
+function saveSchedItems(next) { if (COLLAB_MODE) next = next.map(x => x.collabId ? x : { ...x, collabId: COLLAB_ID }); const prev = schedItems; schedItems = next; try { localStorage.setItem(LS_SCHEDULE, JSON.stringify(next)); } catch (e) {} pushToCloud('schedule', prev, next); if (typeof gcalSchedulePush === 'function') gcalSchedulePush(); }
 function saveProjItems(next) { const prev = projItems; projItems = next; try { localStorage.setItem(LS_PROJECTS, JSON.stringify(next)); } catch (e) {} pushToCloud('projects', prev, next); }
 function saveShoots(next) { const prev = shoots; shoots = next; try { localStorage.setItem(LS_SHOOTS, JSON.stringify(next)); } catch (e) {} pushToCloud('shoots', prev, next); }
 function savePresets(next) { const prev = presets; presets = next; try { localStorage.setItem(LS_PRESETS, JSON.stringify(next)); } catch (e) {} pushToCloud('presets', prev, next); }
 function saveTodayTasks(next) { const prev = todayTasks; todayTasks = next; try { localStorage.setItem(LS_TASKS, JSON.stringify(next)); } catch (e) {} pushToCloud('todayTasks', prev, next); }
 function saveShortcuts(next) { const prev = shortcuts; shortcuts = next; try { localStorage.setItem(LS_SHORTCUTS, JSON.stringify(next)); } catch (e) {} pushToCloud('shortcuts', prev, next); }
 function saveNotes(next) { const prev = notes; notes = next; try { localStorage.setItem(LS_NOTES, JSON.stringify(next)); } catch (e) {} pushToCloud('notes', prev, next); }
-function saveSharedProjItems(next) { const prev = sharedProjItems; sharedProjItems = next; try { localStorage.setItem(LS_SHARED, JSON.stringify(next)); } catch (e) {} pushToCloud('sharedProjects', prev, next); }
+function saveSharedProjItems(next) { if (COLLAB_MODE) next = next.map(x => x.collabId ? x : { ...x, collabId: COLLAB_ID }); const prev = sharedProjItems; sharedProjItems = next; try { localStorage.setItem(LS_SHARED, JSON.stringify(next)); } catch (e) {} pushToCloud('sharedProjects', prev, next); }
 
 /* ---- cloud sync bridge (Firebase compat SDK is initialized via initCloudSync() below) ---- */
 function getLocalArrayFor(name) {
@@ -270,6 +283,7 @@ function getLocalArrayFor(name) {
     case 'sharedProjects': return sharedProjItems;
     case 'quotes': return quotes;
     case 'contracts': return contracts;
+    case 'collabs': return collabs;
     default: return [];
   }
 }
@@ -287,6 +301,7 @@ function applyCloudUpdate(name, items) {
     case 'sharedProjects': sharedProjItems = items; try { localStorage.setItem(LS_SHARED, JSON.stringify(items)); } catch (e) {} break;
     case 'quotes': quotes = items; try { localStorage.setItem(LS_QUOTES, JSON.stringify(items)); } catch (e) {} break;
     case 'contracts': contracts = items; try { localStorage.setItem(LS_CONTRACTS, JSON.stringify(items)); } catch (e) {} break;
+    case 'collabs': collabs = items; try { localStorage.setItem(LS_COLLABS, JSON.stringify(items)); } catch (e) {} break;
   }
   render();
 }
@@ -301,7 +316,7 @@ async function pushToCloud(name, prevArr, nextArr) {
   } catch (e) { console.warn('cloud sync push failed for', name, e); }
 }
 
-const CLOUD_COLLECTIONS = ['equipment', 'categories', 'schedule', 'projects', 'shoots', 'presets', 'todayTasks', 'notes', 'shortcuts', 'sharedProjects', 'quotes', 'contracts'];
+const CLOUD_COLLECTIONS = ['equipment', 'categories', 'schedule', 'projects', 'shoots', 'presets', 'todayTasks', 'notes', 'shortcuts', 'sharedProjects', 'quotes', 'contracts', 'collabs'];
 /* 공유 링크(?guest=1)로 접속했을 때는 이 목록만 동기화한다 — 스케줄/메모장 등 내부 데이터는 외부 브라우저로 아예 내려받지 않는다. */
 const GUEST_CLOUD_COLLECTIONS = ['equipment', 'categories', 'sharedProjects'];
 const FIREBASE_CONFIG = {
@@ -386,13 +401,17 @@ function initCloudSync() {
       async upsertMany(name, items) { await Promise.all(items.map(it => db.collection(name).doc(String(it.id)).set(it))); },
       async deleteMany(name, ids) { await Promise.all(ids.map(id => db.collection(name).doc(String(id)).delete())); },
     };
-    (GUEST_MODE ? GUEST_CLOUD_COLLECTIONS : CLOUD_COLLECTIONS).forEach(name => {
+    const names = COLLAB_MODE ? ['sharedProjects', 'schedule', ...(collabInfo && collabInfo.showEquipment ? ['equipment', 'categories'] : [])]
+      : GUEST_MODE ? GUEST_CLOUD_COLLECTIONS : CLOUD_COLLECTIONS;
+    names.forEach(name => {
       let initialized = false;
-      db.collection(name).onSnapshot(async (snap) => {
+      let ref = db.collection(name);
+      if (COLLAB_MODE && (name === 'sharedProjects' || name === 'schedule')) ref = ref.where('collabId', '==', COLLAB_ID);
+      ref.onSnapshot(async (snap) => {
         const items = snap.docs.map(d => d.data());
         if (!initialized) {
           initialized = true;
-          if (items.length === 0) {
+          if (items.length === 0 && !GUEST_MODE) {
             const local = getLocalArrayFor(name) || [];
             if (local.length > 0) { await window.cloudSync.upsertMany(name, local); return; }
           }
@@ -1208,8 +1227,9 @@ const MOBILE_TABS_OWNER = [
   { id: 'equipment', label: '장비', icon: MI.eq },
 ];
 const MOBILE_TABS_GUEST = [
+  { id: 'shared', label: '프로젝트', icon: MI.shared },
+  { id: 'schedule', label: '캘린더', icon: MI.cal },
   { id: 'equipment', label: '장비목록', icon: MI.eq },
-  { id: 'shared', label: '공유 프로젝트', icon: MI.shared },
 ];
 function renderMobileTopBar() {
   return `
@@ -1221,7 +1241,7 @@ function renderMobileTopBar() {
     </header>`;
 }
 function renderMobileTabBar() {
-  const tabs = GUEST_MODE ? MOBILE_TABS_GUEST : MOBILE_TABS_OWNER;
+  const tabs = GUEST_MODE ? GUEST_ALLOWED_TABS.map(id => MOBILE_TABS_GUEST.find(t => t.id === id)).filter(Boolean) : MOBILE_TABS_OWNER;
   const inTabs = tabs.some(t => t.id === S.activeTab);
   return `
     <nav class="m-tabbar">
@@ -1404,6 +1424,7 @@ function schedModalHtml() {
           </div>
           <div class="sched-allday-toggle"><input type="checkbox" name="allDay" id="schedAllDayCb" ${f.allDay?'checked':''} /><label for="schedAllDayCb" style="margin:0">하루 종일</label></div>
           <div class="eq-field"><label>카테고리</label><select name="category">${SCHED_CATEGORIES.map(c => `<option value="${c.id}" ${f.category===c.id?'selected':''}>${c.label}</option>`).join('')}</select></div>
+          ${!GUEST_MODE && collabs.length ? `<div class="eq-field"><label>👥 협업자에게 공유 <span class="eq-hint">(고르면 그 협업자 캘린더에도 보여요)</span></label><select name="collabId"><option value="">나만 보기</option>${collabs.map(x => `<option value="${x.id}" ${(editing ? editing.collabId : S.sched.prefillCollabId) === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>` : ''}
           <div class="eq-field-row">
             <div class="eq-field"><label>장소</label><input name="location" value="${esc(f.location)}" placeholder="예: OO 스튜디오" /></div>
             <div class="eq-field"><label>담당자</label><input name="contact" value="${esc(f.contact)}" placeholder="예: 김민수 PD" /></div>
@@ -1420,6 +1441,7 @@ function schedDetailModalHtml() {
   if (!item) return '';
   const catLabel = (SCHED_FILTER_CATEGORIES.find(c => c.id === item.category) || {}).label || item.category;
   const linkedProject = item.projectId ? projItems.find(p => p.id === item.projectId) : null;
+  const collabLine = !GUEST_MODE && item.collabId ? `<div class="eq-detail-row"><span>공유</span><b>👥 ${esc(collabName(item.collabId) || '협업자')}</b></div>` : '';
   const linkedShoot = findShootForTitle(item.title);
   let packSectionHtml = '';
   if (linkedShoot) {
@@ -1434,7 +1456,7 @@ function schedDetailModalHtml() {
       </div>
       <div class="sched-embedded-pack-list">${shootPackListHtml(linkedShoot, groups, bagKeys, modeState)}</div>`;
   } else {
-    packSectionHtml = `<button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border); margin-top:16px;" data-action="today-open-shootprep">🎒 촬영준비에서 만들기</button>`;
+    packSectionHtml = GUEST_MODE ? '' : `<button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border); margin-top:16px;" data-action="today-open-shootprep">🎒 촬영준비에서 만들기</button>`;
   }
   return `
     <div class="eq-modal-overlay" data-action="sched-close-detail-backdrop">
@@ -1446,6 +1468,7 @@ function schedDetailModalHtml() {
         ${item.location ? `<div class="eq-detail-row"><span>장소</span><b>${esc(item.location)}</b></div>` : ''}
         ${item.contact ? `<div class="eq-detail-row"><span>담당자</span><b>${esc(item.contact)}</b></div>` : ''}
         ${item.memo ? `<div class="eq-detail-notes">${linkify(item.memo)}</div>` : ''}
+        ${collabLine}
         ${linkedProject ? `<div class="eq-detail-row"><span>관련 프로젝트</span><b><a href="#" data-action="today-open-project-detail" data-id="${linkedProject.id}">${esc(linkedProject.title)}</a></b></div>` : ''}
         <div class="eq-detail-actions">
           ${item.source !== 'calendar' ? `<button class="eq-modal-submit" data-action="sched-detail-edit" data-id="${item.id}">수정하기</button>` : ''}
@@ -1495,6 +1518,8 @@ function calEventHtml(it, compact) {
   const past = it.date < todayStr();
   const g = it.source === 'google';
   if (it.source === 'due') return `<button class="cal-ev is-due ${past ? 'is-past' : ''}" style="--ev:var(--sched-deadline)" data-action="today-open-project-detail" data-id="${esc(it.projectId)}" title="마감 · ${esc(it.title)}"><span class="cal-ev-time">마감</span><span class="cal-ev-title">${esc(it.title)}</span></button>`;
+  const collabMark = !GUEST_MODE && it.collabId ? '👥 ' : '';
+  if (collabMark) it = { ...it, title: collabMark + it.title };
   return `<button class="cal-ev ${past ? 'is-past' : ''} ${g ? 'is-phone' : ''}" style="--ev:${g && it.tag === 'hisplan' ? 'var(--sched-hisplan)' : `var(--sched-${it.category})`}" data-action="${g ? 'gcal-open-detail' : 'sched-open-detail'}" data-id="${esc(it.id)}" title="${esc(it.title)}${g ? ' · ' + gcalSourceLabel(it) : ''}">${it.time ? `<span class="cal-ev-time">${esc(it.time)}</span>` : ''}<span class="cal-ev-title">${esc(it.title)}</span></button>`;
 }
 function calTitle() {
@@ -1567,11 +1592,11 @@ function renderScheduleTab() {
     <div class="eq-header">
       <div class="eq-title-block"><h1 class="eq-title">캘린더</h1><div class="eq-stat">오늘 <b>${todayCount}</b> / 전체 <b>${schedItems.length}</b></div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${gcalButtonHtml()}
+        ${GUEST_MODE ? '' : gcalButtonHtml()}
         <button class="eq-add-btn" data-action="sched-open-add">+ 일정 등록</button>
       </div>
     </div>
-    ${gcalNoticeHtml()}
+    ${GUEST_MODE ? '' : gcalNoticeHtml()}
     <div class="eq-toolbar">
       <div class="eq-search"><input id="schedSearchInput" placeholder="제목, 장소, 메모로 검색" value="${esc(S.sched.search)}" /></div>
       <div class="eq-chip-row">${SCHED_FILTER_CATEGORIES.map(c => `<button class="eq-chip ${S.sched.categoryFilter===c.id?'active':''}" data-action="sched-set-category-filter" data-id="${c.id}">${c.id !== 'all' ? `<span class="eq-chip-dot" style="background:var(--sched-${c.id})"></span>` : ''}${c.label}</button>`).join('')}</div>
@@ -1944,6 +1969,8 @@ function sharedModalHtml() {
         <div class="eq-modal-head"><h2>${editing ? '공유 프로젝트 수정' : '새 공유 프로젝트'}</h2><button class="eq-modal-close" data-action="shared-close-modal">✕</button></div>
         <form data-form-role="shared-form">
           <div class="eq-field"><label>프로젝트명</label><input name="title" autofocus value="${esc(f.title)}" placeholder="예: OO 브랜드 홍보영상" required /></div>
+          ${!GUEST_MODE ? (() => { const parent = S.shared.currentParentId ? sharedProjItems.find(p => p.id === S.shared.currentParentId) : null; const cur = editing ? (editing.collabId || '') : (parent ? (parent.collabId || '') : (S.shared.collabFilter && S.shared.collabFilter !== 'all' && S.shared.collabFilter !== 'none' ? S.shared.collabFilter : ''));
+            return `<div class="eq-field"><label>👥 볼 수 있는 협업자 <span class="eq-hint">${editing && sharedProjItems.some(p => p.parentId === editing.id) ? '(하위 항목도 함께 바뀌어요)' : ''}</span></label><select name="collabId"><option value="">나만 보기 (아직 공유 안 함)</option>${collabs.map(x => `<option value="${x.id}" ${cur === x.id ? 'selected' : ''}>${esc(x.name)} ${x.mode === 'login' ? '🔐' : '🔗'}</option>`).join('')}</select>${collabs.length ? '' : `<div class="eq-hint" style="margin-top:6px">먼저 공유 프로젝트 화면의 <b>👥 협업자 관리</b>에서 협업자를 만들어 주세요.</div>`}</div>`; })() : ''}
           <div class="eq-field"><label>클라이언트 / 협업자</label><input name="client" list="clientList" value="${esc(f.client)}" placeholder="예: OO컴퍼니" /><datalist id="clientList">${getKnownClients().map(c => `<option value="${esc(c)}"></option>`).join('')}</datalist></div>
           <div class="eq-field"><label>색상 <span style="color:var(--text-faint); font-weight:400;">(목록에서 구분용, 선택)</span></label>
             <div class="eq-color-swatches">
@@ -2057,7 +2084,7 @@ function sharedRowHtml(p) {
       ${S.shared.selectMode ? `<div class="proj-row-check-cell"><input type="checkbox" class="proj-row-checkbox" data-role="shared-row-select" data-id="${p.id}" ${S.shared.selectedIds.includes(p.id) ? 'checked' : ''} onclick="event.stopPropagation()" /></div>` : ''}
       <div class="proj-row-drag-cell"><span class="proj-row-drag-handle" title="순서 변경(드래그)" draggable="true" data-drag-row-id="${p.id}" onclick="event.stopPropagation()">⠿</span></div>
       <div class="proj-row-status-cell"><span class="proj-row-pill" data-shared-status-menu-id="${p.id}" style="background:${st.color}26; color:${st.color};"><span class="proj-row-dot" style="background:${st.color};"></span>${st.label}</span></div>
-      <div class="proj-row-title-cell"><div class="proj-row-title">${esc(p.title)}${childCount ? `<span class="proj-row-child-badge">${childCount}</span>` : ''}</div><div class="proj-row-code">${esc(p.serial)}</div></div>
+      <div class="proj-row-title-cell"><div class="proj-row-title">${esc(p.title)}${childCount ? `<span class="proj-row-child-badge">${childCount}</span>` : ''}</div><div class="proj-row-code">${esc(p.serial)}${!GUEST_MODE ? (p.collabId ? ` · <span class="collab-tag">👥 ${esc(collabName(p.collabId) || '협업자')}</span>` : ` · <span class="collab-tag is-private">나만 보기</span>`) : ''}</div></div>
       <div class="proj-row-client">${esc(p.client) || '—'}</div>
       <div class="proj-row-due-cell">
         <input type="date" class="proj-row-due-input" value="${esc(p.dueDate || '')}" data-role="shared-due-inline" data-id="${p.id}" onclick="event.stopPropagation()" />
@@ -2069,11 +2096,18 @@ function sharedRowHtml(p) {
       </div>
     </div>`;
 }
+function sharedCollabMatch(p) {
+  const f = S.shared.collabFilter || 'all';
+  if (GUEST_MODE || f === 'all') return true;
+  if (f === 'none') return !p.collabId;
+  return p.collabId === f;
+}
 function sharedListHtml() {
   const parentId = S.shared.currentParentId || null;
   const q = (S.shared.search || '').trim().toLowerCase();
   let items = sharedProjItems.filter(p => {
     if ((p.parentId || null) !== parentId) return false;
+    if (!parentId && !sharedCollabMatch(p)) return false;
     if (S.shared.statusFilter !== 'all' && p.status !== S.shared.statusFilter) return false;
     if (!q) return true;
     return (p.title || '').toLowerCase().includes(q) || (p.client || '').toLowerCase().includes(q) || (p.notes || '').toLowerCase().includes(q);
@@ -2113,7 +2147,7 @@ function renderSharedProjectsTab() {
   const parentId = S.shared.currentParentId || null;
   const parent = parentId ? sharedProjItems.find(p => p.id === parentId) : null;
   if (parentId && !parent) S.shared.currentParentId = null;
-  const scope = sharedProjItems.filter(p => (p.parentId || null) === parentId);
+  const scope = sharedProjItems.filter(p => (p.parentId || null) === parentId && (parentId || sharedCollabMatch(p)));
   const counts = {
     all: scope.length,
     todo: scope.filter(p => p.status === 'todo').length,
@@ -2123,10 +2157,18 @@ function renderSharedProjectsTab() {
   const breadcrumb = sharedBreadcrumb(parentId);
   return `
     <div class="eq-header">
-      <div class="eq-title-block"><h1 class="eq-title">${parent ? esc(parent.title) : '공유 프로젝트'}</h1><div class="eq-stat">진행중 <b>${counts.doing}</b> / 전체 <b>${counts.all}</b></div></div>
-      <button class="eq-add-btn" data-action="shared-open-add">+ 새 공유 프로젝트</button>
+      <div class="eq-title-block"><h1 class="eq-title">${parent ? esc(parent.title) : COLLAB_MODE && collabInfo ? esc(collabInfo.name) : '공유 프로젝트'}</h1><div class="eq-stat">진행중 <b>${counts.doing}</b> / 전체 <b>${counts.all}</b></div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${GUEST_MODE ? '' : `<button class="eq-add-btn gcal-btn is-on" data-action="collab-open">👥 협업자 관리</button>`}
+        <button class="eq-add-btn" data-action="shared-open-add">+ 새 공유 프로젝트</button>
+      </div>
     </div>
-    ${GUEST_MODE && !parent ? `<div class="shared-guest-note">외부 협업자와 공유 중인 프로젝트예요. 장비목록도 함께 확인할 수 있어요.</div>` : ''}
+    ${COLLAB_MODE && !parent ? `<div class="shared-guest-note">VINFILM STUDIO와 함께 진행하는 프로젝트예요. 캘린더에서 일정도 함께 확인할 수 있어요.</div>` : GUEST_MODE && !parent ? `<div class="shared-guest-note">외부 협업자와 공유 중인 프로젝트예요. 장비목록도 함께 확인할 수 있어요.</div>` : ''}
+    ${!GUEST_MODE && !parent && collabs.length ? `<div class="eq-chip-row collab-filter">
+      <button class="eq-chip ${(S.shared.collabFilter || 'all') === 'all' ? 'active' : ''}" data-action="shared-collab-filter" data-id="all">👥 전체</button>
+      ${collabs.map(x => `<button class="eq-chip ${S.shared.collabFilter === x.id ? 'active' : ''}" data-action="shared-collab-filter" data-id="${x.id}">${x.mode === 'login' ? '🔐' : '🔗'} ${esc(x.name)} ${sharedProjItems.filter(p => !p.parentId && p.collabId === x.id).length}</button>`).join('')}
+      <button class="eq-chip ${S.shared.collabFilter === 'none' ? 'active' : ''}" data-action="shared-collab-filter" data-id="none">나만 보기 ${sharedProjItems.filter(p => !p.parentId && !p.collabId).length}</button>
+    </div>` : ''}
     <div class="eq-toolbar">
       <div class="eq-search"><input id="sharedProjSearchInput" placeholder="제목, 클라이언트, 메모로 검색" value="${esc(S.shared.search)}" /></div>
       <div class="eq-chip-row">
@@ -3344,9 +3386,105 @@ function handleContractInput(e) {
   return false;
 }
 
+
+/* ================= 👥 협업자 관리 (대표님 전용) =================
+   collabs/{32자 hex id} = { id, name, mode:'link'|'login', members:[이메일 소문자], showEquipment, createdAt }.
+   id가 곧 링크(works/?c={id})라 추측할 수 없게 crypto로 만든다. 링크를 새로 발급하면 새 id로 공간을 옮기고
+   그 공간의 공유 프로젝트·일정의 collabId도 새 id로 바꾼 뒤 옛 문서를 지운다(옛 링크는 바로 안 열림). */
+function newCollabId() { const a = new Uint8Array(16); crypto.getRandomValues(a); return [...a].map(b => b.toString(16).padStart(2, '0')).join(''); }
+function collabUrl(x) { return `${location.origin}/works/?c=${x.id}`; }
+function parseEmails(s) { return [...new Set(String(s || '').split(/[\s,;]+/).map(e => e.trim().toLowerCase()).filter(e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)))]; }
+function collabModalHtml() {
+  if (!S.collab.open || GUEST_MODE) return '';
+  const editing = S.collab.editingId && S.collab.editingId !== 'new' ? collabById(S.collab.editingId) : null;
+  const form = S.collab.editingId ? `
+    <form data-form-role="collab-form" class="collab-form">
+      <h3>${editing ? '협업자 수정' : '새 협업자'}</h3>
+      <div class="eq-field"><label>이름</label><input name="name" required autofocus value="${esc(editing ? editing.name : '')}" placeholder="예: 웅진컴퍼니 / 김OO 감독" /></div>
+      <div class="eq-field"><label>접속 방식</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <label class="eq-status-option"><input type="radio" name="mode" value="login" ${!editing || editing.mode === 'login' ? 'checked' : ''} />🔐 구글 로그인 (장기)</label>
+          <label class="eq-status-option"><input type="radio" name="mode" value="link" ${editing && editing.mode === 'link' ? 'checked' : ''} />🔗 링크만 (단기)</label>
+        </div>
+      </div>
+      <div class="eq-field"><label>구글 계정 이메일 <span class="eq-hint">(구글 로그인 방식일 때, 여러 명이면 쉼표로)</span></label><input name="members" inputmode="email" value="${esc(editing ? (editing.members || []).join(', ') : '')}" placeholder="partner@gmail.com" /></div>
+      <label class="collab-check"><input type="checkbox" name="showEquipment" ${editing && editing.showEquipment ? 'checked' : ''} /> 장비목록도 보여주기 (보기 전용)</label>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button type="button" class="eq-modal-submit eq-modal-submit-secondary" data-action="collab-cancel-edit" style="margin:0">취소</button>
+        <button type="submit" class="eq-modal-submit" style="margin:0">${editing ? '저장' : '만들기'}</button>
+      </div>
+    </form>` : '';
+  const list = collabs.length ? collabs.map(x => {
+    const nProj = sharedProjItems.filter(p => p.collabId === x.id).length, nEv = schedItems.filter(s => s.collabId === x.id).length;
+    return `<div class="collab-card">
+      <div class="collab-card-head"><b>${x.mode === 'login' ? '🔐' : '🔗'} ${esc(x.name)}</b><span class="collab-meta">프로젝트 ${nProj} · 일정 ${nEv}${x.showEquipment ? ' · 장비목록' : ''}</span></div>
+      <div class="collab-meta">${x.mode === 'login' ? ((x.members || []).length ? esc(x.members.join(', ')) : '<span style="color:#e0a63c">등록된 이메일이 없어요 — 아무도 못 들어와요</span>') : '링크를 아는 사람은 로그인 없이 볼 수 있어요'}</div>
+      <div class="collab-actions">
+        <button data-action="collab-share" data-id="${x.id}">📤 링크 보내기</button>
+        <button data-action="collab-copy" data-id="${x.id}">🔗 복사</button>
+        <button data-action="collab-edit" data-id="${x.id}">✎ 수정</button>
+        <button data-action="collab-reissue" data-id="${x.id}">↻ 링크 새로 발급</button>
+        <button data-action="collab-delete" data-id="${x.id}" class="is-danger">✕ 삭제</button>
+      </div>
+    </div>`; }).join('') : `<p class="q-hint">아직 협업자가 없어요. 협업자를 만들고, 공유 프로젝트 등록 창에서 "볼 수 있는 협업자"를 고르면 그 사람에게만 보여요.</p>`;
+  return `
+    <div class="eq-modal-overlay" data-action="collab-close-backdrop">
+      <div class="eq-modal" data-stop-close style="max-width:520px;">
+        <div class="eq-modal-head"><h2>👥 협업자 관리</h2><button class="eq-modal-close" data-action="collab-close">✕</button></div>
+        <p class="q-hint">협업자마다 전용 공간이 생겨요. 협업자는 <b>자기에게 공유된 프로젝트와 일정만</b> 보고, 대표님은 전부 봐요.</p>
+        ${S.collab.msg ? `<div class="gcal-notice">${esc(S.collab.msg)}</div>` : ''}
+        ${form || `<button class="proj-list-add-btn" data-action="collab-new" style="margin-bottom:12px">+ 새 협업자</button>`}
+        <div class="collab-list">${list}</div>
+      </div>
+    </div>`;
+}
+async function collabShareLink(x) {
+  const url = collabUrl(x);
+  const text = x.mode === 'login'
+    ? `VINFILM STUDIO 공유 작업 공간이에요. 링크를 열고 등록된 구글 계정(${(x.members || []).join(', ')})으로 로그인해 주세요.`
+    : 'VINFILM STUDIO 공유 작업 공간이에요. 링크를 열면 함께 진행하는 프로젝트와 일정을 볼 수 있어요.';
+  try {
+    if (navigator.share) { await navigator.share({ title: `[VINFILM STUDIO] ${x.name} 공유 공간`, text, url }); S.collab.msg = ''; }
+    else { await navigator.clipboard.writeText(url); S.collab.msg = `${x.name} 링크를 복사했어요.`; }
+  } catch (e) { if (!(e && e.name === 'AbortError')) S.collab.msg = '링크: ' + url; }
+  render();
+}
+function handleCollabAction(action, el, e) {
+  const id = el.dataset.id;
+  const x = id ? collabById(id) : null;
+  switch (action) {
+    case 'collab-open': S.collab.open = true; S.collab.editingId = null; S.collab.msg = ''; render(); return true;
+    case 'collab-close': S.collab.open = false; S.collab.editingId = null; render(); return true;
+    case 'collab-close-backdrop': if (!e.target.closest('[data-stop-close]')) { S.collab.open = false; S.collab.editingId = null; render(); } return true;
+    case 'collab-new': S.collab.editingId = 'new'; S.collab.msg = ''; render(); return true;
+    case 'collab-edit': S.collab.editingId = id; S.collab.msg = ''; render(); return true;
+    case 'collab-cancel-edit': S.collab.editingId = null; render(); return true;
+    case 'collab-share': if (x) collabShareLink(x); return true;
+    case 'collab-copy': if (x) { const url = collabUrl(x); (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(() => { S.collab.msg = `${x.name} 링크를 복사했어요.`; render(); }).catch(() => prompt('아래 링크를 복사하세요', url)); } return true;
+    case 'collab-reissue': {
+      if (!x || !confirm(`${x.name}의 링크를 새로 발급할까요?\n지금 링크는 바로 못 쓰게 되고, 새 링크를 다시 보내야 해요.`)) return true;
+      const nid = newCollabId();
+      saveCollabs([...collabs.filter(c2 => c2.id !== x.id), { ...x, id: nid, reissuedAt: Date.now() }]);
+      saveSharedProjItems(sharedProjItems.map(p => p.collabId === x.id ? { ...p, collabId: nid } : p));
+      saveSchedItems(schedItems.map(s => s.collabId === x.id ? { ...s, collabId: nid } : s));
+      S.collab.msg = `${x.name}의 새 링크를 만들었어요. "📤 링크 보내기"로 다시 보내주세요.`; render(); return true;
+    }
+    case 'collab-delete': {
+      if (!x || !confirm(`${x.name} 협업자를 삭제할까요?\n링크가 바로 막히고, 공유했던 프로젝트·일정은 지워지지 않고 "나만 보기"로 바뀌어요.`)) return true;
+      saveSharedProjItems(sharedProjItems.map(p => p.collabId === x.id ? { ...p, collabId: '' } : p));
+      saveSchedItems(schedItems.map(s => s.collabId === x.id ? { ...s, collabId: '' } : s));
+      saveCollabs(collabs.filter(c2 => c2.id !== x.id));
+      if (S.shared.collabFilter === x.id) S.shared.collabFilter = 'all';
+      render(); return true;
+    }
+    case 'shared-collab-filter': S.shared.collabFilter = id; render(); return true;
+  }
+  return false;
+}
+
 /* ================= main render ================= */
 function renderTab() {
-  if (GUEST_MODE && !GUEST_ALLOWED_TABS.includes(S.activeTab)) S.activeTab = 'equipment';
+  if (GUEST_MODE && !GUEST_ALLOWED_TABS.includes(S.activeTab)) S.activeTab = GUEST_ALLOWED_TABS[0];
   if (S.activeTab === 'today') return renderTodayTab();
   if (S.activeTab === 'equipment') return renderEquipmentTab();
   if (S.activeTab === 'schedule') return renderScheduleTab();
@@ -3358,7 +3496,7 @@ function renderTab() {
   return '';
 }
 function render() {
-  document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderMobileTopBar()}${renderTab()}</main>${renderMobileTabBar()}</div>${schedModalHtml()}${settingsModalHtml()}${gcalModalHtml()}${gcalDetailModalHtml()}`;
+  document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderMobileTopBar()}${renderTab()}</main>${renderMobileTabBar()}</div>${schedModalHtml()}${settingsModalHtml()}${collabModalHtml()}${gcalModalHtml()}${gcalDetailModalHtml()}`;
   fitCalendar();
   positionNavIndicator();
   quoteAfterRender();
@@ -3434,6 +3572,7 @@ function bootApp() {
     const EQ_WRITE_ACTIONS = ['eq-open-add', 'eq-open-edit', 'eq-confirm-delete', 'eq-delete', 'eq-open-category-modal', 'eq-add-category', 'eq-delete-category', 'eq-detail-edit', 'eq-detail-delete', 'eq-open-add-child', 'eq-request-delete-in-modal'];
     if (GUEST_MODE && EQ_WRITE_ACTIONS.includes(action)) return;
     if (/^(quote-|contract-|biz-sign)/.test(action) && !GUEST_MODE && (handleQuoteAction(action, el, e) || handleContractAction(action, el, e))) return;
+    if (/^(collab-|shared-collab-filter)/.test(action) && !GUEST_MODE && handleCollabAction(action, el, e)) return;
 
     switch (action) {
       case 'set-tab':
@@ -4019,6 +4158,7 @@ function bootApp() {
       if (!title) return;
       const allDay = fd.has('allDay');
       const payload = { title, date: fd.get('date'), time: allDay ? null : (fd.get('time') || null), location: fd.get('location') || '', contact: fd.get('contact') || '', category: fd.get('category') || 'shoot', memo: fd.get('memo') || '' };
+      if (!GUEST_MODE && fd.has('collabId')) { const cid = (fd.get('collabId') || '').toString(); payload.collabId = cid; }
       if (S.sched.editingId) {
         saveSchedItems(schedItems.map(it => it.id === S.sched.editingId ? { ...it, ...payload } : it));
       } else {
@@ -4071,7 +4211,15 @@ function bootApp() {
       const title = (fd.get('title') || '').toString().trim();
       if (!title) return;
       const payload = { title, client: fd.get('client') || '', dueDate: fd.get('dueDate') || '', status: fd.get('status') || 'todo', color: fd.get('color') || '', link: fd.get('link') || '', notes: fd.get('notes') || '', updatedBy: currentEditorName(), updatedAt: Date.now() };
-      if (S.shared.editingId) saveSharedProjItems(sharedProjItems.map(p => p.id === S.shared.editingId ? { ...p, ...payload } : p));
+      const parentItem = S.shared.currentParentId ? sharedProjItems.find(p => p.id === S.shared.currentParentId) : null;
+      if (!GUEST_MODE && fd.has('collabId')) payload.collabId = (fd.get('collabId') || '').toString();
+      else if (!S.shared.editingId && parentItem && parentItem.collabId) payload.collabId = parentItem.collabId;
+      if (S.shared.editingId) {
+        const before = sharedProjItems.find(p => p.id === S.shared.editingId);
+        const moveTree = !GUEST_MODE && before && 'collabId' in payload && (before.collabId || '') !== payload.collabId;
+        const tree = moveTree ? new Set(collectDescendantIds(sharedProjItems, before.id)) : new Set();
+        saveSharedProjItems(sharedProjItems.map(p => p.id === S.shared.editingId ? { ...p, ...payload } : tree.has(p.id) ? { ...p, collabId: payload.collabId } : p));
+      }
       else saveSharedProjItems([{ id: uid(), serial: nextSharedSerial(sharedProjItems), createdAt: Date.now(), parentId: S.shared.currentParentId || null, ...payload }, ...sharedProjItems]);
       S.shared.modalOpen = false; S.shared.editingId = null;
       render();
@@ -4079,7 +4227,9 @@ function bootApp() {
       const fd = new FormData(form);
       const targetParentId = fd.get('targetParentId') || null;
       const ids = new Set(S.shared.moveIds || []);
-      if (ids.size) saveSharedProjItems(sharedProjItems.map(p => ids.has(p.id) ? { ...p, parentId: targetParentId, updatedBy: currentEditorName(), updatedAt: Date.now() } : p));
+      const target = targetParentId ? sharedProjItems.find(p => p.id === targetParentId) : null;
+      const tree = new Set(); if (!GUEST_MODE && target) ids.forEach(id => collectDescendantIds(sharedProjItems, id).forEach(x => tree.add(x)));
+      if (ids.size) saveSharedProjItems(sharedProjItems.map(p => ids.has(p.id) ? { ...p, parentId: targetParentId, ...(tree.has(p.id) ? { collabId: target.collabId || '' } : {}), updatedBy: currentEditorName(), updatedAt: Date.now() } : tree.has(p.id) ? { ...p, collabId: target.collabId || '' } : p));
       S.shared.moveIds = null; S.shared.selectedIds = [];
       render();
     } else if (form.matches('[data-form-role="task-form"]')) {
@@ -4099,6 +4249,19 @@ function bootApp() {
       if (S.shortcut.editingId) saveShortcuts(shortcuts.map(x => x.id === S.shortcut.editingId ? { ...x, name, url, iconDomain } : x));
       else saveShortcuts([...shortcuts, { id: uid(), name, url, iconDomain }]);
       S.shortcut.modalOpen = false; S.shortcut.editingId = null;
+      render();
+    } else if (form.matches('[data-form-role="collab-form"]')) {
+      if (GUEST_MODE) return;
+      const fd = new FormData(form);
+      const name = (fd.get('name') || '').toString().trim(); if (!name) return;
+      const mode = fd.get('mode') === 'link' ? 'link' : 'login';
+      const members = parseEmails(fd.get('members'));
+      if (mode === 'login' && !members.length) { S.collab.msg = '구글 로그인 방식은 협업자의 구글 계정 이메일을 넣어야 해요.'; render(); return; }
+      const data = { name, mode, members, showEquipment: fd.has('showEquipment') };
+      const eid = S.collab.editingId;
+      if (eid && eid !== 'new') saveCollabs(collabs.map(x => x.id === eid ? { ...x, ...data, updatedAt: Date.now() } : x));
+      else saveCollabs([...collabs, { id: newCollabId(), createdAt: Date.now(), ...data }]);
+      S.collab.editingId = null; S.collab.msg = eid && eid !== 'new' ? '저장했어요.' : `${name} 공간을 만들었어요. 공유 프로젝트를 배정한 뒤 "📤 링크 보내기"로 보내세요.`;
       render();
     } else if (form.matches('[data-form-role="quote-biz-form"]')) {
       const fd = new FormData(form);
@@ -4283,7 +4446,52 @@ function bootApp() {
   initCloudSync();
 }
 
+function collabGateHtml(title, msg, withLogin) {
+  return `<div style="min-height:100vh; display:flex; align-items:center; justify-content:center; background:#0e0d0c; color:#f5f2ea; font-family:'Paperozi', -apple-system, 'Malgun Gothic', sans-serif; padding:24px;">
+    <div style="width:320px; text-align:center;">
+      <div style="font-size:13px; letter-spacing:2px; color:#79766f; margin-bottom:10px;">VINFILM STUDIO</div>
+      <h1 style="margin:0 0 12px; font-size:21px;">${title}</h1>
+      <p style="margin:0 0 20px; font-size:13.5px; color:#a8a49b; line-height:1.65;">${msg}</p>
+      ${withLogin ? `<button id="collabLoginBtn" style="width:100%; background:#f5f2ea; color:#0e0d0c; border:none; border-radius:8px; padding:12px; font-weight:700; font-size:14px; cursor:pointer;">Google로 로그인</button>` : ''}
+      <div id="collabLoginErr" style="color:#e0796f; font-size:12.5px; margin-top:12px;"></div>
+    </div></div>`;
+}
+async function collabBoot() {
+  const root = document.getElementById('root');
+  root.innerHTML = collabGateHtml('공유 작업 공간', '불러오는 중…', false);
+  if (typeof firebase === 'undefined' || !firebase.firestore) { root.innerHTML = collabGateHtml('연결할 수 없어요', '인터넷 연결을 확인하고 새로고침해 주세요.', false); return; }
+  const db = firebase.firestore();
+  const tryGet = async () => { try { const d = await db.collection('collabs').doc(COLLAB_ID).get(); return d.exists ? d.data() : null; } catch (e) { return null; } };
+  let started = false;
+  const start = (info) => {
+    if (started) return; started = true;
+    collabInfo = info;
+    GUEST_ALLOWED_TABS = ['shared', 'schedule', ...(info.showEquipment ? ['equipment'] : [])];
+    const u = firebase.auth().currentUser;
+    if (info.mode === 'login' && u) { try { localStorage.setItem(GUEST_NAME_KEY, u.displayName || u.email); } catch (e) {} }
+    if (!localStorage.getItem(GUEST_NAME_KEY)) showGuestNameGate(); else bootApp();
+  };
+  const first = await tryGet();
+  if (first) { start(first); return; }
+  // 로그인 공간이거나 링크가 끊긴 경우 — 로그인 상태를 보고 다시 시도
+  firebase.auth().onAuthStateChanged(async (user) => {
+    if (started) return;
+    if (user) {
+      const info = await tryGet();
+      if (info) { start(info); return; }
+      root.innerHTML = collabGateHtml('접근 권한이 없어요', `${esc(user.email || '')} 계정은 이 공간에 초대되지 않았어요.<br>초대받은 계정으로 다시 로그인하거나 VINFILM STUDIO에 문의해 주세요.`, true);
+    } else {
+      root.innerHTML = collabGateHtml('공유 작업 공간', '초대받은 Google 계정으로 로그인해 주세요.<br><small style="color:#79766f">링크로 받은 공간이 열리지 않는다면 링크가 바뀌었을 수 있어요.</small>', true);
+    }
+    const btn = document.getElementById('collabLoginBtn');
+    if (btn) btn.addEventListener('click', async () => {
+      try { if (firebase.auth().currentUser) await firebase.auth().signOut(); await firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+      catch (err) { document.getElementById('collabLoginErr').textContent = '로그인 실패: ' + (err.message || err); }
+    });
+  });
+}
 document.addEventListener('DOMContentLoaded', () => {
+  if (COLLAB_MODE) { collabBoot(); return; }
   if (GUEST_MODE) {
     if (!localStorage.getItem(GUEST_NAME_KEY)) showGuestNameGate(); else bootApp();
     return;
@@ -5042,6 +5250,25 @@ document.addEventListener('DOMContentLoaded', () => {
   .proj-head-sort.on { color:var(--accent); font-weight:700; }
   .proj-sort-select { border:1px solid var(--border); background:var(--surface); color:var(--text-dim); border-radius:999px; padding:6px 10px; font-family:var(--font-body); font-size:12.5px; cursor:pointer; max-width:190px; }
   @media (max-width: 720px) { .proj-sort-select { font-size:16px; max-width:100%; } }
+
+  /* ===== 협업자 ===== */
+  .collab-filter { margin:0 0 12px; flex-wrap:wrap; }
+  .collab-tag { color:var(--accent); font-weight:600; } .collab-tag.is-private { color:var(--text-faint); font-weight:500; }
+  .collab-form { border:1px solid var(--border); border-radius:14px; padding:14px; margin-bottom:14px; background:var(--bg); }
+  .collab-form h3 { margin:0 0 12px; font-size:14px; }
+  .collab-check { display:flex; gap:8px; align-items:center; font-size:13px; color:var(--text-dim); }
+  .collab-check input { width:18px; height:18px; }
+  .collab-list { display:flex; flex-direction:column; gap:10px; }
+  .collab-card { border:1px solid var(--border); border-radius:14px; padding:12px 14px; background:var(--surface); }
+  .collab-card-head { display:flex; justify-content:space-between; gap:10px; align-items:baseline; flex-wrap:wrap; margin-bottom:4px; }
+  .collab-meta { font-size:12px; color:var(--text-faint); overflow-wrap:anywhere; }
+  .collab-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .collab-actions button { border:1px solid var(--border); background:var(--bg); color:var(--text-dim); border-radius:999px; padding:5px 11px; font-family:var(--font-body); font-size:12px; cursor:pointer; }
+  .collab-actions button:hover { border-color:var(--accent); color:var(--accent); }
+  .collab-actions .is-danger:hover { border-color:#d9534f; color:#d9534f; }
+  /* 화이트 테마의 '.eq-add-btn 흰 글씨' 규칙이 흰 배경 버튼(협업자 관리/사업자 정보/휴대폰 캘린더 연결됨)까지 덮어써서 글씨가 안 보이던 것 */
+  :root[data-theme="light"] .gcal-btn.is-on { color:var(--text); }
+  :root[data-theme="light"] .gcal-btn.is-warn { color:#b7791f; }
 </style>
 </body>
 </html>

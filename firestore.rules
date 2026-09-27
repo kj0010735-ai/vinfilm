@@ -5,16 +5,42 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.email in ['kj0010735@gmail.com'];
     }
 
+    // 협업자 공간(works/?c={id}) — 'link' 공간은 id(=추측 불가 링크)를 아는 사람, 'login' 공간은 members에 등록된 구글 계정만.
+    function collabData(cid) { return get(/databases/$(database)/documents/collabs/$(cid)).data; }
+    function collabOk(cid) {
+      return cid is string && cid.size() == 32
+        && exists(/databases/$(database)/documents/collabs/$(cid))
+        && (collabData(cid).mode == 'link'
+            || (request.auth != null && request.auth.token.email.lower() in collabData(cid).members));
+    }
+
     // 게스트(?guest=1)는 로그인 없이 접속하는 공동작업자. 공유 프로젝트는
     // 같이 등록/수정 가능하지만, 장비목록은 보기만 가능하고 수정은 owner만.
     match /equipment/{id} { allow read: if true; allow write: if isOwner(); }
     match /categories/{id} { allow read: if true; allow write: if isOwner(); }
-    match /sharedProjects/{id} { allow read, write: if true; }
+    // 공유 프로젝트: 대표님은 전부, 협업자는 자기 공간(collabId) 것만 읽고 쓴다. 협업자는 항목을 다른 공간으로 옮길 수 없다.
+    match /sharedProjects/{id} {
+      allow read: if isOwner() || collabOk(resource.data.collabId);
+      allow create: if isOwner() || collabOk(request.resource.data.collabId);
+      allow update: if isOwner() || (collabOk(resource.data.collabId) && request.resource.data.collabId == resource.data.collabId);
+      allow delete: if isOwner() || collabOk(resource.data.collabId);
+    }
+    match /collabs/{cid} {
+      allow get: if isOwner() || resource.data.mode == 'link'
+        || (request.auth != null && request.auth.token.email.lower() in resource.data.members);
+      allow list, create, update, delete: if isOwner();
+    }
     // 홈페이지 콘텐츠는 게스트와 무관 — admin 로그인한 사람만 수정.
     match /siteContent/{id} { allow read: if true; allow write: if isOwner(); }
 
     // 내부 전용 — guest 모드에서도 노출되지 않는 데이터.
-    match /schedule/{id} { allow read, write: if isOwner(); }
+    // 캘린더: 대표님 일정은 대표님만, collabId가 붙은 일정은 그 협업자도 보고 고칠 수 있다.
+    match /schedule/{id} {
+      allow read: if isOwner() || collabOk(resource.data.collabId);
+      allow create: if isOwner() || collabOk(request.resource.data.collabId);
+      allow update: if isOwner() || (collabOk(resource.data.collabId) && request.resource.data.collabId == resource.data.collabId);
+      allow delete: if isOwner() || collabOk(resource.data.collabId);
+    }
     match /projects/{id} { allow read, write: if isOwner(); }
     match /shoots/{id} { allow read, write: if isOwner(); }
     match /presets/{id} { allow read, write: if isOwner(); }
