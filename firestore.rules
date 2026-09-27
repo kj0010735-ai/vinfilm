@@ -24,6 +24,24 @@ service cloud.firestore {
     // 앱 설정(예: 아이폰 구독용 Google 캘린더 비공개 iCal 주소) — 비밀 링크라 owner만.
     match /appSettings/{id} { allow read, write: if isOwner(); }
 
+    // 견적서 — 원본은 owner만. 클라이언트에게 보내는 사본(quotesPublic/{비밀 id})은 id를 아는 사람만 단건 조회 가능(목록 조회 불가),
+    // 클라이언트는 아직 승인 전인 문서의 approval 필드 하나만 채울 수 있다(금액·항목 등 다른 필드는 못 바꿈).
+    match /quotes/{id} { allow read, write: if isOwner(); }
+    match /quotesPublic/{id} {
+      allow get: if true;
+      allow list, create, delete: if isOwner();
+      allow update: if isOwner() || (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['approval'])
+        && resource.data.approval == null
+        && request.resource.data.approval is map
+        && request.resource.data.approval.keys().hasOnly(['name', 'at'])
+        && request.resource.data.approval.name is string
+        && request.resource.data.approval.name.size() > 0
+        && request.resource.data.approval.name.size() <= 40
+        && request.resource.data.approval.at is int
+      );
+    }
+
     // STUDIO FINANCE 통합장부(ledger/index.html) — 재무 데이터라 owner만 읽고 쓸 수 있다.
     match /ledgerEntries/{id} { allow read, write: if isOwner(); }
     match /ledgerSubscriptions/{id} { allow read, write: if isOwner(); }

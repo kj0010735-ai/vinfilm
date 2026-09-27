@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>견적서 · VINFILM STUDIO</title>
+<link rel="icon" type="image/png" href="../assets/works-icon.png">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<style>
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-4Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-6SemiBold.woff2') format('woff2'); font-weight: 600; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-7Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+  @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-8ExtraBold.woff2') format('woff2'); font-weight: 800; font-display: swap; }
+  :root { --ink:#15171c; --dim:#5d6470; --faint:#9aa1ad; --line:#e3e6eb; --soft:#f5f7fa; --accent:#2f6fee; --ok:#2e9e6a; --bg:#eceff3; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; background:var(--bg); color:var(--ink); font-family:'Paperozi','Noto Sans KR',-apple-system,sans-serif; -webkit-text-size-adjust:100%; overflow-x:hidden; }
+  .bar { position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:8px; justify-content:space-between; padding:calc(10px + env(safe-area-inset-top)) 16px 10px; background:rgba(236,239,243,0.9); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+  .bar .brand { font-weight:800; letter-spacing:0.04em; font-size:13px; }
+  .bar .actions { display:flex; gap:8px; }
+  .btn { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:10px; padding:9px 14px; font:600 13px 'Paperozi',sans-serif; cursor:pointer; text-decoration:none; }
+  .btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .sheet { width:min(820px, calc(100% - 24px)); margin:8px auto 40px; background:#fff; border-radius:16px; box-shadow:0 10px 40px rgba(20,30,50,0.10); padding:44px 48px; }
+  .head { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; border-bottom:2px solid var(--ink); padding-bottom:18px; }
+  .head h1 { margin:0; font-size:34px; font-weight:800; letter-spacing:0.5em; }
+  .head .meta { font-size:12.5px; color:var(--dim); line-height:1.8; text-align:right; }
+  .head .meta b { color:var(--ink); font-weight:600; }
+  .logo { height:34px; display:block; margin:0 0 10px auto; border-radius:4px; }
+  .parties { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin:22px 0; }
+  .party { border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .party h3 { margin:0 0 8px; font-size:12px; color:var(--faint); font-weight:600; letter-spacing:0.08em; }
+  .party .name { font-size:17px; font-weight:700; margin-bottom:6px; }
+  .party dl { margin:0; display:grid; grid-template-columns:auto 1fr; gap:3px 10px; font-size:12.5px; }
+  .party dt { color:var(--faint); } .party dd { margin:0; overflow-wrap:anywhere; }
+  .grand { display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; background:var(--soft); border-radius:12px; padding:16px 18px; margin-bottom:20px; }
+  .grand .l { font-size:13px; color:var(--dim); } .grand .l b { display:block; color:var(--ink); font-size:14px; margin-top:2px; }
+  .grand .r { font-size:26px; font-weight:800; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; font-weight:600; color:var(--dim); font-size:12px; border-bottom:1px solid var(--ink); padding:8px 6px; }
+  td { border-bottom:1px solid var(--line); padding:10px 6px; vertical-align:top; overflow-wrap:anywhere; }
+  .num { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .cat { color:var(--dim); white-space:nowrap; }
+  .totals { margin:14px 0 0 auto; width:min(320px,100%); font-size:13.5px; }
+  .totals div { display:flex; justify-content:space-between; padding:6px 6px; }
+  .totals .t { border-top:2px solid var(--ink); margin-top:4px; padding-top:10px; font-size:16px; font-weight:800; }
+  h2 { font-size:14px; margin:28px 0 10px; }
+  ul.terms { margin:0; padding-left:18px; font-size:13px; line-height:1.9; color:#2c3038; }
+  .memo { white-space:pre-wrap; font-size:13px; line-height:1.8; background:var(--soft); border-radius:10px; padding:12px 14px; overflow-wrap:anywhere; }
+  .bank { font-size:13.5px; border:1px dashed var(--line); border-radius:10px; padding:12px 14px; }
+  .foot { margin-top:30px; text-align:center; font-size:12px; color:var(--faint); }
+  .approve { width:min(820px, calc(100% - 24px)); margin:0 auto 60px; background:#fff; border-radius:16px; padding:22px 24px; box-shadow:0 10px 40px rgba(20,30,50,0.08); }
+  .approve h3 { margin:0 0 6px; font-size:16px; } .approve p { margin:0 0 14px; color:var(--dim); font-size:13px; line-height:1.6; }
+  .approve form { display:flex; gap:8px; flex-wrap:wrap; }
+  .approve input { flex:1; min-width:160px; border:1px solid var(--line); border-radius:10px; padding:11px 12px; font:500 16px 'Paperozi',sans-serif; }
+  .approve label.agree { flex-basis:100%; display:flex; gap:8px; align-items:center; font-size:13px; color:var(--dim); }
+  .stamp { display:flex; align-items:center; gap:12px; color:var(--ok); font-weight:700; font-size:15px; }
+  .stamp span { width:34px; height:34px; border-radius:50%; background:var(--ok); color:#fff; display:flex; align-items:center; justify-content:center; font-size:18px; }
+  .stamp small { display:block; color:var(--dim); font-weight:500; font-size:12.5px; margin-top:2px; }
+  .notice { width:min(820px, calc(100% - 24px)); margin:40px auto; background:#fff; border-radius:16px; padding:40px 24px; text-align:center; color:var(--dim); }
+  .warn { color:#b7791f; font-size:12.5px; margin-top:6px; }
+  @media (max-width: 640px) {
+    .sheet { padding:26px 18px; border-radius:14px; }
+    .head h1 { font-size:26px; letter-spacing:0.3em; }
+    .parties { grid-template-columns:1fr; }
+    .grand .r { font-size:22px; }
+    th.hide-m, td.hide-m { display:none; }
+    table { font-size:12.5px; }
+  }
+  @page { size:A4; margin:12mm; }
+  @media print {
+    html, body { background:#fff; }
+    .bar, .approve form, .no-print { display:none !important; }
+    .sheet { width:auto; margin:0; padding:0; box-shadow:none; border-radius:0; }
+    .approve { width:auto; margin:16px 0 0; padding:0; box-shadow:none; }
+    th.hide-m, td.hide-m { display:table-cell !important; }
+    tr, .party, .totals, .bank { break-inside:avoid; }
+  }
+</style>
+</head>
+<body>
+<div id="root"><div class="notice">견적서를 불러오는 중…</div></div>
+<script>
+/* VINFILM STUDIO 견적서 보기 페이지 — 작업관리(works)의 견적서 탭에서 만든 걸 보여준다.
+   ?t={비밀 id}  : Firestore quotesPublic/{id} 스냅샷을 읽어 보여주고, 클라이언트가 "견적 승인"을 누르면 approval만 기록한다.
+   ?preview=1    : 작업관리가 localStorage('vinfilm-quote-preview')에 넣어둔 스냅샷을 그대로 그린다(미리보기·PDF, 저장/승인 없음). */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAVJ6ZZ6L-3RtgoYe2dDSn_lCHXv3CeBGc",
+  authDomain: "vinfilm-studio-app.firebaseapp.com",
+  projectId: "vinfilm-studio-app",
+  storageBucket: "vinfilm-studio-app.firebasestorage.app",
+  messagingSenderId: "1072224922970",
+  appId: "1:1072224922970:web:bb2cf2544b1c92a7211763",
+};
+const params = new URLSearchParams(location.search);
+const PREVIEW = params.get('preview') === '1';
+const TOKEN = params.get('t') || '';
+const root = document.getElementById('root');
+
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function won(n) { return (Math.round(Number(n) || 0)).toLocaleString('ko-KR'); }
+function dateKo(s) { if (!s) return ''; const [y, m, d] = s.split('-'); return `${y}년 ${+m}월 ${+d}일`; }
+function totals(q) {
+  const sub = (q.items || []).reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
+  let supply = sub, vat = 0;
+  if (q.vatMode === 'separate') vat = Math.round(sub * 0.1);
+  else if (q.vatMode === 'included') { supply = Math.round(sub / 1.1); vat = sub - supply; }
+  return { supply, vat, total: supply + vat };
+}
+/* 금액 한글 표기: 1,650,000 → 일금 일백육십오만원정 */
+function wonKorean(n) {
+  n = Math.round(Number(n) || 0);
+  if (!n) return '일금 영원정';
+  const digits = ['', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구'];
+  const small = ['', '십', '백', '천'], big = ['', '만', '억', '조'];
+  let out = '', bi = 0;
+  while (n > 0) {
+    const chunk = n % 10000; n = Math.floor(n / 10000);
+    if (chunk) {
+      let s = '', c = chunk, si = 0;
+      while (c > 0) { const dgt = c % 10; if (dgt) s = digits[dgt] + small[si] + s; c = Math.floor(c / 10); si++; }
+      out = s + big[bi] + out;
+    }
+    bi++;
+  }
+  return `일금 ${out}원정`;
+}
+function vatLabel(m) { return m === 'none' ? '부가세 없음' : '부가세 포함'; }
+
+function render(q, approval) {
+  const t = totals(q), b = q.biz || {};
+  const today = new Date(); const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const expired = q.validUntil && q.validUntil < todayStr;
+  const dep = Number(q.deposit) || 0;
+  const terms = [
+    dep > 0 && dep < 100 ? `결제: 계약금 ${dep}%(₩${won(t.total * dep / 100)})는 계약 시, 잔금 ${100 - dep}%(₩${won(t.total - Math.round(t.total * dep / 100))})는 최종 납품 후 7일 이내` : dep >= 100 ? '결제: 계약 시 전액' : '결제: 최종 납품 후 7일 이내 전액',
+    `수정: 편집본 수정 ${Number(q.revisions) || 0}회 포함, 이후 추가 수정은 별도 협의`,
+    q.delivery ? `납품: ${q.delivery}` : '',
+    '원본 촬영 소스는 별도 협의 시 제공',
+    q.validUntil ? `견적 유효기간: ${dateKo(q.validUntil)}까지` : '',
+    q.vatMode === 'separate' ? '견적 금액은 부가세 10%가 포함된 금액입니다 (공급가액 + 부가세)' : q.vatMode === 'included' ? '견적 금액은 부가세가 포함된 금액입니다' : '',
+  ].filter(Boolean);
+  const bizRows = [['대표', b.ceo], ['사업자번호', b.bizNo], ['주소', b.address], ['연락처', b.phone], ['이메일', b.email]].filter(r => r[1]);
+  const clientRows = [['담당', q.clientContact], ['프로젝트', q.projectTitle]].filter(r => r[1]);
+  root.innerHTML = `
+    <div class="bar">
+      <span class="brand">VINFILM STUDIO</span>
+      <span class="actions">
+        ${PREVIEW ? `<button class="btn" onclick="history.length > 1 ? history.back() : window.close()">← 돌아가기</button>` : ''}
+        <button class="btn primary" onclick="window.print()">PDF 저장 · 인쇄</button>
+      </span>
+    </div>
+    <article class="sheet">
+      <div class="head">
+        <div><h1>견적서</h1><div style="margin-top:8px;font-size:13px;color:var(--dim)">${esc(q.projectTitle || '')}</div></div>
+        <div class="meta">
+          <img class="logo" src="../assets/logo.png" alt="VINFILM STUDIO" />
+          견적번호 <b>${esc(q.number || '')}</b><br>발행일 <b>${esc(dateKo(q.issueDate))}</b><br>유효기간 <b>${esc(dateKo(q.validUntil))}</b>
+          ${expired && !approval ? `<div class="warn">유효기간이 지났어요. 금액은 다시 확인해 주세요.</div>` : ''}
+        </div>
+      </div>
+      <div class="parties">
+        <div class="party"><h3>받는 분</h3><div class="name">${esc(q.clientName || '-')} 귀하</div>
+          <dl>${clientRows.map(r => `<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join('')}</dl></div>
+        <div class="party"><h3>공급자</h3><div class="name">${esc(b.name || 'VINFILM STUDIO')}</div>
+          <dl>${bizRows.map(r => `<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join('')}</dl></div>
+      </div>
+      <div class="grand"><div class="l">합계 금액 (${vatLabel(q.vatMode)})<b>${wonKorean(t.total)}</b></div><div class="r">₩${won(t.total)}</div></div>
+      <table>
+        <thead><tr><th class="hide-m" style="width:62px">구분</th><th>내용</th><th class="num" style="width:62px">수량</th><th class="num hide-m" style="width:110px">단가</th><th class="num" style="width:120px">금액</th></tr></thead>
+        <tbody>${(q.items || []).map(it => `<tr>
+          <td class="cat hide-m">${esc(it.cat)}</td>
+          <td>${esc(it.desc)}</td>
+          <td class="num">${esc(String(it.qty))}${esc(it.unit || '')}</td>
+          <td class="num hide-m">${won(it.price)}</td>
+          <td class="num">${won((Number(it.qty) || 0) * (Number(it.price) || 0))}</td></tr>`).join('')}</tbody>
+      </table>
+      <div class="totals">
+        <div><span>공급가액</span><span class="num">${won(t.supply)}</span></div>
+        <div><span>부가세</span><span class="num">${won(t.vat)}</span></div>
+        <div class="t"><span>합계</span><span class="num">₩${won(t.total)}</span></div>
+      </div>
+      <h2>조건</h2>
+      <ul class="terms">${terms.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+      ${q.memo ? `<h2>특이사항</h2><div class="memo">${esc(q.memo)}</div>` : ''}
+      ${b.account ? `<h2>입금 계좌</h2><div class="bank">${esc([b.bank, b.account].filter(Boolean).join(' '))}${b.holder ? ` (예금주 ${esc(b.holder)})` : ''}</div>` : ''}
+      <div class="foot">위와 같이 견적합니다. · ${esc(b.name || 'VINFILM STUDIO')}</div>
+    </article>
+    ${PREVIEW ? `<div class="approve no-print"><p style="margin:0">미리보기 화면이에요. 클라이언트에게는 작업관리에서 <b>링크로 보내기</b>를 누르면 이 화면 아래에 "견적 승인" 버튼이 함께 보여요.</p></div>` : approvalHtml(approval)}`;
+}
+function approvalHtml(a) {
+  if (a) return `<div class="approve"><div class="stamp"><span>✓</span><div>${esc(a.name)}님이 이 견적을 승인했어요<small>${new Date(a.at).toLocaleString('ko-KR')}</small></div></div></div>`;
+  return `<div class="approve no-print">
+    <h3>견적 승인</h3>
+    <p>견적 내용을 확인하셨다면 성함을 적고 승인을 눌러주세요. VINFILM STUDIO에 바로 전달되고, 이어서 계약 절차를 안내해 드려요.</p>
+    <form id="approveForm">
+      <input name="name" maxlength="40" placeholder="성함 (예: 김OO / OO컴퍼니)" required autocomplete="name" />
+      <button class="btn primary" type="submit">견적 승인</button>
+      <label class="agree"><input type="checkbox" name="agree" required style="flex:none;min-width:0;width:18px;height:18px" /> 위 견적 내용(금액·조건)을 확인했어요</label>
+    </form>
+    <div id="approveMsg" class="warn"></div>
+  </div>`;
+}
+
+async function main() {
+  if (PREVIEW) {
+    let q = null; try { q = JSON.parse(localStorage.getItem('vinfilm-quote-preview') || 'null'); } catch (e) {}
+    if (!q) { root.innerHTML = `<div class="notice">미리볼 견적서가 없어요. 작업관리에서 다시 열어주세요.</div>`; return; }
+    document.title = `${q.number} 견적서 미리보기 · VINFILM STUDIO`;
+    render(q, null); return;
+  }
+  if (!/^[0-9a-f]{32}$/.test(TOKEN)) { root.innerHTML = `<div class="notice">견적서 주소가 올바르지 않아요.<br>받으신 링크를 다시 확인해 주세요.</div>`; return; }
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    const ref = firebase.firestore().collection('quotesPublic').doc(TOKEN);
+    const snap = await ref.get();
+    if (!snap.exists) { root.innerHTML = `<div class="notice">견적서를 찾을 수 없어요.<br>삭제되었거나 주소가 바뀌었을 수 있어요.</div>`; return; }
+    const q = snap.data();
+    document.title = `${q.projectTitle ? q.projectTitle + ' ' : ''}견적서 · VINFILM STUDIO`;
+    render(q, q.approval);
+    document.addEventListener('submit', async (e) => {
+      if (e.target.id !== 'approveForm') return;
+      e.preventDefault();
+      const name = e.target.name.value.trim();
+      if (!name) return;
+      const btn = e.target.querySelector('button'); btn.disabled = true; btn.textContent = '승인 중…';
+      try {
+        const approval = { name, at: Date.now() };
+        await ref.update({ approval });
+        render(q, approval);
+      } catch (err) {
+        btn.disabled = false; btn.textContent = '견적 승인';
+        document.getElementById('approveMsg').textContent = '승인을 저장하지 못했어요. 잠시 후 다시 시도하거나 VINFILM STUDIO로 연락 주세요.';
+      }
+    });
+  } catch (e) {
+    root.innerHTML = `<div class="notice">견적서를 불러오지 못했어요.<br>인터넷 연결을 확인하고 새로고침해 주세요.</div>`;
+  }
+}
+main();
+</script>
+</body>
+</html>
