@@ -3412,7 +3412,7 @@ function collabModalHtml() {
         </div>
       </div>
       <div class="eq-field"><label>구글 계정 이메일 <span class="eq-hint">(구글 로그인 방식일 때, 여러 명이면 쉼표로)</span></label><input name="members" inputmode="email" value="${esc(editing ? (editing.members || []).join(', ') : '')}" placeholder="partner@gmail.com" /></div>
-      <label class="collab-check"><input type="checkbox" name="showEquipment" ${editing && editing.showEquipment ? 'checked' : ''} /> 장비목록도 보여주기 (보기 전용)</label>
+      <label class="collab-check"><input type="checkbox" name="showEquipment" ${editing && editing.showEquipment ? 'checked' : ''} /> 장비목록도 보여주기 (촬영 협업자만, 보기 전용 · 기본은 안 보임)</label>
       <div style="display:flex;gap:8px;margin-top:12px">
         <button type="button" class="eq-modal-submit eq-modal-submit-secondary" data-action="collab-cancel-edit" style="margin:0">취소</button>
         <button type="submit" class="eq-modal-submit" style="margin:0">${editing ? '저장' : '만들기'}</button>
@@ -3426,6 +3426,7 @@ function collabModalHtml() {
       <div class="collab-actions">
         <button data-action="collab-share" data-id="${x.id}">📤 링크 보내기</button>
         <button data-action="collab-copy" data-id="${x.id}">🔗 복사</button>
+        <button data-action="collab-toggle-eq" data-id="${x.id}" class="${x.showEquipment ? 'is-on' : ''}">🎥 장비목록 ${x.showEquipment ? '보이는 중 · 숨기기' : '보여주기'}</button>
         <button data-action="collab-edit" data-id="${x.id}">✎ 수정</button>
         <button data-action="collab-reissue" data-id="${x.id}">↻ 링크 새로 발급</button>
         <button data-action="collab-delete" data-id="${x.id}" class="is-danger">✕ 삭제</button>
@@ -3464,6 +3465,7 @@ function handleCollabAction(action, el, e) {
     case 'collab-edit': S.collab.editingId = id; S.collab.msg = ''; render(); return true;
     case 'collab-cancel-edit': S.collab.editingId = null; render(); return true;
     case 'collab-share': if (x) collabShareLink(x); return true;
+    case 'collab-toggle-eq': if (x) { saveCollabs(collabs.map(c2 => c2.id === x.id ? { ...c2, showEquipment: !x.showEquipment, updatedAt: Date.now() } : c2)); S.collab.msg = `${x.name}에게 장비목록을 ${x.showEquipment ? '숨겼어요' : '보여줘요'}. (협업자가 새로고침하면 반영)`; render(); } return true;
     case 'collab-copy': if (x) { const url = collabUrl(x); (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(() => { S.collab.msg = `${x.name} 링크를 복사했어요.`; render(); }).catch(() => prompt('아래 링크를 복사하세요', url)); } return true;
     case 'collab-reissue': {
       if (!x || !confirm(`${x.name}의 링크를 새로 발급할까요?\n지금 링크는 바로 못 쓰게 되고, 새 링크를 다시 보내야 해요.`)) return true;
@@ -5273,6 +5275,7 @@ document.addEventListener('DOMContentLoaded', () => {
   /* 화이트 테마의 '.eq-add-btn 흰 글씨' 규칙이 흰 배경 버튼(협업자 관리/사업자 정보/휴대폰 캘린더 연결됨)까지 덮어써서 글씨가 안 보이던 것 */
   :root[data-theme="light"] .gcal-btn.is-on { color:var(--text); }
   :root[data-theme="light"] .gcal-btn.is-warn { color:#b7791f; }
+  .collab-actions button.is-on { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
 </style>
 </body>
 </html>
