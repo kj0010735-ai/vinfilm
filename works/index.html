@@ -1794,6 +1794,45 @@ function projSortMode() {
   if (pid) { const p = projItems.find(x => x.id === pid); return (p && p.childSort) || 'due'; }
   try { return localStorage.getItem(PROJ_TOP_SORT_LS) || 'due'; } catch (e) { return 'due'; }
 }
+/* 정렬 방식 — 툴바 선택상자와 목록 머리글(상태/프로젝트/클라이언트/마감) 클릭으로 바꾼다. 머리글을 한 번 더 누르면 반대 순서 */
+const PROJ_SORTS = [
+  { id: 'due', label: '기본 (진행 중 먼저 · 마감 임박순)' },
+  { id: 'name', label: '번호·이름순' }, { id: 'name-desc', label: '번호·이름 역순' },
+  { id: 'status', label: '상태순 (진행전 → 완료)' }, { id: 'status-desc', label: '상태 역순 (완료 → 진행전)' },
+  { id: 'due-asc', label: '마감 빠른순' }, { id: 'due-desc', label: '마감 늦은순' },
+  { id: 'recent', label: '최신 등록순' }, { id: 'oldest', label: '오래된 등록순' },
+  { id: 'client', label: '클라이언트순' }, { id: 'client-desc', label: '클라이언트 역순' },
+];
+const PROJ_HEAD_SORT = { status: ['status', 'status-desc'], name: ['name', 'name-desc'], client: ['client', 'client-desc'], due: ['due-asc', 'due-desc'] };
+function projSorter(mode) {
+  const byName = (a, b) => (a.title || '').localeCompare(b.title || '', 'ko', { numeric: true });
+  const statusIdx = s => { const i = PROJECT_COLUMNS.findIndex(c => c.id === s); return i < 0 ? 0 : i; };
+  const dueCmp = (a, b, dir) => { if (!a.dueDate && !b.dueDate) return 0; if (!a.dueDate) return 1; if (!b.dueDate) return -1; return dir * a.dueDate.localeCompare(b.dueDate); };
+  switch (mode) {
+    case 'name': return byName;
+    case 'name-desc': return (a, b) => -byName(a, b);
+    case 'status': return (a, b) => statusIdx(a.status) - statusIdx(b.status) || dueCmp(a, b, 1);
+    case 'status-desc': return (a, b) => statusIdx(b.status) - statusIdx(a.status) || dueCmp(a, b, 1);
+    case 'due-asc': return (a, b) => dueCmp(a, b, 1) || byName(a, b);
+    case 'due-desc': return (a, b) => dueCmp(a, b, -1) || byName(a, b);
+    case 'recent': return (a, b) => (b.createdAt || 0) - (a.createdAt || 0);
+    case 'oldest': return (a, b) => (a.createdAt || 0) - (b.createdAt || 0);
+    case 'client': return (a, b) => (a.client || '\uffff').localeCompare(b.client || '\uffff', 'ko') || byName(a, b);
+    case 'client-desc': return (a, b) => (b.client || '').localeCompare(a.client || '', 'ko') || byName(a, b);
+    default: return (a, b) => { const ad = a.status === 'done' ? 1 : 0, bd = b.status === 'done' ? 1 : 0; return ad - bd || dueCmp(a, b, 1); };
+  }
+}
+function setProjSortMode(mode) {
+  const pid = S.proj.currentParentId;
+  if (pid) saveProjItems(projItems.map(p => p.id === pid ? { ...p, childSort: mode } : p));
+  else { try { localStorage.setItem(PROJ_TOP_SORT_LS, mode); } catch (e) {} }
+  render();
+}
+function projHeadCell(key, label, cls) {
+  const [a, d] = PROJ_HEAD_SORT[key]; const m = projSortMode();
+  const arrow = m === a ? ' ▲' : m === d ? ' ▼' : '';
+  return `<div class="proj-head-sort ${cls || ''} ${arrow ? 'on' : ''}" data-action="proj-sort-by" data-id="${key}" title="눌러서 정렬">${label}${arrow}</div>`;
+}
 function projListHtml() {
   const parentId = S.proj.currentParentId || null;
   const q = (S.proj.search || '').trim().toLowerCase();
@@ -1803,17 +1842,7 @@ function projListHtml() {
     if (!q) return true;
     return (p.title || '').toLowerCase().includes(q) || (p.client || '').toLowerCase().includes(q) || (p.notes || '').toLowerCase().includes(q);
   });
-  if (projSortMode() === 'name') {
-    // 번호순: "나레이션 녹음/ 2"가 "…/ 10"보다 앞에 오도록 숫자를 숫자로 비교(상태·마감과 무관)
-    items = items.slice().sort((a, b) => (a.title || '').localeCompare(b.title || '', 'ko', { numeric: true }));
-  } else items = items.slice().sort((a, b) => {
-    const aDone = a.status === 'done' ? 1 : 0, bDone = b.status === 'done' ? 1 : 0;
-    if (aDone !== bDone) return aDone - bDone;
-    if (!a.dueDate && !b.dueDate) return 0;
-    if (!a.dueDate) return 1;
-    if (!b.dueDate) return -1;
-    return a.dueDate.localeCompare(b.dueDate);
-  });
+  items = items.slice().sort(projSorter(projSortMode()));
   const addBtn = `<button class="proj-list-add-btn" data-action="proj-open-add" data-id="todo">+ 새 프로젝트 추가</button>`;
   const bulkBar = projBulkBarHtml();
   if (items.length === 0) {
@@ -1824,7 +1853,7 @@ function projListHtml() {
   return `
     ${bulkBar}
     <div class="proj-list ${S.proj.selectMode ? 'select-mode' : ''}">
-      <div class="proj-row proj-row-head">${S.proj.selectMode ? `<div class="proj-row-check-cell"><input type="checkbox" class="proj-row-checkbox" data-role="proj-select-all" data-ids="${items.map(p => p.id).join(',')}" ${allChecked ? 'checked' : ''} /></div>` : ''}<div class="proj-row-drag-cell"></div><div>상태</div><div>프로젝트</div><div class="proj-row-head-narrow">클라이언트</div><div>마감</div><div class="proj-row-head-narrow">메모</div><div></div></div>
+      <div class="proj-row proj-row-head">${S.proj.selectMode ? `<div class="proj-row-check-cell"><input type="checkbox" class="proj-row-checkbox" data-role="proj-select-all" data-ids="${items.map(p => p.id).join(',')}" ${allChecked ? 'checked' : ''} /></div>` : ''}<div class="proj-row-drag-cell"></div>${projHeadCell('status', '상태')}${projHeadCell('name', '프로젝트')}${projHeadCell('client', '클라이언트', 'proj-row-head-narrow')}${projHeadCell('due', '마감')}<div class="proj-row-head-narrow">메모</div><div></div></div>
       ${items.map(projRowHtml).join('')}
     </div>
     ${addBtn}`;
@@ -1868,7 +1897,7 @@ function renderProjectsTab() {
         <button class="eq-chip ${S.proj.statusFilter==='all'?'active':''}" data-action="proj-set-status-filter" data-id="all">전체 ${counts.all}</button>
         ${PROJECT_COLUMNS.map(col => `<button class="eq-chip ${S.proj.statusFilter===col.id?'active':''}" data-action="proj-set-status-filter" data-id="${col.id}"><span class="eq-chip-dot" style="background:${col.color}"></span>${col.label} ${counts[col.id]}</button>`).join('')}
       </div>
-      <button class="eq-chip" style="margin-left:auto;" data-action="proj-toggle-sort" title="정렬 바꾸기">${projSortMode() === 'name' ? '↕ 번호순' : '↕ 마감순'}</button>
+      <select class="proj-sort-select" style="margin-left:auto;" data-role="proj-sort" title="정렬">${PROJ_SORTS.map(s => `<option value="${s.id}" ${projSortMode() === s.id ? 'selected' : ''}>↕ ${s.label}</option>`).join('')}</select>
       <button class="eq-chip ${S.proj.selectMode ? 'active' : ''}" data-action="proj-toggle-select-mode">${S.proj.selectMode ? '선택 취소' : '☑ 선택'}</button>
       <button class="eq-chip active" style="cursor:default;">마감일순</button>
     </div>
@@ -3605,13 +3634,7 @@ function bootApp() {
         }
         break;
       }
-      case 'proj-toggle-sort': {
-        const nextMode = projSortMode() === 'name' ? 'due' : 'name';
-        const pid = S.proj.currentParentId;
-        if (pid) saveProjItems(projItems.map(p => p.id === pid ? { ...p, childSort: nextMode } : p));
-        else { try { localStorage.setItem(PROJ_TOP_SORT_LS, nextMode); } catch (e2) {} }
-        render(); break;
-      }
+      case 'proj-sort-by': { const [a, d] = PROJ_HEAD_SORT[id]; setProjSortMode(projSortMode() === a ? d : a); break; }
       case 'proj-create-schedule': S.sched.editingId = null; S.sched.linkProjectId = id; S.sched.modalOpen = true; render(); break;
       case 'proj-view-schedule': {
         const p = projItems.find(pr => pr.id === id);
@@ -3860,6 +3883,7 @@ function bootApp() {
 
   /* checkboxes: allDay, photo file, ics import, shoot confirm/pack toggles */
   root.addEventListener('change', (e) => {
+    if (e.target.dataset && e.target.dataset.role === 'proj-sort') { setProjSortMode(e.target.value); return; }
     if (S.quote.draft && handleQuoteInput(e)) return;
     if (S.quote.cdraft && handleContractInput(e)) return;
     if (e.target.dataset && e.target.dataset.role === 'proj-due-inline') {
@@ -5002,6 +5026,11 @@ document.addEventListener('DOMContentLoaded', () => {
   @media (max-width: 720px) { .c-article textarea { font-size:16px; } }
   .memo-link { color:var(--accent); text-decoration:underline; text-underline-offset:2px; overflow-wrap:anywhere; word-break:break-all; }
   .memo-link:hover { opacity:.8; }
+  .proj-head-sort { cursor:pointer; user-select:none; border-radius:6px; transition:color .15s ease; }
+  .proj-head-sort:hover { color:var(--text); }
+  .proj-head-sort.on { color:var(--accent); font-weight:700; }
+  .proj-sort-select { border:1px solid var(--border); background:var(--surface); color:var(--text-dim); border-radius:999px; padding:6px 10px; font-family:var(--font-body); font-size:12.5px; cursor:pointer; max-width:190px; }
+  @media (max-width: 720px) { .proj-sort-select { font-size:16px; max-width:100%; } }
 </style>
 </body>
 </html>
