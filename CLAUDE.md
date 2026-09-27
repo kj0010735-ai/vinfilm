@@ -105,6 +105,7 @@
 - 승인 확인: 견적서 탭을 열 때(`checkQuoteApprovals`, 1분 간격) 공유한 견적의 `quotesPublic` approval을 읽어 있으면 상태를 '승인'으로 바꾼다.
 - **보안 규칙**: `quotesPublic`은 `get`만 공개(목록 조회 불가 → id를 알아야만 열람), 생성/삭제/목록은 owner, 클라이언트 update는 `approval`이 null일 때 `approval:{name(1~40자), at(int)}` 하나만 채울 수 있게 `diff().affectedKeys().hasOnly(['approval'])`로 제한 — 금액·항목 위조 불가. 공개 사본엔 계좌·사업자 정보가 들어가므로 링크는 받는 사람에게만.
 - 로컬(IS_LOCAL_DEV)에서는 링크 게시/승인 조회를 안 하고 미리보기만 된다.
+- **번호는 두 개**: 내부 연번 `number`(VF-/VC-YYMM-001, 작업관리 목록용)와 클라이언트용 `publicNo`(같은 머리 + 랜덤 4자, 예 `VF-2609-K7QX` — `makePublicNo`, 0/O·1/I/L 제외). "클라이언트가 이번 달 몇 번째인지 유추 못 하게" 요청으로 추가 — 공개 사본(`quoteSnapshot`/`contractSnapshot`)과 PDF엔 publicNo만 들어가고, 계약서 조항 속 "견적번호"도 견적의 publicNo로 쓰며 예전 문구에 남은 내부 번호는 스냅샷 만들 때 치환(`hideNo`). 편집기 제목 옆 "클라이언트용 …" 배지로 확인. 복제하면 publicNo 새로 발급. 수입·지출 메모 등 owner 전용 화면엔 내부 번호 그대로.
 - 견적서 공개 사본에는 대표 서명(`biz.signature`)을 빼고 넣는다(계약서에만 필요).
 
 **전자계약서** (`contracts` 컬렉션, owner 전용, `CLOUD_COLLECTIONS` 포함, 번호 `VC-YYMM-001`):

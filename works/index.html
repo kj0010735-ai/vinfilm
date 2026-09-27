@@ -2664,8 +2664,21 @@ function blankQuote() {
     vatMode: QUOTE_DEFAULTS.vatMode, deposit: QUOTE_DEFAULTS.deposit, revisions: QUOTE_DEFAULTS.revisions, delivery: QUOTE_DEFAULTS.delivery, memo: '', shareId: '', approval: null };
 }
 /* 클라이언트에게 보이는 스냅샷 — 내부용 필드(상태/생성시각 등)는 빼고 사업자 정보를 같이 담는다 */
+/* 클라이언트에게 보이는 번호 — 내부 연번(VF-2609-001)은 "이번 달 몇 번째"가 드러나서, 문서엔 같은 머리(VF-2609-) + 랜덤 4자를 쓴다.
+   한 번 만들면 그 문서에 고정(publicNo). 헷갈리는 글자(0/O, 1/I/L)는 뺐다. */
+function makePublicNo(internalNo, taken) {
+  const head = String(internalNo || '').replace(/-\d+$/, '-');
+  const abc = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  for (let tries = 0; tries < 50; tries++) {
+    const a = new Uint8Array(4); crypto.getRandomValues(a);
+    const code = head + [...a].map(b => abc[b % abc.length]).join('');
+    if (!taken || !taken.has(code)) return code;
+  }
+  return head + Date.now().toString(36).toUpperCase().slice(-4);
+}
+function ensureQuotePublicNo(q) { if (!q.publicNo) q.publicNo = makePublicNo(q.number, new Set(quotes.map(x => x.publicNo).filter(Boolean))); return q.publicNo; }
 function quoteSnapshot(q) {
-  return { v: 1, number: q.number, issueDate: q.issueDate, validUntil: q.validUntil, clientName: q.clientName, clientContact: q.clientContact, projectTitle: q.projectTitle,
+  return { v: 1, number: q.publicNo || makePublicNo(q.number), issueDate: q.issueDate, validUntil: q.validUntil, clientName: q.clientName, clientContact: q.clientContact, projectTitle: q.projectTitle,
     items: (q.items || []).map(it => ({ cat: it.cat, desc: it.desc, qty: Number(it.qty) || 0, unit: it.unit, price: Number(it.price) || 0 })),
     vatMode: q.vatMode, deposit: Number(q.deposit) || 0, revisions: Number(q.revisions) || 0, delivery: q.delivery || '', memo: q.memo || '', biz: (({ signature, ...rest }) => rest)(biz), publishedAt: Date.now() };
 }
@@ -2697,6 +2710,7 @@ async function checkQuoteApprovals() {
 function quoteOpenEditor(q) { S.quote.draft = JSON.parse(JSON.stringify(q)); S.quote.msg = ''; window.scrollTo(0, 0); render(); }
 function quoteCommitDraft() {
   const d = S.quote.draft; if (!d) return null;
+  ensureQuotePublicNo(d);
   d.items = (d.items || []).filter(it => it.desc.trim() || Number(it.price));
   if (!d.items.length) d.items = [newQuoteItem()];
   d.updatedAt = Date.now();
@@ -2784,7 +2798,7 @@ function quoteEditorHtml() {
     <div class="q-editor">
       <div class="q-editor-top">
         <button class="q-back" data-action="quote-back">‹ 목록</button>
-        <div class="q-editor-title"><h1 class="eq-title">${isNew ? '새 견적서' : '견적서 수정'}</h1><span class="q-no">${esc(d.number)}</span><span class="q-badge" style="--c:${st.color}">${st.label}</span></div>
+        <div class="q-editor-title"><h1 class="eq-title">${isNew ? '새 견적서' : '견적서 수정'}</h1><span class="q-no">${esc(d.number)}</span><span class="q-badge" style="--c:${st.color}">${st.label}</span>${d.publicNo ? `<span class="q-pubno" title="클라이언트에게 보이는 번호">클라이언트용 ${esc(d.publicNo)}</span>` : ''}</div>
       </div>
       ${S.quote.msg ? `<div class="gcal-notice">${esc(S.quote.msg)}</div>` : ''}
       ${d.approval ? `<div class="q-approved">✓ <b>${esc(d.approval.name)}</b>님이 ${new Date(d.approval.at).toLocaleString('ko-KR')}에 승인했어요</div>` : ''}
@@ -2897,7 +2911,7 @@ function handleQuoteAction(action, el, e) {
     case 'quote-duplicate': {
       quoteCommitDraft();
       const today = todayStr();
-      const copy = { ...JSON.parse(JSON.stringify(d)), id: uid(), number: nextQuoteNumber(today), status: 'draft', createdAt: Date.now(), issueDate: today, validUntil: addDaysYmd(today, QUOTE_DEFAULTS.validDays), shareId: '', approval: null, sentAt: null };
+      const copy = { ...JSON.parse(JSON.stringify(d)), id: uid(), number: nextQuoteNumber(today), publicNo: '', contractId: '', status: 'draft', createdAt: Date.now(), issueDate: today, validUntil: addDaysYmd(today, QUOTE_DEFAULTS.validDays), shareId: '', approval: null, sentAt: null };
       copy.items = copy.items.map(it => ({ ...it, id: uid() }));
       quoteOpenEditor(copy); S.quote.msg = '복제했어요. 저장하면 새 견적서로 등록돼요.'; render(); return true;
     }
@@ -2967,7 +2981,7 @@ function defaultContractArticles(c) {
     : dep >= 100 ? '갑은 계약금액 전액을 계약 체결일로부터 7일 이내에' : '갑은 계약금액 전액을 최종 납품일로부터 7일 이내에';
   return [
     { title: '목적', body: `본 계약은 ${client}(이하 "갑")가 ${biz.name || 'VINFILM STUDIO'}(이하 "을")에게 「${c.projectTitle || '영상 제작'}」 영상 제작을 의뢰하고, 을이 이를 수행하는 데 필요한 사항을 정함을 목적으로 한다.` },
-    { title: '작업 범위', body: `작업 범위는 본 계약서에 첨부된 견적 내역${c.quoteNumber ? `(견적번호 ${c.quoteNumber})` : ''}과 같다. 견적 내역에 없는 작업은 갑과 을이 협의하여 별도로 정한다.` },
+    { title: '작업 범위', body: `작업 범위는 본 계약서에 첨부된 견적 내역${c.quoteNumber ? `(견적번호 ${c.quotePublicNo || c.quoteNumber})` : ''}과 같다. 견적 내역에 없는 작업은 갑과 을이 협의하여 별도로 정한다.` },
     { title: '일정 및 납품', body: `촬영일: ${c.shootDate ? dateKoStr(c.shootDate) : '갑과 을이 협의하여 정함'}\n최종 납품일: ${c.deliveryDate ? dateKoStr(c.deliveryDate) : '갑과 을이 협의하여 정함'}\n납품 방식: ${c.delivery || '갑과 을이 협의하여 정함'}\n갑의 자료 제공 지연, 촬영 대상·장소 변경 등 갑의 사유로 일정이 늦어지는 경우 납품일은 그만큼 연장된다.` },
     { title: '계약금액 및 지급', body: `총 계약금액은 금 ${won(t.total)}원(${vatTxt})으로 한다.\n${pay} 을이 지정한 계좌${acct ? `(${acct})` : ''}로 지급한다. 을은 대금 수령 후 세금계산서 등 적격 증빙을 발행한다.` },
     { title: '수정', body: `납품 전 편집본 수정은 ${Number(c.revisions) || 0}회까지 계약금액에 포함된다. 이를 초과하는 수정이나 확정된 기획·구성 자체를 바꾸는 수정은 갑과 을이 협의하여 추가 비용을 정한다.` },
@@ -2980,7 +2994,7 @@ function defaultContractArticles(c) {
 }
 function contractFromQuote(q) {
   const today = todayStr();
-  const c = { id: uid(), number: nextContractNumber(today), status: 'draft', createdAt: Date.now(), contractDate: today, quoteId: q.id, quoteNumber: q.number,
+  const c = { id: uid(), number: nextContractNumber(today), status: 'draft', createdAt: Date.now(), contractDate: today, quoteId: q.id, quoteNumber: q.number, quotePublicNo: ensureQuotePublicNo(q),
     clientName: q.clientName || '', clientRep: '', clientContact: q.clientContact || '', projectTitle: q.projectTitle || '', shootDate: '', deliveryDate: '',
     items: JSON.parse(JSON.stringify(q.items || [])), vatMode: q.vatMode, deposit: q.deposit, revisions: q.revisions, delivery: q.delivery || '', memo: q.memo || '',
     articles: [], shareId: '', signing: null, ledgerSynced: false };
@@ -2993,11 +3007,13 @@ function contractFromQuote(q) {
   return c;
 }
 function contractSnapshot(c) {
-  return { v: 1, number: c.number, contractDate: c.contractDate, quoteNumber: c.quoteNumber || '', clientName: c.clientName, clientRep: c.clientRep || '', clientContact: c.clientContact || '',
+  const qPub = c.quotePublicNo || (quotes.find(q => q.id === c.quoteId) || {}).publicNo || '';
+  const hideNo = s => (c.quoteNumber && qPub ? String(s).split(c.quoteNumber).join(qPub) : s); // 예전에 만든 조항 문구 속 내부 견적번호도 가림
+  return { v: 1, number: c.publicNo || makePublicNo(c.number), contractDate: c.contractDate, quoteNumber: qPub, clientName: c.clientName, clientRep: c.clientRep || '', clientContact: c.clientContact || '',
     projectTitle: c.projectTitle, shootDate: c.shootDate || '', deliveryDate: c.deliveryDate || '',
     items: (c.items || []).map(it => ({ cat: it.cat, desc: it.desc, qty: Number(it.qty) || 0, unit: it.unit, price: Number(it.price) || 0 })),
     vatMode: c.vatMode, deposit: Number(c.deposit) || 0, revisions: Number(c.revisions) || 0,
-    articles: (c.articles || []).filter(a => (a.title || '').trim() || (a.body || '').trim()).map(a => ({ title: a.title || '', body: a.body || '' })),
+    articles: (c.articles || []).filter(a => (a.title || '').trim() || (a.body || '').trim()).map(a => ({ title: a.title || '', body: hideNo(a.body || '') })),
     biz: { ...biz } };
 }
 async function sha256Hex(text) {
@@ -3090,6 +3106,8 @@ function quoteAfterRender() {
 function contractOpenEditor(c) { S.quote.cdraft = JSON.parse(JSON.stringify(c)); S.quote.draft = null; S.quote.view = 'contracts'; S.quote.msg = ''; window.scrollTo(0, 0); render(); }
 function contractCommitDraft() {
   const d = S.quote.cdraft; if (!d) return null;
+  if (!d.publicNo) d.publicNo = makePublicNo(d.number, new Set(contracts.map(x => x.publicNo).filter(Boolean)));
+  if (!d.quotePublicNo && d.quoteId) { const q = quotes.find(x => x.id === d.quoteId); if (q && q.publicNo) d.quotePublicNo = q.publicNo; }
   d.updatedAt = Date.now();
   const exists = contracts.some(c => c.id === d.id);
   saveContracts(exists ? contracts.map(c => c.id === d.id ? JSON.parse(JSON.stringify(d)) : c) : [JSON.parse(JSON.stringify(d)), ...contracts]);
@@ -3146,7 +3164,7 @@ function contractEditorHtml() {
     <div class="q-editor">
       <div class="q-editor-top">
         <button class="q-back" data-action="contract-back">‹ 목록</button>
-        <div class="q-editor-title"><h1 class="eq-title">계약서</h1><span class="q-no">${esc(d.number)}</span><span class="q-badge" style="--c:${st.color}">${st.label}</span></div>
+        <div class="q-editor-title"><h1 class="eq-title">계약서</h1><span class="q-no">${esc(d.number)}</span><span class="q-badge" style="--c:${st.color}">${st.label}</span>${d.publicNo ? `<span class="q-pubno" title="클라이언트에게 보이는 번호">클라이언트용 ${esc(d.publicNo)}</span>` : ''}</div>
       </div>
       ${S.quote.msg ? `<div class="gcal-notice">${esc(S.quote.msg)}</div>` : ''}
       ${locked ? `<div class="q-approved">✓ <b>${esc(d.signing.name)}</b>님이 ${new Date(d.signing.at).toLocaleString('ko-KR')}에 서명했어요. 서명된 계약서는 수정할 수 없어요.${d.ledgerSynced ? ' 수입·지출 관리에 매출이 등록됐어요.' : ''}</div>` : ''}
@@ -4886,6 +4904,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .q-back { background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:10px; padding:8px 12px; font-family:var(--font-body); font-weight:600; cursor:pointer; }
   .q-editor-title { display:flex; align-items:center; gap:10px; flex-wrap:wrap; } .q-editor-title .eq-title { margin:0; }
   .q-no { font-size:13px; color:var(--text-faint); font-weight:600; }
+  .q-pubno { font-size:11.5px; color:var(--text-dim); border:1px dashed var(--border); border-radius:999px; padding:3px 9px; }
   .q-approved { background:color-mix(in srgb, #4cae7d 14%, transparent); color:#2e9e6a; border:1px solid color-mix(in srgb, #4cae7d 40%, transparent); border-radius:12px; padding:10px 14px; font-size:13px; margin-bottom:14px; }
   .q-grid { display:grid; grid-template-columns:minmax(0,1fr) 280px; gap:18px; align-items:start; }
   .q-main { display:flex; flex-direction:column; gap:14px; min-width:0; }
