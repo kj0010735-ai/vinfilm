@@ -68,13 +68,36 @@
     th.hide-m, td.hide-m { display:none; }
     table { font-size:12.5px; }
   }
-  @page { size:A4; margin:12mm; }
+  /* 인쇄/PDF는 A4 한 장에 맞춘다: 페이지 여백 0(브라우저가 찍는 주소·날짜 줄 제거) + 시트 안쪽 여백으로 대신하고,
+     간격을 줄인 'compact' 모양으로 재본 뒤 그래도 넘치면 fitToOnePage()가 zoom으로 살짝 축소한다. */
+  @page { size:A4; margin:0; }
+  html.compact .sheet { width:210mm; margin:0; padding:11mm 13mm; box-shadow:none; border-radius:0; }
+  html.compact .head { padding-bottom:10px; }
+  html.compact .head h1 { font-size:26px; }
+  html.compact .logo { height:26px; margin-bottom:6px; }
+  html.compact .head .meta { line-height:1.6; font-size:11.5px; }
+  html.compact .parties { margin:12px 0; gap:12px; grid-template-columns:1fr 1fr; }
+  html.compact .party { padding:10px 12px; }
+  html.compact .party .name { font-size:15px; margin-bottom:4px; }
+  html.compact .party dl { font-size:11.5px; gap:1px 8px; }
+  html.compact .grand { padding:10px 14px; margin-bottom:12px; }
+  html.compact .grand .r { font-size:20px; }
+  html.compact table { font-size:12px; }
+  html.compact th { padding:5px 6px; }
+  html.compact td { padding:6px 6px; }
+  html.compact th.hide-m, html.compact td.hide-m { display:table-cell !important; }
+  html.compact .totals { margin-top:8px; font-size:12.5px; }
+  html.compact .totals div { padding:3px 6px; }
+  html.compact .totals .t { font-size:14px; padding-top:7px; }
+  html.compact h2 { margin:14px 0 6px; font-size:13px; }
+  html.compact ul.terms { font-size:11.5px; line-height:1.65; }
+  html.compact .memo, html.compact .bank { padding:8px 12px; font-size:12px; line-height:1.6; }
+  html.compact .foot { margin-top:14px; }
+  html.compact .approve { width:210mm; margin:0; padding:0 13mm 10mm; box-shadow:none; border-radius:0; }
   @media print {
     html, body { background:#fff; }
     .bar, .approve form, .no-print { display:none !important; }
-    .sheet { width:auto; margin:0; padding:0; box-shadow:none; border-radius:0; }
-    .approve { width:auto; margin:16px 0 0; padding:0; box-shadow:none; }
-    th.hide-m, td.hide-m { display:table-cell !important; }
+    .sheet { box-shadow:none; }
     tr, .party, .totals, .bank { break-inside:avoid; }
   }
 </style>
@@ -148,7 +171,7 @@ function render(q, approval) {
       <span class="brand">VINFILM STUDIO</span>
       <span class="actions">
         ${PREVIEW ? `<button class="btn" onclick="history.length > 1 ? history.back() : window.close()">← 돌아가기</button>` : ''}
-        <button class="btn primary" onclick="window.print()">PDF 저장 · 인쇄</button>
+        <button class="btn primary" onclick="printOnePage()">PDF 저장 · 인쇄</button>
       </span>
     </div>
     <article class="sheet">
@@ -238,6 +261,24 @@ async function main() {
     root.innerHTML = `<div class="notice">견적서를 불러오지 못했어요.<br>인터넷 연결을 확인하고 새로고침해 주세요.</div>`;
   }
 }
+/* A4 한 장 맞추기: 인쇄 모양(compact)으로 바꾼 뒤 시트 높이를 재서 A4(297mm)보다 크면 그만큼 축소 */
+function fitToOnePage() {
+  document.documentElement.classList.add('compact');
+  const sheet = document.querySelector('.sheet'); if (!sheet) return;
+  sheet.style.zoom = '';
+  const pageH = 297 * 96 / 25.4 - 6;
+  const approve = document.querySelector('.approve:not(.no-print)');
+  const h = sheet.scrollHeight + (approve ? approve.scrollHeight : 0);
+  const z = Math.min(1, pageH / h);
+  if (z < 1) { sheet.style.zoom = z; if (approve) approve.style.zoom = z; }
+}
+function unfit() {
+  document.documentElement.classList.remove('compact');
+  document.querySelectorAll('.sheet, .approve').forEach(el => { el.style.zoom = ''; });
+}
+function printOnePage() { fitToOnePage(); setTimeout(() => { window.print(); }, 50); }
+window.addEventListener('beforeprint', fitToOnePage);
+window.addEventListener('afterprint', unfit);
 main();
 </script>
 </body>
