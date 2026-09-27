@@ -113,6 +113,7 @@
 
 **전자계약서** (`contracts` 컬렉션, owner 전용, `CLOUD_COLLECTIONS` 포함, 번호 `VC-YYMM-001`):
 - `contractFromQuote(q)`가 견적의 클라이언트·항목·금액·부가세·계약금·수정 횟수·납품·특이사항을 복사하고, 같은 이름 프로젝트에 연결된 캘린더 일정이 있으면 촬영일, 마감일이 있으면 납품일을 채운 뒤 `defaultContractArticles()`로 기본 10개 조항(목적/작업 범위/일정 및 납품/계약금액 및 지급(계좌 포함)/수정/저작권 및 사용 범위/포트폴리오/해지·환불(촬영 7일 전 기준)/비밀유지/기타·관할(을 소재지 법원))을 만든다. 견적서 ↔ 계약서는 `quote.contractId`/`contract.quoteId`로 연결. 금액은 계약서에서 못 고친다(견적서를 고친 뒤 새로 만들기).
+- **견적서 없이 바로 만들기**: 계약서 목록의 "+ 새 계약서"(`contract-new` → `blankContract()`, quoteId 없음). 이런 계약서는 편집기에서 금액 항목(견적서와 같은 항목표·자주 쓰는 항목 칩)·부가세·계약금·수정 횟수·납품·특약사항을 직접 입력(`data-c-item`/`data-c-field`, change 때 합계·조항 다시 그림, 손대지 않은 조항은 금액 변경을 따라감). 견적서에서 만든 계약서는 여전히 금액 읽기 전용. 빈 항목은 공개 사본에서 빠지고, 합계 0원이면 서명 링크를 막는다.
 - 편집기: 당사자·일정 입력 + 조항 제목/본문 자유 수정·추가·삭제·"기본 조항으로 다시 채우기". 날짜·이름 등을 바꾸면 **기본 문구 그대로인 조항만** 새 값으로 자동 갱신(`handleContractInput`이 바뀌기 전/후 기본 문구를 비교), 사용자가 고친 조항은 안 건드림. 조항 textarea는 `autoGrow`로 내용 높이에 맞춤(`quoteAfterRender` 훅이 `render()` 끝에서 호출).
 - 대표 서명: "🏢 사업자 정보" 모달의 서명 캔버스(`#bizSignPad`) → `biz.signature`(PNG dataURL ~15KB, `appSettings/business`). 서명이나 사업자번호·계좌가 없으면 서명 링크 보내기를 막는다.
 - "✍️ 서명 링크 보내기"(`contractShare`): `contractsPublic/{비밀 id}`에 `contractSnapshot` + `hash`(스냅샷 JSON의 SHA-256) + `signing:null` 게시 → 공유/복사. 서명 전까지는 저장할 때마다 사본 갱신(해시도 새로 계산).

@@ -2988,7 +2988,7 @@ function renderQuotesTab() {
         : `견적 <b>${quotes.length}</b> · 승인 <b>${quotes.filter(q => q.status === 'approved').length}</b>${approvedSum ? ` · 승인 합계 <b>₩${won(approvedSum)}</b>` : ''}`}</div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="eq-add-btn gcal-btn is-on" data-action="quote-biz-open">🏢 사업자 정보</button>
-        ${isC ? '' : `<button class="eq-add-btn" data-action="quote-new">+ 새 견적서</button>`}
+        ${isC ? `<button class="eq-add-btn" data-action="contract-new">+ 새 계약서</button>` : `<button class="eq-add-btn" data-action="quote-new">+ 새 견적서</button>`}
       </div>
     </div>
     <div class="cal-seg q-seg"><button class="${isC ? '' : 'on'}" data-action="quote-view" data-id="quotes">🧾 견적서</button><button class="${isC ? 'on' : ''}" data-action="quote-view" data-id="contracts">📝 계약서</button></div>
@@ -3117,12 +3117,22 @@ function contractFromQuote(q) {
   c.articles = defaultContractArticles(c);
   return c;
 }
+/* 견적서 없이 바로 만드는 계약서 — 금액 항목·조건을 계약서 안에서 직접 입력한다(quoteId 없음) */
+function blankContract() {
+  const today = todayStr();
+  const c = { id: uid(), number: nextContractNumber(today), status: 'draft', createdAt: Date.now(), contractDate: today, quoteId: '', quoteNumber: '',
+    clientName: '', clientRep: '', clientContact: '', projectTitle: '', shootDate: '', deliveryDate: '',
+    items: [newQuoteItem()], vatMode: QUOTE_DEFAULTS.vatMode, deposit: QUOTE_DEFAULTS.deposit, revisions: QUOTE_DEFAULTS.revisions, delivery: QUOTE_DEFAULTS.delivery, memo: '',
+    articles: [], shareId: '', signing: null, ledgerSynced: false };
+  c.articles = defaultContractArticles(c);
+  return c;
+}
 function contractSnapshot(c) {
   const qPub = c.quotePublicNo || (quotes.find(q => q.id === c.quoteId) || {}).publicNo || '';
   const hideNo = s => (c.quoteNumber && qPub ? String(s).split(c.quoteNumber).join(qPub) : s); // 예전에 만든 조항 문구 속 내부 견적번호도 가림
   return { v: 1, number: c.publicNo || makePublicNo(c.number), contractDate: c.contractDate, quoteNumber: qPub, clientName: c.clientName, clientRep: c.clientRep || '', clientContact: c.clientContact || '',
     projectTitle: c.projectTitle, shootDate: c.shootDate || '', deliveryDate: c.deliveryDate || '',
-    items: (c.items || []).map(it => ({ cat: it.cat, desc: it.desc, qty: Number(it.qty) || 0, unit: it.unit, price: Number(it.price) || 0 })),
+    items: (c.items || []).filter(it => (it.desc || '').trim() || Number(it.price)).map(it => ({ cat: it.cat, desc: it.desc, qty: Number(it.qty) || 0, unit: it.unit, price: Number(it.price) || 0 })),
     vatMode: c.vatMode, deposit: Number(c.deposit) || 0, revisions: Number(c.revisions) || 0,
     articles: (c.articles || []).filter(a => (a.title || '').trim() || (a.body || '').trim()).map(a => ({ title: a.title || '', body: hideNo(a.body || '') })),
     biz: { ...biz } };
@@ -3236,6 +3246,7 @@ async function contractShare() {
   if (IS_LOCAL_DEV) { S.quote.msg = '로컬 테스트 환경에서는 계약서 링크를 만들지 않아요. 미리보기로 확인해 주세요.'; render(); return; }
   if (bizMissing() || !biz.signature) { S.quote.bizOpen = true; S.quote.msg = '계약서를 보내기 전에 사업자 정보와 대표 서명을 먼저 넣어주세요.'; render(); return; }
   if (!d.clientName.trim()) { S.quote.msg = '계약 상대방(클라이언트) 이름을 넣어주세요.'; render(); return; }
+  if (!quoteTotals(d).total) { S.quote.msg = '계약 금액 항목을 넣어주세요.'; render(); return; }
   try {
     if (!d.shareId) d.shareId = randomShareId();
     if (d.status === 'draft') d.status = 'sent';
@@ -3253,7 +3264,7 @@ async function contractShare() {
 }
 function contractListHtml() {
   const list = [...contracts].sort((a, b) => (b.contractDate || '').localeCompare(a.contractDate || '') || (b.createdAt || 0) - (a.createdAt || 0));
-  if (!list.length) return `<div class="task-note-empty">아직 계약서가 없어요. 견적서를 열고 <b>📝 계약서 만들기</b>를 누르면 견적 내용으로 계약서가 만들어져요.</div>`;
+  if (!list.length) return `<div class="task-note-empty">아직 계약서가 없어요. <b>+ 새 계약서</b>로 바로 만들거나, 견적서에서 <b>📝 계약서 만들기</b>를 누르면 견적 내용으로 만들어져요.</div>`;
   return `<div class="q-list">${list.map(c => {
     const st = contractStatusOf(c.status); const t = quoteTotals(c);
     return `<button class="q-row" data-action="contract-open" data-id="${c.id}">
@@ -3305,9 +3316,36 @@ function contractEditorHtml() {
               <button class="proj-list-add-btn" style="flex:1" data-action="contract-reset-articles">↺ 기본 조항으로 다시 채우기</button>
             </div>`}
           </section>
-          <section class="q-card"><h3>계약 금액 <span class="eq-hint">(견적 ${esc(d.quoteNumber || '')} 기준 — 금액을 바꾸려면 견적서를 고친 뒤 계약서를 새로 만드세요)</span></h3>
+          ${d.quoteId || locked ? `<section class="q-card"><h3>계약 금액 ${d.quoteId ? `<span class="eq-hint">(견적 ${esc(d.quoteNumber || '')} 기준 — 금액을 바꾸려면 견적서를 고친 뒤 계약서를 새로 만드세요)</span>` : ''}</h3>
             ${(d.items || []).map(it => `<div class="c-item"><span>${esc(it.cat)} · ${esc(it.desc)} <small>${esc(String(it.qty))}${esc(it.unit || '')}</small></span><b>${won((Number(it.qty) || 0) * (Number(it.price) || 0))}</b></div>`).join('')}
-          </section>
+          </section>` : `<section class="q-card"><h3>계약 금액 · 조건 <span class="eq-hint">(견적서 없이 직접 입력)</span></h3>
+            <div class="q-items">
+              <div class="q-item q-item-head"><span>구분</span><span>내용</span><span>수량</span><span>단위</span><span>단가</span><span>금액</span><span></span></div>
+              ${(d.items || []).map((it, i) => `
+                <div class="q-item">
+                  <select class="qi-cat" data-c-item="${i}" data-c-key="cat">${QUOTE_CATS.map(cc => `<option ${it.cat === cc ? 'selected' : ''}>${cc}</option>`).join('')}</select>
+                  <input class="qi-desc" data-c-item="${i}" data-c-key="desc" value="${esc(it.desc)}" placeholder="내용" />
+                  <input class="qi-qty" type="number" inputmode="decimal" min="0" step="any" data-c-item="${i}" data-c-key="qty" value="${esc(it.qty)}" />
+                  <input class="qi-unit" data-c-item="${i}" data-c-key="unit" value="${esc(it.unit)}" />
+                  <input class="qi-price" type="number" inputmode="numeric" min="0" step="1000" data-c-item="${i}" data-c-key="price" value="${esc(it.price || '')}" placeholder="단가" />
+                  <span class="qi-amount">${won((Number(it.qty) || 0) * (Number(it.price) || 0))}</span>
+                  <button class="qi-del" data-action="contract-del-item" data-idx="${i}" title="항목 삭제">✕</button>
+                </div>`).join('')}
+            </div>
+            <button class="proj-list-add-btn" data-action="contract-add-item" style="margin-top:10px;">+ 항목 추가</button>
+            <div class="q-presets"><span>자주 쓰는 항목</span>${QUOTE_ITEM_PRESETS.map((pp, i) => `<button class="eq-chip" data-action="contract-add-preset" data-idx="${i}">${esc(pp.desc)}</button>`).join('')}</div>
+            <div class="eq-field" style="margin-top:14px"><label>부가세</label>
+              <div style="display:flex; gap:8px;">
+                ${[['separate', '별도 (+10%)'], ['included', '포함'], ['none', '없음']].map(([v, l]) => `<label class="eq-status-option"><input type="radio" name="cVat" data-c-field="vatMode" value="${v}" ${d.vatMode === v ? 'checked' : ''} />${l}</label>`).join('')}
+              </div>
+            </div>
+            <div class="eq-field-row">
+              ${f('deposit', '계약금 (%)', 'type="number" inputmode="numeric" min="0" max="100"')}
+              ${f('revisions', '수정 횟수', 'type="number" inputmode="numeric" min="0"')}
+            </div>
+            ${f('delivery', '납품 방식', 'placeholder="예: 최종 편집본 MP4 온라인 전달"')}
+            <div class="eq-field"><label>특약사항 <span class="eq-hint">(제10조 끝에 붙어요)</span></label><textarea class="sched-memo-textarea" data-c-field="memo" placeholder="예: 촬영 장소 대관료 별도">${esc(d.memo || '')}</textarea></div>
+          </section>`}
         </div>
         <aside class="q-side">
           <div class="q-card q-sum">
@@ -3342,6 +3380,15 @@ function handleContractAction(action, el, e) {
       contractCommitDraft();
       S.quote.msg = '견적 내용으로 계약서를 만들었어요. 일정·조항을 확인하고 서명 링크를 보내세요.'; render();
       return true;
+    }
+    case 'contract-new': contractOpenEditor(blankContract()); return true;
+    case 'contract-add-item': d.items.push(newQuoteItem()); render(); return true;
+    case 'contract-del-item': d.items.splice(+el.dataset.idx, 1); if (!d.items.length) d.items.push(newQuoteItem()); render(); return true;
+    case 'contract-add-preset': {
+      const pp = QUOTE_ITEM_PRESETS[+el.dataset.idx];
+      const emptyIdx = d.items.findIndex(it => !it.desc.trim() && !Number(it.price));
+      if (emptyIdx >= 0) d.items[emptyIdx] = newQuoteItem(pp); else d.items.push(newQuoteItem(pp));
+      render(); return true;
     }
     case 'contract-open': { const c = contracts.find(x => x.id === el.dataset.id); if (c) contractOpenEditor(c); return true; }
     case 'contract-back': S.quote.cdraft = null; S.quote.msg = ''; render(); return true;
@@ -3378,6 +3425,7 @@ function handleContractInput(e) {
     const before = defaultContractArticles(d);
     d[t.dataset.cField] = t.value;
     const after = defaultContractArticles(d);
+    if (e.type === 'change' && ['vatMode', 'deposit'].includes(t.dataset.cField)) setTimeout(render, 0);
     (d.articles || []).forEach((a, i) => {
       if (before[i] && after[i] && a.body === before[i].body && a.body !== after[i].body) {
         a.body = after[i].body;
@@ -3387,6 +3435,16 @@ function handleContractInput(e) {
     return true;
   }
   if (t.dataset.cArt != null) { const a = d.articles[+t.dataset.cArt]; if (a) a[t.dataset.cKey] = t.value; if (t.tagName === 'TEXTAREA') autoGrow(t); return true; }
+  if (t.dataset.cItem != null) {
+    const it = d.items[+t.dataset.cItem]; if (!it) return true;
+    const before = defaultContractArticles(d);
+    const k = t.dataset.cKey;
+    it[k] = (k === 'qty' || k === 'price') ? (t.value === '' ? 0 : Number(t.value)) : t.value;
+    const after = defaultContractArticles(d);
+    (d.articles || []).forEach((a, i) => { if (before[i] && after[i] && a.body === before[i].body) a.body = after[i].body; });
+    if (e.type === 'change') render(); // 금액·조항·합계 다시 그림(입력 중엔 포커스 유지)
+    return true;
+  }
   return false;
 }
 
