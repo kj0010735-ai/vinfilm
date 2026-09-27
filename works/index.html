@@ -478,6 +478,11 @@ function settingsModalHtml() {
             <button type="button" class="eq-status-option ${cur === 'light' ? 'theme-on' : ''}" data-action="set-theme" data-theme="light">☀️ 화이트</button>
           </div>
         </div>
+        ${GUEST_MODE ? '' : `<div class="eq-field">
+          <label>HISPLAN 일정 불러오기 <span class="eq-hint">(구독 주소를 한 번만 붙여넣으면 캘린더에 보라색으로 떠요)</span></label>
+          <input class="hisplan-url-input" data-role="hisplan-url" inputmode="url" autocomplete="off" placeholder="https://…/calendar-feed?t=…" value="${esc(hisplan.url)}" />
+          <div class="hisplan-status">${hisplan.busy ? '불러오는 중…' : hisplan.msg ? esc(hisplan.msg) : hisplan.url && hisplan.lastSync ? `✓ ${hisplan.events.length}개 일정 · ${pad2(new Date(hisplan.lastSync).getHours())}:${pad2(new Date(hisplan.lastSync).getMinutes())} 기준` : ''}</div>
+        </div>`}
         <div class="eq-field" style="margin-bottom:0;">
           <label>앱 버전 <span class="eq-hint">(화면이 예전 그대로면 눌러주세요)</span></label>
           <button type="button" class="eq-modal-submit eq-modal-submit-secondary" data-action="app-refresh" style="margin-top:0;">새로고침</button>
@@ -826,6 +831,99 @@ async function gcalSubscribeIphone() {
     render();
   }
 }
+/* ================= HISPLAN 구독 피드 직접 불러오기 =================
+   HISPLAN 운영툴의 구독 주소(Supabase calendar-feed, CORS 허용)를 앱이 직접 fetch해서 캘린더/대시보드에 보라색 "HISPLAN" 일정으로 보여준다.
+   Google 캘린더를 거치지 않아서 로그인·토큰과 무관하고 반영도 빠르다. 주소엔 비밀 토큰이 있어 코드엔 넣지 않고
+   설정(⚙️)에서 한 번 붙여넣으면 Firestore appSettings/gcal.hisplanUrl(owner 전용)에 저장돼 다른 기기에서도 그대로 쓴다.
+   읽기 전용 — 불러온 일정은 기기 localStorage에만 캐시하고 Firestore엔 저장하지 않는다. [취소] 일정은 뺀다. */
+const HISPLAN_URL_LS = 'vinfilm-hisplan-url', HISPLAN_EV_LS = 'vinfilm-hisplan-events';
+const HISPLAN_REFRESH_GAP = 10 * 60 * 1000;
+const hisplan = { url: '', events: [], lastSync: 0, busy: false, msg: '' };
+(function hisplanLoad() {
+  try {
+    hisplan.url = localStorage.getItem(HISPLAN_URL_LS) || '';
+    const cached = JSON.parse(localStorage.getItem(HISPLAN_EV_LS) || 'null');
+    if (cached && Array.isArray(cached.events)) { hisplan.events = cached.events; hisplan.lastSync = cached.lastSync || 0; }
+  } catch (e) {}
+})();
+function hisplanUrlValid(u) { return /^https:\/\/\S+$/.test(u || ''); }
+function icsUnescape(s) { return s.replace(/\\n/gi, '\n').replace(/\\([,;\\])/g, '$1'); }
+function icsParseDate(prop) {
+  // prop: { params, value } → { date:'YYYY-MM-DD', time:'HH:MM'|null, isDate }
+  const v = prop.value.trim();
+  if (/VALUE=DATE(?!-)/i.test(prop.params) || /^\d{8}$/.test(v)) return { date: `${v.slice(0,4)}-${v.slice(4,6)}-${v.slice(6,8)}`, time: null, isDate: true };
+  const m = v.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z?)$/);
+  if (!m) return null;
+  const d = m[7] ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6])) : new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+  return { date: ymd(d), time: `${pad2(d.getHours())}:${pad2(d.getMinutes())}`, isDate: false, ms: d.getTime() };
+}
+function parseIcsEvents(text) {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\n[ \t]/g, '').split('\n');
+  const out = []; let cur = null;
+  for (const line of lines) {
+    if (line === 'BEGIN:VEVENT') { cur = {}; continue; }
+    if (line === 'END:VEVENT') { if (cur) out.push(cur); cur = null; continue; }
+    if (!cur) continue;
+    const i = line.indexOf(':'); if (i < 0) continue;
+    const head = line.slice(0, i), value = line.slice(i + 1);
+    const semi = head.indexOf(';');
+    const name = (semi < 0 ? head : head.slice(0, semi)).toUpperCase();
+    cur[name] = { params: semi < 0 ? '' : head.slice(semi + 1), value };
+  }
+  const events = [];
+  for (const ev of out) {
+    if (!ev.DTSTART) continue;
+    const title = ev.SUMMARY ? icsUnescape(ev.SUMMARY.value) : '(제목 없음)';
+    if ((ev.STATUS && /CANCELLED/i.test(ev.STATUS.value)) || /^\[취소\]/.test(title)) continue;
+    const s = icsParseDate(ev.DTSTART); if (!s) continue;
+    let endDate = s.date;
+    const e = ev.DTEND ? icsParseDate(ev.DTEND) : null;
+    if (e) {
+      if (e.isDate) endDate = addDaysYmd(e.date, -1);
+      else { endDate = e.date; if (e.time === '00:00' && e.date > s.date) endDate = addDaysYmd(e.date, -1); }
+      if (endDate < s.date) endDate = s.date;
+    }
+    events.push({ tag: 'hisplan', id: 'h-' + (ev.UID ? ev.UID.value : s.date + title), title, date: s.date, endDate, time: s.time,
+      location: ev.LOCATION ? icsUnescape(ev.LOCATION.value) : '', memo: ev.DESCRIPTION ? icsUnescape(ev.DESCRIPTION.value) : '',
+      category: 'calendar', source: 'google', calName: 'HISPLAN', htmlLink: '' });
+  }
+  return events;
+}
+async function hisplanRefresh(force) {
+  if (GUEST_MODE || !hisplanUrlValid(hisplan.url) || hisplan.busy) return;
+  if (!force && Date.now() - hisplan.lastSync < HISPLAN_REFRESH_GAP) return;
+  hisplan.busy = true;
+  try {
+    const r = await fetch(hisplan.url, { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const text = await r.text();
+    if (!/BEGIN:VCALENDAR/.test(text)) throw new Error('캘린더 주소가 아니에요');
+    hisplan.events = parseIcsEvents(text); hisplan.lastSync = Date.now(); hisplan.msg = '';
+    try { localStorage.setItem(HISPLAN_EV_LS, JSON.stringify({ events: hisplan.events, lastSync: hisplan.lastSync })); } catch (e) {}
+  } catch (e) { hisplan.msg = 'HISPLAN 일정을 불러오지 못했어요: ' + (e.message || e); }
+  hisplan.busy = false; render();
+}
+async function hisplanLoadUrl() {
+  if (IS_LOCAL_DEV || GUEST_MODE || typeof firebase === 'undefined' || !firebase.firestore) return;
+  try {
+    const d = await firebase.firestore().collection('appSettings').doc('gcal').get();
+    const u = d.exists ? (d.data().hisplanUrl || '') : '';
+    if (u && u !== hisplan.url) { hisplan.url = u; try { localStorage.setItem(HISPLAN_URL_LS, u); } catch (e) {} hisplanRefresh(true); }
+  } catch (e) {}
+}
+function hisplanSaveUrl(u) {
+  hisplan.url = u;
+  try { localStorage.setItem(HISPLAN_URL_LS, u); if (!u) localStorage.removeItem(HISPLAN_EV_LS); } catch (e) {}
+  if (!u) { hisplan.events = []; hisplan.lastSync = 0; }
+  if (!IS_LOCAL_DEV && typeof firebase !== 'undefined' && firebase.firestore)
+    firebase.firestore().collection('appSettings').doc('gcal').set({ hisplanUrl: u, updatedAt: Date.now() }, { merge: true }).catch(() => {});
+  if (u) hisplanRefresh(true); else render();
+}
+/* 화면에 쓰는 외부 일정 = Google에서 받은 것 + HISPLAN 피드. HISPLAN 피드가 있으면 Google 쪽 HISPLAN 캘린더는 중복이라 뺀다 */
+function extEvents() {
+  const g = hisplan.events.length ? gcal.events.filter(ev => ev.tag !== 'hisplan') : gcal.events;
+  return [...g, ...hisplan.events];
+}
 function gcalSourceLabel(ev) { return ev.tag === 'hisplan' ? 'HISPLAN' : '📱 휴대폰'; }
 (function gcalLoad() {
   try {
@@ -998,7 +1096,7 @@ function gcalSchedulePush() {
 /* 캘린더 화면에 보여줄 Google 일정 — 여러 날 종일 일정은 날짜마다 펼친다(최대 31일) */
 function gcalEventsByDate() {
   const by = {};
-  gcal.events.forEach(ev => {
+  extEvents().forEach(ev => {
     let d = ev.date, n = 0;
     while (d <= ev.endDate && n < 31) { (by[d] = by[d] || []).push(ev); d = addDaysYmd(d, 1); n++; }
   });
@@ -1047,7 +1145,7 @@ function gcalModalHtml() {
 }
 function gcalDetailModalHtml() {
   if (!gcal.detailId) return '';
-  const ev = gcal.events.find(x => x.id === gcal.detailId);
+  const ev = extEvents().find(x => x.id === gcal.detailId);
   if (!ev) return '';
   return `
     <div class="eq-modal-overlay" data-action="gcal-close-detail-backdrop">
@@ -2542,6 +2640,7 @@ async function handlePhotoFile(file) {
 function bootApp() {
   render();
   startAppUpdates();
+  hisplanRefresh(false); hisplanLoadUrl();
   if (gcalTokenValid()) gcalSync(false);
   else if (localStorage.getItem(GCAL_LS.enabled) === '1') { gcal.status = 'expired'; }
 
@@ -2567,6 +2666,7 @@ function bootApp() {
         // 캘린더 탭을 누를 때마다 동기화하지 않는다 — 마지막 동기화 후 5분이 지났을 때만 조용히 가져온다.
         // (저장할 때는 gcalSchedulePush가 따로 올려준다. 로그인이 만료되면 팝업을 자동으로 띄우지 않고 "📱 탭해서 동기화" 버튼만 보여준다)
         if (id === 'schedule' && gcalTokenValid() && Date.now() - gcal.lastSync > GCAL_TAB_SYNC_GAP) gcalSync(false);
+        if (id === 'schedule' || id === 'today') hisplanRefresh(false);
         break;
       case 'app-refresh': el.disabled = true; el.textContent = '확인 중…'; refreshToLatest(); break;
       case 'open-settings': S.settingsOpen = true; S.moreOpen = false; render(); break;
@@ -3035,6 +3135,7 @@ function bootApp() {
     if (e.target.dataset && e.target.dataset.role === 'sched-date-conflict') {
       const box = document.getElementById('schedConflict'); if (box) box.innerHTML = schedConflictHtml(e.target.value);
     }
+    if (e.target.dataset && e.target.dataset.role === 'hisplan-url') { const u = e.target.value.trim(); if (u !== hisplan.url) hisplanSaveUrl(u); }
     if (e.target.dataset && e.target.dataset.role === 'gcal-extra') {
       const cur = new Set(gcalExtraCals());
       if (e.target.checked) cur.add(e.target.value); else cur.delete(e.target.value);
@@ -3920,6 +4021,8 @@ document.addEventListener('DOMContentLoaded', () => {
   .gcal-steps li > b { display:block; color:var(--text); font-size:13.5px; margin-bottom:3px; }
   .gcal-steps li a { color:var(--accent); font-weight:700; }
   .gcal-steps li .gcal-ics-btn { display:block; box-sizing:border-box; width:100%; text-align:center; margin-top:10px; color:#fff; }
+  .hisplan-url-input { display:block; width:100%; box-sizing:border-box; padding:9px 11px; border:1px solid var(--border); border-radius:10px; background:var(--surface); color:var(--text); font-family:var(--font-body); font-size:12px; }
+  .hisplan-status { margin-top:6px; font-size:12px; color:var(--sched-hisplan); min-height:1em; overflow-wrap:anywhere; }
   .gcal-ics-alt { display:block; margin-top:10px; font-size:11.5px; color:var(--text-faint); }
   .gcal-steps li > span { display:block; }
   .gcal-steps li > em { display:block; font-style:normal; color:var(--accent); font-weight:700; margin-top:6px; }
