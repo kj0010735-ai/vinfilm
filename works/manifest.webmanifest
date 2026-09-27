@@ -1,8 +1,9 @@
 {
   "name": "VINFILM 작업관리",
   "short_name": "VINFILM 작업관리",
-  "start_url": "./",
-  "scope": "./",
+  "id": "/works/",
+  "start_url": "/works/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#f6f7f9",
   "theme_color": "#2f6fee",
