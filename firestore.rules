@@ -25,6 +25,11 @@ service cloud.firestore {
       allow update: if isOwner() || (collabOk(resource.data.collabId) && request.resource.data.collabId == resource.data.collabId);
       allow delete: if isOwner() || collabOk(resource.data.collabId);
     }
+    // 공지: 대표님이 쓰고, 협업자는 자기 공간(collabId) 공지만 읽는다.
+    match /notices/{id} {
+      allow read: if isOwner() || collabOk(resource.data.collabId);
+      allow write: if isOwner();
+    }
     match /collabs/{cid} {
       allow get: if isOwner() || resource.data.mode == 'link'
         || (request.auth != null && request.auth.token.email.lower() in resource.data.members);

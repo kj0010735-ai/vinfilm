@@ -149,6 +149,11 @@
 - **협업자 화면**(`COLLAB_MODE`, GUEST_MODE도 켜짐): `collabBoot()`가 공간 문서를 먼저 읽고(실패하면 로그인 게이트 → 로그인 후 재시도 → 그래도 안 되면 "접근 권한이 없어요"), 탭은 공유 프로젝트·캘린더(+showEquipment면 장비목록). 클라우드는 `where('collabId','==',id)` 쿼리로 자기 공간만 구독, 저장 시 collabId 자동 부착(`saveSharedProjItems`/`saveSchedItems`). localStorage 키는 `LS_NS`(`-c{id 앞 8자}`)로 분리.
 - **⚠️ 대표님 기기에서 협업자 링크를 열어도 안전하게**: GUEST_MODE에선 대표님 전용 localStorage(projItems/shoots/presets/tasks/notes/quotes/contracts)를 아예 읽지 않고, `extEvents()`(휴대폰·HISPLAN)·`projDueEvents()`는 빈 배열, **`gcalSync`/`gcalPush`/`gcalSchedulePush`는 GUEST_MODE면 즉시 return** — 안 막으면 협업자 일정만 가진 schedItems로 푸시해서 대표님 Google 캘린더의 다른 일정을 지울 수 있다(실제로 발견해서 막음). 새 기능이 schedItems 전체를 어딘가로 보내거나 지우는 동작이면 GUEST_MODE 가드를 꼭 넣을 것.
 
+### 🔔 알림 · 📢 공지
+- 오른쪽 위 종(데스크톱 `.d-topbar`, 폰 `.m-topbar` 톱니 옆) + 안 읽은 개수 빨간 배지. 알림은 저장하지 않고 `notifItems()`가 매번 데이터에서 만든다: 대표님 = 견적 승인·계약 서명·오늘/내일 일정·마감 임박/오늘/지남(14일 이내)·협업자가 공유 프로젝트 수정(`updatedBy`≠나, 7일)·협업자가 일정 추가(`createdBy`, 협업자 화면의 saveSchedItems가 붙임) / 협업자 = 받은 공지·자기 공간 오늘/내일 일정·마감. 누르면 해당 화면으로 이동(`notifGo`), 읽음은 기기별 localStorage(`vinfilm-notif-read[-공간]`, id 기준).
+- 📢 공지: 대표님만 "공지 쓰기" → 전체 협업자 또는 특정 협업자. Firestore `notices`에 **협업자마다 한 문서**(`collabId`, 같은 `groupId`)로 저장 — 규칙 `read: isOwner() || collabOk(collabId)`, `write: isOwner()`(배포함). 협업자 화면은 `where collabId==`로 구독. 패널 아래 "보낸 공지"에서 묶음 삭제. 공지 본문 링크는 `linkify`.
+- 푸시 알림(폰 잠금화면 알림)은 아님 — 앱/사이트를 열었을 때 종에 뜬다. 진짜 푸시는 서버(Cloud Functions, Blaze)가 필요.
+
 ### 📲 앱(홈 화면) 설치 안내 + 협업자 앱 복귀
 - 폰 브라우저로 열면(설치된 앱이 아니고 닫은 적 없으면) 상단에 "📲 홈 화면에 앱으로 추가" 배너(`installBannerHtml`, 닫으면 localStorage `vinfilm-install-dismissed`), 설정에도 "📲 설치 방법 보기". `installGuideHtml`이 `uaInfo()`로 분기: 아이폰(Safari/Chrome) 공유 → 홈 화면에 추가 3단계 / 안드로이드 크롬은 `beforeinstallprompt`를 잡아 **버튼 한 번 설치**(없으면 ⋮ → 앱 설치 안내) / 삼성 인터넷 / 컴퓨터(Chrome 설치 아이콘, Safari Dock에 추가) / **카카오톡 등 인앱 브라우저**는 설치 불가라 `kakaotalk://web/openExternal?url=`(카톡) 또는 안드로이드 `intent://…;package=com.android.chrome` 버튼으로 바깥 브라우저로 옮긴다. **안드로이드 판별을 먼저 할 것**(크롬 모바일 흉내/일부 기기에서 platform=MacIntel+터치로 아이폰 오판했었음).
 - **Google 로그인은 인앱 브라우저(카톡 등)에서 Google 정책상 막힌다** → 협업자 로그인 게이트(`collabGateHtml`)에 인앱이면 "Safari/Chrome로 열기" 버튼을 먼저 보여준다.

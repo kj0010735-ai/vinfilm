@@ -241,6 +241,7 @@ function collabName(id) { const x = collabById(id); return x ? x.name : ''; }
 const S = {
   settingsOpen: false,
   installOpen: false,
+  notif: { open: false, compose: false, viewId: null },
   moreOpen: false,
   activeTab: COLLAB_MODE ? 'shared' : GUEST_MODE ? 'equipment' : 'today',
   eq: { search: '', categoryFilter: 'all', statusFilter: 'all', sortBy: 'recent', sortOpen: false, modalOpen: false, editingId: null, confirmDeleteId: null, categoryModalOpen: false, detailId: null },
@@ -260,7 +261,7 @@ let currentEqPhotoError = '';
 
 function saveEqItems(next) { const prev = eqItems; eqItems = next; try { localStorage.setItem(LS_ITEMS, JSON.stringify(next)); } catch (e) {} pushToCloud('equipment', prev, next); }
 function saveEqCategories(next) { const prev = eqCategories; eqCategories = next; try { localStorage.setItem(LS_CATEGORIES, JSON.stringify(next)); } catch (e) {} pushToCloud('categories', prev, next); }
-function saveSchedItems(next) { if (COLLAB_MODE) next = next.map(x => x.collabId ? x : { ...x, collabId: COLLAB_ID }); const prev = schedItems; schedItems = next; try { localStorage.setItem(LS_SCHEDULE, JSON.stringify(next)); } catch (e) {} pushToCloud('schedule', prev, next); if (typeof gcalSchedulePush === 'function') gcalSchedulePush(); }
+function saveSchedItems(next) { if (COLLAB_MODE) next = next.map(x => x.collabId ? x : { ...x, collabId: COLLAB_ID, createdBy: currentEditorName() }); const prev = schedItems; schedItems = next; try { localStorage.setItem(LS_SCHEDULE, JSON.stringify(next)); } catch (e) {} pushToCloud('schedule', prev, next); if (typeof gcalSchedulePush === 'function') gcalSchedulePush(); }
 function saveProjItems(next) { const prev = projItems; projItems = next; try { localStorage.setItem(LS_PROJECTS, JSON.stringify(next)); } catch (e) {} pushToCloud('projects', prev, next); }
 function saveShoots(next) { const prev = shoots; shoots = next; try { localStorage.setItem(LS_SHOOTS, JSON.stringify(next)); } catch (e) {} pushToCloud('shoots', prev, next); }
 function savePresets(next) { const prev = presets; presets = next; try { localStorage.setItem(LS_PRESETS, JSON.stringify(next)); } catch (e) {} pushToCloud('presets', prev, next); }
@@ -285,6 +286,7 @@ function getLocalArrayFor(name) {
     case 'quotes': return quotes;
     case 'contracts': return contracts;
     case 'collabs': return collabs;
+    case 'notices': return notices;
     default: return [];
   }
 }
@@ -303,6 +305,7 @@ function applyCloudUpdate(name, items) {
     case 'quotes': quotes = items; try { localStorage.setItem(LS_QUOTES, JSON.stringify(items)); } catch (e) {} break;
     case 'contracts': contracts = items; try { localStorage.setItem(LS_CONTRACTS, JSON.stringify(items)); } catch (e) {} break;
     case 'collabs': collabs = items; try { localStorage.setItem(LS_COLLABS, JSON.stringify(items)); } catch (e) {} break;
+    case 'notices': notices = items; try { localStorage.setItem(LS_NOTICES, JSON.stringify(items)); } catch (e) {} break;
   }
   render();
 }
@@ -317,7 +320,7 @@ async function pushToCloud(name, prevArr, nextArr) {
   } catch (e) { console.warn('cloud sync push failed for', name, e); }
 }
 
-const CLOUD_COLLECTIONS = ['equipment', 'categories', 'schedule', 'projects', 'shoots', 'presets', 'todayTasks', 'notes', 'shortcuts', 'sharedProjects', 'quotes', 'contracts', 'collabs'];
+const CLOUD_COLLECTIONS = ['equipment', 'categories', 'schedule', 'projects', 'shoots', 'presets', 'todayTasks', 'notes', 'shortcuts', 'sharedProjects', 'quotes', 'contracts', 'collabs', 'notices'];
 /* 공유 링크(?guest=1)로 접속했을 때는 이 목록만 동기화한다 — 스케줄/메모장 등 내부 데이터는 외부 브라우저로 아예 내려받지 않는다. */
 const GUEST_CLOUD_COLLECTIONS = ['equipment', 'categories', 'sharedProjects'];
 const FIREBASE_CONFIG = {
@@ -402,12 +405,12 @@ function initCloudSync() {
       async upsertMany(name, items) { await Promise.all(items.map(it => db.collection(name).doc(String(it.id)).set(it))); },
       async deleteMany(name, ids) { await Promise.all(ids.map(id => db.collection(name).doc(String(id)).delete())); },
     };
-    const names = COLLAB_MODE ? ['sharedProjects', 'schedule', ...(collabInfo && collabInfo.showEquipment ? ['equipment', 'categories'] : [])]
+    const names = COLLAB_MODE ? ['sharedProjects', 'schedule', 'notices', ...(collabInfo && collabInfo.showEquipment ? ['equipment', 'categories'] : [])]
       : GUEST_MODE ? GUEST_CLOUD_COLLECTIONS : CLOUD_COLLECTIONS;
     names.forEach(name => {
       let initialized = false;
       let ref = db.collection(name);
-      if (COLLAB_MODE && (name === 'sharedProjects' || name === 'schedule')) ref = ref.where('collabId', '==', COLLAB_ID);
+      if (COLLAB_MODE && (name === 'sharedProjects' || name === 'schedule' || name === 'notices')) ref = ref.where('collabId', '==', COLLAB_ID);
       ref.onSnapshot(async (snap) => {
         const items = snap.docs.map(d => d.data());
         if (!initialized) {
@@ -1244,6 +1247,7 @@ function renderMobileTopBar() {
     <header class="m-topbar">
       <img class="m-logo" src="../assets/logo.png" alt="VINFILM STUDIO" width="86" height="43" />
       <div class="m-top-actions">
+        ${notifBellHtml()}
         <button class="m-icon-btn" data-action="open-settings" aria-label="설정">${MI.gear}</button>
       </div>
     </header>`;
@@ -3625,6 +3629,121 @@ function handleInstallAction(action, el, e) {
   return false;
 }
 
+
+/* ================= 🔔 알림 · 📢 공지 =================
+   오른쪽 위 종(데스크톱은 .d-topbar, 폰은 .m-topbar). 알림 목록은 저장하지 않고 매번 데이터에서 만든다(notifItems) —
+   대표님: 견적 승인·계약 서명·오늘/내일 일정·마감 임박/지남·협업자 수정/일정 추가 + 보낸 공지 / 협업자: 받은 공지·자기 공간 일정·마감.
+   공지는 Firestore notices(협업자마다 한 문서, groupId로 묶음) — 규칙은 공유 프로젝트와 같은 collabOk(collabId).
+   읽음 여부는 기기별 localStorage(vinfilm-notif-read-{공간}), 안 읽은 개수를 종에 빨간 숫자로. */
+const LS_NOTICES = 'eq-manager-notices' + (typeof LS_NS === 'string' ? LS_NS : '');
+let notices = loadJSON(LS_NOTICES, []);
+function saveNotices(next) { const prev = notices; notices = next; try { localStorage.setItem(LS_NOTICES, JSON.stringify(next)); } catch (e) {} pushToCloud('notices', prev, next); }
+const NOTIF_READ_LS = 'vinfilm-notif-read' + (COLLAB_MODE ? '-' + COLLAB_ID.slice(0, 8) : '');
+function notifReadSet() { try { return new Set(JSON.parse(localStorage.getItem(NOTIF_READ_LS) || '[]')); } catch (e) { return new Set(); } }
+function notifMarkRead(ids) { const s = notifReadSet(); ids.forEach(i => s.add(i)); try { localStorage.setItem(NOTIF_READ_LS, JSON.stringify([...s].slice(-500))); } catch (e) {} }
+function timeAgo(ms) {
+  const d = Date.now() - ms; if (d < 0) return '';
+  if (d < 60000) return '방금'; if (d < 3600000) return Math.floor(d / 60000) + '분 전'; if (d < 86400000) return Math.floor(d / 3600000) + '시간 전';
+  if (d < 7 * 86400000) return Math.floor(d / 86400000) + '일 전'; const t = new Date(ms); return `${t.getMonth() + 1}/${t.getDate()}`;
+}
+function notifItems() {
+  const out = [];
+  const today = todayStr(), tomorrow = addDaysYmd(today, 1);
+  const dayStart = (ymdStr) => parseYmd(ymdStr).getTime();
+  // 공지(협업자: 받은 것 / 대표님: 목록엔 안 넣고 '보낸 공지'로 따로)
+  if (GUEST_MODE) notices.forEach(n => out.push({ id: 'nt-' + n.id, icon: '📢', title: n.title || '공지', sub: (n.body || '').split('\n')[0], at: n.createdAt || 0, act: 'notice', ref: n.id }));
+  // 오늘/내일 일정
+  visibleSchedItems().forEach(s => {
+    if (s.date !== today && s.date !== tomorrow) return;
+    out.push({ id: `sd-${s.id}-${s.date}`, icon: '📅', title: `${s.date === today ? '오늘' : '내일'} ${s.time || '종일'} · ${s.title}`, sub: s.location || '', at: dayStart(s.date), act: 'sched', ref: s.id });
+  });
+  // 마감 임박/지남
+  const dueList = GUEST_MODE ? sharedProjItems : projItems;
+  dueList.forEach(p => {
+    if (!p.dueDate || p.status === 'done' || p.dueDate > tomorrow) return;
+    const kind = p.dueDate < today ? '마감 지남' : p.dueDate === today ? '오늘 마감' : '내일 마감';
+    if (p.dueDate < addDaysYmd(today, -14)) return; // 오래 지난 건 알림에서 뺌
+    out.push({ id: `pd-${p.id}-${p.dueDate}-${kind}`, icon: p.dueDate < today ? '⏰' : '⌛', title: `${kind} · ${p.title}`, sub: p.dueDate, at: dayStart(p.dueDate), act: GUEST_MODE ? 'shared' : 'proj', ref: p.id });
+  });
+  if (!GUEST_MODE) {
+    quotes.forEach(q => { if (q.approval) out.push({ id: 'qa-' + q.id, icon: '✅', title: `견적 승인 · ${q.clientName || q.approval.name}`, sub: `${q.approval.name}님 · ${q.projectTitle || ''}`, at: q.approval.at, act: 'quote', ref: q.id }); });
+    contracts.forEach(k => { if (k.signing) out.push({ id: 'cs-' + k.id, icon: '✍️', title: `계약 서명 완료 · ${k.clientName}`, sub: `${k.signing.name}님 · ${k.projectTitle || ''}`, at: k.signing.at, act: 'contract', ref: k.id }); });
+    const me = currentEditorName(), week = Date.now() - 7 * 86400000;
+    sharedProjItems.forEach(p => { if (p.updatedBy && p.updatedBy !== me && (p.updatedAt || 0) > week) out.push({ id: `ce-${p.id}-${p.updatedAt}`, icon: '👥', title: `${p.updatedBy}님이 수정 · ${p.title}`, sub: p.collabId ? collabName(p.collabId) : '', at: p.updatedAt, act: 'shared', ref: p.id }); });
+    schedItems.forEach(s => { if (s.createdBy && s.collabId && (s.createdAt || 0) > week) out.push({ id: `ca-${s.id}`, icon: '👥', title: `${s.createdBy}님이 일정 추가 · ${s.title}`, sub: `${s.date}${s.collabId ? ' · ' + collabName(s.collabId) : ''}`, at: s.createdAt, act: 'sched', ref: s.id }); });
+  }
+  return out.sort((a, b) => b.at - a.at).slice(0, 60);
+}
+function notifUnread() { const r = notifReadSet(); return notifItems().filter(n => !r.has(n.id)).length; }
+function notifBellHtml() {
+  const n = notifUnread();
+  return `<button class="notif-bell ${S.notif.open ? 'on' : ''}" data-action="notif-toggle" aria-label="알림">🔔${n ? `<span class="notif-badge">${n > 9 ? '9+' : n}</span>` : ''}</button>`;
+}
+function notifPanelHtml() {
+  if (!S.notif.open) return '';
+  const items = notifItems(), r = notifReadSet();
+  const groups = {};
+  notices.forEach(n => { const g = n.groupId || n.id; (groups[g] = groups[g] || { ...n, targets: [] }).targets.push(n.collabId); });
+  const sent = Object.values(groups).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  return `
+    <div class="notif-backdrop" data-action="notif-close"></div>
+    <div class="notif-panel">
+      <div class="notif-head"><b>알림</b>
+        <span>${!GUEST_MODE ? `<button data-action="notice-new">📢 공지 쓰기</button>` : ''}${items.length ? `<button data-action="notif-read-all">모두 읽음</button>` : ''}</span></div>
+      <div class="notif-list">
+        ${items.length ? items.map(n => `<button class="notif-item ${r.has(n.id) ? '' : 'unread'}" data-action="notif-go" data-id="${esc(n.id)}"><span class="notif-ic">${n.icon}</span><span class="notif-txt"><b>${esc(n.title)}</b>${n.sub ? `<small>${esc(n.sub)}</small>` : ''}</span><em>${n.act === 'sched' || n.id.startsWith('pd-') ? '' : timeAgo(n.at)}</em></button>`).join('')
+          : `<p class="notif-empty">새 알림이 없어요</p>`}
+      </div>
+      ${!GUEST_MODE && sent.length ? `<div class="notif-sent"><div class="notif-sub">보낸 공지</div>${sent.slice(0, 10).map(g => `<div class="notif-sent-row"><span><b>${esc(g.title)}</b><small>${esc(g.targets.map(t => collabName(t) || '(삭제된 협업자)').join(', '))} · ${timeAgo(g.createdAt)}</small></span><button data-action="notice-delete" data-id="${esc(g.groupId || g.id)}" title="공지 삭제">✕</button></div>`).join('')}</div>` : ''}
+    </div>`;
+}
+function noticeModalHtml() {
+  if (!S.notif.compose && !S.notif.viewId) return '';
+  if (S.notif.viewId) {
+    const n = notices.find(x => x.id === S.notif.viewId); if (!n) return '';
+    return `<div class="eq-modal-overlay" data-action="notice-close-backdrop"><div class="eq-modal" data-stop-close style="max-width:440px;">
+      <div class="eq-modal-head"><h2>📢 ${esc(n.title || '공지')}</h2><button class="eq-modal-close" data-action="notice-close">✕</button></div>
+      <div class="notice-body">${linkify(n.body || '')}</div>
+      <p class="q-hint" style="margin-top:14px">VINFILM STUDIO · ${new Date(n.createdAt || 0).toLocaleString('ko-KR')}</p></div></div>`;
+  }
+  return `<div class="eq-modal-overlay" data-action="notice-close-backdrop"><div class="eq-modal" data-stop-close style="max-width:460px;">
+    <div class="eq-modal-head"><h2>📢 공지 쓰기</h2><button class="eq-modal-close" data-action="notice-close">✕</button></div>
+    ${collabs.length ? `<form data-form-role="notice-form">
+      <div class="eq-field"><label>받는 사람</label><select name="target"><option value="all">👥 전체 협업자 (${collabs.length}명)</option>${collabs.map(x => `<option value="${x.id}">${x.mode === 'login' ? '🔐' : '🔗'} ${esc(x.name)}</option>`).join('')}</select></div>
+      <div class="eq-field"><label>제목</label><input name="title" required autofocus maxlength="80" placeholder="예: 10월 촬영 일정 안내" /></div>
+      <div class="eq-field"><label>내용</label><textarea name="body" class="sched-memo-textarea" placeholder="공지 내용 (링크를 넣으면 눌러서 열 수 있어요)"></textarea></div>
+      <button type="submit" class="eq-modal-submit">보내기</button>
+      <p class="q-hint" style="margin-top:10px">협업자가 작업 공간을 열면 🔔 알림에 떠요.</p>
+    </form>` : `<p class="q-hint">공지를 보낼 협업자가 아직 없어요. 공유 프로젝트 탭의 👥 협업자 관리에서 먼저 만들어 주세요.</p>`}
+  </div></div>`;
+}
+function notifGo(n) {
+  S.notif.open = false;
+  if (n.act === 'notice') { S.notif.viewId = n.ref; render(); return; }
+  if (n.act === 'sched') { S.activeTab = 'schedule'; S.sched.detailId = n.ref; }
+  else if (n.act === 'proj') { const p = projItems.find(x => x.id === n.ref); S.activeTab = 'projects'; S.proj.currentParentId = p ? (p.parentId || null) : null; S.proj.statusFilter = 'all'; }
+  else if (n.act === 'shared') { const p = sharedProjItems.find(x => x.id === n.ref); S.activeTab = 'shared'; S.shared.currentParentId = p ? (p.parentId || null) : null; S.shared.statusFilter = 'all'; }
+  else if (n.act === 'quote') { const q = quotes.find(x => x.id === n.ref); S.activeTab = 'quotes'; S.quote.view = 'quotes'; if (q) { quoteOpenEditor(q); return; } }
+  else if (n.act === 'contract') { const k = contracts.find(x => x.id === n.ref); S.activeTab = 'quotes'; S.quote.view = 'contracts'; if (k) { contractOpenEditor(k); return; } }
+  window.scrollTo(0, 0); render();
+}
+function handleNotifAction(action, el, e) {
+  switch (action) {
+    case 'notif-toggle': S.notif.open = !S.notif.open; render(); return true;
+    case 'notif-close': S.notif.open = false; render(); return true;
+    case 'notif-read-all': notifMarkRead(notifItems().map(n => n.id)); render(); return true;
+    case 'notif-go': { const n = notifItems().find(x => x.id === el.dataset.id); if (n) { notifMarkRead([n.id]); notifGo(n); } return true; }
+    case 'notice-new': S.notif.open = false; S.notif.compose = true; render(); return true;
+    case 'notice-close': S.notif.compose = false; S.notif.viewId = null; render(); return true;
+    case 'notice-close-backdrop': if (!e.target.closest('[data-stop-close]')) { S.notif.compose = false; S.notif.viewId = null; render(); } return true;
+    case 'notice-delete': {
+      if (GUEST_MODE || !confirm('이 공지를 삭제할까요? 협업자 알림에서도 사라져요.')) return true;
+      const g = el.dataset.id; saveNotices(notices.filter(n => (n.groupId || n.id) !== g)); render(); return true;
+    }
+  }
+  return false;
+}
+
 /* ================= main render ================= */
 function renderTab() {
   if (GUEST_MODE && !GUEST_ALLOWED_TABS.includes(S.activeTab)) S.activeTab = GUEST_ALLOWED_TABS[0];
@@ -3639,7 +3758,7 @@ function renderTab() {
   return '';
 }
 function render() {
-  document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderMobileTopBar()}${installBannerHtml()}${renderTab()}</main>${renderMobileTabBar()}</div>${schedModalHtml()}${settingsModalHtml()}${collabModalHtml()}${installGuideHtml()}${gcalModalHtml()}${gcalDetailModalHtml()}`;
+  document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderMobileTopBar()}<div class="d-topbar">${notifBellHtml()}</div>${installBannerHtml()}${renderTab()}</main>${renderMobileTabBar()}</div>${schedModalHtml()}${settingsModalHtml()}${collabModalHtml()}${installGuideHtml()}${notifPanelHtml()}${noticeModalHtml()}${gcalModalHtml()}${gcalDetailModalHtml()}`;
   fitCalendar();
   positionNavIndicator();
   quoteAfterRender();
@@ -3717,6 +3836,7 @@ function bootApp() {
     if (/^(quote-|contract-|biz-sign)/.test(action) && !GUEST_MODE && (handleQuoteAction(action, el, e) || handleContractAction(action, el, e))) return;
     if (/^(collab-|shared-collab-filter)/.test(action) && !GUEST_MODE && handleCollabAction(action, el, e)) return;
     if (/^install-/.test(action) && handleInstallAction(action, el, e)) return;
+    if (/^(notif-|notice-)/.test(action) && handleNotifAction(action, el, e)) return;
 
     switch (action) {
       case 'set-tab':
@@ -4394,6 +4514,16 @@ function bootApp() {
       else saveShortcuts([...shortcuts, { id: uid(), name, url, iconDomain }]);
       S.shortcut.modalOpen = false; S.shortcut.editingId = null;
       render();
+    } else if (form.matches('[data-form-role="notice-form"]')) {
+      if (GUEST_MODE) return;
+      const fd = new FormData(form);
+      const title = (fd.get('title') || '').toString().trim(); if (!title) return;
+      const body = (fd.get('body') || '').toString();
+      const target = (fd.get('target') || 'all').toString();
+      const ids = target === 'all' ? collabs.map(x => x.id) : [target];
+      const groupId = uid(), at = Date.now();
+      saveNotices([...ids.map(cid => ({ id: uid() + '-' + cid.slice(0, 6), groupId, collabId: cid, title, body, createdAt: at })), ...notices]);
+      S.notif.compose = false; S.notif.open = true; render();
     } else if (form.matches('[data-form-role="collab-form"]')) {
       if (GUEST_MODE) return;
       const fd = new FormData(form);
@@ -5442,6 +5572,38 @@ document.addEventListener('DOMContentLoaded', () => {
   .install-steps li { display:flex; gap:12px; align-items:flex-start; font-size:14px; line-height:1.55; }
   .install-steps li > b { flex:none; min-width:26px; height:26px; padding:0 6px; border-radius:13px; background:var(--accent-soft); color:var(--accent); display:flex; align-items:center; justify-content:center; font-size:12.5px; }
   a.install-go { display:block; text-align:center; text-decoration:none; color:#fff; margin:6px 0 14px; box-sizing:border-box; }
+
+  /* ===== 🔔 알림 ===== */
+  .d-topbar { display:flex; justify-content:flex-end; margin:-24px 0 6px; min-height:36px; }
+  .notif-bell { position:relative; width:40px; height:40px; border-radius:12px; border:1px solid var(--border); background:var(--surface); font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow-sm); }
+  .notif-bell.on, .notif-bell:hover { border-color:var(--accent); }
+  .notif-badge { position:absolute; top:-5px; right:-6px; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#e5484d; color:#fff; font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; border:2px solid var(--bg); }
+  .m-top-actions { display:flex; align-items:center; gap:10px; }
+  .m-top-actions .notif-bell { width:36px; height:36px; box-shadow:none; background:transparent; border-color:transparent; }
+  .notif-backdrop { position:fixed; inset:0; z-index:120; }
+  .notif-panel { position:fixed; z-index:121; top:64px; right:24px; width:360px; max-height:min(560px, calc(100vh - 90px)); display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--border); border-radius:18px; box-shadow:var(--shadow-lg); overflow:hidden; animation:modalIn .2s ease both; }
+  .notif-head { display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid var(--border); }
+  .notif-head b { font-size:15px; }
+  .notif-head button { border:none; background:none; color:var(--accent); font-family:var(--font-body); font-size:12.5px; font-weight:700; cursor:pointer; margin-left:10px; }
+  .notif-list { overflow-y:auto; padding:6px; }
+  .notif-item { display:flex; gap:10px; align-items:flex-start; width:100%; text-align:left; border:none; background:none; padding:10px; border-radius:12px; cursor:pointer; color:var(--text); font-family:var(--font-body); }
+  .notif-item:hover { background:var(--surface-hover); }
+  .notif-item.unread { background:var(--accent-soft); }
+  .notif-ic { font-size:18px; line-height:1.2; flex:none; }
+  .notif-txt { flex:1; min-width:0; } .notif-txt b { display:block; font-size:13.5px; font-weight:700; overflow-wrap:anywhere; }
+  .notif-txt small { display:block; color:var(--text-dim); font-size:12px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .notif-item em { flex:none; font-style:normal; font-size:11.5px; color:var(--text-faint); }
+  .notif-empty { text-align:center; color:var(--text-faint); font-size:13px; padding:26px 0; margin:0; }
+  .notif-sent { border-top:1px solid var(--border); padding:8px 12px 12px; max-height:180px; overflow-y:auto; }
+  .notif-sub { font-size:11.5px; color:var(--text-faint); font-weight:700; margin:4px 4px 6px; }
+  .notif-sent-row { display:flex; justify-content:space-between; gap:8px; align-items:center; padding:6px 4px; }
+  .notif-sent-row b { display:block; font-size:13px; } .notif-sent-row small { display:block; font-size:11.5px; color:var(--text-faint); }
+  .notif-sent-row button { border:none; background:none; color:var(--text-faint); cursor:pointer; }
+  .notice-body { white-space:pre-wrap; font-size:14px; line-height:1.75; overflow-wrap:anywhere; }
+  @media (max-width: 720px) {
+    .d-topbar { display:none; }
+    .notif-panel { top:calc(62px + env(safe-area-inset-top)); left:10px; right:10px; width:auto; max-height:calc(100vh - 150px); }
+  }
 </style>
 </body>
 </html>
