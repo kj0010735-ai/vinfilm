@@ -149,6 +149,11 @@
 - **협업자 화면**(`COLLAB_MODE`, GUEST_MODE도 켜짐): `collabBoot()`가 공간 문서를 먼저 읽고(실패하면 로그인 게이트 → 로그인 후 재시도 → 그래도 안 되면 "접근 권한이 없어요"), 탭은 공유 프로젝트·캘린더(+showEquipment면 장비목록). 클라우드는 `where('collabId','==',id)` 쿼리로 자기 공간만 구독, 저장 시 collabId 자동 부착(`saveSharedProjItems`/`saveSchedItems`). localStorage 키는 `LS_NS`(`-c{id 앞 8자}`)로 분리.
 - **⚠️ 대표님 기기에서 협업자 링크를 열어도 안전하게**: GUEST_MODE에선 대표님 전용 localStorage(projItems/shoots/presets/tasks/notes/quotes/contracts)를 아예 읽지 않고, `extEvents()`(휴대폰·HISPLAN)·`projDueEvents()`는 빈 배열, **`gcalSync`/`gcalPush`/`gcalSchedulePush`는 GUEST_MODE면 즉시 return** — 안 막으면 협업자 일정만 가진 schedItems로 푸시해서 대표님 Google 캘린더의 다른 일정을 지울 수 있다(실제로 발견해서 막음). 새 기능이 schedItems 전체를 어딘가로 보내거나 지우는 동작이면 GUEST_MODE 가드를 꼭 넣을 것.
 
+### 📲 앱(홈 화면) 설치 안내 + 협업자 앱 복귀
+- 폰 브라우저로 열면(설치된 앱이 아니고 닫은 적 없으면) 상단에 "📲 홈 화면에 앱으로 추가" 배너(`installBannerHtml`, 닫으면 localStorage `vinfilm-install-dismissed`), 설정에도 "📲 설치 방법 보기". `installGuideHtml`이 `uaInfo()`로 분기: 아이폰(Safari/Chrome) 공유 → 홈 화면에 추가 3단계 / 안드로이드 크롬은 `beforeinstallprompt`를 잡아 **버튼 한 번 설치**(없으면 ⋮ → 앱 설치 안내) / 삼성 인터넷 / 컴퓨터(Chrome 설치 아이콘, Safari Dock에 추가) / **카카오톡 등 인앱 브라우저**는 설치 불가라 `kakaotalk://web/openExternal?url=`(카톡) 또는 안드로이드 `intent://…;package=com.android.chrome` 버튼으로 바깥 브라우저로 옮긴다. **안드로이드 판별을 먼저 할 것**(크롬 모바일 흉내/일부 기기에서 platform=MacIntel+터치로 아이폰 오판했었음).
+- **Google 로그인은 인앱 브라우저(카톡 등)에서 Google 정책상 막힌다** → 협업자 로그인 게이트(`collabGateHtml`)에 인앱이면 "Safari/Chrome로 열기" 버튼을 먼저 보여준다.
+- 설치한 앱은 manifest `start_url`(/works/)로 열리므로, 협업자 화면에 들어오면 `vinfilm-last-collab`에 공간 id를 기억하고(대표님 계정이면 저장 안 함), /works/로 들어왔는데 기억된 공간이 있고 대표님 로그인이 아니면 `?c=`로 보낸다.
+
 ## 외부 공유(guest) 모드 — works/index.html
 
 `works/index.html?guest=1`로 접속하면 `GUEST_MODE`가 켜지며 사이드바에 장비목록/공유 프로젝트 탭만 보이고, 로그인 절차도 없다.

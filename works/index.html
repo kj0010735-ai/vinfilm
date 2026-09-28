@@ -240,6 +240,7 @@ function collabName(id) { const x = collabById(id); return x ? x.name : ''; }
 
 const S = {
   settingsOpen: false,
+  installOpen: false,
   moreOpen: false,
   activeTab: COLLAB_MODE ? 'shared' : GUEST_MODE ? 'equipment' : 'today',
   eq: { search: '', categoryFilter: 'all', statusFilter: 'all', sortBy: 'recent', sortOpen: false, modalOpen: false, editingId: null, confirmDeleteId: null, categoryModalOpen: false, detailId: null },
@@ -523,6 +524,10 @@ function settingsModalHtml() {
           <input class="hisplan-url-input" data-role="hisplan-url" inputmode="url" autocomplete="off" placeholder="https://…/calendar-feed?t=…" value="${esc(hisplan.url)}" />
           <div class="hisplan-status">${hisplan.busy ? '불러오는 중…' : hisplan.msg ? esc(hisplan.msg) : hisplan.url && hisplan.lastSync ? `✓ ${hisplan.events.length}개 일정 · ${pad2(new Date(hisplan.lastSync).getHours())}:${pad2(new Date(hisplan.lastSync).getMinutes())} 기준` : ''}</div>
         </div>`}
+        <div class="eq-field">
+          <label>앱으로 추가 <span class="eq-hint">(홈 화면·Dock에 아이콘 만들기)</span></label>
+          <button type="button" class="eq-modal-submit eq-modal-submit-secondary" data-action="install-open" style="margin-top:0;">📲 설치 방법 보기</button>
+        </div>
         <div class="eq-field" style="margin-bottom:0;">
           <label>앱 버전 <span class="eq-hint">(화면이 예전 그대로면 눌러주세요)</span></label>
           <button type="button" class="eq-modal-submit eq-modal-submit-secondary" data-action="app-refresh" style="margin-top:0;">새로고침</button>
@@ -3546,6 +3551,80 @@ function handleCollabAction(action, el, e) {
   return false;
 }
 
+
+/* ================= 📲 앱(홈 화면) 설치 안내 =================
+   폰에서 브라우저로 열었을 때 한 번 배너를 띄우고, 기기·브라우저별로 설치 방법을 보여준다.
+   - 안드로이드 크롬: beforeinstallprompt를 잡아두었다가 버튼 한 번으로 설치
+   - 카카오톡 등 인앱 브라우저: 설치가 안 되므로 Safari/Chrome으로 바로 옮겨 여는 버튼
+   - 협업자: 설치한 앱은 manifest의 /works/로 열리므로, 마지막으로 들어간 협업 공간을 기억했다가 그리로 보낸다(collabResume). */
+let deferredInstall = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; if (S.installOpen) render(); });
+window.addEventListener('appinstalled', () => { deferredInstall = null; try { localStorage.setItem('vinfilm-install-dismissed', '1'); } catch (e) {} S.installOpen = false; render(); });
+function uaInfo() {
+  const ua = navigator.userAgent || '';
+  const android = /Android/i.test(ua);
+  const ios = !android && (/iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1 && /Safari/.test(ua) && !/Chrome/.test(ua)));
+  const kakao = /KAKAOTALK/i.test(ua);
+  const inapp = kakao || /Instagram|FBAN|FBAV|Line\/|NAVER\(inapp|DaumApps|everytimeApp|; wv\)/i.test(ua);
+  const samsung = /SamsungBrowser/i.test(ua);
+  const iosChrome = ios && /CriOS/i.test(ua);
+  return { ios, android, kakao, inapp, samsung, iosChrome, mobile: ios || android };
+}
+function installBannerHtml() {
+  if (isStandaloneApp()) return '';
+  let dismissed = false; try { dismissed = localStorage.getItem('vinfilm-install-dismissed') === '1'; } catch (e) {}
+  if (dismissed || !uaInfo().mobile) return '';
+  return `<div class="install-banner"><span>📲 홈 화면에 <b>앱으로 추가</b>하면 더 빨리 열 수 있어요</span><button data-action="install-open">방법 보기</button><button class="x" data-action="install-dismiss" aria-label="닫기">✕</button></div>`;
+}
+function installGuideHtml() {
+  if (!S.installOpen) return '';
+  const u = uaInfo();
+  const here = location.href;
+  const step = (n, html) => `<li><b>${n}</b><span>${html}</span></li>`;
+  let body;
+  if (isStandaloneApp()) body = `<p class="q-hint">이미 앱으로 열려 있어요 👍</p>`;
+  else if (u.inapp) body = `
+    <p class="q-hint">지금은 <b>${u.kakao ? '카카오톡' : '앱'} 안의 브라우저</b>로 열려 있어서 바로 설치할 수 없어요. ${u.ios ? 'Safari' : 'Chrome'}에서 다시 열어주세요.</p>
+    ${u.kakao ? `<a class="eq-modal-submit install-go" href="kakaotalk://web/openExternal?url=${encodeURIComponent(here)}">${u.ios ? 'Safari' : '기본 브라우저'}로 열기</a>`
+      : u.android ? `<a class="eq-modal-submit install-go" href="intent://${here.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end">Chrome으로 열기</a>` : ''}
+    <ol class="install-steps">${step(1, `화면 ${u.ios ? '오른쪽 아래' : '오른쪽 위'}의 <b>⋯ / ⋮</b> 메뉴를 눌러요`)}${step(2, `<b>다른 브라우저로 열기</b>(또는 ${u.ios ? 'Safari로 열기' : 'Chrome으로 열기'})를 골라요`)}${step(3, '열린 화면에서 이 안내를 다시 눌러 설치해요')}</ol>`;
+  else if (u.ios) body = `
+    <ol class="install-steps">
+      ${step(1, u.iosChrome ? '주소창 오른쪽의 <b>공유 버튼</b>(□↑)을 눌러요' : '화면 아래(또는 주소창 옆)의 <b>공유 버튼</b>(□↑)을 눌러요')}
+      ${step(2, '목록을 아래로 내려 <b>홈 화면에 추가</b>를 눌러요')}
+      ${step(3, '오른쪽 위 <b>추가</b>를 누르면 홈 화면에 VINFILM 아이콘이 생겨요')}
+    </ol>`;
+  else if (u.android && deferredInstall) body = `
+    <p class="q-hint">버튼 한 번이면 설치돼요.</p>
+    <button class="eq-modal-submit" data-action="install-now">📲 앱 설치</button>`;
+  else if (u.samsung) body = `
+    <ol class="install-steps">${step(1, '화면 아래 <b>≡ 메뉴</b>를 눌러요')}${step(2, '<b>현재 페이지 추가</b> → <b>홈 화면</b>을 골라요')}${step(3, '홈 화면에 VINFILM 아이콘이 생겨요')}</ol>`;
+  else if (u.android) body = `
+    <ol class="install-steps">${step(1, 'Chrome 오른쪽 위 <b>⋮ 메뉴</b>를 눌러요')}${step(2, '<b>앱 설치</b> 또는 <b>홈 화면에 추가</b>를 눌러요')}${step(3, '<b>설치</b>를 누르면 홈 화면에 VINFILM 아이콘이 생겨요')}</ol>`;
+  else body = deferredInstall ? `<p class="q-hint">버튼 한 번이면 이 컴퓨터에 앱으로 설치돼요.</p><button class="eq-modal-submit" data-action="install-now">💻 앱 설치</button>`
+    : `<ol class="install-steps">${step('Chrome', '주소창 오른쪽 끝의 <b>설치 아이콘</b>(⊕ 또는 모니터 모양)을 눌러요')}${step('Safari', '메뉴 막대 <b>파일 → Dock에 추가</b>를 눌러요')}</ol>`;
+  return `
+    <div class="eq-modal-overlay" data-action="install-close-backdrop">
+      <div class="eq-modal" data-stop-close style="max-width:420px;">
+        <div class="eq-modal-head"><h2>📲 앱으로 추가하기</h2><button class="eq-modal-close" data-action="install-close">✕</button></div>
+        ${body}
+        ${COLLAB_MODE ? `<p class="q-hint" style="margin-top:14px">추가한 앱을 열면 이 공유 공간(${esc((collabInfo && collabInfo.name) || '')})으로 바로 들어가요.</p>` : ''}
+      </div>
+    </div>`;
+}
+function handleInstallAction(action, el, e) {
+  switch (action) {
+    case 'install-open': S.installOpen = true; render(); return true;
+    case 'install-close': S.installOpen = false; render(); return true;
+    case 'install-close-backdrop': if (!e.target.closest('[data-stop-close]')) { S.installOpen = false; render(); } return true;
+    case 'install-dismiss': try { localStorage.setItem('vinfilm-install-dismissed', '1'); } catch (x) {} render(); return true;
+    case 'install-now':
+      if (deferredInstall) { const p = deferredInstall; deferredInstall = null; p.prompt(); p.userChoice.finally(() => { S.installOpen = false; render(); }); }
+      return true;
+  }
+  return false;
+}
+
 /* ================= main render ================= */
 function renderTab() {
   if (GUEST_MODE && !GUEST_ALLOWED_TABS.includes(S.activeTab)) S.activeTab = GUEST_ALLOWED_TABS[0];
@@ -3560,7 +3639,7 @@ function renderTab() {
   return '';
 }
 function render() {
-  document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderMobileTopBar()}${renderTab()}</main>${renderMobileTabBar()}</div>${schedModalHtml()}${settingsModalHtml()}${collabModalHtml()}${gcalModalHtml()}${gcalDetailModalHtml()}`;
+  document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderMobileTopBar()}${installBannerHtml()}${renderTab()}</main>${renderMobileTabBar()}</div>${schedModalHtml()}${settingsModalHtml()}${collabModalHtml()}${installGuideHtml()}${gcalModalHtml()}${gcalDetailModalHtml()}`;
   fitCalendar();
   positionNavIndicator();
   quoteAfterRender();
@@ -3637,6 +3716,7 @@ function bootApp() {
     if (GUEST_MODE && EQ_WRITE_ACTIONS.includes(action)) return;
     if (/^(quote-|contract-|biz-sign)/.test(action) && !GUEST_MODE && (handleQuoteAction(action, el, e) || handleContractAction(action, el, e))) return;
     if (/^(collab-|shared-collab-filter)/.test(action) && !GUEST_MODE && handleCollabAction(action, el, e)) return;
+    if (/^install-/.test(action) && handleInstallAction(action, el, e)) return;
 
     switch (action) {
       case 'set-tab':
@@ -4516,6 +4596,10 @@ function collabGateHtml(title, msg, withLogin) {
       <div style="font-size:13px; letter-spacing:2px; color:#79766f; margin-bottom:10px;">VINFILM STUDIO</div>
       <h1 style="margin:0 0 12px; font-size:21px;">${title}</h1>
       <p style="margin:0 0 20px; font-size:13.5px; color:#a8a49b; line-height:1.65;">${msg}</p>
+      ${withLogin && typeof uaInfo === 'function' && uaInfo().inapp ? (() => { const u = uaInfo(); const here = location.href;
+        const href = u.kakao ? `kakaotalk://web/openExternal?url=${encodeURIComponent(here)}` : u.android ? `intent://${here.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end` : '';
+        return `<p style="margin:0 0 12px; font-size:13px; color:#e0a63c; line-height:1.6;">${u.kakao ? '카카오톡' : '앱'} 안에서는 Google 로그인이 막혀 있어요.<br>${u.ios ? 'Safari' : 'Chrome'}로 열어서 로그인해 주세요.</p>
+          ${href ? `<a href="${href}" style="display:block; background:#2f6fee; color:#fff; border-radius:8px; padding:12px; font-weight:700; font-size:14px; text-decoration:none; margin-bottom:10px;">${u.ios ? 'Safari' : 'Chrome'}로 열기</a>` : `<p style="font-size:12.5px; color:#a8a49b;">오른쪽 ⋯ 메뉴 → 다른 브라우저로 열기</p>`}`; })() : ''}
       ${withLogin ? `<button id="collabLoginBtn" style="width:100%; background:#f5f2ea; color:#0e0d0c; border:none; border-radius:8px; padding:12px; font-weight:700; font-size:14px; cursor:pointer;">Google로 로그인</button>` : ''}
       <div id="collabLoginErr" style="color:#e0796f; font-size:12.5px; margin-top:12px;"></div>
     </div></div>`;
@@ -4530,6 +4614,8 @@ async function collabBoot() {
   const start = (info) => {
     if (started) return; started = true;
     collabInfo = info;
+    // 설치한 앱은 /works/로 열리므로 마지막 협업 공간을 기억해 둔다(대표님 계정일 땐 기억 안 함)
+    try { const cu = firebase.auth().currentUser; if (!(cu && ADMIN_EMAILS.includes(cu.email))) localStorage.setItem('vinfilm-last-collab', COLLAB_ID); } catch (e) {}
     GUEST_ALLOWED_TABS = ['shared', 'schedule', ...(info.showEquipment ? ['equipment'] : [])];
     const u = firebase.auth().currentUser;
     if (info.mode === 'login' && u) { try { localStorage.setItem(GUEST_NAME_KEY, u.displayName || u.email); } catch (e) {} }
@@ -4556,6 +4642,16 @@ async function collabBoot() {
 }
 document.addEventListener('DOMContentLoaded', () => {
   if (COLLAB_MODE) { collabBoot(); return; }
+  // 협업자가 설치한 앱을 열면 /works/로 들어온다 → 기억해 둔 협업 공간으로 보낸다(대표님으로 로그인돼 있으면 그대로)
+  let lastCollab = ''; try { lastCollab = localStorage.getItem('vinfilm-last-collab') || ''; } catch (e) {}
+  if (!GUEST_MODE && /^[0-9a-f]{32}$/.test(lastCollab) && typeof firebase !== 'undefined' && firebase.auth) {
+    const unsub = firebase.auth().onAuthStateChanged(user => {
+      unsub();
+      if (!user || !ADMIN_EMAILS.includes(user.email)) { location.replace('/works/?c=' + lastCollab); return; }
+      bootApp();
+    });
+    return;
+  }
   if (GUEST_MODE) {
     if (!localStorage.getItem(GUEST_NAME_KEY)) showGuestNameGate(); else bootApp();
     return;
@@ -5336,6 +5432,16 @@ document.addEventListener('DOMContentLoaded', () => {
   .collab-actions button.is-on { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
   .done-seg { display:inline-flex; flex-shrink:0; }
   .done-seg button { white-space:nowrap; }
+
+  /* ===== 앱 설치 안내 ===== */
+  .install-banner { display:flex; align-items:center; gap:8px; background:var(--accent-soft); border:1px solid var(--border); border-radius:14px; padding:10px 10px 10px 14px; margin:0 0 14px; font-size:13px; color:var(--text); }
+  .install-banner span { flex:1; line-height:1.45; }
+  .install-banner button { border:none; background:var(--accent); color:#fff; border-radius:999px; padding:7px 12px; font-family:var(--font-body); font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap; }
+  .install-banner button.x { background:none; color:var(--text-faint); padding:6px; font-weight:400; }
+  .install-steps { list-style:none; margin:4px 0 0; padding:0; display:flex; flex-direction:column; gap:10px; }
+  .install-steps li { display:flex; gap:12px; align-items:flex-start; font-size:14px; line-height:1.55; }
+  .install-steps li > b { flex:none; min-width:26px; height:26px; padding:0 6px; border-radius:13px; background:var(--accent-soft); color:var(--accent); display:flex; align-items:center; justify-content:center; font-size:12.5px; }
+  a.install-go { display:block; text-align:center; text-decoration:none; color:#fff; margin:6px 0 14px; box-sizing:border-box; }
 </style>
 </body>
 </html>
