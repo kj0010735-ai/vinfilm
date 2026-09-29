@@ -1769,7 +1769,7 @@ function projParentSummaryHtml(p) {
     <div class="proj-parent-card" style="${colorMarkerStyle(p.color, 18)}">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">
         <div>
-          <span class="proj-row-pill" data-status-menu-id="${p.id}" style="background:${col.color}26; color:${col.color}; cursor:context-menu;"><span class="proj-row-dot" style="background:${col.color};"></span>${col.label}</span>
+          <span class="proj-row-pill" data-status-menu-id="${p.id}" style="background:${col.color}26; color:${col.color}; cursor:pointer;"><span class="proj-row-dot" style="background:${col.color};"></span>${col.label}</span>
           ${ptype ? `<span class="proj-row-pill" style="background:var(--border); color:var(--text-dim); margin-left:6px;">${ptype.icon} ${ptype.label}</span>` : ''}
           <div class="proj-parent-meta">${esc(meta)}</div>
           ${p.notes ? `<div class="proj-parent-notes">${linkify(p.notes)}</div>` : ''}
@@ -2064,7 +2064,7 @@ function sharedParentSummaryHtml(p) {
     <div class="proj-parent-card" style="${colorMarkerStyle(p.color, 18)}">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">
         <div>
-          <span class="proj-row-pill" data-shared-status-menu-id="${p.id}" style="background:${st.color}26; color:${st.color}; cursor:context-menu;"><span class="proj-row-dot" style="background:${st.color};"></span>${st.label}</span>
+          <span class="proj-row-pill" data-shared-status-menu-id="${p.id}" style="background:${st.color}26; color:${st.color}; cursor:pointer;"><span class="proj-row-dot" style="background:${st.color};"></span>${st.label}</span>
           <div class="proj-parent-meta">${esc(meta)}</div>
           ${p.link ? `<div class="proj-parent-meta"><a href="${esc(p.link)}" target="_blank" rel="noopener">${esc(p.link)}</a></div>` : ''}
           ${p.notes ? `<div class="proj-parent-notes">${linkify(p.notes)}</div>` : ''}
@@ -3825,6 +3825,15 @@ function bootApp() {
   const root = document.getElementById('root');
 
   root.addEventListener('click', (e) => {
+    // 상태 배지(진행전/준비중 등)는 그냥 눌러도 상태 변경 메뉴가 뜬다(원래는 우클릭만) — 행의 드릴다운보다 먼저 가로챔
+    const pill = e.target.closest('[data-status-menu-id], [data-shared-status-menu-id]');
+    if (pill && !(pill.dataset.statusMenuId ? S.proj.selectMode : S.shared.selectMode)) {
+      e.preventDefault(); e.stopPropagation();
+      const r = pill.getBoundingClientRect(), pos = { x: r.left, y: r.bottom + 4 };
+      if (pill.dataset.statusMenuId) S.proj.statusMenu = S.proj.statusMenu && S.proj.statusMenu.id === pill.dataset.statusMenuId ? null : { id: pill.dataset.statusMenuId, ...pos };
+      else S.shared.statusMenu = S.shared.statusMenu && S.shared.statusMenu.id === pill.dataset.sharedStatusMenuId ? null : { id: pill.dataset.sharedStatusMenuId, ...pos };
+      render(); return;
+    }
     const el = e.target.closest('[data-action]');
     if (!el) return;
     const action = el.dataset.action;
@@ -5604,6 +5613,8 @@ document.addEventListener('DOMContentLoaded', () => {
     .d-topbar { display:none; }
     .notif-panel { top:calc(62px + env(safe-area-inset-top)); left:10px; right:10px; width:auto; max-height:calc(100vh - 150px); }
   }
+  .proj-row-pill[data-status-menu-id], .proj-row-pill[data-shared-status-menu-id] { cursor:pointer; transition:filter .15s ease; }
+  .proj-row-pill[data-status-menu-id]:hover, .proj-row-pill[data-shared-status-menu-id]:hover { filter:brightness(0.95); box-shadow:0 0 0 2px currentColor inset; }
 </style>
 </body>
 </html>
