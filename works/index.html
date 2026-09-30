@@ -1068,7 +1068,12 @@ function gcalBodyFor(item) {
     body.start = { dateTime: `${item.date}T${item.time}:00`, timeZone: 'Asia/Seoul' };
     body.end = { dateTime: `${item.date}T${endH}:${endM}:00`, timeZone: 'Asia/Seoul' };
   } else {
-    body.start = { date: item.date }; body.end = { date: addDaysYmd(item.date, 1) };
+    body.start = { date: item.date }; body.end = { date: addDaysYmd(item.endDate && item.endDate > item.date ? item.endDate : item.date, 1) };
+  }
+  if (item.time && item.endDate && item.endDate > item.date) {
+    // 시간이 있는 기간 일정: 시작일 그 시각 ~ 종료일 같은 시각+1시간
+    const [h, m] = item.time.split(':').map(Number);
+    body.end = { dateTime: `${item.endDate}T${String(Math.min(h + 1, 23)).padStart(2, '0')}:${h + 1 > 23 ? '59' : String(m).padStart(2, '0')}:00`, timeZone: 'Asia/Seoul' };
   }
   return body;
 }
@@ -1308,7 +1313,7 @@ function dashUpcomingHtml() {
   const today = todayStr();
   const end = addDaysYmd(today, 13);
   const g = gcalEventsByDate();
-  let list = [...visibleSchedItems(), ...projDueEvents()].filter(it => it.date >= today && it.date <= end);
+  let list = [...visibleSchedItems(), ...projDueEvents()].filter(it => it.date <= end && (it.endDate && it.endDate > it.date ? it.endDate : it.date) >= today).map(it => it.date < today ? { ...it, date: today, _ongoing: true } : it);
   Object.keys(g).forEach(d => { if (d >= today && d <= end) g[d].forEach(ev => { if (ev.date === d || d === today) list.push({ ...ev, date: d }); }); });
   list.sort((a, b) => `${a.date}T${a.time || '00:00'}`.localeCompare(`${b.date}T${b.time || '00:00'}`));
   const shown = list.slice(0, 6);
@@ -1395,7 +1400,7 @@ function schedGroupsHtml() {
               <span>"${esc(item.title)}" 삭제할까요?</span>
               <div class="eq-confirm-actions"><button data-action="sched-cancel-delete">취소</button><button class="danger" data-action="sched-delete" data-id="${item.id}">삭제</button></div>
             </div>` : ''}
-          <div class="sched-time">${item.time || '종일'}</div>
+          <div class="sched-time">${item.time || '종일'}${item.endDate && item.endDate > item.date ? `<small class="sched-span-lbl">~${item.endDate.slice(5).replace('-', '/')}</small>` : ''}</div>
           <div class="sched-body" data-action="sched-open-detail" data-id="${item.id}">
             <div class="sched-title-row">
               <span class="sched-title">${esc(item.title)}</span>
@@ -1421,8 +1426,9 @@ function schedModalHtml() {
   const editing = S.sched.editingId ? schedItems.find(it => it.id === S.sched.editingId) : null;
   const linkProject = (!editing && S.sched.linkProjectId) ? projItems.find(p => p.id === S.sched.linkProjectId) : null;
   const f = editing
-    ? { title: editing.title, date: editing.date, time: editing.time || '', allDay: !editing.time, location: editing.location || '', contact: editing.contact || '', category: editing.category === 'calendar' ? 'etc' : editing.category, memo: editing.memo || '' }
-    : { title: linkProject ? linkProject.title : '', date: todayStr(), time: '', allDay: false, location: '', contact: '', category: 'shoot', memo: '' };
+    ? { title: editing.title, date: editing.date, endDate: editing.endDate || '', time: editing.time || '', allDay: !editing.time, location: editing.location || '', contact: editing.contact || '', category: editing.category === 'calendar' ? 'etc' : editing.category, memo: editing.memo || '' }
+    : { title: linkProject ? linkProject.title : '', date: todayStr(), endDate: '', time: '', allDay: false, location: '', contact: '', category: 'shoot', memo: '' };
+  const multi = S.sched.multiDay != null ? S.sched.multiDay : !!(f.endDate && f.endDate > f.date);
   if (!editing && S.sched.prefillDate) f.date = S.sched.prefillDate;
   return `
     <div class="eq-modal-overlay">
@@ -1430,8 +1436,10 @@ function schedModalHtml() {
         <div class="eq-modal-head"><h2>${editing ? '일정 수정' : linkProject ? `"${esc(linkProject.title)}" 촬영 스케줄 등록` : '새 일정 등록'}</h2><button class="eq-modal-close" data-action="sched-close-modal">✕</button></div>
         <form data-form-role="sched-form">
           <div class="eq-field"><label>제목</label><input name="title" autofocus value="${esc(f.title)}" placeholder="예: OO 브랜드 촬영" required /></div>
+          <div class="sched-span-seg cal-seg"><button type="button" class="${multi ? '' : 'on'}" data-action="sched-span" data-id="one">📅 하루</button><button type="button" class="${multi ? 'on' : ''}" data-action="sched-span" data-id="multi">↔ 기간 (시작~종료)</button></div>
           <div class="eq-field-row">
-            <div class="eq-field"><label>날짜</label><input type="date" name="date" value="${esc(f.date)}" required data-role="sched-date-conflict" /><div id="schedConflict">${schedConflictHtml(f.date, editing ? editing.id : null)}</div></div>
+            <div class="eq-field"><label id="schedDateLbl">${multi ? '시작일' : '날짜'}</label><input type="date" name="date" value="${esc(f.date)}" required data-role="sched-date-conflict" /><div id="schedConflict">${schedConflictHtml(f.date, editing ? editing.id : null)}</div></div>
+            <div class="eq-field" id="schedEndWrap" style="${multi ? '' : 'display:none'}"><label>종료일</label><input type="date" name="endDate" value="${esc(f.endDate > f.date ? f.endDate : addDaysYmd(f.date, 1))}" min="${esc(f.date)}" ${multi ? 'required' : 'disabled'} /></div>
             <div class="eq-field"><label>시간(콜타임)</label><input type="time" name="time" id="schedTimeInput" value="${esc(f.time)}" ${f.allDay?'disabled':''} /></div>
           </div>
           <div class="sched-allday-toggle"><input type="checkbox" name="allDay" id="schedAllDayCb" ${f.allDay?'checked':''} /><label for="schedAllDayCb" style="margin:0">하루 종일</label></div>
@@ -1474,7 +1482,7 @@ function schedDetailModalHtml() {
     <div class="eq-modal-overlay" data-action="sched-close-detail-backdrop">
       <div class="eq-modal" data-stop-close>
         <div class="eq-modal-head"><h2>${esc(item.title)}</h2><button class="eq-modal-close" data-action="sched-close-detail">✕</button></div>
-        <div class="eq-detail-row"><span>날짜</span><b>${dateLabel(item.date)}</b></div>
+        <div class="eq-detail-row"><span>날짜</span><b>${dateLabel(item.date)}${item.endDate && item.endDate > item.date ? ` – ${dateLabel(item.endDate)} <small style="color:var(--text-faint)">(${Math.round((parseYmd(item.endDate) - parseYmd(item.date)) / 86400000) + 1}일)</small>` : ''}</b></div>
         <div class="eq-detail-row"><span>시간</span><b>${item.time || '종일'}</b></div>
         <div class="eq-detail-row"><span>카테고리</span><b><span class="eq-status-dot" style="background:var(--sched-${item.category})"></span> ${esc(catLabel)}${item.source === 'calendar' ? ' <span class="sched-badge-cal">캘린더</span>' : ''}</b></div>
         ${item.location ? `<div class="eq-detail-row"><span>장소</span><b>${esc(item.location)}</b></div>` : ''}
@@ -1516,7 +1524,13 @@ function calFilteredItems() {
   }
   list.sort((a,b) => `${a.date}T${a.time||'00:00'}`.localeCompare(`${b.date}T${b.time||'00:00'}`));
   const byDate = {};
-  list.forEach(it => { (byDate[it.date] = byDate[it.date] || []).push(it); });
+  list.forEach(it => {
+    if (it.endDate && it.endDate > it.date && it.source !== 'google') {
+      // 기간 일정은 시작~종료 모든 날에 칩을 그림(최대 90일)
+      let d = it.date, n = 0;
+      while (d <= it.endDate && n < 90) { (byDate[d] = byDate[d] || []).push({ ...it, _span: d === it.date ? 'start' : d === it.endDate ? 'end' : 'mid' }); d = addDaysYmd(d, 1); n++; }
+    } else (byDate[it.date] = byDate[it.date] || []).push(it);
+  });
   if (st.categoryFilter === 'all' || st.categoryFilter === 'calendar') {
     const q = st.search.trim().toLowerCase();
     const g = gcalEventsByDate();
@@ -1532,8 +1546,9 @@ function calEventHtml(it, compact) {
   const g = it.source === 'google';
   if (it.source === 'due') return `<button class="cal-ev is-due ${past ? 'is-past' : ''}" style="--ev:var(--sched-deadline)" data-action="today-open-project-detail" data-id="${esc(it.projectId)}" title="마감 · ${esc(it.title)}"><span class="cal-ev-time">마감</span><span class="cal-ev-title">${esc(it.title)}</span></button>`;
   const collabMark = !GUEST_MODE && it.collabId ? '👥 ' : '';
+  const spanCls = it._span ? ' span-' + it._span : '';
   if (collabMark) it = { ...it, title: collabMark + it.title };
-  return `<button class="cal-ev ${past ? 'is-past' : ''} ${g ? 'is-phone' : ''}" style="--ev:${g && it.tag === 'hisplan' ? 'var(--sched-hisplan)' : `var(--sched-${it.category})`}" data-action="${g ? 'gcal-open-detail' : 'sched-open-detail'}" data-id="${esc(it.id)}" title="${esc(it.title)}${g ? ' · ' + gcalSourceLabel(it) : ''}">${it.time ? `<span class="cal-ev-time">${esc(it.time)}</span>` : ''}<span class="cal-ev-title">${esc(it.title)}</span></button>`;
+  return `<button class="cal-ev${spanCls} ${past ? 'is-past' : ''} ${g ? 'is-phone' : ''}" style="--ev:${g && it.tag === 'hisplan' ? 'var(--sched-hisplan)' : `var(--sched-${it.category})`}" data-action="${g ? 'gcal-open-detail' : 'sched-open-detail'}" data-id="${esc(it.id)}" title="${esc(it.title)}${g ? ' · ' + gcalSourceLabel(it) : ''}">${it.time ? `<span class="cal-ev-time">${esc(it.time)}</span>` : ''}<span class="cal-ev-title">${esc(it.title)}</span></button>`;
 }
 function calTitle() {
   const c = parseYmd(S.sched.cursor);
@@ -3949,7 +3964,7 @@ function bootApp() {
       }
 
       /* schedule */
-      case 'sched-open-add': S.sched.editingId = null; S.sched.linkProjectId = null; S.sched.prefillDate = null; S.sched.modalOpen = true; render(); break;
+      case 'sched-open-add': S.sched.multiDay = null; S.sched.editingId = null; S.sched.linkProjectId = null; S.sched.prefillDate = null; S.sched.modalOpen = true; render(); break;
       case 'cal-add-on-date':
         if (e.target.closest('.cal-ev, .cal-more')) break;
         S.sched.editingId = null; S.sched.linkProjectId = null; S.sched.prefillDate = el.dataset.date; S.sched.modalOpen = true; render(); break;
@@ -3963,8 +3978,18 @@ function bootApp() {
         else { c.setDate(1); c.setMonth(c.getMonth() + dir); }
         S.sched.cursor = ymd(c); render(); break;
       }
-      case 'sched-open-edit': S.sched.editingId = id; S.sched.linkProjectId = null; S.sched.modalOpen = true; render(); break;
-      case 'sched-close-modal': S.sched.modalOpen = false; S.sched.editingId = null; S.sched.linkProjectId = null; render(); break;
+      case 'sched-open-edit': S.sched.multiDay = null; S.sched.editingId = id; S.sched.linkProjectId = null; S.sched.modalOpen = true; render(); break;
+      case 'sched-span': {
+        // 하루/기간 전환 — 다시 그리지 않고 종료일 칸만 보이기/숨기기(입력 중인 내용 유지)
+        const multi = id === 'multi'; S.sched.multiDay = multi;
+        el.parentElement.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === el));
+        const wrap = document.getElementById('schedEndWrap'), end = wrap && wrap.querySelector('input');
+        const start = document.querySelector('[data-form-role="sched-form"] [name="date"]');
+        if (wrap) { wrap.style.display = multi ? '' : 'none'; end.disabled = !multi; end.required = multi; if (multi && start && (!end.value || end.value <= start.value)) end.value = addDaysYmd(start.value, 1); if (start) end.min = start.value; }
+        const lbl = document.getElementById('schedDateLbl'); if (lbl) lbl.textContent = multi ? '시작일' : '날짜';
+        break;
+      }
+      case 'sched-close-modal': S.sched.multiDay = null; S.sched.modalOpen = false; S.sched.editingId = null; S.sched.linkProjectId = null; render(); break;
       case 'sched-close-modal-backdrop': if (!e.target.closest('[data-stop-close]')) { S.sched.modalOpen = false; S.sched.editingId = null; S.sched.linkProjectId = null; render(); } break;
       case 'sched-confirm-delete': S.sched.confirmDeleteId = id; refreshSchedList(); break;
       case 'sched-cancel-delete': S.sched.confirmDeleteId = null; refreshSchedList(); break;
@@ -4430,7 +4455,8 @@ function bootApp() {
       const title = (fd.get('title') || '').toString().trim();
       if (!title) return;
       const allDay = fd.has('allDay');
-      const payload = { title, date: fd.get('date'), time: allDay ? null : (fd.get('time') || null), location: fd.get('location') || '', contact: fd.get('contact') || '', category: fd.get('category') || 'shoot', memo: fd.get('memo') || '' };
+      const endRaw = (fd.get('endDate') || '').toString();
+      const payload = { title, date: fd.get('date'), endDate: endRaw && endRaw > fd.get('date') ? endRaw : '', time: allDay ? null : (fd.get('time') || null), location: fd.get('location') || '', contact: fd.get('contact') || '', category: fd.get('category') || 'shoot', memo: fd.get('memo') || '' };
       if (!GUEST_MODE && fd.has('collabId')) { const cid = (fd.get('collabId') || '').toString(); payload.collabId = cid; }
       if (S.sched.editingId) {
         saveSchedItems(schedItems.map(it => it.id === S.sched.editingId ? { ...it, ...payload } : it));
@@ -4440,7 +4466,7 @@ function bootApp() {
         saveSchedItems([{ id: newId, createdAt: Date.now(), source: 'manual', projectId: linkProjectId || null, ...payload }, ...schedItems]);
         if (linkProjectId) saveProjItems(projItems.map(p => p.id === linkProjectId ? { ...p, scheduleId: newId } : p));
       }
-      S.sched.modalOpen = false; S.sched.editingId = null; S.sched.linkProjectId = null;
+      S.sched.modalOpen = false; S.sched.editingId = null; S.sched.linkProjectId = null; S.sched.multiDay = null;
       render();
     } else if (form.matches('[data-form-role="proj-form"]')) {
       const fd = new FormData(form);
@@ -5615,6 +5641,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   .proj-row-pill[data-status-menu-id], .proj-row-pill[data-shared-status-menu-id] { cursor:pointer; transition:filter .15s ease; }
   .proj-row-pill[data-status-menu-id]:hover, .proj-row-pill[data-shared-status-menu-id]:hover { filter:brightness(0.95); box-shadow:0 0 0 2px currentColor inset; }
+  /* 기간 일정 */
+  .sched-span-seg { margin:0 0 12px; display:inline-flex; }
+  .cal-ev.span-mid, .cal-ev.span-end { border-left-style:dotted; }
+  .cal-ev.span-mid .cal-ev-time, .cal-ev.span-end .cal-ev-time { display:none; }
+  .cal-ev.span-end::after { content:'끝'; margin-left:auto; font-size:10px; color:var(--text-faint); flex:none; }
+  .sched-span-lbl { display:block; font-size:11px; color:var(--text-faint); }
 </style>
 </body>
 </html>
