@@ -1524,11 +1524,16 @@ function calFilteredItems() {
   }
   list.sort((a,b) => `${a.date}T${a.time||'00:00'}`.localeCompare(`${b.date}T${b.time||'00:00'}`));
   const byDate = {};
+  // 기간 일정에 줄 번호(lane) 배정: 시작일 순으로, 앞 일정이 끝난 줄을 재사용 → 막대가 끝까지 같은 높이로 이어짐
+  const laneEnds = [];
+  list.filter(it => it.endDate && it.endDate > it.date && it.source !== 'google')
+    .sort((a, b) => a.date.localeCompare(b.date) || String(a.id).localeCompare(String(b.id)))
+    .forEach(it => { let l = laneEnds.findIndex(e => e < it.date); if (l < 0) { l = laneEnds.length; laneEnds.push(''); } laneEnds[l] = it.endDate; it._lane = l; });
   list.forEach(it => {
     if (it.endDate && it.endDate > it.date && it.source !== 'google') {
       // 기간 일정은 시작~종료 모든 날에 칩을 그림(최대 90일)
       let d = it.date, n = 0;
-      while (d <= it.endDate && n < 90) { (byDate[d] = byDate[d] || []).push({ ...it, _span: d === it.date ? 'start' : d === it.endDate ? 'end' : 'mid' }); d = addDaysYmd(d, 1); n++; }
+      while (d <= it.endDate && n < 90) { (byDate[d] = byDate[d] || []).push({ ...it, _span: d === it.date ? 'start' : d === it.endDate ? 'end' : 'mid', _wk: parseYmd(d).getDay() === 0, _lane: it._lane }); d = addDaysYmd(d, 1); n++; }
     } else (byDate[it.date] = byDate[it.date] || []).push(it);
   });
   if (st.categoryFilter === 'all' || st.categoryFilter === 'calendar') {
@@ -1539,14 +1544,24 @@ function calFilteredItems() {
       if (evs.length) byDate[d] = [...(byDate[d] || []), ...evs].sort((a,b) => (a.time||'').localeCompare(b.time||''));
     });
   }
+  // 기간 일정은 날마다 같은 줄에 오도록 맨 위에 '시작일 → id' 순으로 고정, 그 아래 하루 일정은 시간순
+  Object.keys(byDate).forEach(d => {
+    const spans = byDate[d].filter(x => x._span), rest = byDate[d].filter(x => !x._span);
+    if (!spans.length) return;
+    const maxLane = Math.max(...spans.map(x => x._lane || 0));
+    const row = [];
+    for (let l = 0; l <= maxLane; l++) row.push(spans.find(x => (x._lane || 0) === l) || { _spacer: true, id: 'sp-' + l });
+    byDate[d] = [...row, ...rest];
+  });
   return byDate;
 }
 function calEventHtml(it, compact) {
+  if (it._spacer) return `<span class="cal-ev cal-ev-spacer" aria-hidden="true"><span class="cal-ev-title">&nbsp;</span></span>`;
   const past = it.date < todayStr();
   const g = it.source === 'google';
   if (it.source === 'due') return `<button class="cal-ev is-due ${past ? 'is-past' : ''}" style="--ev:var(--sched-deadline)" data-action="today-open-project-detail" data-id="${esc(it.projectId)}" title="마감 · ${esc(it.title)}"><span class="cal-ev-time">마감</span><span class="cal-ev-title">${esc(it.title)}</span></button>`;
   const collabMark = !GUEST_MODE && it.collabId ? '👥 ' : '';
-  const spanCls = it._span ? ' span-' + it._span : '';
+  const spanCls = it._span ? ' span-' + it._span + (it._span !== 'start' && !it._wk ? ' span-quiet' : '') + (it._wk ? ' span-wk' : '') : '';
   if (collabMark) it = { ...it, title: collabMark + it.title };
   return `<button class="cal-ev${spanCls} ${past ? 'is-past' : ''} ${g ? 'is-phone' : ''}" style="--ev:${g && it.tag === 'hisplan' ? 'var(--sched-hisplan)' : `var(--sched-${it.category})`}" data-action="${g ? 'gcal-open-detail' : 'sched-open-detail'}" data-id="${esc(it.id)}" title="${esc(it.title)}${g ? ' · ' + gcalSourceLabel(it) : ''}">${it.time ? `<span class="cal-ev-time">${esc(it.time)}</span>` : ''}<span class="cal-ev-title">${esc(it.title)}</span></button>`;
 }
@@ -1586,7 +1601,7 @@ function calGridHtml() {
         <div class="cal-daynum"><span>${d.getDate()}</span></div>
         <div class="cal-evs">
           ${shown.map(it => calEventHtml(it)).join('')}
-          ${items.length > shown.length ? `<button class="cal-more" data-action="cal-open-day" data-date="${key}">+${items.length - shown.length}개 더보기</button>` : ''}
+          ${items.length > shown.length ? `<button class="cal-more" data-action="cal-open-day" data-date="${key}">+${items.filter(x => !x._spacer).length - shown.filter(x => !x._spacer).length}개 더보기</button>` : ''}
         </div>
       </div>`;
   }
@@ -5647,6 +5662,18 @@ document.addEventListener('DOMContentLoaded', () => {
   .cal-ev.span-mid .cal-ev-time, .cal-ev.span-end .cal-ev-time { display:none; }
   .cal-ev.span-end::after { content:'끝'; margin-left:auto; font-size:10px; color:var(--text-faint); flex:none; }
   .sched-span-lbl { display:block; font-size:11px; color:var(--text-faint); }
+  /* 기간 일정을 하나의 막대로: 일정 목록을 칸 폭 끝까지 펴고, 이어지는 쪽 여백·모서리를 없앤다 */
+  .cal-evs { margin:0 -6px; }
+  .cal-evs > * { margin-left:6px; margin-right:6px; width:auto !important; }
+  .cal-evs > .cal-ev.span-start { margin-right:0; border-top-right-radius:0; border-bottom-right-radius:0; }
+  .cal-evs > .cal-ev.span-mid { margin-left:0; margin-right:0; border-radius:0; border-left:none; padding-left:10px; }
+  .cal-evs > .cal-ev.span-end { margin-left:0; border-top-left-radius:0; border-bottom-left-radius:0; border-left:none; padding-left:10px; }
+  .cal-evs > .cal-ev.span-wk { border-left:3px solid var(--ev); border-top-left-radius:6px; border-bottom-left-radius:6px; margin-left:6px; padding-left:7px; }
+  .cal-ev.span-quiet .cal-ev-title, .cal-ev.span-quiet .cal-ev-time { visibility:hidden; }
+  .cal-ev.span-mid, .cal-ev.span-end { border-left-style:solid; }
+  .cal-ev.span-end::after { content:none; }
+  .cal-cell.is-outside .cal-ev.span-mid, .cal-cell.is-outside .cal-ev.span-end { opacity:.45; }
+  .cal-ev-spacer { visibility:hidden; pointer-events:none; }
 </style>
 </body>
 </html>
