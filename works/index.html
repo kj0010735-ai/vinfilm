@@ -143,9 +143,13 @@ const EQ_SORTS = [
 const SCHED_CATEGORIES = [
   { id: 'shoot', label: '촬영' },
   { id: 'meeting', label: '미팅' },
+  { id: 'scout', label: '답사' },
   { id: 'deadline', label: '마감' },
   { id: 'etc', label: '기타' },
 ];
+/* Google/아이폰 캘린더는 두 개로 나눠 보낸다 — 촬영·미팅·답사는 가족에게 공유하는 "VINFILM STUDIO",
+   마감·기타(제작 기간 등 작업 일정)는 대표님만 보는 "VINFILM 작업". 앱 안 캘린더는 둘 다 한 화면에 보인다. */
+const SHARE_CATS = ['shoot', 'meeting', 'scout'];
 const SCHED_FILTER_CATEGORIES = [{ id: 'all', label: '전체' }, ...SCHED_CATEGORIES, { id: 'calendar', label: '📱 휴대폰' }];
 const PROJECT_COLUMNS = [
   { id: 'todo', label: '진행전', color: '#e0a63c' },
@@ -837,6 +841,8 @@ function visibleSchedItems() { return schedItems.filter(it => it.source !== 'cal
 const GCAL_API = 'https://www.googleapis.com/calendar/v3';
 const GCAL_LS = { token: 'vinfilm-gcal-token', enabled: 'vinfilm-gcal-enabled', calId: 'vinfilm-gcal-calid', pushed: 'vinfilm-gcal-pushed', extra: 'vinfilm-gcal-extra-cals', events: 'vinfilm-gcal-events' };
 const GCAL_CAL_NAME = 'VINFILM STUDIO';
+const GCAL_WORK_NAME = 'VINFILM 작업';
+const GCAL_WORK_LS = 'vinfilm-gcal-work-calid', GCAL_PUBWORK_LS = 'vinfilm-gcal-public-workcalid';
 const gcal = { token: null, exp: 0, calId: null, events: [], status: 'off', msg: '', lastSync: 0, busy: false, modalOpen: false, detailId: null, calendars: [] };
 /* 가져와서 보여줄 캘린더: 기본은 "VINFILM STUDIO" 캘린더만(아이폰에서 이 캘린더에 만든 일정). 공휴일/개인 캘린더는 설정에서 켠 것만. */
 const HISPLAN_RE = /hisplan|히스플랜/i;
@@ -859,6 +865,28 @@ async function gcalLoadPublic() {
     const id = d.exists ? (d.data().publicCalId || '') : '';
     if (id && id !== gcal.publicCalId) { gcal.publicCalId = id; try { localStorage.setItem(GCAL_PUB_LS, id); } catch (e) {} render(); }
   } catch (e) {}
+}
+async function gcalSubscribeWork() {
+  // 작업 캘린더(마감·작업 일정)를 대표님 아이폰에 구독 — 링크 아는 사람만 보기로 공개
+  let pub = ''; try { pub = localStorage.getItem(GCAL_PUBWORK_LS) || ''; } catch (e) {}
+  if (pub) { location.href = gcalWebcalUrl(pub); return; }
+  if (IS_LOCAL_DEV) { gcalSetMsg('로컬 테스트 환경에서는 Google 캘린더 설정을 바꾸지 않아요.'); render(); return; }
+  if (!gcalTokenValid()) { await gcalConnect(); if (!gcalTokenValid()) return; }
+  try {
+    const id = await gcalEnsureWorkCalendar();
+    try { await gapiFetch('/calendars/' + encodeURIComponent(id) + '/acl', { method: 'POST', body: JSON.stringify({ role: 'reader', scope: { type: 'default' } }) }); } catch (e) { if (e.status !== 409) throw e; }
+    try { localStorage.setItem(GCAL_PUBWORK_LS, id); } catch (e) {}
+    try { await firebase.firestore().collection('appSettings').doc('gcal').set({ publicWorkCalId: id, updatedAt: Date.now() }, { merge: true }); } catch (e) {}
+    location.href = gcalWebcalUrl(id);
+  } catch (e) { if (e.message !== 'api-disabled') gcalSetMsg('작업 캘린더 구독 주소를 만들지 못했어요: ' + (e.message || e)); render(); }
+}
+async function gcalShareFamily() {
+  // 가족(아내)에게 "VINFILM STUDIO"(촬영·미팅·답사)만 구독 링크로 보내기
+  if (!gcal.publicCalId) { gcalSetMsg('먼저 "📲 아이폰 캘린더에 구독 추가"를 한 번 눌러 공유 캘린더 주소를 만들어 주세요.'); render(); return; }
+  const url = gcalWebcalUrl(gcal.publicCalId);
+  const text = `VINFILM STUDIO 촬영·미팅 일정이에요. 아이폰에서 아래 링크를 누르고 "구독"을 누르면 캘린더에 추가돼요.\n${url}`;
+  try { if (navigator.share) await navigator.share({ title: 'VINFILM STUDIO 일정', text }); else { await navigator.clipboard.writeText(url); gcalSetMsg('공유 캘린더 링크를 복사했어요. 카카오톡·문자로 보내주세요.'); render(); } }
+  catch (e) { if (!(e && e.name === 'AbortError')) { gcalSetMsg('링크: ' + url); render(); } }
 }
 async function gcalSubscribeIphone() {
   // 이미 공개해 둔 캘린더면 API 없이 바로 아이폰 구독 창
@@ -1055,6 +1083,25 @@ async function gcalEnsureCalendar() {
   gcal.calChecked = true;
   return gcal.calId;
 }
+async function gcalEnsureWorkCalendar() {
+  if (gcal.workCalId && gcal.workChecked) return gcal.workCalId;
+  if (!gcal.workCalId) { try { gcal.workCalId = localStorage.getItem(GCAL_WORK_LS) || null; } catch (e) {} }
+  if (gcal.workCalId) {
+    try { await gapiFetch('/calendars/' + encodeURIComponent(gcal.workCalId)); gcal.workChecked = true; return gcal.workCalId; }
+    catch (e) { if (e.status !== 404 && e.status !== 403 && e.status !== 410) throw e; gcal.workCalId = null; }
+  }
+  const list = await gapiFetch('/users/me/calendarList?maxResults=250');
+  const found = (list.items || []).find(x => x.summary === GCAL_WORK_NAME && x.accessRole === 'owner');
+  if (found) gcal.workCalId = found.id;
+  else {
+    const created = await gapiFetch('/calendars', { method: 'POST', body: JSON.stringify({ summary: GCAL_WORK_NAME, description: 'VINFILM STUDIO 작업관리의 마감·작업 일정 (대표 전용)', timeZone: 'Asia/Seoul' }) });
+    gcal.workCalId = created.id;
+    try { await gapiFetch('/users/me/calendarList/' + encodeURIComponent(created.id), { method: 'PATCH', body: JSON.stringify({ colorId: '8' }) }); } catch (e) {}
+  }
+  try { localStorage.setItem(GCAL_WORK_LS, gcal.workCalId); } catch (e) {}
+  gcal.workChecked = true;
+  return gcal.workCalId;
+}
 function gcalEventIdFor(item) { let h = ''; const s = String(item.id); for (let i = 0; i < s.length; i++) h += s.charCodeAt(i).toString(16).padStart(2, '0'); return 'vf' + h; }
 function addDaysYmd(dateStr, n) { const d = parseYmd(dateStr); d.setDate(d.getDate() + n); return ymd(d); }
 function gcalBodyFor(item) {
@@ -1080,23 +1127,27 @@ function gcalBodyFor(item) {
 async function gcalPush() {
   if (GUEST_MODE) return;
   const calId = await gcalEnsureCalendar();
+  const workCalId = await gcalEnsureWorkCalendar();
   let pushed = {}; try { pushed = JSON.parse(localStorage.getItem(GCAL_LS.pushed) || '{}'); } catch (e) {}
   const mine = schedItems.filter(it => it.source !== 'calendar' && it.date);
-  const want = {};
+  const want = {}; // key = 캘린더id|이벤트id
   for (const it of mine) {
-    const body = gcalBodyFor(it); const sig = JSON.stringify(body); want[body.id] = true;
-    if (pushed[body.id] === sig) continue;
-    const base = '/calendars/' + encodeURIComponent(calId) + '/events';
+    const target = SHARE_CATS.includes(it.category) ? calId : workCalId;
+    const body = gcalBodyFor(it); const sig = JSON.stringify(body); const key = target + '|' + body.id; want[key] = true;
+    if (pushed[key] === sig) continue;
+    const base = '/calendars/' + encodeURIComponent(target) + '/events';
     try { await gapiFetch(base + '/' + body.id, { method: 'PUT', body: sig }); }
     catch (e) { if (e.status === 404) await gapiFetch(base, { method: 'POST', body: sig }); else throw e; }
-    pushed[body.id] = sig;
+    pushed[key] = sig;
   }
-  // VINFILM에서 지운 일정은 Google 캘린더에서도 지운다 (우리가 만든 vf... 일정만)
-  const existing = await gapiFetch('/calendars/' + encodeURIComponent(calId) + '/events?maxResults=2500&showDeleted=false');
-  for (const ev of (existing.items || [])) {
-    if (ev.id && ev.id.startsWith('vf') && !want[ev.id]) {
-      try { await gapiFetch('/calendars/' + encodeURIComponent(calId) + '/events/' + ev.id, { method: 'DELETE' }); } catch (e) { if (e.status !== 404 && e.status !== 410) throw e; }
-      delete pushed[ev.id];
+  // 지웠거나 다른 캘린더로 옮겨간 일정은 원래 캘린더에서 지운다 (우리가 만든 vf... 일정만)
+  for (const cid of [calId, workCalId]) {
+    const existing = await gapiFetch('/calendars/' + encodeURIComponent(cid) + '/events?maxResults=2500&showDeleted=false');
+    for (const ev of (existing.items || [])) {
+      if (ev.id && ev.id.startsWith('vf') && !want[cid + '|' + ev.id]) {
+        try { await gapiFetch('/calendars/' + encodeURIComponent(cid) + '/events/' + ev.id, { method: 'DELETE' }); } catch (e) { if (e.status !== 404 && e.status !== 410) throw e; }
+        delete pushed[cid + '|' + ev.id];
+      }
     }
   }
   Object.keys(pushed).forEach(k => { if (!want[k]) delete pushed[k]; });
@@ -1108,9 +1159,9 @@ async function gcalPull() {
   const max = new Date(now); max.setMonth(now.getMonth() + 9);
   const list = await gapiFetch('/users/me/calendarList?maxResults=250');
   const all = (list.items || []).filter(c => !c.deleted);
-  gcal.calendars = all.filter(c => c.id !== gcal.calId).map(c => ({ id: c.id, name: c.summaryOverride || c.summary || c.id, holiday: /#holiday@group\.v\.calendar\.google\.com$/.test(c.id) }));
+  gcal.calendars = all.filter(c => c.id !== gcal.calId && c.id !== gcal.workCalId).map(c => ({ id: c.id, name: c.summaryOverride || c.summary || c.id, holiday: /#holiday@group\.v\.calendar\.google\.com$/.test(c.id) }));
   const extra = gcalExtraCals();
-  const cals = all.filter(c => c.id === gcal.calId || extra.includes(c.id));
+  const cals = all.filter(c => c.id === gcal.calId || c.id === gcal.workCalId || extra.includes(c.id));
   const out = [];
   for (const c of cals) {
     let data;
@@ -1118,7 +1169,7 @@ async function gcalPull() {
     catch (e) { if (e.message === 'expired' || e.message === 'api-disabled') throw e; continue; }
     for (const ev of (data.items || [])) {
       if (ev.status === 'cancelled' || !ev.start) continue;
-      if (c.id === gcal.calId && ev.id && ev.id.startsWith('vf')) continue; // 이 앱이 올린 일정은 이미 화면에 있음
+      if ((c.id === gcal.calId || c.id === gcal.workCalId) && ev.id && ev.id.startsWith('vf')) continue; // 이 앱이 올린 일정은 이미 화면에 있음
       let date, time = null, endDate;
       if (ev.start.date) { date = ev.start.date; endDate = ev.end && ev.end.date ? addDaysYmd(ev.end.date, -1) : date; }
       else { const s = new Date(ev.start.dateTime); date = ymd(s); time = `${pad2(s.getHours())}:${pad2(s.getMinutes())}`; const e2 = ev.end && ev.end.dateTime ? new Date(ev.end.dateTime) : s; endDate = ymd(e2); }
@@ -1187,7 +1238,10 @@ function gcalModalHtml() {
             ${on ? `<em>연결됨${last ? ` · 마지막 동기화 ${pad2(last.getHours())}:${pad2(last.getMinutes())}` : ''}</em>` : `<button class="eq-modal-submit" data-action="gcal-connect" style="margin-top:10px;">Google 계정으로 연결</button>`}</li>
           <li class="${gcal.publicCalId ? 'done' : ''}"><b>아이폰 캘린더에 구독 추가 <small class="eq-hint">(HISPLAN과 같은 방식)</small></b>
             <span><b>아이폰</b>에서 아래 버튼을 누르면 "구독 캘린더 추가" 창이 주소까지 채워져 떠요 → <b>구독</b>만 누르면 끝. (VINFILM STUDIO 캘린더가 '링크를 아는 사람만 보기'로 바뀌어요. 개인 캘린더는 그대로예요.)</span>
-            <button class="eq-modal-submit gcal-ics-btn" data-action="gcal-subscribe">📲 아이폰 캘린더에 구독 추가</button>
+            <button class="eq-modal-submit gcal-ics-btn" data-action="gcal-subscribe">📲 아이폰 캘린더에 구독 추가 <small>(촬영·미팅·답사)</small></button>
+            <button class="eq-modal-submit eq-modal-submit-secondary gcal-ics-btn" data-action="gcal-subscribe-work">📲 작업 캘린더도 구독 <small>(마감·기타 · 나만)</small></button>
+            <button class="eq-modal-submit eq-modal-submit-secondary gcal-ics-btn" data-action="gcal-share-family">💌 가족에게 일정 공유 <small>(촬영·미팅·답사만)</small></button>
+            <span class="gcal-ics-alt">휴대폰 캘린더는 두 개로 나뉘어요 — <b>VINFILM STUDIO</b>(촬영·미팅·답사, 가족과 공유용) / <b>VINFILM 작업</b>(마감·기타, 대표님만). 작업관리 앱 안에서는 둘 다 한 화면에 보여요.</span>
             <span class="gcal-ics-alt">또는 아이폰 <b>설정 → 캘린더 → 계정 → 계정 추가 → Google</b>로 ${esc((typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser && firebase.auth().currentUser.email) || '같은 계정')}을 추가해도 돼요(아래 3번까지 쓰려면 이 방법).</span></li>
           <li><b>아이폰에서 만든 일정도 여기 보이게 <small class="eq-hint">(Google 계정을 추가한 경우)</small></b><span>아이폰에서 일정을 만들 때 캘린더를 <b>VINFILM STUDIO</b>로 고르면 여기 "📱 휴대폰" 일정으로 떠요. 자주 쓰면 <b>설정 → 캘린더 → 기본 캘린더</b>를 VINFILM STUDIO로 해두세요. 공휴일·개인 캘린더는 아래에서 켠 것만 보여요.</span></li>
         </ol>
@@ -4029,6 +4083,8 @@ function bootApp() {
       case 'gcal-close': gcal.modalOpen = false; render(); break;
       case 'gcal-close-backdrop': if (!e.target.closest('[data-stop-close]')) { gcal.modalOpen = false; render(); } break;
       case 'gcal-connect': gcalConnect(); break;
+      case 'gcal-subscribe-work': gcalSubscribeWork(); break;
+      case 'gcal-share-family': gcalShareFamily(); break;
       case 'gcal-sync-now': gcalSync(true); break;
       case 'gcal-disconnect': if (window.confirm('휴대폰 캘린더 연결을 해제할까요? (Google 캘린더에 들어간 일정은 그대로 남아요)')) { gcalDisconnect(); gcal.modalOpen = false; render(); } break;
       case 'gcal-open-detail': gcal.detailId = el.dataset.id; render(); break;
@@ -4870,7 +4926,7 @@ document.addEventListener('DOMContentLoaded', () => {
     --text: #eceef2; --text-dim: #a4abb8; --text-faint: #767e8d;
     --accent: #7aa7ff; --accent-soft: rgba(122,167,255,0.14);
     --status-owned: #4cae7d; --status-lent: #5b8def; --status-repair: #e0a63c; --status-sold: #6b7080;
-    --sched-shoot: #d98a3d; --sched-meeting: #5b8def; --sched-deadline: #d9534f; --sched-etc: #6b7080; --sched-calendar: #4cae7d; --sched-hisplan: #8b5cf6;
+    --sched-shoot: #d98a3d; --sched-meeting: #5b8def; --sched-deadline: #d9534f; --sched-etc: #6b7080; --sched-scout: #14b8a6; --sched-calendar: #4cae7d; --sched-hisplan: #8b5cf6;
     --font-body: 'Paperozi', 'Noto Sans KR', 'Pretendard', 'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-mono: var(--font-body); /* 숫자/코드 라벨도 페이퍼로지로 통일 (예전 모노스페이스는 한글이 다른 폰트로 폴백돼 섞여 보였음) */
     --font-display: 'Anton', sans-serif;
