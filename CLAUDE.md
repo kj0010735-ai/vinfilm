@@ -67,6 +67,10 @@
 
 **메모 속 링크는 눌러서 바로 열린다**: `linkify(text)`(esc 후 http(s) 주소만 `<a target=_blank>`로 감쌈, 끝의 `).,` 등은 링크에서 제외, `onclick` stopPropagation으로 카드 클릭 액션과 분리)를 상위 프로젝트 요약 카드·장비 상세·일정 상세/목록·대시보드 카드·메모장 카드·휴대폰 일정 상세의 메모에 쓴다. 리스트 행의 인라인 편집 메모(`contenteditable`)도 linkify로 그리는데, 편집 칸 안의 링크는 브라우저가 안 열어줘서 링크의 `openMemoLink()`가 contenteditable 안일 때만 `window.open`으로 직접 연다(저장은 textContent라 태그는 안 남음). 새로 메모를 보여주는 곳엔 `esc()` 대신 `linkify()`를 쓸 것.
 
+**⌘B 굵게**: 메모 textarea(또는 행 메모 contenteditable)에서 글자를 고르고 ⌘B/Ctrl+B → `**…**`로 감싸고(다시 누르면 풀림, 전역 keydown), 보기 화면은 `linkify`가 `**…**`를 `<b>`로 그린다. 단 행 인라인 메모(contenteditable)는 `linkify(text,{bold:false})`로 기호 그대로 — 굵게 렌더하면 textContent 저장 때 `**`가 사라지기 때문.
+
+**시간 입력은 타이핑**: `<input type=time>`(휠) 대신 `timeFieldHtml(name, value)` 텍스트 칸 + 미리보기(→ 오후 8:00) + 자주 쓰는 시간 칩(`time-chip`). `parseTimeInput()`이 "8:30/830/20/1930/8시 30분/8시반/오후 2시/pm 7" 등을 HH:MM으로(오전·오후 표시 없으면 24시간제로 해석), 칸을 벗어나면(change) 정규화, 저장 때도 다시 파싱. 일정 등록 창과 프로젝트 창(📅 캘린더 일정 — 날짜·카테고리 줄 아래)에 사용.
+
 **긴 URL/메모가 화면 폭을 밀어내지 않게 할 것**: 아이폰에서 상위 프로젝트 메모에 들어간 공백 없는 긴 SharePoint 링크가 문서 폭을 넓혀서 페이지 전체가 절반 크기로 축소돼 보이고, 요약 카드의 ✎/✕가 카드 밖으로 밀려난 적이 있다. 그래서 `html,body{overflow-x:hidden}`, `.app-main{min-width:0; overflow-x:clip}`, 메모/링크/상세값에 `overflow-wrap:anywhere`를 걸어뒀고, 폰에서는 상위 요약 카드를 세로로 쌓아 버튼을 카드 안 오른쪽 아래에 둔다. 사용자 입력 텍스트를 새로 보여주는 곳에도 같은 줄바꿈 처리를 할 것.
 
 **폰트/전역 스타일 주의**: 전역 모달(`.eq-modal-overlay`)은 `.app-shell` 밖에 렌더되므로 폰트를 `.app-shell`에만 지정하면 모달 글씨가 브라우저 기본 명조체로 나온다(설정 모달에서 실제로 발생) — `html, body`에 `font-family:var(--font-body)`를 둔 이유. 또 `--font-mono`는 이제 `var(--font-body)`(페이퍼로지)를 가리킨다 — 예전 IBM Plex Mono는 로드도 안 돼서 코드·상태 라벨의 한글이 다른 폰트로 섞여 보였다. 숫자 정렬용 모노스페이스가 필요해지면 그때 따로 정의할 것.

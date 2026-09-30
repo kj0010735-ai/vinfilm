@@ -42,8 +42,36 @@ function colorMarkerStyle(color, basePadding) {
 }
 /* 메모 속 http(s) 주소를 눌러서 바로 열리는 링크로 — esc() 한 뒤에 감싸므로 안전. 링크를 눌러도 카드 클릭(data-action)이
    같이 실행되지 않게 stopPropagation. 끝에 붙은 문장부호/괄호는 링크에서 뺀다. */
-function linkify(text) {
-  return esc(text).replace(/https?:\/\/(?:(?!&quot;|&#39;|&lt;|&gt;)[^\s<>"'])+/g, (m) => {
+/* 시간 입력: 휠 대신 타이핑. "8:30" "830" "20" "1930" "8시 30분" "8시반" "오후 2시" "pm 7" 등을 HH:MM으로 바꾼다.
+   오전/오후 표시가 없으면 적힌 숫자 그대로(24시간제)로 본다 — 입력칸 옆 미리보기로 확인. */
+function parseTimeInput(raw) {
+  let s = String(raw || '').trim().toLowerCase().replace(/\s+/g, '');
+  if (!s) return '';
+  let pm = /오후|저녁|밤|pm|p\.m/.test(s), am = /오전|아침|새벽|am|a\.m/.test(s);
+  s = s.replace(/오후|저녁|밤|오전|아침|새벽|p\.?m\.?|a\.?m\.?/g, '');
+  let h, m = 0, mt;
+  if ((mt = s.match(/^(\d{1,2})시(?:(\d{1,2})분?|반)?$/))) { h = +mt[1]; m = s.includes('반') ? 30 : (mt[2] ? +mt[2] : 0); }
+  else if ((mt = s.match(/^(\d{1,2})[:.](\d{1,2})$/))) { h = +mt[1]; m = +mt[2]; }
+  else if ((mt = s.match(/^(\d{3,4})$/))) { h = +mt[1].slice(0, -2); m = +mt[1].slice(-2); }
+  else if ((mt = s.match(/^(\d{1,2})$/))) { h = +mt[1]; }
+  else return null;
+  if (pm && h < 12) h += 12;
+  if (am && h === 12) h = 0;
+  if (h > 23 || m > 59) return null;
+  return `${pad2(h)}:${pad2(m)}`;
+}
+function timeLabelKo(hhmm) { if (!hhmm) return ''; const [h, m] = hhmm.split(':').map(Number); return `${h < 12 ? '오전' : '오후'} ${h % 12 === 0 ? 12 : h % 12}:${pad2(m)}`; }
+const TIME_CHIPS = ['09:00', '10:00', '13:00', '14:00', '18:00', '19:00', '20:00'];
+function timeFieldHtml(name, value, attrs = '') {
+  return `<div class="time-field"><input type="text" name="${name}" class="time-input" data-role="time-input" autocomplete="off" inputmode="text" value="${esc(value || '')}" placeholder="예: 8:30, 오후 2시, 1930" ${attrs} />
+    <div class="time-hint" data-time-hint>${value ? timeLabelKo(value) : '비우면 하루 종일'}</div>
+    <div class="time-chips">${TIME_CHIPS.map(t => `<button type="button" class="time-chip" data-action="time-chip" data-id="${t}">${timeLabelKo(t).replace(':00', '시')}</button>`).join('')}</div></div>`;
+}
+function linkify(text, opts) {
+  let html = esc(text);
+  // ⌘B로 넣은 **굵게** 표시를 굵은 글씨로(편집 칸 안에서는 기호를 그대로 둬야 저장 때 안 사라져서 opts.bold=false)
+  if (!opts || opts.bold !== false) html = html.replace(/\*\*([^*\n][^\n]*?)\*\*/g, '<b>$1</b>');
+  return html.replace(/https?:\/\/(?:(?!&quot;|&#39;|&lt;|&gt;)[^\s<>"'])+/g, (m) => {
     const trail = (m.match(/[).,;:!?\]}]+$/) || [''])[0];
     const url = trail ? m.slice(0, -trail.length) : m;
     return `<a class="memo-link" href="${url}" target="_blank" rel="noopener" onclick="openMemoLink(event)">${url}</a>${trail}`;
@@ -1494,7 +1522,7 @@ function schedModalHtml() {
           <div class="eq-field-row">
             <div class="eq-field"><label id="schedDateLbl">${multi ? '시작일' : '날짜'}</label><input type="date" name="date" value="${esc(f.date)}" required data-role="sched-date-conflict" /><div id="schedConflict">${schedConflictHtml(f.date, editing ? editing.id : null)}</div></div>
             <div class="eq-field" id="schedEndWrap" style="${multi ? '' : 'display:none'}"><label>종료일</label><input type="date" name="endDate" value="${esc(f.endDate > f.date ? f.endDate : addDaysYmd(f.date, 1))}" min="${esc(f.date)}" ${multi ? 'required' : 'disabled'} /></div>
-            <div class="eq-field"><label>시간(콜타임)</label><input type="time" name="time" id="schedTimeInput" value="${esc(f.time)}" ${f.allDay?'disabled':''} /></div>
+            <div class="eq-field"><label>시간(콜타임)</label>${timeFieldHtml('time', f.time, `id="schedTimeInput" ${f.allDay ? 'disabled' : ''}`)}</div>
           </div>
           <div class="sched-allday-toggle"><input type="checkbox" name="allDay" id="schedAllDayCb" ${f.allDay?'checked':''} /><label for="schedAllDayCb" style="margin:0">하루 종일</label></div>
           <div class="eq-field"><label>카테고리</label><select name="category">${SCHED_CATEGORIES.map(c => `<option value="${c.id}" ${f.category===c.id?'selected':''}>${c.label}</option>`).join('')}</select></div>
@@ -1754,9 +1782,9 @@ function projModalHtml() {
           <div class="eq-field"><label>📅 캘린더 일정 <span style="color:var(--text-faint); font-weight:400;">(날짜를 넣으면 캘린더에 자동 등록, 비우면 빠짐)</span></label>
             <div class="eq-field-row">
               <div class="eq-field" style="margin:0; flex:1.4; min-width:0"><input type="date" name="schedDate" value="${esc(ls ? ls.date : '')}" data-role="sched-date-conflict" /></div>
-              <div class="eq-field" style="margin:0; min-width:0"><input type="time" name="schedTime" value="${esc(ls && ls.time ? ls.time : '')}" title="시간(비우면 하루 종일)" /></div>
-              <div class="eq-field" style="margin:0; flex:0 0 84px; display:flex"><select name="schedCategory" style="flex:1; height:auto">${SCHED_CATEGORIES.map(c => `<option value="${c.id}" ${(ls ? ls.category : 'shoot')===c.id?'selected':''}>${c.label}</option>`).join('')}</select></div>
+              <div class="eq-field" style="margin:0; flex:0 0 96px; display:flex"><select name="schedCategory" style="flex:1; height:auto">${SCHED_CATEGORIES.map(c => `<option value="${c.id}" ${(ls ? ls.category : 'shoot')===c.id?'selected':''}>${c.label}</option>`).join('')}</select></div>
             </div>
+            <div style="margin-top:8px">${timeFieldHtml('schedTime', ls && ls.time ? ls.time : '')}</div>
             <div id="schedConflict">${ls ? schedConflictHtml(ls.date) : ''}</div>
           </div>
           <div class="eq-field"><label>메모</label><textarea name="notes" class="sched-memo-textarea" placeholder="진행 상황, 참고사항 등">${esc(f.notes)}</textarea></div>
@@ -1902,7 +1930,7 @@ function projRowHtml(p) {
         <input type="date" class="proj-row-due-input" value="${esc(p.dueDate || '')}" data-role="proj-due-inline" data-id="${p.id}" onclick="event.stopPropagation()" />
         ${dday ? `<div class="proj-row-dday" style="background:${ddayBg}; color:${ddayColor};">${dday.text}</div>` : ''}
       </div>
-      <div class="proj-row-note" contenteditable="true" data-role="proj-notes-inline" data-id="${p.id}" onclick="openMemoLink(event)">${linkify(p.notes || '')}</div>
+      <div class="proj-row-note" contenteditable="true" data-role="proj-notes-inline" data-id="${p.id}" onclick="openMemoLink(event)">${linkify(p.notes || '', { bold: false })}</div>
       <div class="proj-row-actions-cell">
         <span class="proj-row-chevron">›</span>
       </div>
@@ -2187,7 +2215,7 @@ function sharedRowHtml(p) {
         <input type="date" class="proj-row-due-input" value="${esc(p.dueDate || '')}" data-role="shared-due-inline" data-id="${p.id}" onclick="event.stopPropagation()" />
         ${dday ? `<div class="proj-row-dday" style="background:${ddayBg}; color:${ddayColor};">${dday.text}</div>` : ''}
       </div>
-      <div class="proj-row-note" contenteditable="true" data-role="shared-notes-inline" data-id="${p.id}" onclick="openMemoLink(event)">${linkify(p.notes || '')}</div>
+      <div class="proj-row-note" contenteditable="true" data-role="shared-notes-inline" data-id="${p.id}" onclick="openMemoLink(event)">${linkify(p.notes || '', { bold: false })}</div>
       <div class="proj-row-actions-cell">
         <span class="proj-row-chevron">›</span>
       </div>
@@ -3929,6 +3957,11 @@ function bootApp() {
     if (/^(quote-|contract-|biz-sign)/.test(action) && !GUEST_MODE && (handleQuoteAction(action, el, e) || handleContractAction(action, el, e))) return;
     if (/^(collab-|shared-collab-filter)/.test(action) && !GUEST_MODE && handleCollabAction(action, el, e)) return;
     if (/^install-/.test(action) && handleInstallAction(action, el, e)) return;
+    if (action === 'time-chip') {
+      const box = el.closest('.time-field'), inp = box && box.querySelector('input');
+      if (inp && !inp.disabled) { inp.value = el.dataset.id; inp.dispatchEvent(new Event('input', { bubbles: true })); const ad = document.getElementById('schedAllDayCb'); if (ad && ad.checked && inp.id === 'schedTimeInput') { ad.checked = false; inp.disabled = false; } }
+      return;
+    }
     if (/^(notif-|notice-)/.test(action) && handleNotifAction(action, el, e)) return;
 
     switch (action) {
@@ -4391,6 +4424,11 @@ function bootApp() {
 
   /* text search (targeted refresh, no full render → keeps focus) */
   root.addEventListener('input', (e) => {
+    if (e.target.dataset && e.target.dataset.role === 'time-input') {
+      const v = parseTimeInput(e.target.value), hint = e.target.parentElement.querySelector('[data-time-hint]');
+      if (hint) { hint.textContent = !e.target.value.trim() ? '비우면 하루 종일' : v ? '→ ' + timeLabelKo(v) : '시간을 알아볼 수 없어요'; hint.classList.toggle('bad', v === null); }
+      return;
+    }
     if (S.quote.draft && handleQuoteInput(e)) return;
     if (S.quote.cdraft && handleContractInput(e)) return;
     if (e.target.id === 'eqSearchInput') { S.eq.search = e.target.value; refreshEqGrid(); }
@@ -4418,6 +4456,7 @@ function bootApp() {
     if (e.target.id === 'todayMonthPicker') {
       if (e.target.value) { S.today.month = e.target.value; render(); }
     }
+    if (e.target.dataset && e.target.dataset.role === 'time-input') { const v = parseTimeInput(e.target.value); if (v) e.target.value = v; }
     if (e.target.id === 'schedAllDayCb') {
       const timeInput = document.getElementById('schedTimeInput');
       if (timeInput) timeInput.disabled = e.target.checked;
@@ -4527,7 +4566,7 @@ function bootApp() {
       if (!title) return;
       const allDay = fd.has('allDay');
       const endRaw = (fd.get('endDate') || '').toString();
-      const payload = { title, date: fd.get('date'), endDate: endRaw && endRaw > fd.get('date') ? endRaw : '', time: allDay ? null : (fd.get('time') || null), location: fd.get('location') || '', contact: fd.get('contact') || '', category: fd.get('category') || 'shoot', memo: fd.get('memo') || '' };
+      const payload = { title, date: fd.get('date'), endDate: endRaw && endRaw > fd.get('date') ? endRaw : '', time: allDay ? null : (parseTimeInput(fd.get('time')) || null), location: fd.get('location') || '', contact: fd.get('contact') || '', category: fd.get('category') || 'shoot', memo: fd.get('memo') || '' };
       if (!GUEST_MODE && fd.has('collabId')) { const cid = (fd.get('collabId') || '').toString(); payload.collabId = cid; }
       if (S.sched.editingId) {
         saveSchedItems(schedItems.map(it => it.id === S.sched.editingId ? { ...it, ...payload } : it));
@@ -4548,7 +4587,7 @@ function bootApp() {
       const editingProj = S.proj.editingId ? projItems.find(p => p.id === S.proj.editingId) : null;
       const projId = editingProj ? editingProj.id : uid();
       const sDate = (fd.get('schedDate') || '').toString();
-      const sTime = (fd.get('schedTime') || '').toString() || null;
+      const sTime = parseTimeInput(fd.get('schedTime')) || null;
       const sCat = (fd.get('schedCategory') || 'shoot').toString();
       const linked = editingProj && editingProj.scheduleId ? schedItems.find(s => s.id === editingProj.scheduleId) : null;
       let scheduleId = linked ? linked.id : null;
@@ -4795,6 +4834,27 @@ function bootApp() {
       S.activeTab = 'projects';
     }
     render();
+  });
+
+  /* ⌘B / Ctrl+B: 메모 칸에서 고른 글자를 **굵게**로 감싼다(한 번 더 누르면 풀림). 보기 화면에서 굵은 글씨로 보임 */
+  document.addEventListener('keydown', (e) => {
+    if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'b' || e.altKey || e.shiftKey) return;
+    const t = e.target;
+    if (t.tagName === 'TEXTAREA') {
+      e.preventDefault();
+      const s = t.selectionStart, en = t.selectionEnd, v = t.value, sel = v.slice(s, en);
+      if (s === en) return;
+      let next, ns, ne;
+      if (v.slice(s - 2, s) === '**' && v.slice(en, en + 2) === '**') { next = v.slice(0, s - 2) + sel + v.slice(en + 2); ns = s - 2; ne = en - 2; }
+      else if (/^\*\*[\s\S]*\*\*$/.test(sel)) { next = v.slice(0, s) + sel.slice(2, -2) + v.slice(en); ns = s; ne = en - 4; }
+      else { next = v.slice(0, s) + '**' + sel + '**' + v.slice(en); ns = s + 2; ne = en + 2; }
+      t.value = next; t.setSelectionRange(ns, ne); t.dispatchEvent(new Event('input', { bubbles: true }));
+    } else if (t.isContentEditable) {
+      e.preventDefault();
+      const sel = window.getSelection(); const txt = sel ? sel.toString() : '';
+      if (!txt) return;
+      document.execCommand('insertText', false, /^\*\*[\s\S]*\*\*$/.test(txt) ? txt.slice(2, -2) : '**' + txt + '**');
+    }
   });
 
   /* Esc closes whichever modal is open */
@@ -5730,6 +5790,13 @@ document.addEventListener('DOMContentLoaded', () => {
   .cal-ev.span-end::after { content:none; }
   .cal-cell.is-outside .cal-ev.span-mid, .cal-cell.is-outside .cal-ev.span-end { opacity:.45; }
   .cal-ev-spacer { visibility:hidden; pointer-events:none; }
+  /* 시간 입력 */
+  .time-field { display:flex; flex-direction:column; gap:5px; min-width:0; }
+  .time-hint { font-size:11.5px; color:var(--accent); min-height:1em; } .time-hint.bad { color:#d9534f; }
+  .time-chips { display:flex; flex-wrap:wrap; gap:4px; }
+  .time-chip { border:1px solid var(--border); background:var(--bg); color:var(--text-dim); border-radius:999px; padding:3px 8px; font-family:var(--font-body); font-size:11.5px; cursor:pointer; }
+  .time-chip:hover { border-color:var(--accent); color:var(--accent); }
+  .time-field input:disabled ~ .time-chips { opacity:.5; }
 </style>
 </body>
 </html>
