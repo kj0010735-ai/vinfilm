@@ -1842,7 +1842,7 @@ function projRowMenuHtml() {
       <button data-action="proj-duplicate" data-id="${m.id}">⧉ 복제</button>
       <button data-action="proj-open-edit" data-id="${m.id}">✎ 수정</button>
       <button data-action="proj-open-move" data-id="${m.id}">📁 폴더 이동</button>
-      <button data-action="proj-confirm-delete" data-id="${m.id}">✕ 삭제</button>
+      <button data-action="${m.id === S.proj.currentParentId ? 'proj-confirm-delete-parent' : 'proj-confirm-delete'}" data-id="${m.id}">✕ 삭제</button>
     </div>`;
 }
 function projMoveModalHtml() {
@@ -1879,7 +1879,7 @@ function projParentSummaryHtml(p) {
   const meta = [p.serial, p.client, p.dueDate ? `마감 ${p.dueDate}${isDueToday ? ' (오늘)' : ''}` : ''].filter(Boolean).join(' · ');
   const linkedSched = p.scheduleId ? schedItems.find(s => s.id === p.scheduleId) : null;
   return `
-    <div class="proj-parent-card" style="${colorMarkerStyle(p.color, 18)}">
+    <div class="proj-parent-card" data-row-menu-id="${p.id}" style="${colorMarkerStyle(p.color, 18)}">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">
         <div>
           <span class="proj-row-pill" data-status-menu-id="${p.id}" style="background:${col.color}26; color:${col.color}; cursor:pointer;"><span class="proj-row-dot" style="background:${col.color};"></span>${col.label}</span>
@@ -2139,7 +2139,7 @@ function sharedRowMenuHtml() {
       <button data-action="shared-duplicate" data-id="${m.id}">⧉ 복제</button>
       <button data-action="shared-open-edit" data-id="${m.id}">✎ 수정</button>
       <button data-action="shared-open-move" data-id="${m.id}">📁 폴더 이동</button>
-      <button data-action="shared-confirm-delete" data-id="${m.id}">✕ 삭제</button>
+      <button data-action="${m.id === S.shared.currentParentId ? 'shared-confirm-delete-parent' : 'shared-confirm-delete'}" data-id="${m.id}">✕ 삭제</button>
     </div>`;
 }
 function sharedMoveModalHtml() {
@@ -2174,7 +2174,7 @@ function sharedParentSummaryHtml(p) {
   const isDueToday = p.dueDate === todayStr();
   const meta = [p.serial, p.client, p.dueDate ? `마감 ${p.dueDate}${isDueToday ? ' (오늘)' : ''}` : ''].filter(Boolean).join(' · ');
   return `
-    <div class="proj-parent-card" style="${colorMarkerStyle(p.color, 18)}">
+    <div class="proj-parent-card" data-shared-row-menu-id="${p.id}" style="${colorMarkerStyle(p.color, 18)}">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">
         <div>
           <span class="proj-row-pill" data-shared-status-menu-id="${p.id}" style="background:${st.color}26; color:${st.color}; cursor:pointer;"><span class="proj-row-dot" style="background:${st.color};"></span>${st.label}</span>
@@ -4180,6 +4180,7 @@ function bootApp() {
         break;
       }
       case 'proj-confirm-delete-parent': {
+        if (S.proj.rowMenu) { S.proj.rowMenu = null; render(); }
         const p = projItems.find(pr => pr.id === id);
         if (p && window.confirm(`"${p.title}"와(과) 하위 프로젝트를 모두 삭제할까요?`)) {
           const idsToDelete = new Set([id]);
@@ -4302,6 +4303,7 @@ function bootApp() {
         break;
       }
       case 'shared-confirm-delete-parent': {
+        if (S.shared.rowMenu) { S.shared.rowMenu = null; render(); }
         const p = sharedProjItems.find(pr => pr.id === id);
         if (p && window.confirm(`"${p.title}"와(과) 하위 프로젝트를 모두 삭제할까요?`)) {
           const idsToDelete = new Set([id]);
