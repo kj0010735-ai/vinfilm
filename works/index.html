@@ -1576,6 +1576,7 @@ function schedDetailModalHtml() {
           ${item.source !== 'calendar' ? `<button class="eq-modal-submit" data-action="sched-detail-edit" data-id="${item.id}">수정하기</button>` : ''}
           <button type="button" class="eq-detail-delete-btn" data-action="sched-detail-delete" data-id="${item.id}">삭제</button>
         </div>
+        ${!linkedProject && !GUEST_MODE && item.source !== 'calendar' ? `<button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border); margin-top:16px;" data-action="sched-make-project" data-id="${item.id}">📁 프로젝트 만들기</button>` : ''}
         ${packSectionHtml}
       </div>
     </div>`;
@@ -4101,6 +4102,16 @@ function bootApp() {
       case 'sched-open-detail': S.sched.detailId = id; render(); break;
       case 'sched-close-detail': S.sched.detailId = null; render(); break;
       case 'sched-close-detail-backdrop': if (!e.target.closest('[data-stop-close]')) { S.sched.detailId = null; render(); } break;
+      case 'sched-make-project': {
+        // 캘린더에서 먼저 만든 일정 → 같은 이름의 프로젝트를 만들고 서로 연결(scheduleId ↔ projectId)
+        const s = schedItems.find(x => x.id === id);
+        if (!s || GUEST_MODE || (s.projectId && projItems.some(p => p.id === s.projectId))) break;
+        const pid = uid();
+        saveProjItems([{ id: pid, serial: nextProjectSerial(projItems), createdAt: Date.now(), parentId: null, title: s.title, client: '', status: 'todo', type: s.category === 'shoot' ? 'shoot' : '', color: '', dueDate: '', notes: s.memo || '', scheduleId: s.id }, ...projItems]);
+        saveSchedItems(schedItems.map(x => x.id === id ? { ...x, projectId: pid } : x));
+        render();
+        break;
+      }
       case 'sched-detail-edit': S.sched.detailId = null; S.sched.editingId = id; S.sched.modalOpen = true; render(); break;
       case 'sched-detail-delete': {
         const item = schedItems.find(it => it.id === id);
