@@ -69,6 +69,8 @@
 
 **⌘B 굵게**: 메모 textarea(또는 행 메모 contenteditable)에서 글자를 고르고 ⌘B/Ctrl+B → `**…**`로 감싸고(다시 누르면 풀림, 전역 keydown), 보기 화면은 `linkify`가 `**…**`를 `<b>`로 그린다. 단 행 인라인 메모(contenteditable)는 `linkify(text,{bold:false})`로 기호 그대로 — 굵게 렌더하면 textContent 저장 때 `**`가 사라지기 때문.
 
+**메모 편집 칸은 `richMemoHtml(name, value, placeholder)`**(일정·프로젝트·공유 프로젝트 창): textarea 대신 contenteditable `.rich-memo`라 ⌘B가 별표가 아니라 진짜 굵은 글씨로 보인다(`execCommand('bold')`). 저장 형식은 그대로 `**굵게**` 텍스트 — `richMemoText()`가 DOM을 텍스트로 바꿔 바로 뒤의 숨긴 `<textarea name>`에 input·submit 때마다 옮겨 적고 FormData가 그걸 읽는다. 붙여넣기는 글자만, Enter는 `insertLineBreak`(div가 안 생기게). 오른쪽 패널에서는 메모 칸이 남는 높이를 채우고 내용만큼 늘어난다. 나머지 textarea(메모장·할 일·견적 등)는 예전 `**` 방식 그대로.
+
 **시간 입력은 타이핑**: `<input type=time>`(휠) 대신 `timeFieldHtml(name, value)` 텍스트 칸 + 미리보기(→ 오후 8:00) + 자주 쓰는 시간 칩(`time-chip`). `parseTimeInput()`이 "8:30/830/20/1930/8시 30분/8시반/오후 2시/pm 7" 등을 HH:MM으로(오전·오후 표시 없으면 24시간제로 해석), 칸을 벗어나면(change) 정규화, 저장 때도 다시 파싱. 일정 등록 창과 프로젝트 창(📅 캘린더 일정 — 날짜·카테고리 줄 아래)에 사용.
 
 **긴 URL/메모가 화면 폭을 밀어내지 않게 할 것**: 아이폰에서 상위 프로젝트 메모에 들어간 공백 없는 긴 SharePoint 링크가 문서 폭을 넓혀서 페이지 전체가 절반 크기로 축소돼 보이고, 요약 카드의 ✎/✕가 카드 밖으로 밀려난 적이 있다. 그래서 `html,body{overflow-x:hidden}`, `.app-main{min-width:0; overflow-x:clip}`, 메모/링크/상세값에 `overflow-wrap:anywhere`를 걸어뒀고, 폰에서는 상위 요약 카드를 세로로 쌓아 버튼을 카드 안 오른쪽 아래에 둔다. 사용자 입력 텍스트를 새로 보여주는 곳에도 같은 줄바꿈 처리를 할 것.

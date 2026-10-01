@@ -67,6 +67,44 @@ function timeFieldHtml(name, value, attrs = '') {
     <div class="time-hint" data-time-hint>${value ? timeLabelKo(value) : '비우면 하루 종일'}</div>
     <div class="time-chips">${TIME_CHIPS.map(t => `<button type="button" class="time-chip" data-action="time-chip" data-id="${t}">${timeLabelKo(t).replace(':00', '시')}</button>`).join('')}</div></div>`;
 }
+/* 메모 편집 칸: 굵게(⌘B)가 별표가 아니라 진짜 굵은 글씨로 보이는 편집 칸.
+   화면은 contenteditable, 저장 값은 예전과 같은 "**굵게**" 텍스트(숨긴 textarea에 계속 옮겨 적는다 — FormData가 그대로 읽음). */
+function richMemoHtml(name, value, placeholder) {
+  const html = esc(value || '').replace(/\*\*([^*\n][^\n]*?)\*\*/g, '<b>$1</b>');
+  return `<div class="rich-memo" contenteditable="true" data-rich="1" data-placeholder="${esc(placeholder || '')}">${html}</div><textarea name="${name}" hidden>${esc(value || '')}</textarea>`;
+}
+function richMemoText(el) {
+  const isBold = (n) => n.nodeType === 1 && (/^(B|STRONG)$/.test(n.tagName) || /^(bold|[6-9]00)$/.test(n.style && n.style.fontWeight || ''));
+  const walk = (node, bold) => {
+    let out = '';
+    node.childNodes.forEach((n, i) => {
+      if (n.nodeType === 3) {
+        const t = n.nodeValue;
+        out += bold ? t.split('\n').map(l => l.trim() ? l.replace(/^(\s*)([\s\S]*?)(\s*)$/, '$1**$2**$3') : l).join('\n') : t;
+      } else if (n.nodeType === 1) {
+        if (n.tagName === 'BR') { out += '\n'; return; }
+        const block = /^(DIV|P|LI)$/.test(n.tagName);
+        if (block && out && !out.endsWith('\n')) out += '\n';
+        out += walk(n, bold || isBold(n));
+        if (block && !out.endsWith('\n')) out += '\n';
+      }
+    });
+    return out;
+  };
+  // 붙어 있는 굵은 조각(**a****b**)은 하나로 합치고, 끝의 빈 줄 하나는 편집 칸이 붙인 것이라 뺀다
+  return walk(el, false).replace(/\*\*\*\*/g, '').replace(/\n$/, '');
+}
+function richMemoSync(el) { const ta = el.nextElementSibling; if (ta && ta.tagName === 'TEXTAREA') ta.value = richMemoText(el); }
+document.addEventListener('input', (e) => { const el = e.target.closest && e.target.closest('[data-rich]'); if (el) richMemoSync(el); });
+document.addEventListener('submit', (e) => { e.target.querySelectorAll && e.target.querySelectorAll('[data-rich]').forEach(richMemoSync); }, true);
+document.addEventListener('paste', (e) => {
+  const el = e.target.closest && e.target.closest('[data-rich]'); if (!el) return;
+  e.preventDefault(); document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain'));
+});
+document.addEventListener('keydown', (e) => {
+  const el = e.target.closest && e.target.closest('[data-rich]'); if (!el) return;
+  if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); document.execCommand('insertLineBreak'); }
+});
 function linkify(text, opts) {
   let html = esc(text);
   // ⌘B로 넣은 **굵게** 표시를 굵은 글씨로(편집 칸 안에서는 기호를 그대로 둬야 저장 때 안 사라져서 opts.bold=false)
@@ -1531,7 +1569,7 @@ function schedModalHtml() {
             <div class="eq-field"><label>장소</label><input name="location" value="${esc(f.location)}" placeholder="예: OO 스튜디오" /></div>
             <div class="eq-field"><label>담당자</label><input name="contact" value="${esc(f.contact)}" placeholder="예: 김민수 PD" /></div>
           </div>
-          <div class="eq-field"><label>메모</label><textarea name="memo" class="sched-memo-textarea" placeholder="촬영 내용, 준비물 등">${esc(f.memo)}</textarea></div>
+          <div class="eq-field"><label>메모</label>${richMemoHtml('memo', f.memo, '촬영 내용, 준비물 등')}</div>
           <button type="submit" class="eq-modal-submit">${editing ? '수정 완료' : '등록하기'}</button>
         </form>
       </div>
@@ -1788,7 +1826,7 @@ function projModalHtml() {
             <div style="margin-top:8px">${timeFieldHtml('schedTime', ls && ls.time ? ls.time : '')}</div>
             <div id="schedConflict">${ls ? schedConflictHtml(ls.date) : ''}</div>
           </div>
-          <div class="eq-field"><label>메모</label><textarea name="notes" class="sched-memo-textarea" placeholder="진행 상황, 참고사항 등">${esc(f.notes)}</textarea></div>
+          <div class="eq-field"><label>메모</label>${richMemoHtml('notes', f.notes, '진행 상황, 참고사항 등')}</div>
           <button type="submit" class="eq-modal-submit">${editing ? '수정 완료' : '등록하기'}</button>
         </form>
       </div>
@@ -2151,7 +2189,7 @@ function sharedModalHtml() {
             <select name="status">${SHARED_STATUSES.map(s => `<option value="${s.id}" ${f.status===s.id?'selected':''}>${s.label}</option>`).join('')}</select>
           </div>
           <div class="eq-field"><label>참고 링크</label><input name="link" value="${esc(f.link)}" placeholder="예: 공유 드라이브 링크" /></div>
-          <div class="eq-field"><label>메모</label><textarea name="notes" class="sched-memo-textarea" placeholder="외부 협업자와 공유할 내용">${esc(f.notes)}</textarea></div>
+          <div class="eq-field"><label>메모</label>${richMemoHtml('notes', f.notes, '외부 협업자와 공유할 내용')}</div>
           <button type="submit" class="eq-modal-submit">${editing ? '수정 완료' : '등록하기'}</button>
         </form>
       </div>
@@ -4901,6 +4939,8 @@ function bootApp() {
   document.addEventListener('keydown', (e) => {
     if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'b' || e.altKey || e.shiftKey) return;
     const t = e.target;
+    const rich = t.closest && t.closest('[data-rich]');
+    if (rich) { e.preventDefault(); document.execCommand('bold'); richMemoSync(rich); return; }
     if (t.tagName === 'TEXTAREA') {
       e.preventDefault();
       const s = t.selectionStart, en = t.selectionEnd, v = t.value, sel = v.slice(s, en);
@@ -5878,6 +5918,15 @@ document.addEventListener('DOMContentLoaded', () => {
   .yt-thumb:hover img { transform:scale(1.04); }
   .yt-play { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:20px; text-shadow:0 2px 8px rgba(0,0,0,.6); opacity:.9; pointer-events:none; }
   .yt-no { position:absolute; left:6px; top:6px; min-width:20px; height:20px; padding:0 5px; border-radius:10px; background:rgba(0,0,0,.6); color:#fff; font-size:11.5px; font-weight:700; display:flex; align-items:center; justify-content:center; box-sizing:border-box; }
+
+  /* 메모 편집 칸(굵게가 실제로 굵게 보이는 편집 칸) */
+  .rich-memo { width:100%; box-sizing:border-box; min-height:260px; max-height:60vh; overflow-y:auto; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px 12px; color:var(--text); font-family:var(--font-body); font-size:13.5px; line-height:1.6; outline:none; white-space:pre-wrap; overflow-wrap:anywhere; cursor:text; }
+  .rich-memo:focus { border-color:var(--accent); }
+  .rich-memo:empty::before { content:attr(data-placeholder); color:var(--text-faint); opacity:.5; pointer-events:none; }
+  .rich-memo b, .rich-memo strong { font-weight:800; }
+  @media (max-width: 720px) { .rich-memo { font-size:16px; } }
+  /* 오른쪽 패널에서는 메모 칸이 남는 높이를 채우고, 내용이 길면 칸이 같이 늘어난다(칸 안 스크롤 없음) */
+  @media (min-width: 721px) { .eq-modal-overlay.is-drawer .rich-memo { font-size:15px; min-height:max(320px, calc(100vh - 640px)); max-height:none; overflow-y:visible; } }
 </style>
 </body>
 </html>
