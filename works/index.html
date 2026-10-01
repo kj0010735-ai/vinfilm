@@ -1934,14 +1934,16 @@ function projDetailHtml() {
     <div class="eq-modal-overlay is-drawer" data-action="proj-close-detail-backdrop">
       <div class="eq-modal proj-detail" data-stop-close data-row-menu-id="${p.id}" style="${p.color ? `border-top:6px solid ${p.color};` : ''}">
         <div class="eq-modal-head"><h2>${ptype && ptype.icon ? ptype.icon + ' ' : ''}${esc(p.title)}</h2><button class="eq-modal-close" data-action="proj-close-detail">✕</button></div>
-        <div class="eq-detail-row"><span>상태</span><b><span class="proj-row-pill" data-status-menu-id="${p.id}" style="background:${col.color}26; color:${col.color}; cursor:pointer;"><span class="proj-row-dot" style="background:${col.color};"></span>${col.label}</span></b></div>
-        <div class="eq-detail-row"><span>번호</span><b>${esc(p.serial || '-')}</b></div>
-        ${ptype ? `<div class="eq-detail-row"><span>종류</span><b>${ptype.icon} ${ptype.label}</b></div>` : ''}
-        <div class="eq-detail-row"><span>클라이언트</span><b>${p.client ? esc(p.client) : '<span style="color:var(--text-faint);font-weight:400">없음</span>'}</b></div>
-        <div class="eq-detail-row"><span>마감</span><b>${p.dueDate ? `${dateLabel(p.dueDate)}${dd ? ` <small style="color:${dd.urgent ? 'var(--danger, #e5484d)' : 'var(--text-faint)'}">${dd.text}</small>` : ''}` : '<span style="color:var(--text-faint);font-weight:400">마감일 없음</span>'}</b></div>
-        <div class="eq-detail-row"><span>캘린더 일정</span><b>${linkedSched
+        <div class="pd-grid">
+        <div class="pd-card"><span>상태</span><b><span class="proj-row-pill" data-status-menu-id="${p.id}" style="background:${col.color}26; color:${col.color}; cursor:pointer;"><span class="proj-row-dot" style="background:${col.color};"></span>${col.label}</span></b></div>
+        <div class="pd-card"><span>번호</span><b>${esc(p.serial || '-')}</b></div>
+        <div class="pd-card"><span>종류</span><b>${ptype ? `${ptype.icon} ${ptype.label}` : '<span style="color:var(--text-faint);font-weight:400">미지정</span>'}</b></div>
+        <div class="pd-card"><span>클라이언트</span><b>${p.client ? esc(p.client) : '<span style="color:var(--text-faint);font-weight:400">없음</span>'}</b></div>
+        <div class="pd-card"><span>마감</span><b>${p.dueDate ? `${dateLabel(p.dueDate)}${dd ? ` <small style="color:${dd.urgent ? 'var(--danger, #e5484d)' : 'var(--text-faint)'}">${dd.text}</small>` : ''}` : '<span style="color:var(--text-faint);font-weight:400">마감일 없음</span>'}</b></div>
+        <div class="pd-card pd-wide"><span>캘린더 일정</span><b>${linkedSched
           ? `<button class="proj-sched-link" style="margin:0" data-action="proj-view-schedule" data-id="${p.id}">📅 ${dateLabel(linkedSched.date)} ${linkedSched.time || ''} ${linkedSched.location ? '· ' + esc(linkedSched.location) : ''}</button>`
           : `<button class="proj-sched-link proj-sched-link-add" style="margin:0" data-action="proj-create-schedule" data-id="${p.id}">+ 촬영 스케줄 만들기</button>`}</b></div>
+        </div>
         ${p.notes ? `<div class="eq-detail-notes">${linkify(p.notes)}</div>${ytThumbsHtml(p.notes)}` : `<div class="eq-detail-notes" style="color:var(--text-faint)">메모가 없어요. 수정하기를 눌러 적어 보세요.</div>`}
         <div class="eq-detail-actions">
           <button class="eq-modal-submit" data-action="proj-open-edit" data-id="${p.id}">✎ 수정하기</button>
@@ -5932,6 +5934,14 @@ document.addEventListener('DOMContentLoaded', () => {
   /* 제목 위에서 글자 커서(I)가 뜨지 않게 */
   .proj-row:not(.proj-row-head), .proj-row:not(.proj-row-head) .proj-row-title, .proj-row:not(.proj-row-head) .proj-row-code { cursor:pointer; }
   .eq-modal-head h2, .eq-detail-row > span, .proj-parent-meta, .eq-header h1 { cursor:default; }
+
+  /* 프로젝트 상세 패널: 정보 카드(이름 위, 값 아래)로 한눈에 */
+  .pd-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin:6px 0 4px; }
+  .pd-card { background:var(--bg); border:1px solid var(--border); border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:7px; min-width:0; }
+  .pd-card > span { font-size:12px; color:var(--text-dim); font-weight:600; cursor:default; }
+  .pd-card > b { font-size:15.5px; font-weight:700; display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-height:26px; overflow-wrap:anywhere; }
+  .pd-card.pd-wide { grid-column:span 2; }
+  @media (max-width: 720px) { .pd-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
 </style>
 </body>
 </html>
