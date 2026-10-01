@@ -1745,7 +1745,7 @@ function projModalHtml() {
     : { title: '', client: '', status: S.proj.addStatus || 'todo', type: '', color: '', dueDate: '', notes: '' };
   const ls = editing && editing.scheduleId ? schedItems.find(s => s.id === editing.scheduleId) : null;
   return `
-    <div class="eq-modal-overlay">
+    <div class="eq-modal-overlay is-drawer">
       <div class="eq-modal" data-stop-close>
         <div class="eq-modal-head"><h2>${editing ? '프로젝트 수정' : '새 프로젝트 등록'}</h2><button class="eq-modal-close" data-action="proj-close-modal">✕</button></div>
         <form data-form-role="proj-form">
@@ -2090,7 +2090,7 @@ function sharedModalHtml() {
     ? { title: editing.title, client: editing.client || '', dueDate: editing.dueDate || '', status: editing.status || 'todo', color: editing.color || '', link: editing.link || '', notes: editing.notes || '' }
     : { title: '', client: '', dueDate: '', status: 'todo', color: '', link: '', notes: '' };
   return `
-    <div class="eq-modal-overlay" data-action="shared-close-modal-backdrop">
+    <div class="eq-modal-overlay is-drawer" data-action="shared-close-modal-backdrop">
       <div class="eq-modal" data-stop-close>
         <div class="eq-modal-head"><h2>${editing ? '공유 프로젝트 수정' : '새 공유 프로젝트'}</h2><button class="eq-modal-close" data-action="shared-close-modal">✕</button></div>
         <form data-form-role="shared-form">
@@ -5810,6 +5810,15 @@ document.addEventListener('DOMContentLoaded', () => {
   .time-chip { border:1px solid var(--border); background:var(--bg); color:var(--text-dim); border-radius:999px; padding:3px 8px; font-family:var(--font-body); font-size:11.5px; cursor:pointer; }
   .time-chip:hover { border-color:var(--accent); color:var(--accent); }
   .time-field input:disabled ~ .time-chips { opacity:.5; }
+
+  /* ===== 프로젝트 등록/수정 창: 데스크톱에서는 오른쪽에서 나오는 넓은 패널(화면 절반) ===== */
+  @media (min-width: 721px) {
+    .eq-modal-overlay.is-drawer { justify-content:flex-end; align-items:stretch; padding:0; }
+    .eq-modal-overlay.is-drawer .eq-modal { width:50vw; min-width:520px; max-width:860px; max-height:none; height:100%; border-radius:0; border-width:0 0 0 1px; padding:32px 40px 40px; animation:drawerIn .28s cubic-bezier(.2,.8,.2,1) both; }
+    .eq-modal-overlay.is-drawer .eq-modal-head h2 { font-size:22px; }
+    .eq-modal-overlay.is-drawer textarea { min-height:220px; }
+  }
+  @keyframes drawerIn { from { transform:translateX(40px); opacity:0; } to { transform:none; opacity:1; } }
 </style>
 </body>
 </html>
