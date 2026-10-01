@@ -4052,6 +4052,9 @@ function bootApp() {
         if (GUEST_MODE && !GUEST_ALLOWED_TABS.includes(id)) return;
         S.activeTab = id;
         S.moreOpen = false;
+        // 메뉴에서 프로젝트/공유 프로젝트를 누르면 항상 첫 화면(최상위 목록)부터 — 전에 보던 폴더·상세 패널이 남아 있지 않게
+        if (id === 'projects') { S.proj.currentParentId = null; S.proj.detailId = null; S.proj.selectedIds = []; }
+        if (id === 'shared') { S.shared.currentParentId = null; S.shared.selectedIds = []; }
         window.scrollTo(0, 0);
         render();
         // 캘린더 탭을 누를 때마다 동기화하지 않는다 — 마지막 동기화 후 5분이 지났을 때만 조용히 가져온다.
