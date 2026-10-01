@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <!-- 웹앱(Safari Dock 추가/홈 화면)용: OS가 모서리를 직접 둥글게 깎으므로 여백/라운드 없이 꽉 채움 -->
   <rect width="1024" height="1024" fill="#f5f6f8"/>
-  <g transform="translate(92 92) scale(4.2)"><polygon points="100.0,31.2 159.6,65.6 159.6,134.4 100.0,168.8 40.4,134.4 40.4,65.6" fill="#111317" stroke="#111317" stroke-width="16" stroke-linejoin="round"/><polyline points="56,74 100,128 144,74" fill="none" stroke="#f5f6f8" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <g transform="translate(41.6 41.6) scale(4.704)"><polygon points="100.0,31.2 159.6,65.6 159.6,134.4 100.0,168.8 40.4,134.4 40.4,65.6" fill="#111317" stroke="#111317" stroke-width="16" stroke-linejoin="round"/><polyline points="56,74 100,128 144,74" fill="none" stroke="#f5f6f8" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/></g>
 </svg>
