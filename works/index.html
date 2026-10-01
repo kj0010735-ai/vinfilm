@@ -319,7 +319,7 @@ const S = {
   today: { viewMode: 'today', month: todayStr().slice(0, 7) },
   proj: { detailId: null, modalOpen: false, editingId: null, confirmDeleteId: null, addStatus: 'todo', search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [], selectMode: false, moveIds: null },
   collab: { open: false, editingId: null, msg: '' },
-  shared: { collabFilter: 'all', modalOpen: false, editingId: null, confirmDeleteId: null, search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [], selectMode: false, moveIds: null },
+  shared: { detailId: null, collabFilter: 'all', modalOpen: false, editingId: null, confirmDeleteId: null, search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [], selectMode: false, moveIds: null },
   shoot: { formOpen: false, editingParamsId: null, selectedShootId: null, mode: 'pack', confirmDeleteShootId: null, confirmDeletePresetId: null, applyPresetId: null },
   task: { modalOpen: false, editingId: null, confirmDeleteId: null },
   note: { modalOpen: false, editingId: null, confirmDeleteId: null },
@@ -2229,7 +2229,7 @@ function sharedRowMenuHtml() {
       <button data-action="shared-duplicate" data-id="${m.id}">⧉ 복제</button>
       <button data-action="shared-open-edit" data-id="${m.id}">✎ 수정</button>
       <button data-action="shared-open-move" data-id="${m.id}">📁 폴더 이동</button>
-      <button data-action="${m.id === S.shared.currentParentId ? 'shared-confirm-delete-parent' : 'shared-confirm-delete'}" data-id="${m.id}">✕ 삭제</button>
+      <button data-action="${m.id === S.shared.currentParentId || m.id === S.shared.detailId ? 'shared-confirm-delete-parent' : 'shared-confirm-delete'}" data-id="${m.id}">✕ 삭제</button>
     </div>`;
 }
 function sharedMoveModalHtml() {
@@ -2256,6 +2256,37 @@ function sharedMoveModalHtml() {
           </div>
           <button type="submit" class="eq-modal-submit">이동</button>
         </form>
+      </div>
+    </div>`;
+}
+/* 공유 프로젝트 상세 패널(프로젝트 탭의 projDetailHtml과 같은 방식): 행을 누르면 오른쪽에 보기 화면, 하위 항목이 있는 폴더는 그 안으로 */
+function sharedDetailHtml() {
+  const p = S.shared.detailId && !S.shared.modalOpen ? sharedProjItems.find(x => x.id === S.shared.detailId) : null;
+  if (!p) { window.__sdShown = null; return ''; }
+  const again = window.__sdShown === p.id; window.__sdShown = p.id;
+  const st = sharedStatusOf(p.status);
+  const dd = p.status !== 'done' ? projDday(p.dueDate) : null;
+  const none = (t) => `<span style="color:var(--text-faint);font-weight:400">${t}</span>`;
+  const collab = !GUEST_MODE && typeof collabs !== 'undefined' ? (p.collabId ? (collabs.find(x => x.id === p.collabId) || {}).name || '협업자' : '') : null;
+  return `
+    <div class="eq-modal-overlay is-drawer${again ? ' no-anim' : ''}" data-action="shared-close-detail-backdrop">
+      <div class="eq-modal proj-detail" data-stop-close data-shared-row-menu-id="${p.id}" style="${p.color ? `border-top:6px solid ${p.color};` : ''}">
+        <div class="eq-modal-head"><h2>${esc(p.title)}</h2><button class="eq-modal-close" data-action="shared-close-detail">✕</button></div>
+        <div class="pd-grid">
+          <div class="pd-card"><span>상태</span><b><span class="proj-row-pill" data-shared-status-menu-id="${p.id}" style="background:${st.color}26; color:${st.color}; cursor:pointer;"><span class="proj-row-dot" style="background:${st.color};"></span>${st.label}</span></b></div>
+          <div class="pd-card"><span>번호</span><b>${esc(p.serial || '-')}</b></div>
+          <div class="pd-card"><span>클라이언트</span><b>${p.client ? esc(p.client) : none('없음')}</b></div>
+          <div class="pd-card"><span>마감</span><b>${p.dueDate ? `${dateLabel(p.dueDate)}${dd ? ` <small style="color:${dd.urgent ? 'var(--danger, #e5484d)' : 'var(--text-faint)'}">${dd.text}</small>` : ''}` : none('마감일 없음')}</b></div>
+          ${collab !== null ? `<div class="pd-card"><span>볼 수 있는 협업자</span><b>${collab ? '👥 ' + esc(collab) : none('나만 보기')}</b></div>` : ''}
+          ${p.updatedBy ? `<div class="pd-card"><span>마지막 수정</span><b style="font-size:14px">${esc(p.updatedBy)} · ${formatUpdated(p.updatedAt)}</b></div>` : ''}
+          ${p.link ? `<div class="pd-card" style="grid-column:1 / -1"><span>링크</span><b style="font-size:14px;font-weight:500"><a class="memo-link" href="${esc(p.link)}" target="_blank" rel="noopener">${esc(p.link)}</a></b></div>` : ''}
+        </div>
+        ${p.notes ? `<div class="eq-detail-notes">${linkify(p.notes)}</div>${ytThumbsHtml(p.notes + ' ' + (p.link || ''))}` : `<div class="eq-detail-notes" style="color:var(--text-faint)">메모가 없어요. 수정하기를 눌러 적어 보세요.</div>${ytThumbsHtml(p.link || '')}`}
+        <div class="eq-detail-actions">
+          <button class="eq-modal-submit" data-action="shared-open-edit" data-id="${p.id}">✎ 수정하기</button>
+          <button type="button" class="eq-detail-delete-btn" data-action="shared-confirm-delete-parent" data-id="${p.id}">삭제</button>
+        </div>
+        <button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border); margin-top:12px;" data-action="shared-enter" data-id="${p.id}">📂 하위 프로젝트 열기</button>
       </div>
     </div>`;
 }
@@ -2401,6 +2432,7 @@ function renderSharedProjectsTab() {
       </div>` : ''}
     ${parent ? sharedParentSummaryHtml(parent) : ''}
     <div id="sharedProjList">${sharedListHtml()}</div>
+    ${sharedDetailHtml()}
     ${sharedModalHtml()}
     <div id="sharedMenuLayer">${sharedStatusMenuHtml()}${sharedRowMenuHtml()}</div>
     ${sharedMoveModalHtml()}
@@ -4061,7 +4093,7 @@ function bootApp() {
         S.moreOpen = false;
         // 메뉴에서 프로젝트/공유 프로젝트를 누르면 항상 첫 화면(최상위 목록)부터 — 전에 보던 폴더·상세 패널이 남아 있지 않게
         if (id === 'projects') { S.proj.currentParentId = null; S.proj.detailId = null; S.proj.selectedIds = []; }
-        if (id === 'shared') { S.shared.currentParentId = null; S.shared.selectedIds = []; }
+        if (id === 'shared') { S.shared.detailId = null; S.shared.currentParentId = null; S.shared.selectedIds = []; }
         window.scrollTo(0, 0);
         render();
         // 캘린더 탭을 누를 때마다 동기화하지 않는다 — 마지막 동기화 후 5분이 지났을 때만 조용히 가져온다.
@@ -4348,18 +4380,23 @@ function bootApp() {
       case 'shared-cancel-delete': S.shared.confirmDeleteId = null; render(); break;
       case 'shared-delete': saveSharedProjItems(sharedProjItems.filter(p => p.id !== id)); S.shared.confirmDeleteId = null; render(); break;
       case 'shared-set-status-filter': S.shared.statusFilter = id; render(); break;
+      case 'shared-enter':
       case 'shared-drill-in':
-        if (S.shared.selectMode) {
+        if (action === 'shared-drill-in' && S.shared.selectMode) {
           const cur = new Set(S.shared.selectedIds);
           if (cur.has(id)) cur.delete(id); else cur.add(id);
           S.shared.selectedIds = [...cur];
           refreshSharedProjList();
           break;
         }
+        if (action === 'shared-drill-in' && !sharedProjItems.some(p => p.parentId === id)) { S.shared.detailId = id; render(); break; }
+        S.shared.detailId = null;
         S.shared.currentParentId = id; S.shared.statusFilter = 'all'; S.shared.search = ''; S.shared.selectedIds = [];
         history.pushState({ sharedParentId: id }, '');
         render();
         break;
+      case 'shared-close-detail': S.shared.detailId = null; render(); break;
+      case 'shared-close-detail-backdrop': if (!e.target.closest('[data-stop-close]')) { S.shared.detailId = null; render(); } break;
       case 'shared-go-parent':
         S.shared.currentParentId = id || null; S.shared.statusFilter = 'all'; S.shared.search = ''; S.shared.selectedIds = [];
         history.pushState({ sharedParentId: id || null }, '');
