@@ -279,7 +279,7 @@ const S = {
   eq: { search: '', categoryFilter: 'all', statusFilter: 'all', sortBy: 'recent', sortOpen: false, modalOpen: false, editingId: null, confirmDeleteId: null, categoryModalOpen: false, detailId: null },
   sched: { view: 'month', cursor: todayStr(), prefillDate: null, search: '', categoryFilter: 'all', showPast: false, modalOpen: false, editingId: null, confirmDeleteId: null, importMsg: '', detailId: null, linkProjectId: null },
   today: { viewMode: 'today', month: todayStr().slice(0, 7) },
-  proj: { modalOpen: false, editingId: null, confirmDeleteId: null, addStatus: 'todo', search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [], selectMode: false, moveIds: null },
+  proj: { detailId: null, modalOpen: false, editingId: null, confirmDeleteId: null, addStatus: 'todo', search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [], selectMode: false, moveIds: null },
   collab: { open: false, editingId: null, msg: '' },
   shared: { collabFilter: 'all', modalOpen: false, editingId: null, confirmDeleteId: null, search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [], selectMode: false, moveIds: null },
   shoot: { formOpen: false, editingParamsId: null, selectedShootId: null, mode: 'pack', confirmDeleteShootId: null, confirmDeletePresetId: null, applyPresetId: null },
@@ -1872,6 +1872,47 @@ function projMoveModalHtml() {
       </div>
     </div>`;
 }
+/* 프로젝트 상세 패널: 행을 누르면 오른쪽에서 열리는 '보기' 화면. 수정은 여기서 "수정하기"를 눌렀을 때만 편집 창으로 넘어간다.
+   하위 프로젝트가 있는 항목(폴더)은 패널 대신 기존처럼 그 안으로 들어간다. */
+/* 메모 속 유튜브 링크(레퍼런스 영상)를 썸네일 카드로 보여준다 — 썸네일은 유튜브 이미지 주소로 바로 만들어져 API가 필요 없다 */
+function ytIdsIn(text) {
+  const ids = []; const re = /(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:[^\s#]*&)?v=|shorts\/|embed\/|live\/))([A-Za-z0-9_-]{11})/g;
+  let m; while ((m = re.exec(String(text || '')))) if (!ids.includes(m[1])) ids.push(m[1]);
+  return ids;
+}
+function ytThumbsHtml(text) {
+  const ids = ytIdsIn(text);
+  if (!ids.length) return '';
+  return `<div class="yt-thumbs">${ids.map((id, i) => `<a class="yt-thumb" href="https://youtu.be/${id}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="레퍼런스 ${i + 1}"><img src="https://img.youtube.com/vi/${id}/mqdefault.jpg" alt="" loading="lazy" /><span class="yt-play">▶</span><span class="yt-no">${i + 1}</span></a>`).join('')}</div>`;
+}
+function projDetailHtml() {
+  const p = S.proj.detailId && !S.proj.modalOpen ? projItems.find(x => x.id === S.proj.detailId) : null;
+  if (!p) return '';
+  const col = PROJECT_COLUMNS.find(c => c.id === p.status) || PROJECT_COLUMNS[0];
+  const ptype = projectTypeOf(p.type);
+  const dd = p.status !== 'done' ? projDday(p.dueDate) : null;
+  const linkedSched = p.scheduleId ? schedItems.find(s => s.id === p.scheduleId) : null;
+  return `
+    <div class="eq-modal-overlay is-drawer" data-action="proj-close-detail-backdrop">
+      <div class="eq-modal proj-detail" data-stop-close style="${p.color ? `border-top:6px solid ${p.color};` : ''}">
+        <div class="eq-modal-head"><h2>${ptype && ptype.icon ? ptype.icon + ' ' : ''}${esc(p.title)}</h2><button class="eq-modal-close" data-action="proj-close-detail">✕</button></div>
+        <div class="eq-detail-row"><span>상태</span><b><span class="proj-row-pill" data-status-menu-id="${p.id}" style="background:${col.color}26; color:${col.color}; cursor:pointer;"><span class="proj-row-dot" style="background:${col.color};"></span>${col.label}</span></b></div>
+        <div class="eq-detail-row"><span>번호</span><b>${esc(p.serial || '-')}</b></div>
+        ${ptype ? `<div class="eq-detail-row"><span>종류</span><b>${ptype.icon} ${ptype.label}</b></div>` : ''}
+        <div class="eq-detail-row"><span>클라이언트</span><b>${p.client ? esc(p.client) : '<span style="color:var(--text-faint);font-weight:400">없음</span>'}</b></div>
+        <div class="eq-detail-row"><span>마감</span><b>${p.dueDate ? `${dateLabel(p.dueDate)}${dd ? ` <small style="color:${dd.urgent ? 'var(--danger, #e5484d)' : 'var(--text-faint)'}">${dd.text}</small>` : ''}` : '<span style="color:var(--text-faint);font-weight:400">마감일 없음</span>'}</b></div>
+        <div class="eq-detail-row"><span>캘린더 일정</span><b>${linkedSched
+          ? `<button class="proj-sched-link" style="margin:0" data-action="proj-view-schedule" data-id="${p.id}">📅 ${dateLabel(linkedSched.date)} ${linkedSched.time || ''} ${linkedSched.location ? '· ' + esc(linkedSched.location) : ''}</button>`
+          : `<button class="proj-sched-link proj-sched-link-add" style="margin:0" data-action="proj-create-schedule" data-id="${p.id}">+ 촬영 스케줄 만들기</button>`}</b></div>
+        ${p.notes ? `<div class="eq-detail-notes">${linkify(p.notes)}</div>${ytThumbsHtml(p.notes)}` : `<div class="eq-detail-notes" style="color:var(--text-faint)">메모가 없어요. 수정하기를 눌러 적어 보세요.</div>`}
+        <div class="eq-detail-actions">
+          <button class="eq-modal-submit" data-action="proj-open-edit" data-id="${p.id}">✎ 수정하기</button>
+          <button type="button" class="eq-detail-delete-btn" data-action="proj-confirm-delete-parent" data-id="${p.id}">삭제</button>
+        </div>
+        <button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border); margin-top:12px;" data-action="proj-enter" data-id="${p.id}">📂 하위 프로젝트 열기</button>
+      </div>
+    </div>`;
+}
 function projParentSummaryHtml(p) {
   const col = PROJECT_COLUMNS.find(c => c.id === p.status) || PROJECT_COLUMNS[0];
   const ptype = projectTypeOf(p.type);
@@ -1885,7 +1926,7 @@ function projParentSummaryHtml(p) {
           <span class="proj-row-pill" data-status-menu-id="${p.id}" style="background:${col.color}26; color:${col.color}; cursor:pointer;"><span class="proj-row-dot" style="background:${col.color};"></span>${col.label}</span>
           ${ptype ? `<span class="proj-row-pill" style="background:var(--border); color:var(--text-dim); margin-left:6px;">${ptype.icon} ${ptype.label}</span>` : ''}
           <div class="proj-parent-meta">${esc(meta)}</div>
-          ${p.notes ? `<div class="proj-parent-notes">${linkify(p.notes)}</div>` : ''}
+          ${p.notes ? `<div class="proj-parent-notes">${linkify(p.notes)}</div>${ytThumbsHtml(p.notes)}` : ''}
           ${linkedSched
             ? `<button class="proj-sched-link" data-action="proj-view-schedule" data-id="${p.id}">📅 ${dateLabel(linkedSched.date)} ${linkedSched.time || ''} ${linkedSched.location ? '· ' + esc(linkedSched.location) : ''}</button>`
             : `<button class="proj-sched-link proj-sched-link-add" data-action="proj-create-schedule" data-id="${p.id}">+ 촬영 스케줄 만들기</button>`}
@@ -2075,6 +2116,7 @@ function renderProjectsTab() {
       </div>` : ''}
     ${parent ? projParentSummaryHtml(parent) : ''}
     <div id="projList">${projListHtml()}</div>
+    ${projDetailHtml()}
     ${projModalHtml()}
     ${projStatusMenuHtml()}
     ${projRowMenuHtml()}
@@ -2180,7 +2222,7 @@ function sharedParentSummaryHtml(p) {
           <span class="proj-row-pill" data-shared-status-menu-id="${p.id}" style="background:${st.color}26; color:${st.color}; cursor:pointer;"><span class="proj-row-dot" style="background:${st.color};"></span>${st.label}</span>
           <div class="proj-parent-meta">${esc(meta)}</div>
           ${p.link ? `<div class="proj-parent-meta"><a href="${esc(p.link)}" target="_blank" rel="noopener">${esc(p.link)}</a></div>` : ''}
-          ${p.notes ? `<div class="proj-parent-notes">${linkify(p.notes)}</div>` : ''}
+          ${p.notes ? `<div class="proj-parent-notes">${linkify(p.notes)}</div>${ytThumbsHtml(p.notes)}` : ''}
           ${p.updatedBy ? `<div class="proj-parent-meta">마지막 수정 · ${esc(p.updatedBy)} · ${formatUpdated(p.updatedAt)}</div>` : ''}
         </div>
         <div style="display:flex; gap:4px; flex-shrink:0;">
@@ -4153,18 +4195,24 @@ function bootApp() {
       case 'proj-cancel-delete': S.proj.confirmDeleteId = null; render(); break;
       case 'proj-delete': saveProjItems(projItems.filter(p => p.id !== id)); S.proj.confirmDeleteId = null; render(); break;
       case 'proj-set-status-filter': S.proj.statusFilter = id; render(); break;
+      case 'proj-enter':
       case 'proj-drill-in':
-        if (S.proj.selectMode) {
+        if (action === 'proj-drill-in' && S.proj.selectMode) {
           const cur = new Set(S.proj.selectedIds);
           if (cur.has(id)) cur.delete(id); else cur.add(id);
           S.proj.selectedIds = [...cur];
           refreshProjList();
           break;
         }
+        // 하위 프로젝트가 없는 항목은 오른쪽 상세 패널로, 있는 항목(폴더)은 그 안으로 들어간다
+        if (action === 'proj-drill-in' && !projItems.some(p => p.parentId === id)) { S.proj.detailId = id; render(); break; }
+        S.proj.detailId = null;
         S.proj.currentParentId = id; S.proj.statusFilter = 'all'; S.proj.search = ''; S.proj.selectedIds = [];
         history.pushState({ projParentId: id }, '');
         render();
         break;
+      case 'proj-close-detail': S.proj.detailId = null; render(); break;
+      case 'proj-close-detail-backdrop': if (!e.target.closest('[data-stop-close]')) { S.proj.detailId = null; render(); } break;
       case 'proj-go-parent':
         S.proj.currentParentId = id || null; S.proj.statusFilter = 'all'; S.proj.search = ''; S.proj.selectedIds = [];
         history.pushState({ projParentId: id || null }, '');
@@ -4201,7 +4249,7 @@ function bootApp() {
       case 'proj-create-schedule': S.sched.editingId = null; S.sched.linkProjectId = id; S.sched.modalOpen = true; render(); break;
       case 'proj-view-schedule': {
         const p = projItems.find(pr => pr.id === id);
-        if (p && p.scheduleId) { S.activeTab = 'schedule'; S.sched.detailId = p.scheduleId; render(); }
+        if (p && p.scheduleId) { S.proj.detailId = null; S.activeTab = 'schedule'; S.sched.detailId = p.scheduleId; render(); }
         break;
       }
       case 'proj-bulk-set-status': {
@@ -5281,8 +5329,8 @@ document.addEventListener('DOMContentLoaded', () => {
   .proj-sched-link:hover { opacity:0.85; }
   .proj-sched-link-add { background:none; border:1px dashed var(--border); color:var(--text-dim); }
   .proj-sched-link-add:hover { border-color:var(--accent); color:var(--accent); }
-  .proj-status-menu-backdrop { position:fixed; inset:0; z-index:49; }
-  .proj-status-menu { position:fixed; z-index:50; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:6px; box-shadow:0 10px 30px rgba(0,0,0,0.4); display:flex; flex-direction:column; min-width:120px; }
+  .proj-status-menu-backdrop { position:fixed; inset:0; z-index:149; }
+  .proj-status-menu { position:fixed; z-index:150; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:6px; box-shadow:0 10px 30px rgba(0,0,0,0.4); display:flex; flex-direction:column; min-width:120px; }
   .proj-status-menu button { display:flex; align-items:center; gap:8px; background:none; border:none; color:var(--text); font-size:13px; padding:8px 10px; border-radius:6px; cursor:pointer; text-align:left; font-family:var(--font-body); white-space:nowrap; }
   .proj-status-menu button:hover { background:var(--surface-hover); }
   .shared-guest-note { font-size:12px; color:var(--text-dim); background:var(--accent-soft); border-radius:8px; padding:10px 14px; margin-bottom:14px; max-width:640px; }
@@ -5819,6 +5867,17 @@ document.addEventListener('DOMContentLoaded', () => {
     .eq-modal-overlay.is-drawer textarea { min-height:220px; }
   }
   @keyframes drawerIn { from { transform:translateX(40px); opacity:0; } to { transform:none; opacity:1; } }
+
+  .proj-detail .eq-detail-row { font-size:15px; padding:13px 0; }
+  .proj-detail .eq-detail-notes { font-size:15.5px; padding:18px 0; min-height:120px; }
+
+  /* 메모 속 유튜브 레퍼런스 썸네일 */
+  .yt-thumbs { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px; margin:12px 0 4px; }
+  .yt-thumb { position:relative; display:block; aspect-ratio:16/9; border-radius:10px; overflow:hidden; background:var(--border); border:1px solid var(--border); }
+  .yt-thumb img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .2s ease; }
+  .yt-thumb:hover img { transform:scale(1.04); }
+  .yt-play { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:20px; text-shadow:0 2px 8px rgba(0,0,0,.6); opacity:.9; pointer-events:none; }
+  .yt-no { position:absolute; left:6px; top:6px; min-width:20px; height:20px; padding:0 5px; border-radius:10px; background:rgba(0,0,0,.6); color:#fff; font-size:11.5px; font-weight:700; display:flex; align-items:center; justify-content:center; box-sizing:border-box; }
 </style>
 </body>
 </html>
