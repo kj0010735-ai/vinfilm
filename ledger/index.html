@@ -64,6 +64,8 @@
   .sf-header-controls { display:flex; align-items:center; gap:10px; padding-top: 4px; }
   .sf-month-input { background: var(--sf-card); border:1px solid var(--sf-border); border-radius:8px; padding:9px 12px; font-family: var(--font-body); font-size:14px; color: var(--sf-text); outline:none; }
   .sf-month-input:focus { border-color: var(--sf-blue); }
+  .sf-month-nav { background: var(--sf-card); border:1px solid var(--sf-border); border-radius:8px; width:36px; height:38px; font-size:18px; color: var(--sf-text); cursor:pointer; font-family: var(--font-body); }
+  .sf-month-nav:hover { border-color: var(--sf-blue); color: var(--sf-blue); }
   .sf-btn-primary { background: var(--sf-blue); color:#fff; border:none; padding:10px 18px; border-radius:8px; font-family: var(--font-body); font-size:13.5px; font-weight:700; cursor:pointer; white-space:nowrap; }
   .sf-btn-primary:hover { filter: brightness(1.08); }
 
@@ -382,6 +384,16 @@ function initCloudSync() {
 
 function computeWithholding(totalAmount) { return Math.round((totalAmount || 0) * 0.033); }
 
+/* 이번 달이 비어 있을 때: 거래가 있는 가장 가까운 달로 바로 가는 안내(달이 바뀌면 "자료가 없어졌다"고 느끼기 쉬워서) */
+function otherMonthHint() {
+  const months = [...new Set(entries.map(x => (x.date || '').slice(0, 7)).filter(m => /^\d{4}-\d{2}$/.test(m) && m !== S.month))].sort();
+  if (!months.length) return '';
+  const prev = months.filter(m => m < S.month).pop() || months[months.length - 1];
+  const n = entries.filter(x => (x.date || '').slice(0, 7) === prev).length;
+  const [y, mo] = prev.split('-').map(Number);
+  return `<div style="margin-top:10px"><button class="sf-btn-primary" data-action="sf-month-go" data-id="${prev}">${y}년 ${mo}월 거래 ${n}건 보기</button></div>`;
+}
+
 function monthEntries(ym, tab) {
   return entries
     .filter(e => e.date && e.date.slice(0, 7) === ym)
@@ -459,7 +471,9 @@ function headerHtml() {
       <div class="sf-header-controls">
         ${S.activeTab === 'subs'
           ? `<button class="sf-btn-primary" data-action="sf-open-sub-add">+ 구독 추가</button>`
-          : `<input type="month" class="sf-month-input" id="sfMonthInput" value="${S.month}" />
+          : `<button class="sf-month-nav" data-action="sf-month-shift" data-id="-1" aria-label="이전 달">‹</button>
+             <input type="month" class="sf-month-input" id="sfMonthInput" value="${S.month}" />
+             <button class="sf-month-nav" data-action="sf-month-shift" data-id="1" aria-label="다음 달">›</button>
              <button class="sf-btn-primary" data-action="sf-open-add">+ 거래 등록</button>`}
       </div>
     </div>`;
@@ -549,7 +563,7 @@ function ledgerTableHtml() {
       </div>
       <table class="sf-table">
         <thead><tr><th>거래일 / 구분</th><th>거래처 · 프로젝트</th><th>총액 / 원천세</th><th>실제 입출금</th><th>지급 상태</th><th>증빙</th><th></th></tr></thead>
-        <tbody>${list.length ? list.map(ledgerRowHtml).join('') : `<tr class="sf-empty-row"><td colspan="7">이 달에는 등록된 거래가 없어요.</td></tr>`}</tbody>
+        <tbody>${list.length ? list.map(ledgerRowHtml).join('') : `<tr class="sf-empty-row"><td colspan="7">이 달에는 등록된 거래가 없어요.${otherMonthHint()}</td></tr>`}</tbody>
       </table>
     </div>`;
 }
@@ -1006,6 +1020,8 @@ document.addEventListener('click', e => {
   const id = btn.dataset.id;
   switch (action) {
     case 'sf-set-tab': S.activeTab = btn.dataset.tab; S.search = ''; render(); break;
+    case 'sf-month-shift': { const [yy, mm] = S.month.split('-').map(Number); const d = new Date(yy, mm - 1 + Number(btn.dataset.id), 1); S.month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; render(); break; }
+    case 'sf-month-go': S.month = btn.dataset.id; render(); break;
     case 'sf-open-add': S.modalOpen = true; S.editingId = null; render(); break;
     case 'sf-open-edit': S.modalOpen = true; S.editingId = id; render(); break;
     case 'sf-close-modal': if (e.target === btn) { S.modalOpen = false; S.editingId = null; render(); } break;
