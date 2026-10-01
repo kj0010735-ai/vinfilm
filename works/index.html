@@ -1551,7 +1551,7 @@ function schedModalHtml() {
   const multi = S.sched.multiDay != null ? S.sched.multiDay : !!(f.endDate && f.endDate > f.date);
   if (!editing && S.sched.prefillDate) f.date = S.sched.prefillDate;
   return `
-    <div class="eq-modal-overlay">
+    <div class="eq-modal-overlay is-drawer">
       <div class="eq-modal" data-stop-close>
         <div class="eq-modal-head"><h2>${editing ? '일정 수정' : linkProject ? `"${esc(linkProject.title)}" 촬영 스케줄 등록` : '새 일정 등록'}</h2><button class="eq-modal-close" data-action="sched-close-modal">✕</button></div>
         <form data-form-role="sched-form">
