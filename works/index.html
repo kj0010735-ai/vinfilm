@@ -1880,7 +1880,7 @@ function projRowMenuHtml() {
       <button data-action="proj-duplicate" data-id="${m.id}">⧉ 복제</button>
       <button data-action="proj-open-edit" data-id="${m.id}">✎ 수정</button>
       <button data-action="proj-open-move" data-id="${m.id}">📁 폴더 이동</button>
-      <button data-action="${m.id === S.proj.currentParentId ? 'proj-confirm-delete-parent' : 'proj-confirm-delete'}" data-id="${m.id}">✕ 삭제</button>
+      <button data-action="${m.id === S.proj.currentParentId || m.id === S.proj.detailId ? 'proj-confirm-delete-parent' : 'proj-confirm-delete'}" data-id="${m.id}">✕ 삭제</button>
     </div>`;
 }
 function projMoveModalHtml() {
@@ -1932,7 +1932,7 @@ function projDetailHtml() {
   const linkedSched = p.scheduleId ? schedItems.find(s => s.id === p.scheduleId) : null;
   return `
     <div class="eq-modal-overlay is-drawer" data-action="proj-close-detail-backdrop">
-      <div class="eq-modal proj-detail" data-stop-close style="${p.color ? `border-top:6px solid ${p.color};` : ''}">
+      <div class="eq-modal proj-detail" data-stop-close data-row-menu-id="${p.id}" style="${p.color ? `border-top:6px solid ${p.color};` : ''}">
         <div class="eq-modal-head"><h2>${ptype && ptype.icon ? ptype.icon + ' ' : ''}${esc(p.title)}</h2><button class="eq-modal-close" data-action="proj-close-detail">✕</button></div>
         <div class="eq-detail-row"><span>상태</span><b><span class="proj-row-pill" data-status-menu-id="${p.id}" style="background:${col.color}26; color:${col.color}; cursor:pointer;"><span class="proj-row-dot" style="background:${col.color};"></span>${col.label}</span></b></div>
         <div class="eq-detail-row"><span>번호</span><b>${esc(p.serial || '-')}</b></div>
@@ -4511,6 +4511,7 @@ function bootApp() {
 
   /* 프로젝트/공유 프로젝트: 상태 배지 우클릭 → 빠른 상태 변경, 행 우클릭 → 수정/삭제 메뉴 */
   root.addEventListener('contextmenu', (e) => {
+    if (e.target.closest('a')) return; // 링크 위에서는 브라우저 기본 메뉴(링크 복사 등)
     const pill = e.target.closest('[data-status-menu-id]');
     if (pill) { e.preventDefault(); S.proj.statusMenu = { id: pill.dataset.statusMenuId, x: e.clientX, y: e.clientY }; render(); return; }
     const sharedPill = e.target.closest('[data-shared-status-menu-id]');
@@ -5927,6 +5928,10 @@ document.addEventListener('DOMContentLoaded', () => {
   @media (max-width: 720px) { .rich-memo { font-size:16px; } }
   /* 오른쪽 패널에서는 메모 칸이 남는 높이를 채우고, 내용이 길면 칸이 같이 늘어난다(칸 안 스크롤 없음) */
   @media (min-width: 721px) { .eq-modal-overlay.is-drawer .rich-memo { font-size:15px; min-height:max(320px, calc(100vh - 640px)); max-height:none; overflow-y:visible; } }
+
+  /* 제목 위에서 글자 커서(I)가 뜨지 않게 */
+  .proj-row:not(.proj-row-head), .proj-row:not(.proj-row-head) .proj-row-title, .proj-row:not(.proj-row-head) .proj-row-code { cursor:pointer; }
+  .eq-modal-head h2, .eq-detail-row > span, .proj-parent-meta, .eq-header h1 { cursor:default; }
 </style>
 </body>
 </html>
