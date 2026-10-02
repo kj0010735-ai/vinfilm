@@ -19,7 +19,13 @@
 <title>작업 관리</title>
 <link rel="icon" type="image/png" href="../assets/works-icon.png">
 <link rel="apple-touch-icon" sizes="512x512" href="../assets/works-icon.png">
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="manifest" id="manifestLink" href="manifest.webmanifest">
+<script>
+/* 아이폰·아이패드는 범위가 사이트 전체(/)인 manifest.webmanifest를 그대로 쓰고(홈 화면 앱에서 수입·지출이 앱 안에서 열리게),
+   맥·PC는 범위를 works/로 좁힌 manifest-desktop.webmanifest를 쓴다 — 그래야 Chrome에서 수입지출(ledger/)을 별도 앱으로 설치할 수 있다.
+   두 파일은 scope만 다르니 하나를 고치면 다른 쪽도 같이 고칠 것. */
+if (!/iPhone|iPad|iPod/.test(navigator.userAgent) && !(navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) document.getElementById('manifestLink').href = 'manifest-desktop.webmanifest';
+</script>
 <script>
 /* 설치한 앱(Chrome)에 스트림덱 버튼 등으로 다른 화면 주소가 들어오면 새 창을 띄우지 않고 이 창에서 그 화면으로 간다
    — works/manifest.webmanifest의 launch_handler(focus-existing)와 짝. 같은 화면이면 아무것도 안 해서 보던 상태가 유지된다. */

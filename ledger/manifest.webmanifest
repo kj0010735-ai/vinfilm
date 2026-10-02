@@ -1,0 +1,21 @@
+{
+  "name": "VINFILM 수입지출",
+  "short_name": "VINFILM 수입지출",
+  "id": "/ledger/",
+  "start_url": "/ledger/",
+  "scope": "/ledger/",
+  "display": "standalone",
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
+  "background_color": "#f5f6f8",
+  "theme_color": "#f5f6f8",
+  "icons": [
+    {
+      "src": "../assets/ledger-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
