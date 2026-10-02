@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- KakaoTalk 2(두 번째 계정) 구분용: 검은 타일 + 흰 말풍선 + 2 -->
-  <rect x="100" y="100" width="824" height="824" rx="186" fill="#111317"/>
-  <g transform="translate(182 182) scale(3.3)"><path d="M100 46 C56 46 28 70 28 100 C28 119 40 135 59 145 L52 170 Q51 175 56 172 L84 153 Q92 154 100 154 C144 154 172 130 172 100 C172 70 144 46 100 46 Z" fill="#f5f6f8"/><path d="M82 86 q0-17 18-17 q18 0 18 15 q0 9-10 18 l-27 27 h39" fill="none" stroke="#111317" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/></g>
-</svg>
