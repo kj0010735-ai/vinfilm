@@ -6,3 +6,5 @@ tools/*.app/
 .claude/agents/
 # 마케팅 작업물(인스타 게시물 등) — 공개 저장소에 올리지 않는다
 marketing/
+# Claude 팀 공유 메모 — 공개 저장소에 올리지 않는다
+팀/
