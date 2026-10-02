@@ -4,3 +4,5 @@ firebase-debug.log
 tools/*.app/
 # Claude 팀(에이전트) 설정 — 공개 저장소에 올리지 않는다
 .claude/agents/
+# 마케팅 작업물(인스타 게시물 등) — 공개 저장소에 올리지 않는다
+marketing/
