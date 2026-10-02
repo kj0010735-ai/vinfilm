@@ -122,7 +122,7 @@
 
 ### 노래연습 탭 (works — 탭 id `songs`, 대표님 개인용)
 
-"유튜브 inst랑 가사 저장해놓고 노래연습할 수 있는 탭" 요청. `songs` 컬렉션(owner 전용 규칙 추가·배포함, `CLOUD_COLLECTIONS` 포함, `saveSongs` diff-sync) = `{id,title,artist,url(유튜브 inst),key(키·메모),lyrics,createdAt}`. 목록은 썸네일 카드(`songGridHtml`), 카드를 누르면 연습 화면(`S.song.playId`): 가사를 크게(가−/가+ `song-font`, 기기별 localStorage `vinfilm-song-font`) 보여주고 영상은 오른쪽 위 고정 패널. **영상 iframe은 root 바깥 body에 붙는 `#songDock`** 이라 `render()`가 다시 돌아도(동기화 등) 재생이 안 끊긴다 — `syncSongDock()`이 `render()` 끝에서 만들고/지우고, 유튜브 id가 바뀔 때만 iframe을 새로 만든다. 글자 크기도 같은 이유로 다시 그리지 않고 스타일만 바꾼다. 폰에서는 영상이 앱바 아래 고정, 가사가 그 아래로 스크롤. 가사는 `linkify`라 `**강조**`가 굵게(포인트 색) 보인다. 메뉴에서 탭을 누르면 항상 목록부터. 게스트·협업자 화면에는 없음.
+"유튜브 inst랑 가사 저장해놓고 노래연습할 수 있는 탭" 요청. `songs` 컬렉션(owner 전용 규칙 추가·배포함, `CLOUD_COLLECTIONS` 포함, `saveSongs` diff-sync) = `{id,title,artist,url(유튜브 inst),key(키·메모),lyrics,createdAt}`. 목록은 썸네일 카드(`songGridHtml`), 카드를 누르면 연습 화면(`S.song.playId`): 가사를 크게(가−/가+ `song-font`, 기기별 localStorage `vinfilm-song-font`) 보여주고 영상은 오른쪽 위 고정 패널. **영상 iframe은 root 바깥 body에 붙는 `#songDock`** 이라 `render()`가 다시 돌아도(동기화 등) 재생이 안 끊긴다 — `syncSongDock()`이 `render()` 끝에서 만들고/지우고, 유튜브 id가 바뀔 때만 iframe을 새로 만든다. 글자 크기도 같은 이유로 다시 그리지 않고 스타일만 바꾼다. 폰에서는 영상이 앱바 아래 고정, 가사가 그 아래로 스크롤. 가사는 `linkify`라 `**강조**`가 굵게(포인트 색) 보인다. 메뉴에서 탭을 누르면 항상 목록부터. 게스트·협업자 화면에는 없음. **링크로 바로 추가**: 목록 위 입력칸에 유튜브 링크를 붙여넣고 Enter(`song-quick-form`) → `songLookup()`이 유튜브 oEmbed(키 불필요, CORS 허용 확인)로 제목·채널을 읽어 곡을 만들고 바로 수정 창을 연다(같은 영상이 이미 있으면 그 곡을 연다). 수정 창의 링크 칸을 바꿔도 비어 있는 제목·가수를 채운다. **가사는 자동으로 가져오지 않는다**(저작권 — "링크만 넣으면 가사까지" 요청이 있었지만 가사 사이트를 긁어오는 기능은 만들지 않기로 함): 가사 칸의 "🔍 가사 검색"(`song-lyrics-search`)이 구글 검색을 새 탭으로 열고 사용자가 직접 붙여넣는다.
 
 ### 견적서 탭 (works — 견적 → 링크 공유 → 클라이언트 승인)
 

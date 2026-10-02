@@ -326,7 +326,7 @@ const S = {
   shoot: { formOpen: false, editingParamsId: null, selectedShootId: null, mode: 'pack', confirmDeleteShootId: null, confirmDeletePresetId: null, applyPresetId: null },
   task: { modalOpen: false, editingId: null, confirmDeleteId: null },
   note: { modalOpen: false, editingId: null, confirmDeleteId: null },
-  song: { modalOpen: false, editingId: null, playId: null, search: '' },
+  song: { modalOpen: false, editingId: null, playId: null, search: '', msg: '' },
   shortcut: { modalOpen: false, editingId: null },
   quote: { view: 'quotes', draft: null, cdraft: null, bizOpen: false, bizSignCleared: false, msg: '' },
 };
@@ -2945,6 +2945,16 @@ function renderNotesTab() {
    songs 컬렉션(owner 전용). 재생 화면의 영상은 root 바깥(body)에 붙는 고정 패널(#songDock)이라 render()가 다시 돌아도
    끊기지 않는다 — syncSongDock()이 render() 끝에서 만들고/지우고, 영상 id가 바뀔 때만 iframe을 새로 만든다.
    ======================================================================= */
+/* 유튜브 링크 → 제목·채널 이름(유튜브 oEmbed, 키 없이 브라우저에서 바로 읽힘). 가사는 저작권이 있어 자동으로 가져오지 않는다 — 검색 버튼으로 찾아 붙여넣기 */
+async function songLookup(url) {
+  if (!ytIdsIn(url).length) return null;
+  try {
+    const r = await fetch('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent(url));
+    if (!r.ok) return null;
+    const d = await r.json();
+    return { title: (d.title || '').trim(), artist: (d.author_name || '').replace(/\s*-\s*Topic$/i, '').trim() };
+  } catch (e) { return null; }
+}
 function songFontSize() { let v = 22; try { v = Number(localStorage.getItem('vinfilm-song-font')) || 22; } catch (e) {} return Math.max(14, Math.min(44, v)); }
 function songGridHtml() {
   const q = (S.song.search || '').trim().toLowerCase();
@@ -2976,7 +2986,7 @@ function songModalHtml() {
           <div class="eq-field"><label>가수 / 원곡</label><input name="artist" value="${esc(f.artist || '')}" placeholder="예: 손경민" /></div>
           <div class="eq-field"><label>유튜브 inst(MR) 링크</label><input name="url" value="${esc(f.url || '')}" placeholder="https://youtu.be/..." inputmode="url" /></div>
           <div class="eq-field"><label>키 · 메모 <span class="eq-hint">(선택)</span></label><input name="key" value="${esc(f.key || '')}" placeholder="예: 원키 G, -2키, 템포 72" /></div>
-          <div class="eq-field"><label>가사</label><textarea name="lyrics" class="sched-memo-textarea song-lyrics-input" placeholder="가사를 붙여넣으세요. 글자를 고르고 ⌘B를 누르면 강조돼요.">${esc(f.lyrics || '')}</textarea></div>
+          <div class="eq-field"><label>가사 <button type="button" class="eq-chip" style="margin-left:8px" data-action="song-lyrics-search">🔍 가사 검색</button></label><textarea name="lyrics" class="sched-memo-textarea song-lyrics-input" placeholder="가사를 붙여넣으세요. 글자를 고르고 ⌘B를 누르면 강조돼요.">${esc(f.lyrics || '')}</textarea></div>
           <button type="submit" class="eq-modal-submit">${editing ? '수정 완료' : '추가하기'}</button>
           ${editing ? `<button type="button" class="eq-detail-delete-btn" style="width:100%; margin-top:10px;" data-action="song-delete" data-id="${editing.id}">삭제</button>` : ''}
         </form>
@@ -3008,6 +3018,11 @@ function renderSongsTab() {
       <div class="eq-title-block"><h1 class="eq-title">노래연습</h1><div class="eq-stat">전체 <b>${songs.length}</b>곡</div></div>
       <button class="eq-add-btn" data-action="song-open-add">+ 노래 추가</button>
     </div>
+    <form class="song-quick" data-form-role="song-quick-form">
+      <input name="url" id="songQuickUrl" placeholder="유튜브 링크를 붙여넣고 Enter — 제목·채널을 알아서 채워 등록해요" inputmode="url" autocomplete="off" />
+      <button type="submit" class="eq-add-btn">링크로 추가</button>
+    </form>
+    ${S.song.msg ? `<div class="q-hint" style="margin-top:8px">${esc(S.song.msg)}</div>` : ''}
     ${songs.length > 6 ? `<div class="eq-toolbar"><div class="eq-search"><input id="songSearchInput" placeholder="제목, 가수로 찾기" value="${esc(S.song.search)}" /></div></div>` : ''}
     <div class="song-grid" id="songGrid">${songGridHtml()}</div>
     ${songModalHtml()}`;
@@ -4591,6 +4606,12 @@ function bootApp() {
       case 'song-open-edit': S.song.editingId = id; S.song.modalOpen = true; render(); break;
       case 'song-close-modal': S.song.modalOpen = false; S.song.editingId = null; render(); break;
       case 'song-close-modal-backdrop': if (!e.target.closest('[data-stop-close]')) { S.song.modalOpen = false; S.song.editingId = null; render(); } break;
+      case 'song-lyrics-search': {
+        const f = el.closest('form'); const t = f ? [f.elements.title.value, f.elements.artist.value].filter(Boolean).join(' ').trim() : '';
+        if (!t) { alert('곡 제목을 먼저 입력해 주세요.'); break; }
+        window.open('https://www.google.com/search?q=' + encodeURIComponent(t + ' 가사'), '_blank', 'noopener');
+        break;
+      }
       case 'song-play': S.song.playId = id; window.scrollTo(0, 0); render(); break;
       case 'song-back': S.song.playId = null; render(); break;
       case 'song-font': { // 다시 그리지 않고 글자 크기만 바꾼다(다시 그리면 재생 중인 영상이 끊김)
@@ -4702,6 +4723,15 @@ function bootApp() {
 
   /* checkboxes: allDay, photo file, ics import, shoot confirm/pack toggles */
   root.addEventListener('change', (e) => {
+    if (e.target.name === 'url' && e.target.form && e.target.form.matches('[data-form-role="song-form"]')) {
+      const f = e.target.form;
+      if (!f.elements.title.value.trim()) songLookup(normalizeUrl(e.target.value)).then(info => {
+        if (!info || !f.isConnected) return;
+        if (!f.elements.title.value.trim()) f.elements.title.value = info.title;
+        if (!f.elements.artist.value.trim()) f.elements.artist.value = info.artist;
+      });
+      return;
+    }
     if (e.target.dataset && e.target.dataset.role === 'proj-sort') { setProjSortMode(e.target.value); return; }
     if (e.target.dataset && e.target.dataset.role === 'shared-sort') { setSharedSortMode(e.target.value); return; }
     if (S.quote.draft && handleQuoteInput(e)) return;
@@ -4954,6 +4984,19 @@ function bootApp() {
       S.quote.bizSignCleared = false;
       saveBiz(next); S.quote.bizOpen = false; if (/사업자 정보|대표 서명/.test(S.quote.msg)) S.quote.msg = '';
       render();
+    } else if (form.matches('[data-form-role="song-quick-form"]')) {
+      const url = normalizeUrl((new FormData(form).get('url') || '').toString().trim().split(/\s+/)[0] || '');
+      const yt = ytIdsIn(url)[0];
+      if (!yt) { S.song.msg = '유튜브 링크를 붙여넣어 주세요.'; render(); return; }
+      const dup = songs.find(s => ytIdsIn(s.url)[0] === yt);
+      if (dup) { S.song.msg = ''; S.song.playId = dup.id; render(); return; }
+      S.song.msg = '제목을 불러오는 중…'; render();
+      songLookup(url).then(info => {
+        const id = uid();
+        saveSongs([{ id, createdAt: Date.now(), title: (info && info.title) || '새 노래', artist: (info && info.artist) || '', url: 'https://youtu.be/' + yt, key: '', lyrics: '' }, ...songs]);
+        S.song.msg = ''; S.song.editingId = id; S.song.modalOpen = true; // 바로 수정 창을 열어 가사를 붙여넣게 한다
+        render();
+      });
     } else if (form.matches('[data-form-role="song-form"]')) {
       const fd = new FormData(form);
       const title = (fd.get('title') || '').toString().trim();
@@ -6142,6 +6185,12 @@ document.addEventListener('DOMContentLoaded', () => {
     .song-play.has-video { padding-top:56.25vw; }
     .song-play-head { gap:8px; }
   }
+
+  .song-quick { display:flex; gap:8px; margin-top:14px; }
+  .song-quick input { flex:1; min-width:0; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:11px 14px; color:var(--text); font-family:var(--font-body); font-size:14px; outline:none; }
+  .song-quick input:focus { border-color:var(--accent); }
+  .song-quick .eq-add-btn { white-space:nowrap; }
+  @media (max-width: 720px) { .song-quick input { font-size:16px; } }
 </style>
 </body>
 </html>
