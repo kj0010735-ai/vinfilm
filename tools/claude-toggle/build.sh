@@ -25,3 +25,11 @@ exit 0
 SH
 chmod +x "$APP/Contents/MacOS/launcher"; codesign --force --deep -s - "$APP" >/dev/null 2>&1 || true
 echo "만들어졌어요: $APP"
+
+# "비서실 열기.app": 숨기지 않고 항상 앞으로만 가져온다 — 스트림덱 멀티 액션(열기 → 받아쓰기 단축키)의 첫 단계용.
+APP2="$DIR/비서실 열기.app"
+rm -rf "$APP2"; mkdir -p "$APP2/Contents/MacOS"
+sed -e 's/비서실 켜고끄기/비서실 열기/' -e 's/toggle.claude/open.claude/' "$APP/Contents/Info.plist" > "$APP2/Contents/Info.plist"
+printf '#!/bin/bash\nopen -b "%s"\nexit 0\n' "$BID" > "$APP2/Contents/MacOS/launcher"
+chmod +x "$APP2/Contents/MacOS/launcher"; codesign --force --deep -s - "$APP2" >/dev/null 2>&1 || true
+echo "만들어졌어요: $APP2"
