@@ -14,4 +14,7 @@ cp -R "$SRC" "$DST"
 rm -rf "$DST/Contents/_MASReceipt"
 xattr -cr "$DST"
 codesign --force --deep --sign - "$DST" >/dev/null 2>&1
+# 원본과 구분되는 아이콘(검은 타일 + 흰 말풍선 + 2)을 Finder 사용자 아이콘으로 붙인다 — 서명된 파일은 건드리지 않음
+DIR="$(cd "$(dirname "$0")" && pwd)"
+osascript -l JavaScript -e 'ObjC.import("AppKit"); function run(a){ var img=$.NSImage.alloc.initWithContentsOfFile(a[0]); return $.NSWorkspace.sharedWorkspace.setIconForFileOptions(img, a[1], 0); }' "$DIR/AppIcon.icns" "$DST" >/dev/null
 echo "만들어졌어요: $DST"
