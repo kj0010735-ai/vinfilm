@@ -1,0 +1,12 @@
+#!/bin/bash
+STATE="${TMPDIR:-/tmp}/vinfilm-navermail-last"
+FRONT=$(lsappinfo info -only bundleid "$(lsappinfo front)" 2>/dev/null)
+if [[ "$FRONT" == *com.google.Chrome* ]] && [ "$(cat "$STATE" 2>/dev/null)" = "kyubin" ]; then
+  URL=$(osascript -e 'tell application "Google Chrome" to get URL of active tab of front window' 2>/dev/null)
+  if [[ "$URL" == *mail.naver.com* ]]; then
+    osascript -e 'tell application "Google Chrome" to close active tab of front window' >/dev/null 2>&1
+    rm -f "$STATE"; exit 0
+  fi
+fi
+echo "kyubin" > "$STATE"
+open -na "Google Chrome" --args --profile-directory="Default" "https://mail.naver.com"

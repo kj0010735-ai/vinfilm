@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleName</key><string>네이버메일 김규빈 켜고끄기</string>
+  <key>CFBundleIdentifier</key><string>com.vinfilmstudio.toggle.navermail.kyubin</string>
+  <key>CFBundleExecutable</key><string>launcher</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>LSUIElement</key><true/>
+  <key>NSAppleEventsUsageDescription</key><string>네이버 메일 탭이 열려 있는지 확인하고 닫기 위해 Chrome을 제어합니다.</string>
+</dict></plist>
