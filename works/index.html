@@ -326,7 +326,7 @@ const S = {
   shoot: { formOpen: false, editingParamsId: null, selectedShootId: null, mode: 'pack', confirmDeleteShootId: null, confirmDeletePresetId: null, applyPresetId: null },
   task: { modalOpen: false, editingId: null, confirmDeleteId: null },
   note: { modalOpen: false, editingId: null, confirmDeleteId: null },
-  song: { modalOpen: false, editingId: null, playId: null, search: '', msg: '' },
+  song: { modalOpen: false, editingId: null, playId: null, search: '', msg: '', syncing: false, syncTimes: [], follow: true },
   shortcut: { modalOpen: false, editingId: null },
   quote: { view: 'quotes', draft: null, cdraft: null, bizOpen: false, bizSignCleared: false, msg: '' },
 };
@@ -2965,7 +2965,7 @@ function songSectionKind(label) {
   if (/인트로|아웃트로|간주|intro|outro|inter/.test(t)) return 'etc';
   return 'verse';
 }
-function songLyricsHtml(text) {
+function songBlocks(text) {
   const blocks = []; let cur = null;
   String(text || '').split('\n').forEach(raw => {
     const line = raw.replace(/\s+$/, '');
@@ -2975,11 +2975,39 @@ function songLyricsHtml(text) {
     if (!cur) { cur = { label: '', lines: [] }; blocks.push(cur); }
     cur.lines.push(line);
   });
-  return blocks.filter(b => b.label || b.lines.length).map(b => {
-    while (b.lines.length && !b.lines[b.lines.length - 1]) b.lines.pop();
+  return blocks.filter(b => b.label || b.lines.length).map(b => { while (b.lines.length && !b.lines[b.lines.length - 1]) b.lines.pop(); return b; });
+}
+function songTimeLabel(t) { if (typeof t !== 'number') return ''; const m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ':' + String(s).padStart(2, '0'); }
+/* times: 구간(블록) 순서대로의 시작 시각(초). 싱크 맞추기에서 구간을 눌러 찍고 songs[].secTimes에 저장한다 */
+function songLyricsHtml(text, times) {
+  times = times || [];
+  return songBlocks(text).map((b, i) => {
     const kind = b.label ? songSectionKind(b.label) : 'plain';
-    return `<div class="song-sec song-sec-${kind}">${b.label ? `<div class="song-sec-label">${esc(b.label)}</div>` : ''}<div class="song-sec-body">${linkify(b.lines.join('\n'))}</div></div>`;
+    const has = typeof times[i] === 'number';
+    return `<div class="song-sec song-sec-${kind} ${has ? 'is-set' : ''}" data-sec="${i}" data-action="song-sec-tap" data-id="${i}"><div class="song-sec-top">${b.label ? `<span class="song-sec-label">${esc(b.label)}</span>` : ''}<span class="song-sec-time">${has ? songTimeLabel(times[i]) : ''}</span></div><div class="song-sec-body">${linkify(b.lines.join('\n'))}</div></div>`;
   }).join('');
+}
+/* 재생 위치에 맞춰 지금 구간을 강조하고 따라 내려간다(0.3초마다). 싱크를 찍는 중에는 쉬어서 화면이 움직이지 않게 한다 */
+function songTick() {
+  const p = window.__songPlayer, ly = document.getElementById('songLyrics');
+  if (!p || !p.getCurrentTime || !ly || S.song.syncing) return;
+  const s = songs.find(x => x.id === S.song.playId); if (!s) return;
+  const times = s.secTimes || []; let t, playing = false;
+  try { t = p.getCurrentTime(); playing = p.getPlayerState() === 1; } catch (e) { return; }
+  let act = -1;
+  times.forEach((v, i) => { if (typeof v === 'number' && v <= t + 0.2 && (act < 0 || v >= times[act])) act = i; });
+  if (act === window.__songAct) return;
+  window.__songAct = act;
+  ly.querySelectorAll('.song-sec.now').forEach(el => el.classList.remove('now'));
+  const el = act >= 0 ? ly.querySelector('[data-sec="' + act + '"]') : null;
+  if (el) { el.classList.add('now'); if (playing && S.song.follow !== false) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+}
+function songEnsureApi(cb) {
+  if (window.YT && window.YT.Player) return cb();
+  (window.__ytCbs = window.__ytCbs || []).push(cb);
+  if (document.getElementById('ytApiScript')) return;
+  window.onYouTubeIframeAPIReady = () => { (window.__ytCbs || []).splice(0).forEach(f => { try { f(); } catch (e) {} }); };
+  const sc = document.createElement('script'); sc.id = 'ytApiScript'; sc.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(sc);
 }
 function songFontSize() { let v = 22; try { v = Number(localStorage.getItem('vinfilm-song-font')) || 22; } catch (e) {} return Math.max(14, Math.min(44, v)); }
 function songGridHtml() {
@@ -3033,11 +3061,15 @@ function renderSongsTab() {
           <div class="song-play-tools">
             <button class="eq-chip" data-action="song-font" data-id="-2" title="글자 작게">가−</button>
             <button class="eq-chip" data-action="song-font" data-id="2" title="글자 크게">가+</button>
+            ${yt && s.lyrics ? (S.song.syncing
+              ? `<button class="eq-chip active" data-action="song-sync-toggle">✓ 싱크 저장</button><button class="eq-chip" data-action="song-sync-cancel">취소</button>`
+              : `<button class="eq-chip" data-action="song-sync-toggle">⏱ 싱크 맞추기</button>${(s.secTimes || []).some(v => typeof v === 'number') ? `<button class="eq-chip ${S.song.follow !== false ? 'active' : ''}" data-action="song-follow">따라가기 ${S.song.follow !== false ? '켬' : '끔'}</button>` : ''}`) : ''}
             <button class="eq-chip" data-action="song-open-edit" data-id="${s.id}">✎ 수정</button>
           </div>
         </div>
+        ${S.song.syncing ? `<div class="song-sync-hint">🎵 노래를 틀고, <b>각 구간이 시작되는 순간 그 구간을 누르세요.</b> 잘못 눌렀으면 영상을 되감고 다시 누르면 돼요. 다 찍었으면 <b>✓ 싱크 저장</b>.</div>` : ''}
         ${!yt ? `<div class="q-hint" style="margin-bottom:14px">${s.url ? `유튜브 링크가 아니라 여기서 바로 틀 수 없어요. <a class="memo-link" href="${esc(s.url)}" target="_blank" rel="noopener">링크 열기</a>` : '유튜브 inst 링크를 넣으면 여기서 바로 틀 수 있어요.'}</div>` : ''}
-        <div class="song-lyrics" id="songLyrics" style="font-size:${songFontSize()}px">${s.lyrics ? songLyricsHtml(s.lyrics) : '<span style="color:var(--text-faint)">가사가 없어요. 수정에서 가사를 넣어 보세요.</span>'}</div>
+        <div class="song-lyrics ${S.song.syncing ? 'syncing' : ''}" id="songLyrics" style="font-size:${songFontSize()}px">${s.lyrics ? songLyricsHtml(s.lyrics, S.song.syncing ? S.song.syncTimes : s.secTimes) : '<span style="color:var(--text-faint)">가사가 없어요. 수정에서 가사를 넣어 보세요.</span>'}</div>
       </div>
       ${songModalHtml()}`;
   }
@@ -3059,11 +3091,15 @@ function syncSongDock() {
   const s = S.activeTab === 'songs' && S.song.playId ? songs.find(x => x.id === S.song.playId) : null;
   const yt = s ? ytIdsIn(s.url)[0] : null;
   let dock = document.getElementById('songDock');
-  if (!yt) { if (dock) dock.remove(); return; }
+  window.__songAct = null; // 화면이 다시 그려졌으니 '지금 구간' 표시를 다시 붙이게 한다
+  if (!yt) { if (dock) dock.remove(); window.__songPlayer = null; if (window.__songTimer) { clearInterval(window.__songTimer); window.__songTimer = null; } return; }
+  if (!window.__songTimer) window.__songTimer = setInterval(songTick, 300);
   if (!dock) { dock = document.createElement('div'); dock.id = 'songDock'; document.body.appendChild(dock); }
   if (dock.dataset.yt !== yt) {
     dock.dataset.yt = yt;
-    dock.innerHTML = `<iframe src="https://www.youtube.com/embed/${yt}?rel=0&playsinline=1" title="inst" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+    dock.innerHTML = `<iframe src="https://www.youtube.com/embed/${yt}?rel=0&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}" id="songFrame" title="inst" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+    window.__songPlayer = null;
+    songEnsureApi(() => { const f = document.getElementById('songFrame'); if (f && dock.dataset.yt === yt) { try { window.__songPlayer = new YT.Player(f, {}); } catch (e) {} } });
   }
 }
 
@@ -4230,7 +4266,7 @@ function bootApp() {
         S.activeTab = id;
         S.moreOpen = false;
         // 메뉴에서 프로젝트/공유 프로젝트를 누르면 항상 첫 화면(최상위 목록)부터 — 전에 보던 폴더·상세 패널이 남아 있지 않게
-        if (id === 'songs') { S.song.playId = null; S.song.search = ''; }
+        if (id === 'songs') { S.song.playId = null; S.song.search = ''; S.song.syncing = false; }
         if (id === 'projects') { S.proj.currentParentId = null; S.proj.detailId = null; S.proj.selectedIds = []; }
         if (id === 'shared') { S.shared.detailId = null; S.shared.currentParentId = null; S.shared.selectedIds = []; }
         window.scrollTo(0, 0);
@@ -4634,6 +4670,29 @@ function bootApp() {
       case 'song-open-edit': S.song.editingId = id; S.song.modalOpen = true; render(); break;
       case 'song-close-modal': S.song.modalOpen = false; S.song.editingId = null; render(); break;
       case 'song-close-modal-backdrop': if (!e.target.closest('[data-stop-close]')) { S.song.modalOpen = false; S.song.editingId = null; render(); } break;
+      case 'song-sec-tap': {
+        const s = songs.find(x => x.id === S.song.playId); const p = window.__songPlayer; const i = Number(id);
+        if (!s) break;
+        if (S.song.syncing) { // 지금 재생 위치를 이 구간의 시작으로 찍는다(다시 그리지 않고 배지만 바꿈)
+          let t = null; try { t = p && p.getCurrentTime ? Math.round(p.getCurrentTime() * 10) / 10 : null; } catch (x) {}
+          if (t === null) { alert('영상을 먼저 재생해 주세요. (재생이 안 되면 잠시 뒤 다시 눌러 보세요)'); break; }
+          S.song.syncTimes[i] = t;
+          el.classList.add('is-set'); const b = el.querySelector('.song-sec-time'); if (b) b.textContent = songTimeLabel(t);
+          el.classList.remove('tapped'); void el.offsetWidth; el.classList.add('tapped');
+        } else {
+          const t = (s.secTimes || [])[i];
+          if (typeof t === 'number' && p && p.seekTo) { try { p.seekTo(t, true); p.playVideo(); } catch (x) {} }
+        }
+        break;
+      }
+      case 'song-sync-toggle': {
+        const s = songs.find(x => x.id === S.song.playId); if (!s) break;
+        if (S.song.syncing) { const times = S.song.syncTimes.slice(); S.song.syncing = false; saveSongs(songs.map(x => x.id === s.id ? { ...x, secTimes: Array.from(times, v => typeof v === 'number' ? v : null) } : x)); }
+        else { S.song.syncing = true; S.song.syncTimes = (s.secTimes || []).slice(); }
+        render(); break;
+      }
+      case 'song-sync-cancel': S.song.syncing = false; S.song.syncTimes = []; render(); break;
+      case 'song-follow': S.song.follow = S.song.follow === false; render(); break;
       case 'song-insert-sec': { // 커서가 있는 줄 위에 "[후렴]" 같은 구간 이름 줄을 넣는다
         const ta = el.closest('form').elements.lyrics; const v = ta.value; const pos = ta.selectionStart || 0;
         const ls = v.lastIndexOf('\n', pos - 1) + 1;
@@ -4647,8 +4706,8 @@ function bootApp() {
         window.open('https://www.google.com/search?q=' + encodeURIComponent(t + ' 가사'), '_blank', 'noopener');
         break;
       }
-      case 'song-play': S.song.playId = id; window.scrollTo(0, 0); render(); break;
-      case 'song-back': S.song.playId = null; render(); break;
+      case 'song-play': S.song.syncing = false; S.song.playId = id; window.scrollTo(0, 0); render(); break;
+      case 'song-back': S.song.syncing = false; S.song.playId = null; render(); break;
       case 'song-font': { // 다시 그리지 않고 글자 크기만 바꾼다(다시 그리면 재생 중인 영상이 끊김)
         const next = Math.max(14, Math.min(44, songFontSize() + Number(id)));
         try { localStorage.setItem('vinfilm-song-font', String(next)); } catch (x) {}
@@ -5037,6 +5096,8 @@ function bootApp() {
       const title = (fd.get('title') || '').toString().trim();
       if (!title) return;
       const payload = { title, artist: (fd.get('artist') || '').toString().trim(), url: normalizeUrl((fd.get('url') || '').toString().trim()), key: (fd.get('key') || '').toString().trim(), lyrics: (fd.get('lyrics') || '').toString().replace(/\s+$/, '') };
+      const before = songs.find(s => s.id === S.song.editingId);
+      if (before && songBlocks(before.lyrics).length !== songBlocks(payload.lyrics).length) payload.secTimes = [];
       if (S.song.editingId) saveSongs(songs.map(s => s.id === S.song.editingId ? { ...s, ...payload } : s));
       else saveSongs([{ id: uid(), createdAt: Date.now(), ...payload }, ...songs]);
       S.song.modalOpen = false; S.song.editingId = null;
@@ -6237,6 +6298,23 @@ document.addEventListener('DOMContentLoaded', () => {
   .song-quick input:focus { border-color:var(--accent); }
   .song-quick .eq-add-btn { white-space:nowrap; }
   @media (max-width: 720px) { .song-quick input { font-size:16px; } }
+
+  /* 노래연습 싱크 */
+  .song-sec { transition:box-shadow .2s ease, background .2s ease, opacity .2s ease; }
+  .song-sec-top { display:flex; align-items:center; gap:8px; }
+  .song-sec-top:not(:has(.song-sec-label)):has(.song-sec-time:empty) { display:none; }
+  .song-sec-label { margin-bottom:0; }
+  .song-sec-top { margin-bottom:.45em; }
+  .song-sec-time { font-size:12px; font-weight:700; color:var(--text-faint); font-variant-numeric:tabular-nums; }
+  .song-sec-time:empty { display:none; }
+  .song-sec.is-set { cursor:pointer; }
+  .song-sec.now { box-shadow:0 0 0 2px var(--accent); background:var(--accent-soft); border-radius:12px; padding:.6em .8em; }
+  .song-lyrics:has(.song-sec.now) .song-sec:not(.now) { opacity:.55; }
+  .song-lyrics.syncing .song-sec { cursor:pointer; outline:1.5px dashed var(--border-strong); outline-offset:4px; border-radius:12px; opacity:1 !important; }
+  .song-lyrics.syncing .song-sec.is-set { outline-color:var(--accent); outline-style:solid; }
+  .song-sec.tapped { animation:songTap .35s ease; }
+  @keyframes songTap { 0% { transform:scale(.985); background:var(--accent-soft); } 100% { transform:none; } }
+  .song-sync-hint { background:var(--accent-soft); border:1px solid var(--border); border-radius:12px; padding:10px 14px; font-size:13.5px; line-height:1.55; margin-bottom:16px; }
 </style>
 </body>
 </html>
