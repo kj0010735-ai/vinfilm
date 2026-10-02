@@ -51,6 +51,8 @@ service cloud.firestore {
     match /presets/{id} { allow read, write: if isOwner(); }
     match /todayTasks/{id} { allow read, write: if isOwner(); }
     match /notes/{id} { allow read, write: if isOwner(); }
+    // 노래연습(유튜브 inst 링크 + 가사) — 대표님 개인용
+    match /songs/{id} { allow read, write: if isOwner(); }
     match /shortcuts/{id} { allow read, write: if isOwner(); }
     // 앱 설정(예: 아이폰 구독용 Google 캘린더 비공개 iCal 주소) — 비밀 링크라 owner만.
     match /appSettings/{id} { allow read, write: if isOwner(); }

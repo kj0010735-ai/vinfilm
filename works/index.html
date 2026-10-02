@@ -242,6 +242,7 @@ const NAV_ITEMS = [
   { id: 'quotes', icon: '🧾', label: '견적·계약' },
   { id: 'shared', icon: '🤝', label: '공유 프로젝트' },
   { id: 'notes', icon: '📝', label: '메모장' },
+  { id: 'songs', icon: '🎤', label: '노래연습' },
 ];
 const SHARED_STATUSES = [
   { id: 'todo', label: '준비중', color: '#e0a63c' },
@@ -270,6 +271,7 @@ const LS_SHOOTS = 'eq-manager-shoots';
 const LS_PRESETS = 'eq-manager-presets';
 const LS_TASKS = 'eq-manager-today-tasks';
 const LS_NOTES = 'eq-manager-notes';
+const LS_SONGS = 'eq-manager-songs';
 const LS_SHORTCUTS = 'eq-manager-shortcuts';
 /* 대시보드 바로가기 기본값 — 처음 한 번만 쓰이고, 이후엔 사용자가 추가/수정/삭제한 목록이 클라우드(shortcuts)에 저장됨 */
 const DEFAULT_SHORTCUTS = [
@@ -300,6 +302,7 @@ let shoots = GUEST_MODE ? [] : loadJSON(LS_SHOOTS, []);
 let presets = GUEST_MODE ? [] : loadJSON(LS_PRESETS, []);
 let todayTasks = GUEST_MODE ? [] : loadJSON(LS_TASKS, []);
 let notes = GUEST_MODE ? [] : loadJSON(LS_NOTES, []);
+let songs = GUEST_MODE ? [] : loadJSON(LS_SONGS, []);
 let shortcuts = loadJSON(LS_SHORTCUTS, DEFAULT_SHORTCUTS);
 let sharedProjItems = loadJSON(LS_SHARED, []);
 const LS_COLLABS = 'eq-manager-collabs';
@@ -323,6 +326,7 @@ const S = {
   shoot: { formOpen: false, editingParamsId: null, selectedShootId: null, mode: 'pack', confirmDeleteShootId: null, confirmDeletePresetId: null, applyPresetId: null },
   task: { modalOpen: false, editingId: null, confirmDeleteId: null },
   note: { modalOpen: false, editingId: null, confirmDeleteId: null },
+  song: { modalOpen: false, editingId: null, playId: null, search: '' },
   shortcut: { modalOpen: false, editingId: null },
   quote: { view: 'quotes', draft: null, cdraft: null, bizOpen: false, bizSignCleared: false, msg: '' },
 };
@@ -337,6 +341,7 @@ function saveShoots(next) { const prev = shoots; shoots = next; try { localStora
 function savePresets(next) { const prev = presets; presets = next; try { localStorage.setItem(LS_PRESETS, JSON.stringify(next)); } catch (e) {} pushToCloud('presets', prev, next); }
 function saveTodayTasks(next) { const prev = todayTasks; todayTasks = next; try { localStorage.setItem(LS_TASKS, JSON.stringify(next)); } catch (e) {} pushToCloud('todayTasks', prev, next); }
 function saveShortcuts(next) { const prev = shortcuts; shortcuts = next; try { localStorage.setItem(LS_SHORTCUTS, JSON.stringify(next)); } catch (e) {} pushToCloud('shortcuts', prev, next); }
+function saveSongs(next) { const prev = songs; songs = next; try { localStorage.setItem(LS_SONGS, JSON.stringify(next)); } catch (e) {} pushToCloud('songs', prev, next); }
 function saveNotes(next) { const prev = notes; notes = next; try { localStorage.setItem(LS_NOTES, JSON.stringify(next)); } catch (e) {} pushToCloud('notes', prev, next); }
 function saveSharedProjItems(next) { if (COLLAB_MODE) next = next.map(x => x.collabId ? x : { ...x, collabId: COLLAB_ID }); const prev = sharedProjItems; sharedProjItems = next; try { localStorage.setItem(LS_SHARED, JSON.stringify(next)); } catch (e) {} pushToCloud('sharedProjects', prev, next); }
 
@@ -351,6 +356,7 @@ function getLocalArrayFor(name) {
     case 'presets': return presets;
     case 'todayTasks': return todayTasks;
     case 'notes': return notes;
+    case 'songs': return songs;
     case 'shortcuts': return shortcuts;
     case 'sharedProjects': return sharedProjItems;
     case 'quotes': return quotes;
@@ -370,6 +376,7 @@ function applyCloudUpdate(name, items) {
     case 'presets': presets = items; try { localStorage.setItem(LS_PRESETS, JSON.stringify(items)); } catch (e) {} break;
     case 'todayTasks': todayTasks = items; try { localStorage.setItem(LS_TASKS, JSON.stringify(items)); } catch (e) {} break;
     case 'notes': notes = items; try { localStorage.setItem(LS_NOTES, JSON.stringify(items)); } catch (e) {} break;
+    case 'songs': songs = items; try { localStorage.setItem(LS_SONGS, JSON.stringify(items)); } catch (e) {} break;
     case 'shortcuts': shortcuts = items; try { localStorage.setItem(LS_SHORTCUTS, JSON.stringify(items)); } catch (e) {} break;
     case 'sharedProjects': sharedProjItems = items; try { localStorage.setItem(LS_SHARED, JSON.stringify(items)); } catch (e) {} break;
     case 'quotes': quotes = items; try { localStorage.setItem(LS_QUOTES, JSON.stringify(items)); } catch (e) {} break;
@@ -390,7 +397,7 @@ async function pushToCloud(name, prevArr, nextArr) {
   } catch (e) { console.warn('cloud sync push failed for', name, e); }
 }
 
-const CLOUD_COLLECTIONS = ['equipment', 'categories', 'schedule', 'projects', 'shoots', 'presets', 'todayTasks', 'notes', 'shortcuts', 'sharedProjects', 'quotes', 'contracts', 'collabs', 'notices'];
+const CLOUD_COLLECTIONS = ['equipment', 'categories', 'schedule', 'projects', 'shoots', 'presets', 'todayTasks', 'notes', 'songs', 'shortcuts', 'sharedProjects', 'quotes', 'contracts', 'collabs', 'notices'];
 /* 공유 링크(?guest=1)로 접속했을 때는 이 목록만 동기화한다 — 스케줄/메모장 등 내부 데이터는 외부 브라우저로 아예 내려받지 않는다. */
 const GUEST_CLOUD_COLLECTIONS = ['equipment', 'categories', 'sharedProjects'];
 const FIREBASE_CONFIG = {
@@ -1349,6 +1356,7 @@ const MI = {
   more: '<svg viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18.5" cy="12" r="1.3"/></svg>',
   shared: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19.5c.6-3.2 2.9-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9.5" r="2.5"/><path d="M16 14.6c2.4-.2 4.2 1.3 4.6 4.4"/></svg>',
   bag: '<svg viewBox="0 0 24 24"><path d="M6 8h12l-1 12H7z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>',
+  mic: '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M8.5 21h7"/></svg>',
   note: '<svg viewBox="0 0 24 24"><path d="M5 3.5h10l4 4V20a.5.5 0 0 1-.5.5h-13A.5.5 0 0 1 5 20z"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4"/></svg>',
   money: '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18M16 14.5h2"/></svg>',
   gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
@@ -1397,6 +1405,7 @@ function mobileMoreSheetHtml() {
       ${row('data-action="set-tab" data-id="quotes"', MI.quote, '견적·계약')}
       ${row('data-action="set-tab" data-id="shared"', MI.shared, '공유 프로젝트')}
       ${row('data-action="set-tab" data-id="notes"', MI.note, '메모장')}
+      ${row('data-action="set-tab" data-id="songs"', MI.mic, '노래연습')}
       <a class="m-sheet-row" href="../ledger/"><span class="m-sheet-ic">${MI.money}</span><span>수입·지출 관리</span><i>${MI.chev}</i></a>
       ${row('data-action="open-settings"', MI.gear, '설정')}
       ${row('data-action="logout"', MI.logout, '로그아웃', 'is-dim')}
@@ -2931,6 +2940,90 @@ function renderNotesTab() {
   `;
 }
 
+/* =======================================================================
+   SONGS TAB (노래연습) — 유튜브 inst(MR) 링크와 가사를 저장해 두고, 영상을 틀어 놓은 채 가사를 크게 보며 연습한다.
+   songs 컬렉션(owner 전용). 재생 화면의 영상은 root 바깥(body)에 붙는 고정 패널(#songDock)이라 render()가 다시 돌아도
+   끊기지 않는다 — syncSongDock()이 render() 끝에서 만들고/지우고, 영상 id가 바뀔 때만 iframe을 새로 만든다.
+   ======================================================================= */
+function songFontSize() { let v = 22; try { v = Number(localStorage.getItem('vinfilm-song-font')) || 22; } catch (e) {} return Math.max(14, Math.min(44, v)); }
+function songGridHtml() {
+  const q = (S.song.search || '').trim().toLowerCase();
+  const list = songs.filter(s => !q || [s.title, s.artist, s.key].some(v => (v || '').toLowerCase().includes(q)));
+  if (!songs.length) return `<div class="task-note-empty">아직 저장한 노래가 없어요. "+ 노래 추가"로 유튜브 inst 링크와 가사를 넣어 보세요.</div>`;
+  if (!list.length) return `<div class="task-note-empty">검색 결과가 없어요.</div>`;
+  return list.map(s => {
+    const yt = ytIdsIn(s.url)[0];
+    return `<div class="song-card" data-action="song-play" data-id="${s.id}">
+      <div class="song-thumb">${yt ? `<img src="https://img.youtube.com/vi/${yt}/mqdefault.jpg" alt="" loading="lazy" />` : '<span>🎤</span>'}<span class="yt-play">▶</span></div>
+      <div class="song-card-body">
+        <div class="song-card-title">${esc(s.title)}</div>
+        <div class="song-card-sub">${esc([s.artist, s.key].filter(Boolean).join(' · ')) || '&nbsp;'}</div>
+      </div>
+      <button class="eq-icon-btn song-card-edit" data-action="song-open-edit" data-id="${s.id}" title="수정">✎</button>
+    </div>`;
+  }).join('');
+}
+function songModalHtml() {
+  if (!S.song.modalOpen) return '';
+  const editing = S.song.editingId ? songs.find(s => s.id === S.song.editingId) : null;
+  const f = editing || { title: '', artist: '', url: '', key: '', lyrics: '' };
+  return `
+    <div class="eq-modal-overlay is-drawer" data-action="song-close-modal-backdrop">
+      <div class="eq-modal" data-stop-close>
+        <div class="eq-modal-head"><h2>${editing ? '노래 수정' : '노래 추가'}</h2><button class="eq-modal-close" data-action="song-close-modal">✕</button></div>
+        <form data-form-role="song-form">
+          <div class="eq-field"><label>곡 제목</label><input name="title" autofocus value="${esc(f.title)}" placeholder="예: 은혜" required /></div>
+          <div class="eq-field"><label>가수 / 원곡</label><input name="artist" value="${esc(f.artist || '')}" placeholder="예: 손경민" /></div>
+          <div class="eq-field"><label>유튜브 inst(MR) 링크</label><input name="url" value="${esc(f.url || '')}" placeholder="https://youtu.be/..." inputmode="url" /></div>
+          <div class="eq-field"><label>키 · 메모 <span class="eq-hint">(선택)</span></label><input name="key" value="${esc(f.key || '')}" placeholder="예: 원키 G, -2키, 템포 72" /></div>
+          <div class="eq-field"><label>가사</label><textarea name="lyrics" class="sched-memo-textarea song-lyrics-input" placeholder="가사를 붙여넣으세요. 글자를 고르고 ⌘B를 누르면 강조돼요.">${esc(f.lyrics || '')}</textarea></div>
+          <button type="submit" class="eq-modal-submit">${editing ? '수정 완료' : '추가하기'}</button>
+          ${editing ? `<button type="button" class="eq-detail-delete-btn" style="width:100%; margin-top:10px;" data-action="song-delete" data-id="${editing.id}">삭제</button>` : ''}
+        </form>
+      </div>
+    </div>`;
+}
+function renderSongsTab() {
+  const s = S.song.playId ? songs.find(x => x.id === S.song.playId) : null;
+  if (s) {
+    const yt = ytIdsIn(s.url)[0];
+    return `
+      <div class="song-play ${yt ? 'has-video' : ''}">
+        <div class="song-play-head">
+          <button class="eq-chip" data-action="song-back">‹ 목록</button>
+          <div class="song-play-title"><h1 class="eq-title">${esc(s.title)}</h1><div class="eq-stat">${esc([s.artist, s.key].filter(Boolean).join(' · '))}</div></div>
+          <div class="song-play-tools">
+            <button class="eq-chip" data-action="song-font" data-id="-2" title="글자 작게">가−</button>
+            <button class="eq-chip" data-action="song-font" data-id="2" title="글자 크게">가+</button>
+            <button class="eq-chip" data-action="song-open-edit" data-id="${s.id}">✎ 수정</button>
+          </div>
+        </div>
+        ${!yt ? `<div class="q-hint" style="margin-bottom:14px">${s.url ? `유튜브 링크가 아니라 여기서 바로 틀 수 없어요. <a class="memo-link" href="${esc(s.url)}" target="_blank" rel="noopener">링크 열기</a>` : '유튜브 inst 링크를 넣으면 여기서 바로 틀 수 있어요.'}</div>` : ''}
+        <div class="song-lyrics" id="songLyrics" style="font-size:${songFontSize()}px">${s.lyrics ? linkify(s.lyrics) : '<span style="color:var(--text-faint)">가사가 없어요. 수정에서 가사를 넣어 보세요.</span>'}</div>
+      </div>
+      ${songModalHtml()}`;
+  }
+  return `
+    <div class="eq-header">
+      <div class="eq-title-block"><h1 class="eq-title">노래연습</h1><div class="eq-stat">전체 <b>${songs.length}</b>곡</div></div>
+      <button class="eq-add-btn" data-action="song-open-add">+ 노래 추가</button>
+    </div>
+    ${songs.length > 6 ? `<div class="eq-toolbar"><div class="eq-search"><input id="songSearchInput" placeholder="제목, 가수로 찾기" value="${esc(S.song.search)}" /></div></div>` : ''}
+    <div class="song-grid" id="songGrid">${songGridHtml()}</div>
+    ${songModalHtml()}`;
+}
+function syncSongDock() {
+  const s = S.activeTab === 'songs' && S.song.playId ? songs.find(x => x.id === S.song.playId) : null;
+  const yt = s ? ytIdsIn(s.url)[0] : null;
+  let dock = document.getElementById('songDock');
+  if (!yt) { if (dock) dock.remove(); return; }
+  if (!dock) { dock = document.createElement('div'); dock.id = 'songDock'; document.body.appendChild(dock); }
+  if (dock.dataset.yt !== yt) {
+    dock.dataset.yt = yt;
+    dock.innerHTML = `<iframe src="https://www.youtube.com/embed/${yt}?rel=0&playsinline=1" title="inst" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+  }
+}
+
 /* ================= 견적서 =================
    작업관리에서 견적서를 만들고(quotes 컬렉션, owner 전용), "링크 공유"를 누르면 클라이언트가 로그인 없이 볼 수 있는
    스냅샷을 quotesPublic/{비밀 id}에 올린다 → quote/?t={id} 페이지가 그걸 읽어 보여주고, 클라이언트가 "견적 승인"을 누르면
@@ -3988,6 +4081,7 @@ function renderTab() {
   if (S.activeTab === 'shared') return renderSharedProjectsTab();
   if (S.activeTab === 'shootprep') return renderShootPrepTab();
   if (S.activeTab === 'notes') return renderNotesTab();
+  if (S.activeTab === 'songs') return renderSongsTab();
   if (S.activeTab === 'quotes') return renderQuotesTab();
   return '';
 }
@@ -3996,6 +4090,7 @@ function render() {
   fitCalendar();
   positionNavIndicator();
   quoteAfterRender();
+  syncSongDock();
   const main = document.querySelector('.app-main');
   if (main && window.__lastTab !== S.activeTab) { main.classList.add('tab-enter'); window.__lastTab = S.activeTab; }
   const af = document.querySelector('[autofocus]');
@@ -4092,6 +4187,7 @@ function bootApp() {
         S.activeTab = id;
         S.moreOpen = false;
         // 메뉴에서 프로젝트/공유 프로젝트를 누르면 항상 첫 화면(최상위 목록)부터 — 전에 보던 폴더·상세 패널이 남아 있지 않게
+        if (id === 'songs') { S.song.playId = null; S.song.search = ''; }
         if (id === 'projects') { S.proj.currentParentId = null; S.proj.detailId = null; S.proj.selectedIds = []; }
         if (id === 'shared') { S.shared.detailId = null; S.shared.currentParentId = null; S.shared.selectedIds = []; }
         window.scrollTo(0, 0);
@@ -4491,6 +4587,23 @@ function bootApp() {
       case 'shortcut-open-edit': S.shortcut.editingId = id; S.shortcut.modalOpen = true; render(); break;
       case 'shortcut-close-modal': S.shortcut.modalOpen = false; S.shortcut.editingId = null; render(); break;
       case 'shortcut-delete': saveShortcuts(shortcuts.filter(x => x.id !== id)); S.shortcut.modalOpen = false; S.shortcut.editingId = null; render(); break;
+      case 'song-open-add': S.song.editingId = null; S.song.modalOpen = true; render(); break;
+      case 'song-open-edit': S.song.editingId = id; S.song.modalOpen = true; render(); break;
+      case 'song-close-modal': S.song.modalOpen = false; S.song.editingId = null; render(); break;
+      case 'song-close-modal-backdrop': if (!e.target.closest('[data-stop-close]')) { S.song.modalOpen = false; S.song.editingId = null; render(); } break;
+      case 'song-play': S.song.playId = id; window.scrollTo(0, 0); render(); break;
+      case 'song-back': S.song.playId = null; render(); break;
+      case 'song-font': { // 다시 그리지 않고 글자 크기만 바꾼다(다시 그리면 재생 중인 영상이 끊김)
+        const next = Math.max(14, Math.min(44, songFontSize() + Number(id)));
+        try { localStorage.setItem('vinfilm-song-font', String(next)); } catch (x) {}
+        const ly = document.getElementById('songLyrics'); if (ly) ly.style.fontSize = next + 'px';
+        break;
+      }
+      case 'song-delete': {
+        const s = songs.find(x => x.id === id);
+        if (s && window.confirm(`"${s.title}"을(를) 삭제할까요?`)) { saveSongs(songs.filter(x => x.id !== id)); S.song.modalOpen = false; S.song.editingId = null; if (S.song.playId === id) S.song.playId = null; render(); }
+        break;
+      }
       case 'note-open-add': S.note.editingId = null; S.note.modalOpen = true; render(); break;
       case 'note-open-edit': S.note.editingId = id; S.note.modalOpen = true; render(); break;
       case 'note-close-modal': S.note.modalOpen = false; S.note.editingId = null; render(); break;
@@ -4582,6 +4695,7 @@ function bootApp() {
     if (S.quote.cdraft && handleContractInput(e)) return;
     if (e.target.id === 'eqSearchInput') { S.eq.search = e.target.value; refreshEqGrid(); }
     else if (e.target.id === 'schedSearchInput') { S.sched.search = e.target.value; refreshSchedList(); }
+    else if (e.target.id === 'songSearchInput') { S.song.search = e.target.value; const g = document.getElementById('songGrid'); if (g) g.innerHTML = songGridHtml(); }
     else if (e.target.id === 'projSearchInput') { S.proj.search = e.target.value; refreshProjList(); }
     else if (e.target.id === 'sharedProjSearchInput') { S.shared.search = e.target.value; refreshSharedProjList(); }
   });
@@ -4840,6 +4954,15 @@ function bootApp() {
       S.quote.bizSignCleared = false;
       saveBiz(next); S.quote.bizOpen = false; if (/사업자 정보|대표 서명/.test(S.quote.msg)) S.quote.msg = '';
       render();
+    } else if (form.matches('[data-form-role="song-form"]')) {
+      const fd = new FormData(form);
+      const title = (fd.get('title') || '').toString().trim();
+      if (!title) return;
+      const payload = { title, artist: (fd.get('artist') || '').toString().trim(), url: normalizeUrl((fd.get('url') || '').toString().trim()), key: (fd.get('key') || '').toString().trim(), lyrics: (fd.get('lyrics') || '').toString().replace(/\s+$/, '') };
+      if (S.song.editingId) saveSongs(songs.map(s => s.id === S.song.editingId ? { ...s, ...payload } : s));
+      else saveSongs([{ id: uid(), createdAt: Date.now(), ...payload }, ...songs]);
+      S.song.modalOpen = false; S.song.editingId = null;
+      render();
     } else if (form.matches('[data-form-role="note-form"]')) {
       const fd = new FormData(form);
       const content = (fd.get('content') || '').toString().trim();
@@ -5027,6 +5150,7 @@ function bootApp() {
     if (S.shoot.formOpen) { S.shoot.formOpen = false; S.shoot.editingParamsId = null; S.shoot.applyPresetId = null; changed = true; }
     if (S.task.modalOpen) { S.task.modalOpen = false; S.task.editingId = null; changed = true; }
     if (S.note.modalOpen) { S.note.modalOpen = false; S.note.editingId = null; changed = true; }
+    if (S.song.modalOpen) { S.song.modalOpen = false; S.song.editingId = null; changed = true; }
     if (S.shortcut.modalOpen) { S.shortcut.modalOpen = false; S.shortcut.editingId = null; changed = true; }
     if (gcal.modalOpen) { gcal.modalOpen = false; changed = true; }
     if (S.moreOpen) { S.moreOpen = false; changed = true; }
@@ -5991,6 +6115,33 @@ document.addEventListener('DOMContentLoaded', () => {
   @media (max-width: 720px) { .pd-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
 
   .eq-modal-overlay.no-anim, .eq-modal-overlay.no-anim .eq-modal { animation:none !important; }
+
+  /* ===== 노래연습 ===== */
+  .song-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:14px; margin-top:14px; }
+  .song-card { position:relative; background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; cursor:pointer; box-shadow:var(--shadow-sm); transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+  .song-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-md); border-color:var(--accent); }
+  .song-thumb { position:relative; aspect-ratio:16/9; background:var(--border); display:flex; align-items:center; justify-content:center; font-size:34px; }
+  .song-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+  .song-card-body { padding:12px 14px 14px; }
+  .song-card-title { font-size:15.5px; font-weight:700; color:var(--text); overflow-wrap:anywhere; }
+  .song-card-sub { font-size:12.5px; color:var(--text-dim); margin-top:3px; overflow-wrap:anywhere; }
+  .song-card-edit { position:absolute; top:8px; right:8px; background:var(--surface); opacity:0; transition:opacity .15s ease; }
+  .song-card:hover .song-card-edit { opacity:1; }
+  .song-play-head { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:18px; }
+  .song-play-title { flex:1; min-width:160px; }
+  .song-play-tools { display:flex; gap:6px; flex-wrap:wrap; }
+  .song-lyrics { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.75; color:var(--text); font-weight:500; padding-bottom:40vh; }
+  .song-lyrics b { font-weight:800; color:var(--accent); }
+  .song-lyrics-input { min-height:42vh !important; line-height:1.6; }
+  #songDock { position:fixed; z-index:40; right:28px; top:96px; width:min(42vw, 620px); aspect-ratio:16/9; border-radius:16px; overflow:hidden; background:#000; box-shadow:var(--shadow-lg); }
+  #songDock iframe { width:100%; height:100%; border:0; display:block; }
+  @media (min-width: 721px) { .song-play.has-video { padding-right:calc(min(42vw, 620px) + 28px); } }
+  @media (max-width: 720px) {
+    .song-card-edit { opacity:1; }
+    #songDock { left:0; right:0; top:calc(env(safe-area-inset-top) + 52px); width:100%; border-radius:0; }
+    .song-play.has-video { padding-top:56.25vw; }
+    .song-play-head { gap:8px; }
+  }
 </style>
 </body>
 </html>
