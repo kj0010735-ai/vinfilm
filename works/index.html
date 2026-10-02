@@ -2955,6 +2955,32 @@ async function songLookup(url) {
     return { title: (d.title || '').trim(), artist: (d.author_name || '').replace(/\s*-\s*Topic$/i, '').trim() };
   } catch (e) { return null; }
 }
+/* 가사를 구간(벌스·후렴 등)별 블록으로 그린다: "[후렴]"처럼 대괄호만 있는 줄(앞뒤 ** 허용)이 구간 이름이고, 그 아래 줄들이 한 블록.
+   구간 이름이 없으면 빈 줄로 나뉜 덩어리마다 블록 하나. 후렴 계열은 색 띠로 강조해 한눈에 구분된다. */
+function songSectionKind(label) {
+  const t = label.toLowerCase();
+  if (/후렴|코러스|chorus|hook|싸비|사비/.test(t) && !/프리|pre/.test(t)) return 'chorus';
+  if (/프리|pre/.test(t)) return 'pre';
+  if (/브릿지|브리지|bridge/.test(t)) return 'bridge';
+  if (/인트로|아웃트로|간주|intro|outro|inter/.test(t)) return 'etc';
+  return 'verse';
+}
+function songLyricsHtml(text) {
+  const blocks = []; let cur = null;
+  String(text || '').split('\n').forEach(raw => {
+    const line = raw.replace(/\s+$/, '');
+    const m = line.trim().match(/^\**\s*\[([^\]]{1,30})\]\s*\**$/);
+    if (m) { cur = { label: m[1].trim(), lines: [] }; blocks.push(cur); return; }
+    if (!line.trim()) { if (cur && cur.lines.length && !cur.label) cur = null; else if (cur && cur.lines.length && cur.lines[cur.lines.length - 1] !== '') cur.lines.push(''); return; }
+    if (!cur) { cur = { label: '', lines: [] }; blocks.push(cur); }
+    cur.lines.push(line);
+  });
+  return blocks.filter(b => b.label || b.lines.length).map(b => {
+    while (b.lines.length && !b.lines[b.lines.length - 1]) b.lines.pop();
+    const kind = b.label ? songSectionKind(b.label) : 'plain';
+    return `<div class="song-sec song-sec-${kind}">${b.label ? `<div class="song-sec-label">${esc(b.label)}</div>` : ''}<div class="song-sec-body">${linkify(b.lines.join('\n'))}</div></div>`;
+  }).join('');
+}
 function songFontSize() { let v = 22; try { v = Number(localStorage.getItem('vinfilm-song-font')) || 22; } catch (e) {} return Math.max(14, Math.min(44, v)); }
 function songGridHtml() {
   const q = (S.song.search || '').trim().toLowerCase();
@@ -2986,7 +3012,9 @@ function songModalHtml() {
           <div class="eq-field"><label>가수 / 원곡</label><input name="artist" value="${esc(f.artist || '')}" placeholder="예: 손경민" /></div>
           <div class="eq-field"><label>유튜브 inst(MR) 링크</label><input name="url" value="${esc(f.url || '')}" placeholder="https://youtu.be/..." inputmode="url" /></div>
           <div class="eq-field"><label>키 · 메모 <span class="eq-hint">(선택)</span></label><input name="key" value="${esc(f.key || '')}" placeholder="예: 원키 G, -2키, 템포 72" /></div>
-          <div class="eq-field"><label>가사 <button type="button" class="eq-chip" style="margin-left:8px" data-action="song-lyrics-search">🔍 가사 검색</button></label><textarea name="lyrics" class="sched-memo-textarea song-lyrics-input" placeholder="가사를 붙여넣으세요. 글자를 고르고 ⌘B를 누르면 강조돼요.">${esc(f.lyrics || '')}</textarea></div>
+          <div class="eq-field"><label>가사 <button type="button" class="eq-chip" style="margin-left:8px" data-action="song-lyrics-search">🔍 가사 검색</button></label>
+            <div class="song-sec-chips"><span>구간 넣기</span>${['벌스', '프리코러스', '후렴', '브릿지', '간주', '아웃트로'].map(t => `<button type="button" class="eq-chip" data-action="song-insert-sec" data-id="${t}">[${t}]</button>`).join('')}</div>
+            <textarea name="lyrics" class="sched-memo-textarea song-lyrics-input" placeholder="가사를 붙여넣으세요. 글자를 고르고 ⌘B를 누르면 강조돼요.">${esc(f.lyrics || '')}</textarea></div>
           <button type="submit" class="eq-modal-submit">${editing ? '수정 완료' : '추가하기'}</button>
           ${editing ? `<button type="button" class="eq-detail-delete-btn" style="width:100%; margin-top:10px;" data-action="song-delete" data-id="${editing.id}">삭제</button>` : ''}
         </form>
@@ -3009,7 +3037,7 @@ function renderSongsTab() {
           </div>
         </div>
         ${!yt ? `<div class="q-hint" style="margin-bottom:14px">${s.url ? `유튜브 링크가 아니라 여기서 바로 틀 수 없어요. <a class="memo-link" href="${esc(s.url)}" target="_blank" rel="noopener">링크 열기</a>` : '유튜브 inst 링크를 넣으면 여기서 바로 틀 수 있어요.'}</div>` : ''}
-        <div class="song-lyrics" id="songLyrics" style="font-size:${songFontSize()}px">${s.lyrics ? linkify(s.lyrics) : '<span style="color:var(--text-faint)">가사가 없어요. 수정에서 가사를 넣어 보세요.</span>'}</div>
+        <div class="song-lyrics" id="songLyrics" style="font-size:${songFontSize()}px">${s.lyrics ? songLyricsHtml(s.lyrics) : '<span style="color:var(--text-faint)">가사가 없어요. 수정에서 가사를 넣어 보세요.</span>'}</div>
       </div>
       ${songModalHtml()}`;
   }
@@ -4606,6 +4634,13 @@ function bootApp() {
       case 'song-open-edit': S.song.editingId = id; S.song.modalOpen = true; render(); break;
       case 'song-close-modal': S.song.modalOpen = false; S.song.editingId = null; render(); break;
       case 'song-close-modal-backdrop': if (!e.target.closest('[data-stop-close]')) { S.song.modalOpen = false; S.song.editingId = null; render(); } break;
+      case 'song-insert-sec': { // 커서가 있는 줄 위에 "[후렴]" 같은 구간 이름 줄을 넣는다
+        const ta = el.closest('form').elements.lyrics; const v = ta.value; const pos = ta.selectionStart || 0;
+        const ls = v.lastIndexOf('\n', pos - 1) + 1;
+        const before = v.slice(0, ls).replace(/\n*$/, ''); const ins = (before ? before + '\n\n' : '') + '[' + id + ']\n';
+        ta.value = ins + v.slice(ls); ta.focus(); ta.setSelectionRange(ins.length, ins.length);
+        break;
+      }
       case 'song-lyrics-search': {
         const f = el.closest('form'); const t = f ? [f.elements.title.value, f.elements.artist.value].filter(Boolean).join(' ').trim() : '';
         if (!t) { alert('곡 제목을 먼저 입력해 주세요.'); break; }
@@ -6173,7 +6208,18 @@ document.addEventListener('DOMContentLoaded', () => {
   .song-play-head { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:18px; }
   .song-play-title { flex:1; min-width:160px; }
   .song-play-tools { display:flex; gap:6px; flex-wrap:wrap; }
-  .song-lyrics { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.75; color:var(--text); font-weight:500; padding-bottom:40vh; }
+  .song-lyrics { overflow-wrap:anywhere; line-height:1.75; color:var(--text); font-weight:500; padding-bottom:40vh; display:flex; flex-direction:column; gap:.9em; }
+  .song-sec { border-left:4px solid transparent; padding:.15em 0 .15em .8em; border-radius:4px; }
+  .song-sec-body { white-space:pre-wrap; }
+  .song-sec-label { display:inline-block; font-size:12.5px; font-weight:800; letter-spacing:.02em; padding:3px 10px; border-radius:999px; margin-bottom:.45em; background:var(--border); color:var(--text-dim); }
+  .song-sec-verse { border-left-color:var(--border-strong); }
+  .song-sec-pre { border-left-color:#e0a63c; } .song-sec-pre .song-sec-label { background:#e0a63c26; color:#b97f17; }
+  .song-sec-chorus { border-left-color:var(--accent); background:var(--accent-soft); padding:.6em .8em; border-radius:12px; }
+  .song-sec-chorus .song-sec-label { background:var(--accent); color:#fff; }
+  .song-sec-bridge { border-left-color:#8b5cf6; } .song-sec-bridge .song-sec-label { background:#8b5cf626; color:#8b5cf6; }
+  .song-sec-etc .song-sec-body { color:var(--text-dim); }
+  .song-sec-chips { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:2px 0 8px; }
+  .song-sec-chips > span { font-size:12px; color:var(--text-faint); margin-right:2px; }
   .song-lyrics b { font-weight:800; color:var(--accent); }
   .song-lyrics-input { min-height:42vh !important; line-height:1.6; }
   #songDock { position:fixed; z-index:40; right:28px; top:96px; width:min(42vw, 620px); aspect-ratio:16/9; border-radius:16px; overflow:hidden; background:#000; box-shadow:var(--shadow-lg); }
