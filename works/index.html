@@ -1491,9 +1491,29 @@ function dashProjectsHtml() {
 }
 
 /* ================= render: schedule tab ================= */
+/* 캘린더 보기 묶음 켜고 끄기 — '스케줄'(촬영·미팅·답사 = 가족 공유 캘린더)과 '작업'(마감·기타 + 프로젝트 마감 칩 = 작업 캘린더).
+   기기마다 localStorage에 기억하고, 휴대폰 일정(📱)은 이 설정과 무관. */
+const CAL_GROUPS_LS = 'vinfilm-works-cal-groups';
+function calGroupsHidden() {
+  if (!S.sched.hiddenGroups) { let v = {}; try { v = JSON.parse(localStorage.getItem(CAL_GROUPS_LS) || '{}') || {}; } catch (e) {} S.sched.hiddenGroups = { share: !!v.share, work: !!v.work }; }
+  return S.sched.hiddenGroups;
+}
+function schedCatHidden(cat) {
+  if (cat === 'calendar') return false;
+  const h = calGroupsHidden();
+  return SHARE_CATS.includes(cat) ? h.share : h.work;
+}
+function calGroupToggleHtml() {
+  const h = calGroupsHidden();
+  return `<div class="eq-chip-row">
+    <button class="eq-chip ${h.share ? '' : 'active'}" data-action="sched-toggle-group" data-id="share" title="촬영·미팅·답사">${h.share ? '○' : '●'} 스케줄</button>
+    <button class="eq-chip ${h.work ? '' : 'active'}" data-action="sched-toggle-group" data-id="work" title="마감·기타, 프로젝트 마감">${h.work ? '○' : '●'} 작업 일정</button>
+  </div>`;
+}
 function getFilteredSchedule() {
   let list = visibleSchedItems();
   const st = S.sched;
+  list = list.filter(it => !schedCatHidden(it.category));
   if (st.categoryFilter !== 'all') list = list.filter(it => it.category === st.categoryFilter);
   if (!st.showPast) list = list.filter(it => it.date >= todayStr());
   if (st.search.trim()) {
@@ -1657,13 +1677,13 @@ function projDueEvents() {
 function calFilteredItems() {
   // 캘린더는 과거도 보여야 하므로 "지난 일정" 토글은 무시하고 카테고리/검색만 적용
   const st = S.sched;
-  let list = visibleSchedItems();
+  let list = visibleSchedItems().filter(it => !schedCatHidden(it.category));
   if (st.categoryFilter !== 'all') list = list.filter(it => it.category === st.categoryFilter);
   if (st.search.trim()) {
     const q = st.search.trim().toLowerCase();
     list = list.filter(it => it.title.toLowerCase().includes(q) || (it.location||'').toLowerCase().includes(q) || (it.memo||'').toLowerCase().includes(q));
   }
-  if (st.categoryFilter === 'all' || st.categoryFilter === 'deadline') {
+  if ((st.categoryFilter === 'all' || st.categoryFilter === 'deadline') && !schedCatHidden('deadline')) {
     const q = st.search.trim().toLowerCase();
     list = [...list, ...projDueEvents().filter(ev => !q || ev.title.toLowerCase().includes(q))];
   }
@@ -1788,6 +1808,7 @@ function renderScheduleTab() {
     <div class="eq-toolbar">
       <div class="eq-search"><input id="schedSearchInput" placeholder="제목, 장소, 메모로 검색" value="${esc(S.sched.search)}" /></div>
       <div class="eq-chip-row">${SCHED_FILTER_CATEGORIES.filter(c => !GUEST_MODE || c.id !== 'calendar').map(c => `<button class="eq-chip ${S.sched.categoryFilter===c.id?'active':''}" data-action="sched-set-category-filter" data-id="${c.id}">${c.id !== 'all' ? `<span class="eq-chip-dot" style="background:var(--sched-${c.id})"></span>` : ''}${c.label}</button>`).join('')}</div>
+      ${calGroupToggleHtml()}
       ${S.sched.view === 'list' ? `<button class="eq-chip ${S.sched.showPast?'active':''}" data-action="sched-toggle-past">지난 일정 ${S.sched.showPast?'숨기기':'보기'}</button>` : ''}
     </div>
     <div class="cal-card">
@@ -1806,6 +1827,9 @@ function projModalHtml() {
     ? { title: editing.title, client: editing.client || '', status: editing.status || 'todo', type: editing.type || '', color: editing.color || '', dueDate: editing.dueDate || '', notes: editing.notes || '' }
     : { title: '', client: '', status: S.proj.addStatus || 'todo', type: '', color: '', dueDate: '', notes: '' };
   const ls = editing && editing.scheduleId ? schedItems.find(s => s.id === editing.scheduleId) : null;
+  const scout = editing && editing.scoutScheduleId ? schedItems.find(s => s.id === editing.scoutScheduleId) : null;
+  // 촬영 건은 마감 개념이 없어 마감일 칸을 숨기고(이미 마감일이 들어 있으면 지울 수 있게 보여 줌), 대신 답사 일정 칸을 보여 준다 — 종류를 바꾸면 projTypeToggle()이 즉시 반영
+  const isShoot = f.type === 'shoot';
   return `
     <div class="eq-modal-overlay is-drawer">
       <div class="eq-modal" data-stop-close>
@@ -1841,7 +1865,7 @@ function projModalHtml() {
                 </label>`).join('')}
             </div>
           </div>
-          <div class="eq-field"><label>마감일 <span style="color:var(--text-faint); font-weight:400;">(촬영만 하는 건은 비워두세요)</span></label><input type="date" name="dueDate" value="${esc(f.dueDate)}" /></div>
+          <div class="eq-field" data-proj-hide-shoot="${f.dueDate ? 'keep' : ''}" ${isShoot && !f.dueDate ? 'style="display:none"' : ''}><label>마감일 <span style="color:var(--text-faint); font-weight:400;">(촬영만 하는 건은 비워두세요)</span></label><input type="date" name="dueDate" value="${esc(f.dueDate)}" /></div>
           <div class="eq-field"><label>📅 캘린더 일정 <span style="color:var(--text-faint); font-weight:400;">(날짜를 넣으면 캘린더에 자동 등록, 비우면 빠짐)</span></label>
             <div class="eq-field-row">
               <div class="eq-field" style="margin:0; flex:1.4; min-width:0"><input type="date" name="schedDate" value="${esc(ls ? ls.date : '')}" data-role="sched-date-conflict" /></div>
@@ -1849,6 +1873,10 @@ function projModalHtml() {
             </div>
             <div style="margin-top:8px">${timeFieldHtml('schedTime', ls && ls.time ? ls.time : '')}</div>
             <div id="schedConflict">${ls ? schedConflictHtml(ls.date) : ''}</div>
+          </div>
+          <div class="eq-field" data-proj-show-shoot="${scout ? 'keep' : ''}" ${!isShoot && !scout ? 'style="display:none"' : ''}><label>🔎 답사 일정 <span style="color:var(--text-faint); font-weight:400;">(날짜를 넣으면 캘린더에 '답사'로 등록, 비우면 빠짐)</span></label>
+            <input type="date" name="scoutDate" value="${esc(scout ? scout.date : '')}" />
+            <div style="margin-top:8px">${timeFieldHtml('scoutTime', scout && scout.time ? scout.time : '')}</div>
           </div>
           <div class="eq-field"><label>메모</label>${richMemoHtml('notes', f.notes, '진행 상황, 참고사항 등')}</div>
           <button type="submit" class="eq-modal-submit">${editing ? '수정 완료' : '등록하기'}</button>
@@ -1963,6 +1991,8 @@ function projDetailHtml() {
   const ptype = projectTypeOf(p.type);
   const dd = p.status !== 'done' ? projDday(p.dueDate) : null;
   const linkedSched = p.scheduleId ? schedItems.find(s => s.id === p.scheduleId) : null;
+  const scoutSched = p.scoutScheduleId ? schedItems.find(s => s.id === p.scoutScheduleId) : null;
+  const isShoot = p.type === 'shoot';
   return `
     <div class="eq-modal-overlay is-drawer${again ? ' no-anim' : ''}" data-action="proj-close-detail-backdrop">
       <div class="eq-modal proj-detail" data-stop-close data-row-menu-id="${p.id}" style="${p.color ? `border-top:6px solid ${p.color};` : ''}">
@@ -1972,10 +2002,13 @@ function projDetailHtml() {
         <div class="pd-card"><span>번호</span><b>${esc(p.serial || '-')}</b></div>
         <div class="pd-card"><span>종류</span><b>${ptype ? `${ptype.icon} ${ptype.label}` : '<span style="color:var(--text-faint);font-weight:400">미지정</span>'}</b></div>
         <div class="pd-card"><span>클라이언트</span><b>${p.client ? esc(p.client) : '<span style="color:var(--text-faint);font-weight:400">없음</span>'}</b></div>
-        <div class="pd-card"><span>마감</span><b>${p.dueDate ? `${dateLabel(p.dueDate)}${dd ? ` <small style="color:${dd.urgent ? 'var(--danger, #e5484d)' : 'var(--text-faint)'}">${dd.text}</small>` : ''}` : '<span style="color:var(--text-faint);font-weight:400">마감일 없음</span>'}</b></div>
+        ${isShoot && !p.dueDate ? '' : `<div class="pd-card"><span>마감</span><b>${p.dueDate ? `${dateLabel(p.dueDate)}${dd ? ` <small style="color:${dd.urgent ? 'var(--danger, #e5484d)' : 'var(--text-faint)'}">${dd.text}</small>` : ''}` : '<span style="color:var(--text-faint);font-weight:400">마감일 없음</span>'}</b></div>`}
         <div class="pd-card pd-wide"><span>캘린더 일정</span><b>${linkedSched
           ? `<button class="proj-sched-link" style="margin:0" data-action="proj-view-schedule" data-id="${p.id}">📅 ${dateLabel(linkedSched.date)} ${linkedSched.time || ''} ${linkedSched.location ? '· ' + esc(linkedSched.location) : ''}</button>`
           : `<button class="proj-sched-link proj-sched-link-add" style="margin:0" data-action="proj-create-schedule" data-id="${p.id}">+ 촬영 스케줄 만들기</button>`}</b></div>
+        ${isShoot || scoutSched ? `<div class="pd-card pd-wide"><span>답사 일정</span><b>${scoutSched
+          ? `<button class="proj-sched-link" style="margin:0" data-action="proj-view-scout" data-id="${p.id}">🔎 ${dateLabel(scoutSched.date)} ${scoutSched.time || ''} ${scoutSched.location ? '· ' + esc(scoutSched.location) : ''}</button>`
+          : `<button class="proj-sched-link proj-sched-link-add" style="margin:0" data-action="proj-open-edit" data-id="${p.id}">+ 답사 일정 넣기</button>`}</b></div>` : ''}
         </div>
         ${p.notes ? `<div class="eq-detail-notes">${linkify(p.notes)}</div>${ytThumbsHtml(p.notes)}` : `<div class="eq-detail-notes" style="color:var(--text-faint)">메모가 없어요. 수정하기를 눌러 적어 보세요.</div>`}
         <div class="eq-detail-actions">
@@ -4412,6 +4445,11 @@ function bootApp() {
       case 'sched-cancel-delete': S.sched.confirmDeleteId = null; refreshSchedList(); break;
       case 'sched-delete': saveSchedItems(schedItems.filter(it => it.id !== id)); S.sched.confirmDeleteId = null; refreshSchedList(); break;
       case 'sched-set-category-filter': S.sched.categoryFilter = id; render(); break;
+      case 'sched-toggle-group': {
+        const h = calGroupsHidden(); h[id] = !h[id];
+        try { localStorage.setItem(CAL_GROUPS_LS, JSON.stringify(h)); } catch (e) {}
+        render(); break;
+      }
       case 'sched-toggle-past': S.sched.showPast = !S.sched.showPast; render(); break;
       case 'sched-open-detail': S.sched.detailId = id; render(); break;
       case 'sched-close-detail': S.sched.detailId = null; render(); break;
@@ -4522,6 +4560,11 @@ function bootApp() {
       case 'proj-view-schedule': {
         const p = projItems.find(pr => pr.id === id);
         if (p && p.scheduleId) { S.proj.detailId = null; S.activeTab = 'schedule'; S.sched.detailId = p.scheduleId; render(); }
+        break;
+      }
+      case 'proj-view-scout': {
+        const p = projItems.find(pr => pr.id === id);
+        if (p && p.scoutScheduleId) { S.proj.detailId = null; S.activeTab = 'schedule'; S.sched.detailId = p.scoutScheduleId; render(); }
         break;
       }
       case 'proj-bulk-set-status': {
@@ -4868,6 +4911,12 @@ function bootApp() {
       if (file) handlePhotoFile(file);
       e.target.value = '';
     }
+    if (e.target.name === 'type' && e.target.closest('[data-form-role="proj-form"]')) {
+      // 종류가 촬영이면 마감일 칸을 숨기고 답사 일정 칸을 보여 준다(값이 이미 들어 있는 칸은 그대로 보여 줌)
+      const form = e.target.closest('form'), shoot = e.target.value === 'shoot';
+      form.querySelectorAll('[data-proj-hide-shoot]').forEach(el => { el.style.display = shoot && !el.dataset.projHideShoot ? 'none' : ''; });
+      form.querySelectorAll('[data-proj-show-shoot]').forEach(el => { el.style.display = shoot || el.dataset.projShowShoot ? '' : 'none'; });
+    }
     if (e.target.dataset && e.target.dataset.role === 'sched-date-conflict') {
       const box = document.getElementById('schedConflict'); if (box) box.innerHTML = schedConflictHtml(e.target.value);
     }
@@ -5006,6 +5055,23 @@ function bootApp() {
         scheduleId = null;
       }
       payload.scheduleId = scheduleId;
+      /* 🔎 답사 일정: 캘린더 일정과 같은 방식, 카테고리는 항상 '답사'(→ 가족 공유 캘린더까지), 제목은 "프로젝트명 답사" */
+      const cDate = (fd.get('scoutDate') || '').toString();
+      const cTime = parseTimeInput(fd.get('scoutTime')) || null;
+      const scoutLinked = editingProj && editingProj.scoutScheduleId ? schedItems.find(s => s.id === editingProj.scoutScheduleId) : null;
+      let scoutScheduleId = scoutLinked ? scoutLinked.id : null;
+      if (cDate && scoutLinked) {
+        const cTitle = scoutLinked.title === editingProj.title + ' 답사' ? title + ' 답사' : scoutLinked.title;
+        if (scoutLinked.date !== cDate || (scoutLinked.time || null) !== cTime || scoutLinked.title !== cTitle)
+          saveSchedItems(schedItems.map(s => s.id === scoutLinked.id ? { ...s, title: cTitle, date: cDate, time: cTime } : s));
+      } else if (cDate) {
+        scoutScheduleId = uid();
+        saveSchedItems([{ id: scoutScheduleId, createdAt: Date.now(), source: 'manual', projectId: projId, title: title + ' 답사', date: cDate, time: cTime, location: '', contact: '', category: 'scout', memo: '' }, ...schedItems]);
+      } else if (scoutLinked) {
+        saveSchedItems(schedItems.filter(s => s.id !== scoutLinked.id));
+        scoutScheduleId = null;
+      }
+      payload.scoutScheduleId = scoutScheduleId;
       if (editingProj) saveProjItems(projItems.map(p => p.id === editingProj.id ? { ...p, ...payload } : p));
       else saveProjItems([{ id: projId, serial: nextProjectSerial(projItems), createdAt: Date.now(), parentId: S.proj.currentParentId || null, ...payload }, ...projItems]);
       S.proj.modalOpen = false; S.proj.editingId = null;
@@ -5674,6 +5740,8 @@ document.addEventListener('DOMContentLoaded', () => {
   .proj-row-due-input:hover { border-color:var(--border); }
   .proj-row-due-input:focus { border-color:var(--accent); color:var(--text); background:var(--surface); cursor:text; outline:none; }
   .proj-row-due-input::-webkit-calendar-picker-indicator { filter:invert(0.7); cursor:pointer; }
+  /* 블랙 테마: 날짜·월·시간 입력칸의 기본 달력 아이콘이 검은색이라 어두운 배경에 묻혀서 밝게 뒤집는다(화이트 테마는 그대로) */
+  :root:not([data-theme="light"]) input::-webkit-calendar-picker-indicator { filter:invert(1); opacity:0.75; cursor:pointer; }
   .proj-row-dday { display:inline-block; margin-top:3px; font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:5px; }
   .proj-row-note { font-size:12.5px; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border-radius:5px; padding:3px 4px; margin:-3px -4px; }
   .proj-row-note[contenteditable] { cursor:text; }
