@@ -1865,17 +1865,17 @@ function projModalHtml() {
                 </label>`).join('')}
             </div>
           </div>
-          <div class="eq-field" data-proj-hide-shoot="${f.dueDate ? 'keep' : ''}" ${isShoot && !f.dueDate ? 'style="display:none"' : ''}><label>마감일 <span style="color:var(--text-faint); font-weight:400;">(촬영만 하는 건은 비워두세요)</span></label><input type="date" name="dueDate" value="${esc(f.dueDate)}" /></div>
+          <div class="eq-field" data-proj-hide-shoot="${f.dueDate ? 'keep' : ''}" ${isShoot && !f.dueDate ? 'style="display:none"' : ''}><label>마감일 <span style="color:var(--text-faint); font-weight:400;">(촬영만 하는 건은 비워두세요)</span></label>${dateInputHtml('name="dueDate"', f.dueDate)}</div>
           <div class="eq-field"><label>📅 캘린더 일정 <span style="color:var(--text-faint); font-weight:400;">(날짜를 넣으면 캘린더에 자동 등록, 비우면 빠짐)</span></label>
             <div class="eq-field-row">
-              <div class="eq-field" style="margin:0; flex:1.4; min-width:0"><input type="date" name="schedDate" value="${esc(ls ? ls.date : '')}" data-role="sched-date-conflict" /></div>
+              <div class="eq-field" style="margin:0; flex:1.4; min-width:0">${dateInputHtml('name="schedDate" data-role="sched-date-conflict"', ls ? ls.date : '')}</div>
               <div class="eq-field" style="margin:0; flex:0 0 96px; display:flex"><select name="schedCategory" style="flex:1; height:auto">${SCHED_CATEGORIES.map(c => `<option value="${c.id}" ${(ls ? ls.category : 'shoot')===c.id?'selected':''}>${c.label}</option>`).join('')}</select></div>
             </div>
             <div style="margin-top:8px">${timeFieldHtml('schedTime', ls && ls.time ? ls.time : '')}</div>
             <div id="schedConflict">${ls ? schedConflictHtml(ls.date) : ''}</div>
           </div>
           <div class="eq-field" data-proj-show-shoot="${scout ? 'keep' : ''}" ${!isShoot && !scout ? 'style="display:none"' : ''}><label>🔎 답사 일정 <span style="color:var(--text-faint); font-weight:400;">(날짜를 넣으면 캘린더에 '답사'로 등록, 비우면 빠짐)</span></label>
-            <input type="date" name="scoutDate" value="${esc(scout ? scout.date : '')}" />
+            ${dateInputHtml('name="scoutDate"', scout ? scout.date : '')}
             <div style="margin-top:8px">${timeFieldHtml('scoutTime', scout && scout.time ? scout.time : '')}</div>
           </div>
           <div class="eq-field"><label>메모</label>${richMemoHtml('notes', f.notes, '진행 상황, 참고사항 등')}</div>
@@ -2251,7 +2251,7 @@ function sharedModalHtml() {
               ${CATEGORY_COLOR_PALETTE.map(c => `<label class="eq-color-swatch" style="background:${c};" title="${c}"><input type="radio" name="color" value="${c}" ${f.color===c?'checked':''} /></label>`).join('')}
             </div>
           </div>
-          <div class="eq-field"><label>마감일</label><input type="date" name="dueDate" value="${esc(f.dueDate)}" /></div>
+          <div class="eq-field"><label>마감일</label>${dateInputHtml('name="dueDate"', f.dueDate)}</div>
           <div class="eq-field"><label>상태</label>
             <select name="status">${SHARED_STATUSES.map(s => `<option value="${s.id}" ${f.status===s.id?'selected':''}>${s.label}</option>`).join('')}</select>
           </div>
@@ -3057,6 +3057,12 @@ function songEnsureApi(cb) {
   window.onYouTubeIframeAPIReady = () => { (window.__ytCbs || []).splice(0).forEach(f => { try { f(); } catch (e) {} }); };
   const sc = document.createElement('script'); sc.id = 'ytApiScript'; sc.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(sc);
 }
+/* 날짜 칸 + "✕" 지우기 버튼 — 아이폰 달력에는 날짜를 비우는 버튼이 없어서(재설정/✓뿐) 값이 있을 때 옆에 지우기 버튼을 둔다.
+   지우면 input/change 이벤트를 다시 보내 겹침 안내 등 기존 처리도 그대로 돈다(date-clear). */
+function dateInputHtml(attrs, value) {
+  return `<span class="date-wrap ${value ? 'has-val' : ''}"><input type="date" ${attrs} value="${esc(value || '')}" /><button type="button" class="date-clear" data-action="date-clear" title="날짜 지우기" aria-label="날짜 지우기">✕</button></span>`;
+}
+function songMini() { if (S.song.mini == null) { try { S.song.mini = localStorage.getItem('vinfilm-song-mini') === '1'; } catch (e) { S.song.mini = false; } } return S.song.mini; }
 function songFontSize() { let v = 22; try { v = Number(localStorage.getItem('vinfilm-song-font')) || 22; } catch (e) {} return Math.max(14, Math.min(44, v)); }
 function songGridHtml() {
   const q = (S.song.search || '').trim().toLowerCase();
@@ -3102,7 +3108,7 @@ function renderSongsTab() {
   if (s) {
     const yt = ytIdsIn(s.url)[0];
     return `
-      <div class="song-play ${yt ? 'has-video' : ''}">
+      <div class="song-play ${yt ? 'has-video' : ''} ${yt && songMini() ? 'is-mini' : ''}">
         <div class="song-play-head">
           <button class="eq-chip" data-action="song-back">‹ 목록</button>
           <div class="song-play-title"><h1 class="eq-title">${esc(s.title)}</h1><div class="eq-stat">${esc([s.artist, s.key].filter(Boolean).join(' · '))}</div></div>
@@ -3112,6 +3118,7 @@ function renderSongsTab() {
             ${yt && s.lyrics ? (S.song.syncing
               ? `<button class="eq-chip active" data-action="song-sync-toggle">✓ 싱크 저장</button><button class="eq-chip" data-action="song-sync-cancel">취소</button>`
               : `<button class="eq-chip" data-action="song-sync-toggle">⏱ 싱크 맞추기</button>${(s.secTimes || []).some(v => typeof v === 'number') ? `<button class="eq-chip ${S.song.follow !== false ? 'active' : ''}" data-action="song-follow">따라가기 ${S.song.follow !== false ? '켬' : '끔'}</button>` : ''}`) : ''}
+            ${yt ? `<button class="eq-chip ${songMini() ? 'active' : ''}" data-action="song-mini" title="영상을 작게 띄우고 가사를 넓게">${songMini() ? '▣ 영상 크게' : '▫ 영상 작게'}</button>` : ''}
             <button class="eq-chip" data-action="song-open-edit" data-id="${s.id}">✎ 수정</button>
           </div>
         </div>
@@ -3143,6 +3150,7 @@ function syncSongDock() {
   if (!yt) { if (dock) dock.remove(); window.__songPlayer = null; if (window.__songTimer) { clearInterval(window.__songTimer); window.__songTimer = null; } return; }
   if (!window.__songTimer) window.__songTimer = setInterval(songTick, 300);
   if (!dock) { dock = document.createElement('div'); dock.id = 'songDock'; document.body.appendChild(dock); }
+  dock.classList.toggle('is-mini', songMini()); // 작은 플레이어: 영상은 그대로 재생되고 모서리로 줄어든다(iframe을 새로 만들지 않음)
   if (dock.dataset.yt !== yt) {
     dock.dataset.yt = yt;
     dock.innerHTML = `<iframe src="https://www.youtube.com/embed/${yt}?rel=0&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}" id="songFrame" title="inst" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
@@ -4751,6 +4759,12 @@ function bootApp() {
       }
       case 'song-sync-cancel': S.song.syncing = false; S.song.syncTimes = []; render(); break;
       case 'song-follow': S.song.follow = S.song.follow === false; render(); break;
+      case 'date-clear': {
+        const wrap = el.closest('.date-wrap'); const inp = wrap && wrap.querySelector('input');
+        if (inp) { inp.value = ''; wrap.classList.remove('has-val'); inp.dispatchEvent(new Event('input', { bubbles: true })); inp.dispatchEvent(new Event('change', { bubbles: true })); }
+        break;
+      }
+      case 'song-mini': S.song.mini = !songMini(); try { localStorage.setItem('vinfilm-song-mini', S.song.mini ? '1' : '0'); } catch (e) {} render(); break;
       case 'song-insert-sec': { // 커서가 있는 줄 위에 "[후렴]" 같은 구간 이름 줄을 넣는다
         const ta = el.closest('form').elements.lyrics; const v = ta.value; const pos = ta.selectionStart || 0;
         const ls = v.lastIndexOf('\n', pos - 1) + 1;
@@ -4917,6 +4931,7 @@ function bootApp() {
       form.querySelectorAll('[data-proj-hide-shoot]').forEach(el => { el.style.display = shoot && !el.dataset.projHideShoot ? 'none' : ''; });
       form.querySelectorAll('[data-proj-show-shoot]').forEach(el => { el.style.display = shoot || el.dataset.projShowShoot ? '' : 'none'; });
     }
+    if (e.target.type === 'date' && e.target.parentElement && e.target.parentElement.classList.contains('date-wrap')) e.target.parentElement.classList.toggle('has-val', !!e.target.value);
     if (e.target.dataset && e.target.dataset.role === 'sched-date-conflict') {
       const box = document.getElementById('schedConflict'); if (box) box.innerHTML = schedConflictHtml(e.target.value);
     }
@@ -6368,11 +6383,19 @@ document.addEventListener('DOMContentLoaded', () => {
   .song-lyrics-input { min-height:42vh !important; line-height:1.6; }
   #songDock { position:fixed; z-index:40; right:28px; top:96px; width:min(42vw, 620px); aspect-ratio:16/9; border-radius:16px; overflow:hidden; background:#000; box-shadow:var(--shadow-lg); }
   #songDock iframe { width:100%; height:100%; border:0; display:block; }
-  @media (min-width: 721px) { .song-play.has-video { padding-right:calc(min(42vw, 620px) + 28px); } }
+  @media (min-width: 721px) { .song-play.has-video:not(.is-mini) { padding-right:calc(min(42vw, 620px) + 28px); } }
+  /* 작은 플레이어: 오른쪽 아래 모서리에 작게 띄우고 가사는 화면 폭을 다 쓴다 */
+  #songDock.is-mini { top:auto; bottom:24px; right:24px; width:320px; border-radius:12px; }
+  .date-wrap { display:flex; align-items:center; gap:6px; min-width:0; }
+  .date-wrap input { flex:1; min-width:0; width:auto; -webkit-appearance:none; appearance:none; } /* 아이폰 날짜 칸은 기본 폭이 커서 줄어들지 않고 ✕ 버튼을 화면 밖으로 밀어낸다 */
+  .date-clear { display:none; flex:0 0 auto; align-items:center; justify-content:center; width:34px; height:34px; border-radius:10px; border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-size:14px; cursor:pointer; padding:0; }
+  .date-clear:hover { color:var(--danger, #e5484d); border-color:var(--border-strong); }
+  .date-wrap.has-val .date-clear { display:inline-flex; }
   @media (max-width: 720px) {
     .song-card-edit { opacity:1; }
     #songDock { left:0; right:0; top:calc(env(safe-area-inset-top) + 52px); width:100%; border-radius:0; }
-    .song-play.has-video { padding-top:56.25vw; }
+    .song-play.has-video:not(.is-mini) { padding-top:56.25vw; }
+    #songDock.is-mini { left:auto; right:12px; top:auto; bottom:calc(env(safe-area-inset-bottom) + 78px); width:46vw; border-radius:10px; }
     .song-play-head { gap:8px; }
   }
 
