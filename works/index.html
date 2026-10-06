@@ -41,6 +41,7 @@ if ('launchQueue' in window) launchQueue.setConsumer(function (p) {
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-storage-compat.js"></script>
 </head>
 <body>
 <div id="root"></div>
@@ -3062,6 +3063,54 @@ function songEnsureApi(cb) {
 function dateInputHtml(attrs, value) {
   return `<span class="date-wrap ${value ? 'has-val' : ''}"><input type="date" ${attrs} value="${esc(value || '')}" /><button type="button" class="date-clear" data-action="date-clear" title="날짜 지우기" aria-label="날짜 지우기">✕</button></span>`;
 }
+/* ---- MR 파일 재생 + 키 조절 ----
+   곡마다 MR 파일을 Firebase Storage(songs/{곡id}/…, owner 전용 규칙)에 올려 두고 songs[].audioUrl/audioName/audioPath에 적는다.
+   재생은 Web Audio + soundtouchjs(PitchShifter, 템포는 그대로 두고 반음 단위로 키만 바꿈)를 쓰고, songs[].keyShift(−6~+6)를 곡마다 기억한다.
+   브라우저에서 Storage 파일을 직접 읽으려면 버킷 CORS 설정이 필요하다(tools/song-cors.json 참고). 유튜브 플레이어와 같은 모양의
+   어댑터(getCurrentTime/getPlayerState/seekTo/playVideo)를 window.__songPlayer에 넣어서 구간 싱크·따라가기가 그대로 동작한다. */
+function songAudioSrc(s) { return (s && s.audioUrl) || ((S.song.localAudio || {})[s && s.id]) || ''; }
+function songKeyLabel(k) { k = k || 0; return k === 0 ? '원키' : (k > 0 ? '+' + k : String(k)) + '키'; }
+function songDeleteAudio(path) { if (IS_LOCAL_DEV || !path || typeof firebase === 'undefined' || !firebase.storage) return; try { firebase.storage().ref(path).delete().catch(() => {}); } catch (e) {} }
+async function songUploadAudio(songId, file, oldPath) {
+  if (IS_LOCAL_DEV || typeof firebase === 'undefined' || !firebase.storage) { // 로컬 테스트: 올리지 않고 이 화면에서만 재생
+    S.song.localAudio = S.song.localAudio || {}; S.song.localAudio[songId] = URL.createObjectURL(file); S.song.msg = '로컬 테스트라 파일은 올리지 않고 이 화면에서만 재생해요.'; render(); return;
+  }
+  S.song.msg = `MR 파일 올리는 중… (${file.name})`; render();
+  try {
+    const path = `songs/${songId}/${Date.now()}-${file.name.replace(/[^\w.\-가-힣 ]/g, '_')}`;
+    const snap = await firebase.storage().ref(path).put(file, { contentType: file.type || 'audio/mpeg' });
+    const url = await snap.ref.getDownloadURL();
+    saveSongs(songs.map(x => x.id === songId ? { ...x, audioUrl: url, audioName: file.name, audioPath: path } : x));
+    if (oldPath && oldPath !== path) songDeleteAudio(oldPath);
+    S.song.msg = '';
+  } catch (e) { S.song.msg = 'MR 파일을 올리지 못했어요: ' + (e && e.message || e); }
+  render();
+}
+async function songFilePlayer(src, dock, semis) {
+  const mod = await import('https://cdn.jsdelivr.net/npm/soundtouchjs@0.2.0/dist/soundtouch.js');
+  const ctx = window.__songCtx || (window.__songCtx = new (window.AudioContext || window.webkitAudioContext)());
+  const res = await fetch(src); if (!res.ok) throw new Error('HTTP ' + res.status);
+  const ab = await res.arrayBuffer();
+  const audio = await new Promise((ok, bad) => ctx.decodeAudioData(ab, ok, bad));
+  const gain = ctx.createGain(); gain.connect(ctx.destination);
+  let playing = false, sh = null, key = semis || 0;
+  const make = (t) => { sh = new mod.PitchShifter(ctx, audio, 4096, () => { if (playing) { P.pauseVideo(); P.seekTo(0); } }); sh.tempo = 1; sh.pitchSemitones = key; sh.percentagePlayed = Math.max(0, Math.min(1, (t || 0) / audio.duration)); };
+  make(0);
+  const P = {
+    duration: audio.duration,
+    getCurrentTime() { return sh ? sh.timePlayed : 0; },
+    getPlayerState() { return playing ? 1 : 2; },
+    seekTo(t) { if (sh) { sh.percentagePlayed = Math.max(0, Math.min(0.9999, t / audio.duration)); } },
+    playVideo() { if (playing) return; if (ctx.state === 'suspended') ctx.resume(); sh.connect(gain); playing = true; P.onchange && P.onchange(); },
+    pauseVideo() { if (!playing) return; try { sh.disconnect(); } catch (e) {} playing = false; P.onchange && P.onchange(); },
+    setKey(n) { key = n; if (sh) sh.pitchSemitones = n; },
+    destroy() { try { sh && sh.disconnect(); } catch (e) {} try { gain.disconnect(); } catch (e) {} playing = false; },
+  };
+  return P;
+}
+function songFileDockHtml(name) {
+  return `<div class="song-player"><button type="button" class="sp-play" id="spPlay" disabled>…</button><div class="sp-mid"><div class="sp-name">🎵 ${esc(name || 'MR')}</div><input type="range" id="spSeek" min="0" max="1000" value="0" disabled /><div class="sp-time"><span id="spCur">0:00</span> / <span id="spDur">불러오는 중…</span></div></div></div>`;
+}
 function songMini() { if (S.song.mini == null) { try { S.song.mini = localStorage.getItem('vinfilm-song-mini') === '1'; } catch (e) { S.song.mini = false; } } return S.song.mini; }
 function songFontSize() { let v = 22; try { v = Number(localStorage.getItem('vinfilm-song-font')) || 22; } catch (e) {} return Math.max(14, Math.min(44, v)); }
 function songGridHtml() {
@@ -3093,6 +3142,9 @@ function songModalHtml() {
           <div class="eq-field"><label>곡 제목</label><input name="title" autofocus value="${esc(f.title)}" placeholder="예: 은혜" required /></div>
           <div class="eq-field"><label>가수 / 원곡</label><input name="artist" value="${esc(f.artist || '')}" placeholder="예: 손경민" /></div>
           <div class="eq-field"><label>유튜브 inst(MR) 링크</label><input name="url" value="${esc(f.url || '')}" placeholder="https://youtu.be/..." inputmode="url" /></div>
+          <div class="eq-field"><label>MR 파일 <span class="eq-hint">(선택 — 넣으면 유튜브 대신 이 파일로 재생하고 키를 바꿀 수 있어요)</span></label>
+            ${f.audioName ? `<div class="song-file-cur">🎵 ${esc(f.audioName)} <label class="song-file-rm"><input type="checkbox" name="audioRemove" value="1" /> 파일 빼기</label></div>` : ''}
+            <input type="file" name="audioFile" accept="audio/*,.mp3,.m4a,.wav,.aac" /></div>
           <div class="eq-field"><label>키 · 메모 <span class="eq-hint">(선택)</span></label><input name="key" value="${esc(f.key || '')}" placeholder="예: 원키 G, -2키, 템포 72" /></div>
           <div class="eq-field"><label>가사 <button type="button" class="eq-chip" style="margin-left:8px" data-action="song-lyrics-search">🔍 가사 검색</button></label>
             <div class="song-sec-chips"><span>구간 넣기</span>${['벌스', '프리코러스', '후렴', '브릿지', '간주', '아웃트로'].map(t => `<button type="button" class="eq-chip" data-action="song-insert-sec" data-id="${t}">[${t}]</button>`).join('')}</div>
@@ -3106,9 +3158,9 @@ function songModalHtml() {
 function renderSongsTab() {
   const s = S.song.playId ? songs.find(x => x.id === S.song.playId) : null;
   if (s) {
-    const yt = ytIdsIn(s.url)[0];
+    const yt = ytIdsIn(s.url)[0], audio = songAudioSrc(s), media = yt || audio;
     return `
-      <div class="song-play ${yt ? 'has-video' : ''} ${yt && songMini() ? 'is-mini' : ''}">
+      <div class="song-play ${media ? 'has-video' : ''} ${yt && !audio && songMini() ? 'is-mini' : ''} ${audio ? 'has-file' : ''}">
         <div class="song-play-head">
           <button class="eq-chip" data-action="song-back">‹ 목록</button>
           <div class="song-play-title"><h1 class="eq-title">${esc(s.title)}</h1><div class="eq-stat">${esc([s.artist, s.key].filter(Boolean).join(' · '))}</div></div>
@@ -3118,12 +3170,13 @@ function renderSongsTab() {
             ${yt && s.lyrics ? (S.song.syncing
               ? `<button class="eq-chip active" data-action="song-sync-toggle">✓ 싱크 저장</button><button class="eq-chip" data-action="song-sync-cancel">취소</button>`
               : `<button class="eq-chip" data-action="song-sync-toggle">⏱ 싱크 맞추기</button>${(s.secTimes || []).some(v => typeof v === 'number') ? `<button class="eq-chip ${S.song.follow !== false ? 'active' : ''}" data-action="song-follow">따라가기 ${S.song.follow !== false ? '켬' : '끔'}</button>` : ''}`) : ''}
-            ${yt ? `<button class="eq-chip ${songMini() ? 'active' : ''}" data-action="song-mini" title="영상을 작게 띄우고 가사를 넓게">${songMini() ? '▣ 영상 크게' : '▫ 영상 작게'}</button>` : ''}
+            ${audio ? `<span class="song-key"><button class="eq-chip" data-action="song-key" data-id="-1" title="반음 낮추기">♭ 키−</button><b>${songKeyLabel(s.keyShift)}</b><button class="eq-chip" data-action="song-key" data-id="1" title="반음 높이기">키+ ♯</button>${s.keyShift ? `<button class="eq-chip" data-action="song-key" data-id="0" title="원키로">원키</button>` : ''}</span>` : ''}
+            ${yt && !audio ? `<button class="eq-chip ${songMini() ? 'active' : ''}" data-action="song-mini" title="영상을 작게 띄우고 가사를 넓게">${songMini() ? '▣ 영상 크게' : '▫ 영상 작게'}</button>` : ''}
             <button class="eq-chip" data-action="song-open-edit" data-id="${s.id}">✎ 수정</button>
           </div>
         </div>
         ${S.song.syncing ? `<div class="song-sync-hint">🎵 노래를 틀고, <b>각 구간이 시작되는 순간 그 구간을 누르세요.</b> 잘못 눌렀으면 영상을 되감고 다시 누르면 돼요. 다 찍었으면 <b>✓ 싱크 저장</b>.</div>` : ''}
-        ${!yt ? `<div class="q-hint" style="margin-bottom:14px">${s.url ? `유튜브 링크가 아니라 여기서 바로 틀 수 없어요. <a class="memo-link" href="${esc(s.url)}" target="_blank" rel="noopener">링크 열기</a>` : '유튜브 inst 링크를 넣으면 여기서 바로 틀 수 있어요.'}</div>` : ''}
+        ${!media ? `<div class="q-hint" style="margin-bottom:14px">${s.url ? `유튜브 링크가 아니라 여기서 바로 틀 수 없어요. <a class="memo-link" href="${esc(s.url)}" target="_blank" rel="noopener">링크 열기</a>` : '유튜브 inst 링크를 넣으면 여기서 바로 틀 수 있어요.'}</div>` : ''}
         <div class="song-lyrics ${S.song.syncing ? 'syncing' : ''}" id="songLyrics" style="font-size:${songFontSize()}px">${s.lyrics ? songLyricsHtml(s.lyrics, S.song.syncing ? S.song.syncTimes : s.secTimes) : '<span style="color:var(--text-faint)">가사가 없어요. 수정에서 가사를 넣어 보세요.</span>'}</div>
       </div>
       ${songModalHtml()}`;
@@ -3144,12 +3197,35 @@ function renderSongsTab() {
 }
 function syncSongDock() {
   const s = S.activeTab === 'songs' && S.song.playId ? songs.find(x => x.id === S.song.playId) : null;
-  const yt = s ? ytIdsIn(s.url)[0] : null;
+  const audio = s ? songAudioSrc(s) : '';
+  const yt = s && !audio ? ytIdsIn(s.url)[0] : null;
   let dock = document.getElementById('songDock');
   window.__songAct = null; // 화면이 다시 그려졌으니 '지금 구간' 표시를 다시 붙이게 한다
-  if (!yt) { if (dock) dock.remove(); window.__songPlayer = null; if (window.__songTimer) { clearInterval(window.__songTimer); window.__songTimer = null; } return; }
+  // 파일 플레이어만 정리한다(유튜브 YT.Player에도 destroy가 있어서 그걸 부르면 영상이 사라짐 — setKey 유무로 구분)
+  const stopFile = () => { if (window.__songPlayer && window.__songPlayer.setKey) { window.__songPlayer.destroy(); window.__songPlayer = null; } if (window.__spTimer) { clearInterval(window.__spTimer); window.__spTimer = null; } };
+  if (!yt && !audio) { stopFile(); if (dock) dock.remove(); window.__songPlayer = null; if (window.__songTimer) { clearInterval(window.__songTimer); window.__songTimer = null; } return; }
   if (!window.__songTimer) window.__songTimer = setInterval(songTick, 300);
   if (!dock) { dock = document.createElement('div'); dock.id = 'songDock'; document.body.appendChild(dock); }
+  dock.classList.toggle('is-file', !!audio);
+  if (audio) {
+    if (dock.dataset.yt === 'file:' + audio) return;
+    stopFile(); dock.dataset.yt = 'file:' + audio; dock.classList.remove('is-mini');
+    dock.innerHTML = songFileDockHtml(s.audioName || 'MR 파일'); window.__songPlayer = null;
+    const $ = id => dock.querySelector('#' + id), fmt = t => songTimeLabel(Math.max(0, t || 0)) || '0:00';
+    songFilePlayer(audio, dock, s.keyShift || 0).then(P => {
+      if (dock.dataset.yt !== 'file:' + audio) { P.destroy(); return; }
+      window.__songPlayer = P;
+      const btn = $('spPlay'), seek = $('spSeek'); let drag = false;
+      btn.disabled = false; seek.disabled = false; $('spDur').textContent = fmt(P.duration);
+      P.onchange = () => { btn.textContent = P.getPlayerState() === 1 ? '❚❚' : '▶'; }; P.onchange();
+      btn.onclick = () => (P.getPlayerState() === 1 ? P.pauseVideo() : P.playVideo());
+      seek.oninput = () => { drag = true; $('spCur').textContent = fmt(seek.value / 1000 * P.duration); };
+      seek.onchange = () => { P.seekTo(seek.value / 1000 * P.duration); drag = false; };
+      window.__spTimer = setInterval(() => { const t = P.getCurrentTime(); if (!drag) { seek.value = Math.round(t / P.duration * 1000); $('spCur').textContent = fmt(t); } }, 250);
+    }).catch(e => { const d = $('spDur'); if (d) d.textContent = '불러오지 못했어요'; S.song.msg = 'MR 파일을 재생하지 못했어요: ' + (e && e.message || e) + (String(e).includes('Failed to fetch') ? ' (Storage CORS 설정이 필요해요)' : ''); render(); });
+    return;
+  }
+  stopFile();
   dock.classList.toggle('is-mini', songMini()); // 작은 플레이어: 영상은 그대로 재생되고 모서리로 줄어든다(iframe을 새로 만들지 않음)
   if (dock.dataset.yt !== yt) {
     dock.dataset.yt = yt;
@@ -4764,6 +4840,13 @@ function bootApp() {
         if (inp) { inp.value = ''; wrap.classList.remove('has-val'); inp.dispatchEvent(new Event('input', { bubbles: true })); inp.dispatchEvent(new Event('change', { bubbles: true })); }
         break;
       }
+      case 'song-key': {
+        const s = songs.find(x => x.id === S.song.playId); if (!s) break;
+        const k = Number(id) === 0 ? 0 : Math.max(-6, Math.min(6, (s.keyShift || 0) + Number(id)));
+        saveSongs(songs.map(x => x.id === s.id ? { ...x, keyShift: k } : x));
+        if (window.__songPlayer && window.__songPlayer.setKey) window.__songPlayer.setKey(k);
+        render(); break;
+      }
       case 'song-mini': S.song.mini = !songMini(); try { localStorage.setItem('vinfilm-song-mini', S.song.mini ? '1' : '0'); } catch (e) {} render(); break;
       case 'song-insert-sec': { // 커서가 있는 줄 위에 "[후렴]" 같은 구간 이름 줄을 넣는다
         const ta = el.closest('form').elements.lyrics; const v = ta.value; const pos = ta.selectionStart || 0;
@@ -5194,9 +5277,13 @@ function bootApp() {
       const payload = { title, artist: (fd.get('artist') || '').toString().trim(), url: normalizeUrl((fd.get('url') || '').toString().trim()), key: (fd.get('key') || '').toString().trim(), lyrics: (fd.get('lyrics') || '').toString().replace(/\s+$/, '') };
       const before = songs.find(s => s.id === S.song.editingId);
       if (before && songBlocks(before.lyrics).length !== songBlocks(payload.lyrics).length) payload.secTimes = [];
+      const songId = S.song.editingId || uid();
+      const file = fd.get('audioFile'); const hasFile = file && typeof file === 'object' && file.size > 0;
+      if (fd.get('audioRemove') && before && before.audioPath) { songDeleteAudio(before.audioPath); Object.assign(payload, { audioUrl: '', audioName: '', audioPath: '' }); }
       if (S.song.editingId) saveSongs(songs.map(s => s.id === S.song.editingId ? { ...s, ...payload } : s));
-      else saveSongs([{ id: uid(), createdAt: Date.now(), ...payload }, ...songs]);
+      else saveSongs([{ id: songId, createdAt: Date.now(), ...payload }, ...songs]);
       S.song.modalOpen = false; S.song.editingId = null;
+      if (hasFile) songUploadAudio(songId, file, before && before.audioPath);
       render();
     } else if (form.matches('[data-form-role="note-form"]')) {
       const fd = new FormData(form);
@@ -6386,6 +6473,21 @@ document.addEventListener('DOMContentLoaded', () => {
   @media (min-width: 721px) { .song-play.has-video:not(.is-mini) { padding-right:calc(min(42vw, 620px) + 28px); } }
   /* 작은 플레이어: 오른쪽 아래 모서리에 작게 띄우고 가사는 화면 폭을 다 쓴다 */
   #songDock.is-mini { top:auto; bottom:24px; right:24px; width:320px; border-radius:12px; }
+  /* MR 파일 재생 막대: 영상이 없으니 크게 띄울 필요 없이 항상 오른쪽 아래 작은 막대, 가사는 화면 폭을 다 쓴다 */
+  #songDock.is-file { top:auto; bottom:24px; right:24px; width:380px; aspect-ratio:auto; background:var(--surface); border:1px solid var(--border); border-radius:14px; }
+  .song-play.has-file { padding-right:0 !important; padding-top:0 !important; }
+  .song-player { display:flex; align-items:center; gap:14px; padding:16px 18px; }
+  .sp-play { flex:0 0 52px; height:52px; border-radius:50%; border:0; background:var(--accent); color:#fff; font-size:18px; cursor:pointer; }
+  .sp-play:disabled { opacity:.5; cursor:default; }
+  .sp-mid { flex:1; min-width:0; }
+  .sp-name { font-size:13px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sp-mid input[type=range] { width:100%; margin:8px 0 2px; accent-color:var(--accent); }
+  .sp-time { font-size:12px; color:var(--text-dim); }
+  .song-key { display:inline-flex; align-items:center; gap:6px; }
+  .song-key b { min-width:44px; text-align:center; font-size:13px; color:var(--accent); }
+  .song-file-cur { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:13px; margin-bottom:8px; color:var(--text); }
+  .song-file-rm { display:inline-flex; align-items:center; gap:4px; font-size:12px; color:var(--text-dim); font-weight:400; }
+  .song-file-rm input { width:auto; }
   .date-wrap { display:flex; align-items:center; gap:6px; min-width:0; }
   .date-wrap input { flex:1; min-width:0; width:auto; -webkit-appearance:none; appearance:none; } /* 아이폰 날짜 칸은 기본 폭이 커서 줄어들지 않고 ✕ 버튼을 화면 밖으로 밀어낸다 */
   .date-clear { display:none; flex:0 0 auto; align-items:center; justify-content:center; width:34px; height:34px; border-radius:10px; border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-size:14px; cursor:pointer; padding:0; }
@@ -6396,6 +6498,7 @@ document.addEventListener('DOMContentLoaded', () => {
     #songDock { left:0; right:0; top:calc(env(safe-area-inset-top) + 52px); width:100%; border-radius:0; }
     .song-play.has-video:not(.is-mini) { padding-top:56.25vw; }
     #songDock.is-mini { left:auto; right:12px; top:auto; bottom:calc(env(safe-area-inset-bottom) + 78px); width:46vw; border-radius:10px; }
+    #songDock.is-file { left:12px; right:12px; top:auto; bottom:calc(env(safe-area-inset-bottom) + 78px); width:auto; border-radius:14px; }
     .song-play-head { gap:8px; }
   }
 

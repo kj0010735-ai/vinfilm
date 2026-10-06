@@ -1,0 +1,7 @@
+[
+  {
+    "origin": ["https://www.vinfilmstudio.com", "http://localhost:8123"],
+    "method": ["GET"],
+    "maxAgeSeconds": 3600
+  }
+]
