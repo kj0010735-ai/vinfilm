@@ -112,6 +112,7 @@ function richMemoText(el) {
 }
 function richMemoSync(el) { const ta = el.nextElementSibling; if (ta && ta.tagName === 'TEXTAREA') ta.value = richMemoText(el); }
 document.addEventListener('input', (e) => { const el = e.target.closest && e.target.closest('[data-rich]'); if (el) richMemoSync(el); });
+document.addEventListener('input', (e) => { if (e.target.id === 'schedTimeInput' && e.target.value.trim()) { const ad = document.getElementById('schedAllDayCb'); if (ad && ad.checked) ad.checked = false; } });
 document.addEventListener('submit', (e) => { e.target.querySelectorAll && e.target.querySelectorAll('[data-rich]').forEach(richMemoSync); }, true);
 document.addEventListener('paste', (e) => {
   const el = e.target.closest && e.target.closest('[data-rich]'); if (!el) return;
@@ -1605,7 +1606,7 @@ function schedModalHtml() {
           <div class="eq-field-row">
             <div class="eq-field"><label id="schedDateLbl">${multi ? '시작일' : '날짜'}</label><input type="date" name="date" value="${esc(f.date)}" required data-role="sched-date-conflict" /><div id="schedConflict">${schedConflictHtml(f.date, editing ? editing.id : null)}</div></div>
             <div class="eq-field" id="schedEndWrap" style="${multi ? '' : 'display:none'}"><label>종료일</label><input type="date" name="endDate" value="${esc(f.endDate > f.date ? f.endDate : addDaysYmd(f.date, 1))}" min="${esc(f.date)}" ${multi ? 'required' : 'disabled'} /></div>
-            <div class="eq-field"><label>시간(콜타임)</label>${timeFieldHtml('time', f.time, `id="schedTimeInput" ${f.allDay ? 'disabled' : ''}`)}</div>
+            <div class="eq-field"><label>시간(콜타임)</label>${timeFieldHtml('time', f.time, `id="schedTimeInput"`)}</div>
           </div>
           <div class="sched-allday-toggle"><input type="checkbox" name="allDay" id="schedAllDayCb" ${f.allDay?'checked':''} /><label for="schedAllDayCb" style="margin:0">하루 종일</label></div>
           <div class="eq-field"><label>카테고리</label><select name="category">${SCHED_CATEGORIES.map(c => `<option value="${c.id}" ${f.category===c.id?'selected':''}>${c.label}</option>`).join('')}</select></div>
@@ -4422,7 +4423,7 @@ function bootApp() {
     if (/^install-/.test(action) && handleInstallAction(action, el, e)) return;
     if (action === 'time-chip') {
       const box = el.closest('.time-field'), inp = box && box.querySelector('input');
-      if (inp && !inp.disabled) { inp.value = el.dataset.id; inp.dispatchEvent(new Event('input', { bubbles: true })); const ad = document.getElementById('schedAllDayCb'); if (ad && ad.checked && inp.id === 'schedTimeInput') { ad.checked = false; inp.disabled = false; } }
+      if (inp) { inp.value = el.dataset.id; inp.dispatchEvent(new Event('input', { bubbles: true })); }
       return;
     }
     if (/^(notif-|notice-)/.test(action) && handleNotifAction(action, el, e)) return;
@@ -5050,8 +5051,9 @@ function bootApp() {
     }
     if (e.target.dataset && e.target.dataset.role === 'time-input') { const v = parseTimeInput(e.target.value); if (v) e.target.value = v; }
     if (e.target.id === 'schedAllDayCb') {
+      // 하루 종일을 켜면 시간을 비운다(칸을 막지는 않음 — 막아 두면 '시간이 안 들어간다'고 헷갈렸음)
       const timeInput = document.getElementById('schedTimeInput');
-      if (timeInput) timeInput.disabled = e.target.checked;
+      if (timeInput && e.target.checked) { timeInput.value = ''; timeInput.dispatchEvent(new Event('input', { bubbles: true })); }
     }
     if (e.target.id === 'eqFileInput') {
       const file = e.target.files && e.target.files[0];
