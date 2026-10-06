@@ -3101,7 +3101,8 @@ async function songFilePlayer(src, dock, semis) {
   let playing = false, key = semis || 0;
   st.schedule({ active: false, input: 0, rate: 1, semitones: key });
   const P = {
-    duration: audio.duration,
+    duration: audio.duration, audio,
+    getKey() { return key; },
     getCurrentTime() { return Math.min(audio.duration, st.inputTime || 0); },
     getPlayerState() { return playing ? 1 : 2; },
     seekTo(t) { st.schedule({ input: Math.max(0, Math.min(audio.duration - 0.05, t)) }); st.inputTime = t; },
@@ -3114,6 +3115,32 @@ async function songFilePlayer(src, dock, semis) {
   P._endTimer = setInterval(() => { if (playing && P.getCurrentTime() >= audio.duration - 0.05) { P.pauseVideo(); P.seekTo(0); } }, 200);
   const d0 = P.destroy; P.destroy = () => { clearInterval(P._endTimer); d0(); };
   return P;
+}
+/* 지금 키로 곡 전체를 변환해 MP3로 내려받기 — 재생과 같은 엔진을 OfflineAudioContext에서 한 번에 돌리고(재생 없이),
+   lamejs(LGPL, jsdelivr)로 192kbps MP3로 인코딩한다. 받은 파일은 큐베이스에 넣거나 폰에 옮겨 연습용으로 쓴다. */
+async function songRenderMp3(audio, semis, onProgress) {
+  const sr = audio.sampleRate, len = Math.ceil(audio.duration * sr);
+  const mod = await import('https://cdn.jsdelivr.net/npm/signalsmith-stretch@1.3.2/SignalsmithStretch.mjs');
+  const off = new OfflineAudioContext(2, len + Math.ceil(sr * 0.5), sr);
+  const st = await mod.default(off);
+  st.connect(off.destination);
+  const ch = [audio.getChannelData(0), audio.numberOfChannels > 1 ? audio.getChannelData(1) : audio.getChannelData(0)];
+  await st.addBuffers(ch.map(c => c.slice()));
+  await st.schedule({ active: true, input: 0, output: 0, rate: 1, semitones: semis || 0 });
+  onProgress && onProgress('변환 중…');
+  const out = await off.startRendering();
+  if (!window.lamejs) await new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js'; sc.onload = ok; sc.onerror = () => bad(new Error('MP3 인코더를 불러오지 못했어요')); document.head.appendChild(sc); });
+  const L = out.getChannelData(0), R = out.getChannelData(1), n = Math.min(len, L.length);
+  const toI16 = (src, a, b) => { const o = new Int16Array(b - a); for (let i = a; i < b; i++) { const v = Math.max(-1, Math.min(1, src[i])); o[i - a] = v < 0 ? v * 0x8000 : v * 0x7fff; } return o; };
+  const enc = new lamejs.Mp3Encoder(2, sr, 192), parts = [], step = 1152 * 40;
+  for (let i = 0; i < n; i += step) {
+    const e = Math.min(n, i + step), buf = enc.encodeBuffer(toI16(L, i, e), toI16(R, i, e));
+    if (buf.length) parts.push(new Uint8Array(buf));
+    onProgress && onProgress(`MP3 만드는 중… ${Math.round(e / n * 100)}%`);
+    await new Promise(r => setTimeout(r, 0)); // 화면이 멈추지 않게 조금씩
+  }
+  const last = enc.flush(); if (last.length) parts.push(new Uint8Array(last));
+  return new Blob(parts, { type: 'audio/mpeg' });
 }
 function songFileDockHtml(name) {
   return `<div class="song-player"><button type="button" class="sp-play" id="spPlay" disabled>…</button><div class="sp-mid"><div class="sp-name">🎵 ${esc(name || 'MR')}</div><input type="range" id="spSeek" min="0" max="1000" value="0" disabled /><div class="sp-time"><span id="spCur">0:00</span> / <span id="spDur">불러오는 중…</span></div></div></div>`;
@@ -3177,11 +3204,12 @@ function renderSongsTab() {
             ${yt && s.lyrics ? (S.song.syncing
               ? `<button class="eq-chip active" data-action="song-sync-toggle">✓ 싱크 저장</button><button class="eq-chip" data-action="song-sync-cancel">취소</button>`
               : `<button class="eq-chip" data-action="song-sync-toggle">⏱ 싱크 맞추기</button>${(s.secTimes || []).some(v => typeof v === 'number') ? `<button class="eq-chip ${S.song.follow !== false ? 'active' : ''}" data-action="song-follow">따라가기 ${S.song.follow !== false ? '켬' : '끔'}</button>` : ''}`) : ''}
-            ${audio ? `<span class="song-key"><button class="eq-chip" data-action="song-key" data-id="-1" title="반음 낮추기">♭ 키−</button><b>${songKeyLabel(s.keyShift)}</b><button class="eq-chip" data-action="song-key" data-id="1" title="반음 높이기">키+ ♯</button>${s.keyShift ? `<button class="eq-chip" data-action="song-key" data-id="0" title="원키로">원키</button>` : ''}</span>` : ''}
+            ${audio ? `<span class="song-key"><button class="eq-chip" data-action="song-key" data-id="-1" title="반음 낮추기">♭ 키−</button><b>${songKeyLabel(s.keyShift)}</b><button class="eq-chip" data-action="song-key" data-id="1" title="반음 높이기">키+ ♯</button>${s.keyShift ? `<button class="eq-chip" data-action="song-key" data-id="0" title="원키로">원키</button>` : ''}<button class="eq-chip" data-action="song-download" title="지금 키로 변환한 MP3 내려받기">⬇ MP3</button></span>` : ''}
             ${yt && !audio ? `<button class="eq-chip ${songMini() ? 'active' : ''}" data-action="song-mini" title="영상을 작게 띄우고 가사를 넓게">${songMini() ? '▣ 영상 크게' : '▫ 영상 작게'}</button>` : ''}
             <button class="eq-chip" data-action="song-open-edit" data-id="${s.id}">✎ 수정</button>
           </div>
         </div>
+        ${S.song.msg ? `<div class="q-hint" id="songMsg" style="margin-bottom:12px">${esc(S.song.msg)}</div>` : ''}
         ${S.song.syncing ? `<div class="song-sync-hint">🎵 노래를 틀고, <b>각 구간이 시작되는 순간 그 구간을 누르세요.</b> 잘못 눌렀으면 영상을 되감고 다시 누르면 돼요. 다 찍었으면 <b>✓ 싱크 저장</b>.</div>` : ''}
         ${!media ? `<div class="q-hint" style="margin-bottom:14px">${s.url ? `유튜브 링크가 아니라 여기서 바로 틀 수 없어요. <a class="memo-link" href="${esc(s.url)}" target="_blank" rel="noopener">링크 열기</a>` : '유튜브 inst 링크를 넣으면 여기서 바로 틀 수 있어요.'}</div>` : ''}
         <div class="song-lyrics ${S.song.syncing ? 'syncing' : ''}" id="songLyrics" style="font-size:${songFontSize()}px">${s.lyrics ? songLyricsHtml(s.lyrics, S.song.syncing ? S.song.syncTimes : s.secTimes) : '<span style="color:var(--text-faint)">가사가 없어요. 수정에서 가사를 넣어 보세요.</span>'}</div>
@@ -4853,6 +4881,21 @@ function bootApp() {
         saveSongs(songs.map(x => x.id === s.id ? { ...x, keyShift: k } : x));
         if (window.__songPlayer && window.__songPlayer.setKey) window.__songPlayer.setKey(k);
         render(); break;
+      }
+      case 'song-download': {
+        const s = songs.find(x => x.id === S.song.playId); const P = window.__songPlayer;
+        if (!s || !P || !P.audio) { S.song.msg = 'MR 파일을 불러온 뒤에 눌러 주세요.'; render(); break; }
+        if (S.song.exporting) break;
+        S.song.exporting = true; const k = s.keyShift || 0;
+        const say = m => { S.song.msg = m; const box = document.getElementById('songMsg'); if (box) box.textContent = m; else render(); };
+        songRenderMp3(P.audio, k, say).then(blob => {
+          const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+          a.download = `${(s.title || 'MR').replace(/[\\/:*?"<>|]/g, '_')}_${songKeyLabel(k)}.mp3`;
+          document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+          S.song.msg = '';
+        }).catch(e => { S.song.msg = 'MP3를 만들지 못했어요: ' + (e && e.message || e); })
+          .finally(() => { S.song.exporting = false; render(); });
+        break;
       }
       case 'song-mini': S.song.mini = !songMini(); try { localStorage.setItem('vinfilm-song-mini', S.song.mini ? '1' : '0'); } catch (e) {} render(); break;
       case 'song-insert-sec': { // 커서가 있는 줄 위에 "[후렴]" 같은 구간 이름 줄을 넣는다
