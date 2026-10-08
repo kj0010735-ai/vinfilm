@@ -37,8 +37,6 @@ if ('launchQueue' in window) launchQueue.setConsumer(function (p) {
 </script>
 <meta name="apple-mobile-web-app-title" content="WORKS">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<!-- 본문 글꼴: Pretendard(OFL) — 화면용으로 만든 글꼴이라 작은 글씨·숫자도 또렷하다(예전 페이퍼로지는 시인성이 떨어진다는 피드백) -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <!-- 클라우드 동기화용 SDK. 인터넷이 없으면 아래 두 줄은 그냥 조용히 실패하고, 앱은 로컬 저장만으로 정상 동작해요. -->
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
@@ -5668,8 +5666,9 @@ document.addEventListener('DOMContentLoaded', () => {
     --accent: #7aa7ff; --accent-soft: rgba(122,167,255,0.14);
     --status-owned: #4cae7d; --status-lent: #5b8def; --status-repair: #e0a63c; --status-sold: #6b7080;
     --sched-shoot: #d98a3d; --sched-meeting: #5b8def; --sched-deadline: #d9534f; --sched-etc: #6b7080; --sched-scout: #14b8a6; --sched-calendar: #4cae7d; --sched-hisplan: #8b5cf6;
-    --font-body: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
-    --font-mono: var(--font-body); /* 숫자/코드 라벨도 본문 글꼴(Pretendard)로 통일 (예전 모노스페이스는 한글이 다른 폰트로 폴백돼 섞여 보였음) */
+    /* 본문 글꼴 = 기기 시스템 글꼴(맥·아이폰: 영문 SF Pro + 한글 Apple SD 산돌고딕 Neo). 페이퍼로지 → Pretendard를 거쳐 '맥에서 쓰는 글꼴로' 요청으로 정함 */
+    --font-body: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+    --font-mono: var(--font-body); /* 숫자/코드 라벨도 본문 글꼴(시스템 글꼴)로 통일 (예전 모노스페이스는 한글이 다른 폰트로 폴백돼 섞여 보였음) */
     --font-display: 'Anton', sans-serif;
   }
   /* 화이트 테마 — 설정(⚙️)에서 전환, <html data-theme="light">. 색은 전부 변수로만 바꿔서 화면별 수정이 필요 없게 함. */
