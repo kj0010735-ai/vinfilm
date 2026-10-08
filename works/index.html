@@ -16,7 +16,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>작업 관리</title>
+<title>VINFILM WORKS</title>
 <link rel="icon" type="image/png" href="../assets/works-icon.png">
 <link rel="apple-touch-icon" sizes="512x512" href="../assets/works-icon.png">
 <link rel="manifest" id="manifestLink" href="manifest.webmanifest">
@@ -35,7 +35,7 @@ if ('launchQueue' in window) launchQueue.setConsumer(function (p) {
   if (u.origin === location.origin && u.pathname !== location.pathname) location.href = u.href;
 });
 </script>
-<meta name="apple-mobile-web-app-title" content="VINFILM 작업관리">
+<meta name="apple-mobile-web-app-title" content="WORKS">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <!-- 클라우드 동기화용 SDK. 인터넷이 없으면 아래 두 줄은 그냥 조용히 실패하고, 앱은 로컬 저장만으로 정상 동작해요. -->
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
@@ -638,7 +638,7 @@ function renderSidebar() {
   const items = GUEST_MODE ? NAV_ITEMS.filter(it => GUEST_ALLOWED_TABS.includes(it.id)) : NAV_ITEMS;
   return `
     <nav class="side-nav" id="sideNav">
-      <div class="side-nav-brand"><img class="side-nav-logo" src="../assets/logo.png" alt="VINFILM STUDIO" width="112" height="56" /><small>작업 관리</small></div>
+      <div class="side-nav-brand"><img class="side-nav-logo" src="../assets/logo.png" alt="VINFILM STUDIO" width="112" height="56" /><small>WORKS</small></div>
       ${GUEST_MODE ? `<div class="side-nav-guest-badge">👋 공유 보기</div>` : ''}
       <div class="side-nav-indicator"></div>
       ${items.map(it => `
@@ -1165,7 +1165,7 @@ async function gcalEnsureCalendar() {
   const found = (list.items || []).find(c => c.summary === GCAL_CAL_NAME && c.accessRole === 'owner');
   if (found) gcal.calId = found.id;
   else {
-    const created = await gapiFetch('/calendars', { method: 'POST', body: JSON.stringify({ summary: GCAL_CAL_NAME, description: 'VINFILM STUDIO 작업관리(www.vinfilmstudio.com/works)에서 자동으로 넣는 일정', timeZone: 'Asia/Seoul' }) });
+    const created = await gapiFetch('/calendars', { method: 'POST', body: JSON.stringify({ summary: GCAL_CAL_NAME, description: 'VINFILM WORKS(www.vinfilmstudio.com/works)에서 자동으로 넣는 일정', timeZone: 'Asia/Seoul' }) });
     gcal.calId = created.id;
     try { await gapiFetch('/users/me/calendarList/' + encodeURIComponent(created.id), { method: 'PATCH', body: JSON.stringify({ colorId: '9' }) }); } catch (e) {}
   }
@@ -1184,7 +1184,7 @@ async function gcalEnsureWorkCalendar() {
   const found = (list.items || []).find(x => x.summary === GCAL_WORK_NAME && x.accessRole === 'owner');
   if (found) gcal.workCalId = found.id;
   else {
-    const created = await gapiFetch('/calendars', { method: 'POST', body: JSON.stringify({ summary: GCAL_WORK_NAME, description: 'VINFILM STUDIO 작업관리의 마감·작업 일정 (대표 전용)', timeZone: 'Asia/Seoul' }) });
+    const created = await gapiFetch('/calendars', { method: 'POST', body: JSON.stringify({ summary: GCAL_WORK_NAME, description: 'VINFILM WORKS의 마감·작업 일정 (대표 전용)', timeZone: 'Asia/Seoul' }) });
     gcal.workCalId = created.id;
     try { await gapiFetch('/users/me/calendarList/' + encodeURIComponent(created.id), { method: 'PATCH', body: JSON.stringify({ colorId: '8' }) }); } catch (e) {}
   }
@@ -1880,11 +1880,34 @@ function projModalHtml() {
             ${dateInputHtml('name="scoutDate"', scout ? scout.date : '')}
             <div style="margin-top:8px">${timeFieldHtml('scoutTime', scout && scout.time ? scout.time : '')}</div>
           </div>
+          <div class="eq-field"><label>📎 첨부파일 <span class="eq-hint">(PDF·이미지 등 — 상세 화면에서 눌러 바로 열어요)</span></label>
+            ${(editing && editing.attachments || []).map(a => `<div class="att-row"><a class="att-link" href="${esc(a.url)}" target="_blank" rel="noopener">${attIcon(a)} ${esc(a.name)}</a><label class="att-rm"><input type="checkbox" name="attRemove" value="${esc(a.id)}" /> 빼기</label></div>`).join('')}
+            <input type="file" name="attFiles" multiple accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.hwp,.txt,.zip" /></div>
           <div class="eq-field"><label>메모</label>${richMemoHtml('notes', f.notes, '진행 상황, 참고사항 등')}</div>
           <button type="submit" class="eq-modal-submit">${editing ? '수정 완료' : '등록하기'}</button>
         </form>
       </div>
     </div>`;
+}
+/* ---- 프로젝트 첨부파일 ----
+   Firebase Storage projects/{프로젝트id}/{시각}-{파일명}(storage.rules owner 전용)에 올리고 projItems[].attachments
+   = [{id,name,url,path,size,type,at}]에 적는다. 열 때는 다운로드 URL(토큰 포함)을 새 탭으로 연다 — CORS 필요 없음. */
+function attIcon(a) { const n = (a && a.name || '').toLowerCase(); return /\.pdf$/.test(n) ? '📄' : /\.(png|jpe?g|gif|webp|heic)$/.test(n) ? '🖼️' : '📎'; }
+function projDeleteFile(path) { if (IS_LOCAL_DEV || !path || typeof firebase === 'undefined' || !firebase.storage) return; try { firebase.storage().ref(path).delete().catch(() => {}); } catch (e) {} }
+async function projUploadFiles(projId, files) {
+  const done = [];
+  for (const [i, file] of files.entries()) {
+    S.proj.attMsg = `첨부파일 올리는 중… (${i + 1}/${files.length}) ${file.name}`; render();
+    try {
+      if (IS_LOCAL_DEV || typeof firebase === 'undefined' || !firebase.storage) { done.push({ id: uid(), name: file.name, url: URL.createObjectURL(file), path: '', size: file.size, type: file.type, at: Date.now() }); continue; }
+      const path = `projects/${projId}/${Date.now()}-${file.name.replace(/[^\w.\-가-힣 ()]/g, '_')}`;
+      const snap = await firebase.storage().ref(path).put(file, { contentType: file.type || 'application/octet-stream' });
+      done.push({ id: uid(), name: file.name, url: await snap.ref.getDownloadURL(), path, size: file.size, type: file.type || '', at: Date.now() });
+    } catch (e) { S.proj.attMsg = `"${file.name}"을 올리지 못했어요: ${e && e.message || e}`; render(); }
+  }
+  if (done.length) saveProjItems(projItems.map(p => p.id === projId ? { ...p, attachments: [...(p.attachments || []), ...done] } : p));
+  if (!/못했어요/.test(S.proj.attMsg || '')) S.proj.attMsg = '';
+  render();
 }
 function projBreadcrumb(id) {
   const chain = [];
@@ -2012,6 +2035,8 @@ function projDetailHtml() {
           ? `<button class="proj-sched-link" style="margin:0" data-action="proj-view-scout" data-id="${p.id}">🔎 ${dateLabel(scoutSched.date)} ${scoutSched.time || ''} ${scoutSched.location ? '· ' + esc(scoutSched.location) : ''}</button>`
           : `<button class="proj-sched-link proj-sched-link-add" style="margin:0" data-action="proj-open-edit" data-id="${p.id}">+ 답사 일정 넣기</button>`}</b></div>` : ''}
         </div>
+        ${(p.attachments || []).length ? `<div class="att-list">${p.attachments.map(a => `<a class="att-chip" href="${esc(a.url)}" target="_blank" rel="noopener" title="${esc(a.name)}">${attIcon(a)} <span>${esc(a.name)}</span></a>`).join('')}</div>` : ''}
+        ${S.proj.attMsg ? `<div class="q-hint" style="margin:8px 0">${esc(S.proj.attMsg)}</div>` : ''}
         ${p.notes ? `<div class="eq-detail-notes">${linkify(p.notes)}</div>${ytThumbsHtml(p.notes)}` : `<div class="eq-detail-notes" style="color:var(--text-faint)">메모가 없어요. 수정하기를 눌러 적어 보세요.</div>`}
         <div class="eq-detail-actions">
           <button class="eq-modal-submit" data-action="proj-open-edit" data-id="${p.id}">✎ 수정하기</button>
@@ -2203,7 +2228,7 @@ function renderProjectsTab() {
   };
   const breadcrumb = projBreadcrumb(parentId);
   return `
-    <div class="proj-eyebrow">WORK MANAGEMENT</div>
+    <div class="proj-eyebrow">VINFILM WORKS</div>
     <div class="eq-header">
       <div class="eq-title-block"><h1 class="eq-title">${parent ? esc(parent.title) : '프로젝트'}</h1><div class="eq-stat">진행중 <b>${counts.doing}</b> / 전체 <b>${counts.all}</b></div></div>
       <button class="eq-add-btn" data-action="proj-open-add" data-id="todo">+ 새 프로젝트</button>
@@ -5222,9 +5247,14 @@ function bootApp() {
         scoutScheduleId = null;
       }
       payload.scoutScheduleId = scoutScheduleId;
+      /* 📎 첨부파일: 체크한 건 빼고(Storage에서도 지움), 새로 고른 파일은 저장 뒤 올려서 붙인다 */
+      const rm = new Set(fd.getAll('attRemove').map(String));
+      if (editingProj && rm.size) { (editingProj.attachments || []).filter(a => rm.has(a.id)).forEach(a => projDeleteFile(a.path)); payload.attachments = (editingProj.attachments || []).filter(a => !rm.has(a.id)); }
+      const newFiles = fd.getAll('attFiles').filter(f => f && typeof f === 'object' && f.size > 0);
       if (editingProj) saveProjItems(projItems.map(p => p.id === editingProj.id ? { ...p, ...payload } : p));
       else saveProjItems([{ id: projId, serial: nextProjectSerial(projItems), createdAt: Date.now(), parentId: S.proj.currentParentId || null, ...payload }, ...projItems]);
       S.proj.modalOpen = false; S.proj.editingId = null;
+      if (newFiles.length) projUploadFiles(projId, newFiles);
       render();
     } else if (form.matches('[data-form-role="proj-move-form"]')) {
       const fd = new FormData(form);
@@ -6540,6 +6570,14 @@ document.addEventListener('DOMContentLoaded', () => {
   .song-file-cur { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:13px; margin-bottom:8px; color:var(--text); }
   .song-file-rm { display:inline-flex; align-items:center; gap:4px; font-size:12px; color:var(--text-dim); font-weight:400; }
   .song-file-rm input { width:auto; }
+  .att-row { display:flex; align-items:center; gap:10px; margin-bottom:6px; font-size:13px; }
+  .att-link { color:var(--accent); text-decoration:none; overflow-wrap:anywhere; flex:1; min-width:0; }
+  .att-rm { display:inline-flex; align-items:center; gap:4px; font-size:12px; color:var(--text-dim); font-weight:400; white-space:nowrap; }
+  .att-rm input { width:auto; }
+  .att-list { display:flex; flex-wrap:wrap; gap:8px; margin:4px 0 10px; }
+  .att-chip { display:inline-flex; align-items:center; gap:6px; max-width:100%; padding:8px 12px; border-radius:10px; border:1px solid var(--border); background:var(--surface); color:var(--text); text-decoration:none; font-size:13px; font-weight:600; }
+  .att-chip span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .att-chip:hover { border-color:var(--accent); }
   .date-wrap { display:flex; align-items:center; gap:6px; min-width:0; }
   .date-wrap input { flex:1; min-width:0; width:auto; -webkit-appearance:none; appearance:none; } /* 아이폰 날짜 칸은 기본 폭이 커서 줄어들지 않고 ✕ 버튼을 화면 밖으로 밀어낸다 */
   .date-clear { display:none; flex:0 0 auto; align-items:center; justify-content:center; width:34px; height:34px; border-radius:10px; border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-size:14px; cursor:pointer; padding:0; }

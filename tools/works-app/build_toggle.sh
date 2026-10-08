@@ -30,7 +30,8 @@ PLIST
   cat > "$APP/Contents/MacOS/launcher" <<SH
 #!/bin/bash
 R=\$(osascript -l JavaScript -e 'ObjC.import("AppKit"); var a=\$.NSRunningApplication.runningApplicationsWithBundleIdentifier("$BID"); if (Number(a.count) === 0) { "open" } else { var app=a.objectAtIndex(0); if (app.active) { app.hide; "hidden" } else { "open" } }')
-[ "\$R" = "open" ] && open "$TARGET"
+# Chrome 앱 이름이 바뀌면(예: 작업관리 → VINFILM WORKS) 앱 파일 이름도 바뀌므로 경로 대신 번들 id로 연다
+[ "\$R" = "open" ] && { open -b "$BID" 2>/dev/null || open "$TARGET"; }
 exit 0
 SH
   chmod +x "$APP/Contents/MacOS/launcher"; codesign --force --deep -s - "$APP" >/dev/null 2>&1 || true

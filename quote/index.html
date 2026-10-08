@@ -210,7 +210,7 @@ function render(q, approval) {
       ${b.account ? `<h2>입금 계좌</h2><div class="bank">${esc([b.bank, b.account].filter(Boolean).join(' '))}${b.holder ? ` (예금주 ${esc(b.holder)})` : ''}</div>` : ''}
       <div class="foot">위와 같이 견적합니다. · ${esc(b.name || 'VINFILM STUDIO')}</div>
     </article>
-    ${PREVIEW ? `<div class="approve no-print"><p style="margin:0">미리보기 화면이에요. 클라이언트에게는 작업관리에서 <b>링크로 보내기</b>를 누르면 이 화면 아래에 "견적 승인" 버튼이 함께 보여요.</p></div>` : approvalHtml(approval)}`;
+    ${PREVIEW ? `<div class="approve no-print"><p style="margin:0">미리보기 화면이에요. 클라이언트에게는 WORKS에서 <b>링크로 보내기</b>를 누르면 이 화면 아래에 "견적 승인" 버튼이 함께 보여요.</p></div>` : approvalHtml(approval)}`;
 }
 function approvalHtml(a) {
   if (a) return `<div class="approve"><div class="stamp"><span>✓</span><div>${esc(a.name)}님이 이 견적을 승인했어요<small>${new Date(a.at).toLocaleString('ko-KR')}</small></div></div></div>`;
@@ -229,7 +229,7 @@ function approvalHtml(a) {
 async function main() {
   if (PREVIEW) {
     let q = null; try { q = JSON.parse(localStorage.getItem('vinfilm-quote-preview') || 'null'); } catch (e) {}
-    if (!q) { root.innerHTML = `<div class="notice">미리볼 견적서가 없어요. 작업관리에서 다시 열어주세요.</div>`; return; }
+    if (!q) { root.innerHTML = `<div class="notice">미리볼 견적서가 없어요. WORKS에서 다시 열어주세요.</div>`; return; }
     document.title = `${q.number} 견적서 미리보기 · VINFILM STUDIO`;
     render(q, null); return;
   }

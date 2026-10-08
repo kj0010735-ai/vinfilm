@@ -156,7 +156,7 @@ function render(c) {
       </div>
       ${c.hash ? `<div class="hash">문서 확인 코드 ${esc(c.hash.slice(0, 16).toUpperCase())}${s ? ' · 서명 시 같은 코드로 확인됨' : ''}</div>` : ''}
     </article>
-    ${PREVIEW ? `<div class="panel no-print"><p style="margin:0">미리보기 화면이에요. 작업관리에서 <b>서명 링크 보내기</b>를 누르면 클라이언트는 이 아래에서 이름을 적고 서명할 수 있어요.</p></div>` : s ? doneHtml(s) : signFormHtml(c)}`;
+    ${PREVIEW ? `<div class="panel no-print"><p style="margin:0">미리보기 화면이에요. WORKS에서 <b>서명 링크 보내기</b>를 누르면 클라이언트는 이 아래에서 이름을 적고 서명할 수 있어요.</p></div>` : s ? doneHtml(s) : signFormHtml(c)}`;
   if (!PREVIEW && !s) {
     const cv = document.getElementById('signPad');
     if (cv) pad = initSignPad(cv, updateSubmit);
@@ -232,7 +232,7 @@ document.addEventListener('submit', async e => {
 async function main() {
   if (PREVIEW) {
     let c = null; try { c = JSON.parse(localStorage.getItem('vinfilm-contract-preview') || 'null'); } catch (e) {}
-    if (!c) { root.innerHTML = `<div class="notice">미리볼 계약서가 없어요. 작업관리에서 다시 열어주세요.</div>`; return; }
+    if (!c) { root.innerHTML = `<div class="notice">미리볼 계약서가 없어요. WORKS에서 다시 열어주세요.</div>`; return; }
     document.title = `${c.number} 계약서 미리보기 · VINFILM STUDIO`;
     render(c); return;
   }

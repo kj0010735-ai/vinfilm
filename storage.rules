@@ -5,6 +5,10 @@ service firebase.storage {
     match /songs/{songId}/{fileName} {
       allow read, write: if request.auth != null && request.auth.token.email in ['kj0010735@gmail.com'];
     }
+    // 작업관리(WORKS) 프로젝트 첨부파일 — 대표님만. 열람은 다운로드 URL(토큰 포함)로.
+    match /projects/{projId}/{fileName} {
+      allow read, write: if request.auth != null && request.auth.token.email in ['kj0010735@gmail.com'];
+    }
     match /hero/{fileName} {
       allow read: if true;
       allow write: if request.auth != null && request.auth.token.email in ['kj0010735@gmail.com'];
