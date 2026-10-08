@@ -16,7 +16,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>VINFILM WORKS</title>
+<title>WORKS</title>
 <link rel="icon" type="image/png" href="../assets/works-icon.png">
 <link rel="apple-touch-icon" sizes="512x512" href="../assets/works-icon.png">
 <link rel="manifest" id="manifestLink" href="manifest.webmanifest">
@@ -1165,7 +1165,7 @@ async function gcalEnsureCalendar() {
   const found = (list.items || []).find(c => c.summary === GCAL_CAL_NAME && c.accessRole === 'owner');
   if (found) gcal.calId = found.id;
   else {
-    const created = await gapiFetch('/calendars', { method: 'POST', body: JSON.stringify({ summary: GCAL_CAL_NAME, description: 'VINFILM WORKS(www.vinfilmstudio.com/works)에서 자동으로 넣는 일정', timeZone: 'Asia/Seoul' }) });
+    const created = await gapiFetch('/calendars', { method: 'POST', body: JSON.stringify({ summary: GCAL_CAL_NAME, description: 'WORKS(www.vinfilmstudio.com/works)에서 자동으로 넣는 일정', timeZone: 'Asia/Seoul' }) });
     gcal.calId = created.id;
     try { await gapiFetch('/users/me/calendarList/' + encodeURIComponent(created.id), { method: 'PATCH', body: JSON.stringify({ colorId: '9' }) }); } catch (e) {}
   }
@@ -1184,7 +1184,7 @@ async function gcalEnsureWorkCalendar() {
   const found = (list.items || []).find(x => x.summary === GCAL_WORK_NAME && x.accessRole === 'owner');
   if (found) gcal.workCalId = found.id;
   else {
-    const created = await gapiFetch('/calendars', { method: 'POST', body: JSON.stringify({ summary: GCAL_WORK_NAME, description: 'VINFILM WORKS의 마감·작업 일정 (대표 전용)', timeZone: 'Asia/Seoul' }) });
+    const created = await gapiFetch('/calendars', { method: 'POST', body: JSON.stringify({ summary: GCAL_WORK_NAME, description: 'WORKS의 마감·작업 일정 (대표 전용)', timeZone: 'Asia/Seoul' }) });
     gcal.workCalId = created.id;
     try { await gapiFetch('/users/me/calendarList/' + encodeURIComponent(created.id), { method: 'PATCH', body: JSON.stringify({ colorId: '8' }) }); } catch (e) {}
   }
@@ -2228,7 +2228,7 @@ function renderProjectsTab() {
   };
   const breadcrumb = projBreadcrumb(parentId);
   return `
-    <div class="proj-eyebrow">VINFILM WORKS</div>
+    <div class="proj-eyebrow">WORKS</div>
     <div class="eq-header">
       <div class="eq-title-block"><h1 class="eq-title">${parent ? esc(parent.title) : '프로젝트'}</h1><div class="eq-stat">진행중 <b>${counts.doing}</b> / 전체 <b>${counts.all}</b></div></div>
       <button class="eq-add-btn" data-action="proj-open-add" data-id="todo">+ 새 프로젝트</button>

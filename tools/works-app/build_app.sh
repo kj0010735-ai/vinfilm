@@ -1,11 +1,11 @@
 #!/bin/bash
-# "VINFILM WORKS.app"을 만든다. 실행하면 작업 관리 사이트(www.vinfilmstudio.com/works/)를
+# "WORKS.app"을 만든다. 실행하면 작업 관리 사이트(www.vinfilmstudio.com/works/)를
 # 주소창 없는 전용 창(Chrome 앱 모드)으로 연다 — Chrome 계열이 없으면 기본 브라우저로 연다.
 # 아이콘(icon.svg → AppIcon.icns)을 바꾸면 이 스크립트를 다시 실행하면 된다. .icns는 아래로 만든다:
 #   qlmanage -t -s 1024 -o . icon.svg 로 PNG를 뽑고, sips로 크기별 복사 후 iconutil -c icns
 set -e
 DIR="$(cd "$(dirname "$0")" && pwd)"
-APP="$DIR/VINFILM WORKS.app"
+APP="$DIR/WORKS.app"
 URL="https://www.vinfilmstudio.com/works/"
 
 rm -rf "$APP"
@@ -16,8 +16,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>CFBundleName</key><string>VINFILM WORKS</string>
-  <key>CFBundleDisplayName</key><string>VINFILM WORKS</string>
+  <key>CFBundleName</key><string>WORKS</string>
+  <key>CFBundleDisplayName</key><string>WORKS</string>
   <key>CFBundleIdentifier</key><string>com.vinfilmstudio.works</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundleExecutable</key><string>launcher</string>
