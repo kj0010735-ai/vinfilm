@@ -3172,7 +3172,18 @@ function songFileDockHtml(name) {
   return `<div class="song-player"><button type="button" class="sp-play" id="spPlay" disabled>…</button><div class="sp-mid"><div class="sp-name">🎵 ${esc(name || 'MR')}</div><input type="range" id="spSeek" min="0" max="1000" value="0" disabled /><div class="sp-time"><span id="spCur">0:00</span> / <span id="spDur">불러오는 중…</span></div></div></div>`;
 }
 function songMini() { if (S.song.mini == null) { try { S.song.mini = localStorage.getItem('vinfilm-song-mini') === '1'; } catch (e) { S.song.mini = false; } } return S.song.mini; }
-function songFontSize() { let v = 22; try { v = Number(localStorage.getItem('vinfilm-song-font')) || 22; } catch (e) {} return Math.max(14, Math.min(44, v)); }
+function songFontSize() { let v = 22; try { v = Number(localStorage.getItem('vinfilm-song-font')) || 22; } catch (e) {} return Math.max(14, Math.min(72, v)); }
+/* 전체화면: 가사 화면(.song-play)을 화면 가득 덮고, 되면 브라우저 전체화면도 켠다. 다시 그리지 않고 클래스만 바꿔서 재생 중인 영상이 끊기지 않는다 */
+function songSetFull(on) {
+  S.song.full = !!on;
+  document.body.classList.toggle('song-full', S.song.full && S.activeTab === 'songs' && !!S.song.playId);
+  const b = document.getElementById('songFullBtn');
+  if (b) { b.classList.toggle('active', S.song.full); b.textContent = S.song.full ? '✕ 전체화면 끄기' : '⛶ 전체화면'; }
+  const el = document.documentElement;
+  if (S.song.full && !document.fullscreenElement && el.requestFullscreen) el.requestFullscreen().catch(() => {});
+  if (!S.song.full && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+}
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && S.song.full) songSetFull(false); });
 function songGridHtml() {
   const q = (S.song.search || '').trim().toLowerCase();
   const list = songs.filter(s => !q || [s.title, s.artist, s.key].some(v => (v || '').toLowerCase().includes(q)));
@@ -3233,6 +3244,7 @@ function renderSongsTab() {
             ${audio ? `<span class="song-key"><button class="eq-chip" data-action="song-key" data-id="-1" title="반음 낮추기">♭ 키−</button><b>${songKeyLabel(s.keyShift)}</b><button class="eq-chip" data-action="song-key" data-id="1" title="반음 높이기">키+ ♯</button>${s.keyShift ? `<button class="eq-chip" data-action="song-key" data-id="0" title="원키로">원키</button>` : ''}<button class="eq-chip" data-action="song-download" title="지금 키로 변환한 MP3 내려받기">⬇ MP3</button></span>` : ''}
             ${yt && !audio ? `<button class="eq-chip ${songMini() ? 'active' : ''}" data-action="song-mini" title="영상을 작게 띄우고 가사를 넓게">${songMini() ? '▣ 영상 크게' : '▫ 영상 작게'}</button>` : ''}
             <button class="eq-chip" data-action="song-open-edit" data-id="${s.id}">✎ 수정</button>
+            <button class="eq-chip ${S.song.full ? 'active' : ''}" data-action="song-full" id="songFullBtn" title="가사만 화면 가득 보기 (Esc로 나가기)">${S.song.full ? '✕ 전체화면 끄기' : '⛶ 전체화면'}</button>
           </div>
         </div>
         ${S.song.msg ? `<div class="q-hint" id="songMsg" style="margin-bottom:12px">${esc(S.song.msg)}</div>` : ''}
@@ -4363,6 +4375,8 @@ function render() {
   positionNavIndicator();
   quoteAfterRender();
   syncSongDock();
+  if (S.song.full && !(S.activeTab === 'songs' && S.song.playId)) songSetFull(false);
+  document.body.classList.toggle('song-full', !!S.song.full);
   const main = document.querySelector('.app-main');
   if (main && window.__lastTab !== S.activeTab) { main.classList.add('tab-enter'); window.__lastTab = S.activeTab; }
   const af = document.querySelector('[autofocus]');
@@ -4938,9 +4952,10 @@ function bootApp() {
         break;
       }
       case 'song-play': S.song.syncing = false; S.song.playId = id; window.scrollTo(0, 0); render(); break;
-      case 'song-back': S.song.syncing = false; S.song.playId = null; render(); break;
+      case 'song-back': S.song.syncing = false; S.song.playId = null; if (S.song.full) songSetFull(false); render(); break;
+      case 'song-full': songSetFull(!S.song.full); break;
       case 'song-font': { // 다시 그리지 않고 글자 크기만 바꾼다(다시 그리면 재생 중인 영상이 끊김)
-        const next = Math.max(14, Math.min(44, songFontSize() + Number(id)));
+        const next = Math.max(14, Math.min(72, songFontSize() + Number(id)));
         try { localStorage.setItem('vinfilm-song-font', String(next)); } catch (x) {}
         const ly = document.getElementById('songLyrics'); if (ly) ly.style.fontSize = next + 'px';
         break;
@@ -5559,6 +5574,7 @@ function bootApp() {
     if (gcal.modalOpen) { gcal.modalOpen = false; changed = true; }
     if (S.moreOpen) { S.moreOpen = false; changed = true; }
     if (gcal.detailId) { gcal.detailId = null; changed = true; }
+    if (!changed && S.song.full) songSetFull(false); // 창 안 전체화면(브라우저 전체화면을 못 쓸 때)에서 나가기
     if (changed) render();
   });
 
@@ -6593,6 +6609,19 @@ document.addEventListener('DOMContentLoaded', () => {
     .song-play-head { gap:8px; }
   }
 
+  /* 노래 전체화면: 가사 화면만 화면을 덮는다(사이드바·탭바 위, 영상/MR 플레이어와 수정 창은 그 위) */
+  body.song-full { overflow:hidden; }
+  body.song-full .song-play { position:fixed; inset:0; z-index:80; background:var(--bg); overflow-y:auto; overscroll-behavior:contain; padding:calc(20px + env(safe-area-inset-top)) 44px 0; }
+  body.song-full .song-play-head { position:sticky; top:calc(-20px - env(safe-area-inset-top)); z-index:2; background:var(--bg); padding:12px 0; margin:-12px 0 18px; }
+  body.song-full .song-play-title .eq-title { font-size:20px; }
+  body.song-full #songDock { z-index:90; }
+  body.song-full #songDock:not(.is-mini):not(.is-file) { top:calc(84px + env(safe-area-inset-top)); }
+  @media (max-width: 720px) {
+    body.song-full .song-play { padding:calc(12px + env(safe-area-inset-top)) 16px 0; }
+    body.song-full .song-play.has-video:not(.is-mini) { padding-top:calc(56.25vw + 12px + env(safe-area-inset-top)); }
+    body.song-full #songDock:not(.is-mini):not(.is-file) { top:0; padding-top:env(safe-area-inset-top); background:#000; }
+    body.song-full #songDock.is-mini, body.song-full #songDock.is-file { bottom:calc(env(safe-area-inset-bottom) + 16px); }
+  }
   .song-quick { display:flex; gap:8px; margin-top:14px; }
   .song-quick input { flex:1; min-width:0; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:11px 14px; color:var(--text); font-family:var(--font-body); font-size:14px; outline:none; }
   .song-quick input:focus { border-color:var(--accent); }
