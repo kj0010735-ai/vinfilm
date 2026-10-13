@@ -67,6 +67,8 @@ body.kb .kbbar{display:flex}
 body.kb .tools{display:none}
 .kk{flex:none;min-width:44px;height:42px;padding:0 10px;border-radius:11px;background:var(--surface);border:1px solid var(--border);font-size:15px;color:var(--text)}
 .kk.mod.on{background:var(--accent);border-color:var(--accent);color:#0b1020}
+.kb-pending{display:none;flex:none;align-items:center;height:42px;padding:0 12px;border-radius:11px;border:1px dashed var(--accent);color:var(--accent);font-size:18px;font-weight:600}
+.kb-pending.show{display:flex}
 .kk.done{color:var(--accent);font-weight:600}
 .kk:active{background:var(--raise)}
 
@@ -152,6 +154,7 @@ document.addEventListener('gesturechange', e => e.preventDefault());
   </div>
 
   <div class="kbbar" id="kbBar">
+    <span class="kb-pending" id="kbPending" aria-live="polite"></span>
     <button class="kk mod" data-mod="cmd">⌘</button>
     <button class="kk mod" data-mod="alt">⌥</button>
     <button class="kk mod" data-mod="ctrl">⌃</button>
@@ -410,36 +413,60 @@ pad.addEventListener('touchcancel', padEnd, { passive:false });
 // ── 키보드: 숨긴 입력칸의 값이 바뀔 때마다 이전 값과 비교해 지운 만큼 ⌫, 새로 생긴 글자를 보낸다
 // (한글 조합 'ㄱ→가→각'도 '⌫ 후 새 글자'로 그대로 따라감) — 맨 앞의 보이지 않는 글자는 빈칸에서 ⌫를 알아채기 위한 것
 const kb = $('#kb'), SENT = '​';
-let last = SENT;
+// 맥에 이미 보낸 글자(입력칸 기준). 한글은 'ㄱ→가→각'처럼 마지막 글자가 계속 바뀌므로, 아직 조합 중일 수 있는
+// 마지막 한글 한 글자는 바로 보내지 않고(pending) 다음 글자·스페이스·엔터가 오거나 잠깐(0.7초) 멈추면 보낸다.
+// 예전엔 바뀔 때마다 '⌫ 후 새 글자'로 따라갔는데, 스팟라이트·주소창처럼 뒤를 미리 채워 주는 곳에서는
+// ⌫가 미리 채운 부분만 지워서 '가각'처럼 글자가 겹쳐 들어갔다.
+let sent = '', pendT = 0;
 const mods = new Set();
 const JAMO = { 'ㅂ':'q','ㅈ':'w','ㄷ':'e','ㄱ':'r','ㅅ':'t','ㅛ':'y','ㅕ':'u','ㅑ':'i','ㅐ':'o','ㅔ':'p','ㅁ':'a','ㄴ':'s','ㅇ':'d','ㄹ':'f','ㅎ':'g','ㅗ':'h','ㅓ':'j','ㅏ':'k','ㅣ':'l','ㅋ':'z','ㅌ':'x','ㅊ':'c','ㅍ':'v','ㅠ':'b','ㅜ':'n','ㅡ':'m','ㅃ':'Q','ㅉ':'W','ㄸ':'E','ㄲ':'R','ㅆ':'T','ㅒ':'O','ㅖ':'P' };
-function resetKb(){ kb.value = SENT; last = SENT; try { kb.setSelectionRange(1, 1); } catch(e){} }
+const isHangul = c => /[ᄀ-ᇿㄱ-ㆎ가-힣]/.test(c || '');
+const PEND_MS = 700; // 이만큼 멈추면 조합 중이던 글자도 보낸다(스팟라이트에서 마지막 글자가 늦게 뜨지 않게)
+function resetKb(){ clearTimeout(pendT); kb.value = SENT; sent = ''; showPending(''); try { kb.setSelectionRange(1, 1); } catch(e){} }
+function showPending(t){ const el = $('#kbPending'); el.textContent = t; el.classList.toggle('show', !!t); }
 function setMods(){ $$('[data-mod]').forEach(b => b.classList.toggle('on', mods.has(b.dataset.mod))); }
-function sendKey(k, extra){ const m = [...new Set([...(extra || []), ...mods])]; flush(); send({ t:'k', c:k, m }); if (mods.size){ mods.clear(); setMods(); } }
-kb.addEventListener('input', () => {
-  const v = kb.value;
-  const a = Array.from(last), b = Array.from(v);
-  let p = 0; while (p < a.length && p < b.length && a[p] === b[p]) p++;
-  const del = a.length - p, ins = b.slice(p).join('').split(SENT).join('');
-  if (mods.size && ins){ // ⌘ 등을 켠 채 글자를 치면 단축키로
-    const ch = Array.from(ins).pop(); sendKey(JAMO[ch] || ch);
-    return resetKb();
+function sendKey(k, extra){ syncKb(true); const m = [...new Set([...(extra || []), ...mods])]; flush(); send({ t:'k', c:k, m }); if (mods.size){ mods.clear(); setMods(); } }
+function syncKb(final){
+  clearTimeout(pendT);
+  const raw = kb.value;
+  const lostSent = !raw.startsWith(SENT); // 빈칸에서 ⌫ — 맥에서도 한 글자 지운다
+  const v = Array.from(raw.split(SENT).join('')), s = Array.from(sent);
+  let p = 0; while (p < s.length && p < v.length && s[p] === v[p]) p++;
+  if (!final && mods.size && v.length > s.length){ // ⌘ 등을 켠 채 글자를 치면 단축키로
+    const ch = v[v.length - 1]; const m = [...mods];
+    mods.clear(); setMods(); flush(); send({ t:'k', c:JAMO[ch] || ch, m });
+    // 단축키로 쓴 글자는 맥에 보내지 않은 글자라 입력칸에서도 뺀다
+    kb.value = SENT + sent; try { kb.setSelectionRange(kb.value.length, kb.value.length); } catch(e){}
+    return;
   }
+  let target = v;
+  const pending = !final && v.length > p && isHangul(v[v.length - 1]);
+  if (pending) target = v.slice(0, -1);
+  let q = 0; while (q < s.length && q < target.length && s[q] === target[q]) q++;
+  const del = s.length - q + (lostSent ? 1 : 0), ins = target.slice(q).join('');
   if (del || ins) send({ t:'txt', bs:del, s:ins });
-  if (!v.startsWith(SENT) || b.length > 80) resetKb(); else last = v;
-});
+  sent = target.join('');
+  showPending(pending ? v[v.length - 1] : '');
+  if (pending) pendT = setTimeout(() => syncKb(true), PEND_MS);
+  if (lostSent || (!pending && v.length > 80)) resetKb();
+}
+kb.addEventListener('input', () => syncKb(false));
 kb.addEventListener('keydown', e => {
-  if (e.key === 'Enter'){ e.preventDefault(); sendKey('enter'); resetKb(); }
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  sendKey('enter');
+  // 한글 조합 중에 엔터를 치면 아이폰이 엔터 뒤에 조합을 마무리하는 입력을 한 번 더 보낼 수 있어서 조금 뒤에 비운다
+  setTimeout(() => { syncKb(true); resetKb(); }, 60);
 });
 function openKb(){ resetKb(); kb.focus(); document.body.classList.add('kb'); }
 function closeKb(){ kb.blur(); }
-kb.addEventListener('blur', () => { document.body.classList.remove('kb'); mods.clear(); setMods(); });
+kb.addEventListener('blur', () => { syncKb(true); document.body.classList.remove('kb'); mods.clear(); setMods(); });
 $('#kbBtn').addEventListener('click', openKb);
 // 보조 줄 버튼은 눌러도 입력칸 포커스(=아이폰 키보드)가 유지되게 기본 동작을 막고 바로 처리
 function kbBarAct(e){
   const b = e.target.closest('button'); if (!b) return;
   e.preventDefault();
-  if (b.dataset.mod){ mods.has(b.dataset.mod) ? mods.delete(b.dataset.mod) : mods.add(b.dataset.mod); setMods(); }
+  if (b.dataset.mod){ syncKb(true); mods.has(b.dataset.mod) ? mods.delete(b.dataset.mod) : mods.add(b.dataset.mod); setMods(); }
   else if (b.dataset.key) sendKey(b.dataset.key);
   else if ('kbDone' in b.dataset) closeKb();
 }
