@@ -4629,10 +4629,10 @@ function renderStudioTab() {
   const spots = STUDIO_STAFF.map(s => {
     const st = studioState(s), task = studioTask(s);
     // 머리 위치(그림 64×64 기준): 쉬는 중 = 책상 오른쪽 커피 마시는 사람(x 56, y 20), 일하는 중 = 책상 뒤 사람(x 38, y 13)
-    const head = st === 'off' ? '--hx:87.5%;--hy:31%' : '--hx:59%;--hy:20%';
+    const head = st === 'off' ? '--hx:87.5%;--hy:48%' : '--hx:59%;--hy:20%'; // 쉬는 중은 매트에 누운 머리(x 56, y 31) 위
     return `<div class="st-spot" style="left:${s.x * 100}%;top:${(s.y * STUDIO_H - 56) / STUDIO_H * 100}%;${head}">
       <div class="st-bubble ${st}"><b>${esc(s.name)}</b><span>${STUDIO_STATE_ICON[st]} ${esc(task)}</span></div>
-      <div class="st-badge">${STUDIO_STATE_ICON[st]}</div>
+      ${st === 'off' ? '' : `<div class="st-badge">${STUDIO_STATE_ICON[st]}</div>`}
       <button class="st-hit" type="button" data-action="studio-sel" data-id="${s.id}" aria-label="${esc(s.name)} 업무 보기"></button>
       <div class="st-plate">${esc(s.short)}</div>
     </div>`;
@@ -4839,7 +4839,7 @@ function studioRestoreInputs(k) {
   if (k.__focus) { const el = document.getElementById(k.__focus.id); if (el) { el.focus({ preventScroll: true }); try { if (k.__focus.s != null) el.setSelectionRange(k.__focus.s, k.__focus.e); } catch (e) {} } }
 }
 const STUDIO_SPR = {}; let studioFrame = 0, studioPopAt = 0;
-['boss', 'worker1', 'worker2', 'worker4', 'Julia_PC', 'Julia_Drinking_Coffee', 'desk-with-pc', 'coffee-maker', 'water-cooler', 'printer', 'cabinet', 'plant', 'stamping-table', 'writing-table', 'office-partitions-2', 'Trash']
+['boss', 'worker1', 'worker2', 'worker4', 'Julia_PC', 'Julia_Drinking_Coffee', 'desk-with-pc', 'coffee-maker', 'water-cooler', 'printer', 'cabinet', 'plant', 'stamping-table', 'writing-table', 'office-partitions-2', 'Trash', 'Julia-Idle']
   .forEach(n => { STUDIO_SPR[n] = null; });
 function studioSprites() { // 못 불러온 그림(네트워크 끊김 등)은 3초마다 다시 시도
   if (STUDIO_SPR.__at && Date.now() - STUDIO_SPR.__at < 3000) return; STUDIO_SPR.__at = Date.now();
@@ -4873,8 +4873,24 @@ function studioDraw(still) {
   img('stamping-table', 272, 96); img('writing-table', 408, 270); img('Trash', 60, 312); img('office-partitions-2', 446, 150);
   STUDIO_STAFF.slice().sort((a, b) => a.y - b.y).forEach(s => {
     const st = studioState(s), x = s.x * W - 32, y = s.y * H - 56;
-    if (st === 'off') { img('desk-with-pc', x, y); img('Julia_Drinking_Coffee', x + 40, y + 20, (Math.floor(studioFrame / 6) % 3) * 32, 0, 32, 32); }
-    else if (s.spr === 'Julia_PC') { img('desk-with-pc', x, y); img('Julia_PC', x, y, (Math.floor(studioFrame / 3) % 6) * 64, 0, 64, 64); }
+    const ph = STUDIO_STAFF.indexOf(s) * 7; // 직원마다 박자를 조금씩 어긋나게
+    if (st === 'off') { // 쉬는 중: 책상 옆 매트에 누워서 숨 쉬듯 들썩 + zZz가 떠오름
+      img('desk-with-pc', x, y);
+      ctx.fillStyle = '#e9d8b4'; ctx.fillRect(x + 50, y + 37, 36, 11); ctx.fillStyle = '#c9b48f'; ctx.fillRect(x + 50, y + 46, 36, 2); ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 51, y + 38, 8, 7); // 매트 + 베개
+      const im = STUDIO_SPR['Julia-Idle'], breathe = Math.floor((studioFrame + ph) / 10) % 2;
+      if (im && im.complete && im.naturalWidth) { ctx.save(); ctx.translate(x + 68, y + 41 - breathe); ctx.rotate(-Math.PI / 2); ctx.drawImage(im, 0, 0, 32, 32, -16, -16, 32, 32); ctx.restore(); }
+      ctx.font = 'bold 7px monospace'; ctx.textAlign = 'left';
+      for (let k = 0; k < 3; k++) { // z가 하나씩 커지며 위로 떠올랐다 사라짐
+        const t = ((studioFrame + ph + k * 12) % 36) / 36; ctx.globalAlpha = t < .15 ? t / .15 : 1 - (t - .15) / .85;
+        ctx.font = `bold ${6 + k * 2}px monospace`; ctx.fillStyle = '#3d6cff'; ctx.fillText('z', x + 58 + k * 4 + t * 4, y + 32 - t * 18 - k * 3);
+      }
+      ctx.globalAlpha = 1;
+    }
+    else if (st === 'work' && s.id !== 'sec') { // 일하는 중: 타자 치는 모션 + 키보드 위로 반짝임
+      img('desk-with-pc', x, y); img('Julia_PC', x, y, (Math.floor((studioFrame + ph) / 3) % 6) * 64, 0, 64, 64);
+      if ((studioFrame + ph) % 8 < 4) { ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 24 + ((studioFrame + ph) % 3) * 4, y + 24, 2, 2); }
+    }
+    else if (st === 'work') { img(s.spr, x, y - (Math.floor((studioFrame + ph) / 5) % 2)); } // 비서실(사장 책상)은 도장 찍듯 들썩
     else img(s.spr, x, y);
     if (st === 'wait') { ctx.fillStyle = '#e8a21a'; ctx.fillRect(s.x * W - 2, y - 6, 4, 7); ctx.fillRect(s.x * W - 2, y + 3, 4, 2); }
   });
