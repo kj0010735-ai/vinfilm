@@ -4,6 +4,14 @@ service cloud.firestore {
     function isOwner() {
       return request.auth != null && request.auth.token.email in ['kj0010735@gmail.com'];
     }
+    // 스튜디오 다리(이 Mac에서 도는 프로그램) 전용 로그인 계정 — 이메일/비밀번호 로그인. 비밀번호는 Mac 키체인에만.
+    // 다리는 studio* 컬렉션(아래 규칙대로)과 projects·schedule 읽기만 가능. 비우면('') 다리 권한 전부 꺼짐.
+    function bridgeEmail() { return 'studio-bridge@vinfilmstudio.com'; }
+    function isBridge() {
+      return bridgeEmail() != '' && request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'password'
+        && request.auth.token.email == bridgeEmail();
+    }
 
     // 협업자 공간(works/?c={id}) — 'link' 공간은 id(=추측 불가 링크)를 아는 사람, 'login' 공간은 members에 등록된 구글 계정만.
     function collabData(cid) { return get(/databases/$(database)/documents/collabs/$(cid)).data; }
@@ -41,12 +49,12 @@ service cloud.firestore {
     // 내부 전용 — guest 모드에서도 노출되지 않는 데이터.
     // 캘린더: 대표님 일정은 대표님만, collabId가 붙은 일정은 그 협업자도 보고 고칠 수 있다.
     match /schedule/{id} {
-      allow read: if isOwner() || collabOk(resource.data.collabId);
+      allow read: if isOwner() || isBridge() || collabOk(resource.data.collabId);
       allow create: if isOwner() || collabOk(request.resource.data.collabId);
       allow update: if isOwner() || (collabOk(resource.data.collabId) && request.resource.data.collabId == resource.data.collabId);
       allow delete: if isOwner() || collabOk(resource.data.collabId);
     }
-    match /projects/{id} { allow read, write: if isOwner(); }
+    match /projects/{id} { allow read: if isOwner() || isBridge(); allow write: if isOwner(); }
     match /shoots/{id} { allow read, write: if isOwner(); }
     match /presets/{id} { allow read, write: if isOwner(); }
     match /todayTasks/{id} { allow read, write: if isOwner(); }
@@ -105,9 +113,35 @@ service cloud.firestore {
     match /ledgerSubscriptions/{id} { allow read, write: if isOwner(); }
     match /ledgerSettings/{id} { allow read, write: if isOwner(); }
 
-    // WORKS 🏢 스튜디오 탭 — 직원(채팅방) 상태·결재함·일지. owner 전용(게스트·협업자는 못 읽음).
-    match /studioStaff/{id} { allow read, write: if isOwner(); }
-    match /studioApprovals/{id} { allow read, write: if isOwner(); }
-    match /studioLog/{id} { allow read, write: if isOwner(); }
+    // WORKS 🏢 스튜디오 탭 — 대표님이 지시(studioTasks)하면 다리가 Claude 직원을 돌려 결재(studioApprovals)로 돌려준다.
+    // 게스트·협업자는 전부 못 읽음. 다리는 아래 범위만.
+    match /studioStaff/{id} { allow read, write: if isOwner() || isBridge(); }
+    match /studioLog/{id} { allow read, write: if isOwner() || isBridge(); }
+    // studioBridge/status = 다리 상태(heartbeat 등, 다리가 씀) / studioBridge/settings = 하루 상한·아침 출근(대표님만 바꿈)
+    match /studioBridge/{id} {
+      allow read: if isOwner() || isBridge();
+      allow write: if isOwner() || (isBridge() && id == 'status');
+    }
+    // 지시: 다리는 읽기 + 진행 상태 필드만 수정(지시 내용 text·직원 staffId는 못 바꿈), 새 지시는 결재에서 이어지는 후속 작업만.
+    match /studioTasks/{id} {
+      allow read: if isOwner() || isBridge();
+      allow update: if isOwner() || (isBridge()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'startedAt', 'finishedAt', 'result', 'files', 'approvalId', 'updatedAt'])
+        && resource.data.status != 'canceled'
+        && request.resource.data.status in ['queued', 'running', 'done', 'failed']);
+      allow create: if isOwner() || (isBridge()
+        && request.resource.data.parentApprovalId is string
+        && exists(/databases/$(database)/documents/studioApprovals/$(request.resource.data.parentApprovalId))
+        && request.resource.data.status == 'queued'
+        && request.resource.data.staffId is string
+        && request.resource.data.text is string);
+      allow delete: if isOwner();
+    }
+    // 결재: 다리는 '결재 대기'로 새로 올리기만. 승인·반려·수정·삭제는 대표님만.
+    match /studioApprovals/{id} {
+      allow read: if isOwner() || isBridge();
+      allow create: if isOwner() || (isBridge() && request.resource.data.status == 'wait');
+      allow update, delete: if isOwner();
+    }
   }
 }

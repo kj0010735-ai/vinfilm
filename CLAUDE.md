@@ -139,6 +139,11 @@
 - 데이터(1단계): HUD 매출/지출/이익 = `ledgerEntries`를 탭 열 때 이번 달 것만 `get()`(1분 캐시, 읽기만, 지출 = expense+labor). 진행 중 = `projItems` status `doing`, 이번 주 마감 = 이번 주(월~일) `dueDate` 미완료 프로젝트 + 프로젝트에 안 붙은 캘린더 '마감'. 새 컬렉션 3개(owner 전용 규칙, `CLOUD_COLLECTIONS` 포함): `studioStaff/{직원id}` `{id,state:'work'|'off',task,done,updatedAt}`(문서 없으면 쉬는 중), `studioApprovals/{id}` `{id,from,title,body,status:'wait'|'ok'|'no',memo,createdAt,decidedAt}`(대기 결재가 있으면 그 직원은 '결재 대기'), `studioLog/{id}` `{id,at,text}`(승인/반려 때 자동 기록, 오늘 것만 표시). 처음엔 셋 다 비어 있음 — 직원(채팅방)이 쓰는 통로는 2단계에서 비서실과 따로 설계.
 - 결산 모달: 매출·지출·이익(ledger), 완료 프로젝트(이번 달 마감일 + 완료 상태 — 완료 날짜 필드가 없어서 근사치), 이번 달 승인 수, 이달의 직원(이번 달 승인 많이 받은 직원).
 - 게스트·협업자: NAV는 `GUEST_ALLOWED_TABS`로 안 보이고, renderTab·액션(`studio-*`)·컬렉션 동기화 모두 GUEST_MODE면 막힘. 폰은 더보기 시트에 '🏢 스튜디오'.
+- **2단계 A (2026-10-14, 설계 `팀/스튜디오_2단계_설계.md` 2·3·6절)**: 지시 → Mac '스튜디오 다리'(C단계, `tools/studio-bridge`, 아직 없음)가 Claude 직원 실행 → 결재로 돌아오는 구조의 WORKS 쪽.
+  - 컬렉션 5개: `studioStaff`·`studioTasks`·`studioApprovals`·`studioLog`·`studioBridge`(문서 `status`=다리 heartbeat/version/todayCount/todayDate, `settings`=dailyLimit 20/morningOn true/morningAt '09:00' — 탭을 처음 열 때 없으면 만듦). Storage `studio/{taskId}/{파일}`.
+  - **다리가 같은 문서를 고치므로 studio*는 `pushToCloud`(배열 통째 set)를 쓰지 않는다** — `studioPut(name, doc)`이 바뀐 문서 하나만 `set(merge)`, 구독은 `studioSubscribe`(doc id를 id로). `CLOUD_COLLECTIONS`에서 뺐음.
+  - 규칙: `isBridge()` = 이메일/비밀번호 로그인 + `bridgeEmail()`(studio-bridge@vinfilmstudio.com, 비우면 다리 권한 전부 꺼짐). 다리는 studioTasks 읽기 + 상태 필드(status/startedAt/finishedAt/result/files/approvalId/updatedAt)만 수정(취소된 지시는 못 살림), 생성은 후속 작업만(parentApprovalId가 실제 결재 문서여야 함, status queued). studioApprovals는 생성만(status wait). studioStaff/studioLog 쓰기, studioBridge는 `status` 문서만 쓰기. projects·schedule 읽기만, 나머지 전부 불가. 비밀번호는 Mac 키체인 'vinfilm-studio-bridge'에만.
+  - 화면: 직원 카드 "✍️ 지시하기"(queued, 큐 순서 표시)·지시 목록(대기/진행 중/완료/실패/취소, 대기만 취소), 결재 카드 결과 파일 칩(files[] = {name,url} 또는 url), 승인/반려 시 "후속 작업 만들기"(기본 켬 → studioTasks parentApprovalId), 반려는 코멘트 필수, HUD 🟢 Mac 연결됨/🔌 Mac 꺼짐(heartbeat 3분) + 오늘 n/상한, 결재함 옆 ⚙️ 설정 탭(상한·아침 출근). dev·mac은 자동 실행 제외(지시는 쌓아만 둠, `STUDIO_AUTO_OFF`). 결재의 직원 필드는 `staffId`(1단계 `from`도 읽음).
 
 ### 견적서 탭 (works — 견적 → 링크 공유 → 클라이언트 승인)
 

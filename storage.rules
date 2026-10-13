@@ -9,6 +9,11 @@ service firebase.storage {
     match /projects/{projId}/{fileName} {
       allow read, write: if request.auth != null && request.auth.token.email in ['kj0010735@gmail.com'];
     }
+    // 스튜디오 직원 결과 파일 — 대표님 + 스튜디오 다리 계정(다리가 올리고, 결재 카드에서 대표님이 연다).
+    match /studio/{taskId}/{fileName} {
+      allow read, write: if request.auth != null && (request.auth.token.email in ['kj0010735@gmail.com']
+        || (request.auth.token.firebase.sign_in_provider == 'password' && request.auth.token.email == 'studio-bridge@vinfilmstudio.com'));
+    }
     match /hero/{fileName} {
       allow read: if true;
       allow write: if request.auth != null && request.auth.token.email in ['kj0010735@gmail.com'];

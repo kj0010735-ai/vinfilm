@@ -324,12 +324,31 @@ let songs = GUEST_MODE ? [] : loadJSON(LS_SONGS, []);
 let shortcuts = loadJSON(LS_SHORTCUTS, DEFAULT_SHORTCUTS);
 let sharedProjItems = loadJSON(LS_SHARED, []);
 /* 🏢 스튜디오 탭(owner 전용) — 직원(Claude 채팅방) 상태·결재함·일지. 게스트/협업자 화면에는 내려받지 않는다. */
-const LS_STUDIO_STAFF = 'eq-manager-studio-staff', LS_STUDIO_APPROVALS = 'eq-manager-studio-approvals', LS_STUDIO_LOG = 'eq-manager-studio-log';
-let studioStaff = GUEST_MODE ? [] : loadJSON(LS_STUDIO_STAFF, []);
-let studioApprovals = GUEST_MODE ? [] : loadJSON(LS_STUDIO_APPROVALS, []);
-let studioLog = GUEST_MODE ? [] : loadJSON(LS_STUDIO_LOG, []);
-function saveStudioApprovals(next) { const prev = studioApprovals; studioApprovals = next; try { localStorage.setItem(LS_STUDIO_APPROVALS, JSON.stringify(next)); } catch (e) {} pushToCloud('studioApprovals', prev, next); }
-function saveStudioLog(next) { const prev = studioLog; studioLog = next; try { localStorage.setItem(LS_STUDIO_LOG, JSON.stringify(next)); } catch (e) {} pushToCloud('studioLog', prev, next); }
+/* 다리(Mac 프로그램)도 같은 문서를 고치기 때문에, 다른 컬렉션처럼 배열 통째로 다시 쓰지(pushToCloud) 않고
+   바뀐 문서 하나만 set(merge)한다 — 다리가 방금 바꾼 진행 상태를 옛 사본으로 덮어쓰지 않게. 구독도 따로(studioSubscribe). */
+const STUDIO_COLLECTIONS = ['studioStaff', 'studioTasks', 'studioApprovals', 'studioLog', 'studioBridge'];
+const studioData = {};
+STUDIO_COLLECTIONS.forEach(n => { studioData[n] = GUEST_MODE ? [] : loadJSON('eq-manager-' + n, []); });
+let studioStaff = studioData.studioStaff, studioTasks = studioData.studioTasks, studioApprovals = studioData.studioApprovals, studioLog = studioData.studioLog, studioBridgeDocs = studioData.studioBridge;
+function studioApply(name, items) {
+  studioData[name] = items;
+  if (name === 'studioStaff') studioStaff = items; else if (name === 'studioTasks') studioTasks = items; else if (name === 'studioApprovals') studioApprovals = items;
+  else if (name === 'studioLog') studioLog = items; else if (name === 'studioBridge') studioBridgeDocs = items;
+  try { localStorage.setItem('eq-manager-' + name, JSON.stringify(items)); } catch (e) {}
+}
+function studioPut(name, doc) { // 문서 하나 저장(합치기). 로컬 개발이면 localStorage만.
+  const cur = studioData[name], i = cur.findIndex(x => x.id === doc.id);
+  studioApply(name, i >= 0 ? cur.map((x, k) => k === i ? { ...x, ...doc } : x) : [...cur, doc]);
+  if (!window.cloudSyncReady || IS_LOCAL_DEV || typeof firebase === 'undefined') return Promise.resolve();
+  const { id, ...body } = doc;
+  return firebase.firestore().collection(name).doc(String(id)).set(body, { merge: true }).catch(e => { console.warn('studio save failed', name, e); S.studio.msg = '저장하지 못했어요: ' + (e.message || e); render(); });
+}
+function studioSubscribe(db) {
+  STUDIO_COLLECTIONS.forEach(name => db.collection(name).onSnapshot(snap => {
+    studioApply(name, snap.docs.map(d => ({ ...d.data(), id: d.id })));
+    if (S.activeTab === 'studio') render();
+  }, err => console.warn('studio listen error', name, err)));
+}
 const LS_COLLABS = 'eq-manager-collabs';
 let collabs = GUEST_MODE ? [] : loadJSON(LS_COLLABS, []);
 function saveCollabs(next) { const prev = collabs; collabs = next; try { localStorage.setItem(LS_COLLABS, JSON.stringify(next)); } catch (e) {} pushToCloud('collabs', prev, next); }
@@ -354,7 +373,7 @@ const S = {
   song: { modalOpen: false, editingId: null, playId: null, search: '', msg: '', syncing: false, syncTimes: [], follow: true },
   shortcut: { modalOpen: false, editingId: null },
   quote: { view: 'quotes', draft: null, cdraft: null, bizOpen: false, bizSignCleared: false, msg: '' },
-  studio: { box: 'wait', sel: null, settle: false },
+  studio: { box: 'wait', sel: null, settle: false, msg: '', taskMsg: '' },
 };
 let currentEqPhoto = '';
 let currentEqPhotoError = '';
@@ -389,9 +408,6 @@ function getLocalArrayFor(name) {
     case 'contracts': return contracts;
     case 'collabs': return collabs;
     case 'notices': return notices;
-    case 'studioStaff': return studioStaff;
-    case 'studioApprovals': return studioApprovals;
-    case 'studioLog': return studioLog;
     default: return [];
   }
 }
@@ -412,9 +428,6 @@ function applyCloudUpdate(name, items) {
     case 'contracts': contracts = items; try { localStorage.setItem(LS_CONTRACTS, JSON.stringify(items)); } catch (e) {} break;
     case 'collabs': collabs = items; try { localStorage.setItem(LS_COLLABS, JSON.stringify(items)); } catch (e) {} break;
     case 'notices': notices = items; try { localStorage.setItem(LS_NOTICES, JSON.stringify(items)); } catch (e) {} break;
-    case 'studioStaff': studioStaff = items; try { localStorage.setItem(LS_STUDIO_STAFF, JSON.stringify(items)); } catch (e) {} break;
-    case 'studioApprovals': studioApprovals = items; try { localStorage.setItem(LS_STUDIO_APPROVALS, JSON.stringify(items)); } catch (e) {} break;
-    case 'studioLog': studioLog = items; try { localStorage.setItem(LS_STUDIO_LOG, JSON.stringify(items)); } catch (e) {} break;
   }
   render();
 }
@@ -429,7 +442,7 @@ async function pushToCloud(name, prevArr, nextArr) {
   } catch (e) { console.warn('cloud sync push failed for', name, e); }
 }
 
-const CLOUD_COLLECTIONS = ['equipment', 'categories', 'schedule', 'projects', 'shoots', 'presets', 'todayTasks', 'notes', 'songs', 'shortcuts', 'sharedProjects', 'quotes', 'contracts', 'collabs', 'notices', 'studioStaff', 'studioApprovals', 'studioLog'];
+const CLOUD_COLLECTIONS = ['equipment', 'categories', 'schedule', 'projects', 'shoots', 'presets', 'todayTasks', 'notes', 'songs', 'shortcuts', 'sharedProjects', 'quotes', 'contracts', 'collabs', 'notices'];
 /* 공유 링크(?guest=1)로 접속했을 때는 이 목록만 동기화한다 — 스케줄/메모장 등 내부 데이터는 외부 브라우저로 아예 내려받지 않는다. */
 const GUEST_CLOUD_COLLECTIONS = ['equipment', 'categories', 'sharedProjects'];
 const FIREBASE_CONFIG = {
@@ -532,6 +545,7 @@ function initCloudSync() {
         applyCloudUpdate(name, items);
       }, (err) => console.warn('cloud sync listen error for', name, err));
     });
+    if (!GUEST_MODE) studioSubscribe(db);
     window.cloudSyncReady = true;
     render();
   } catch (e) {
@@ -4373,14 +4387,14 @@ function handleNotifAction(action, el, e) {
 
 /* ================= 🏢 스튜디오 탭 (owner 전용) =================
    Claude 사이드바 'VINFILM' 그룹의 채팅방 8개를 '직원'으로 보여 주는 경영 게임풍 사무실. 대표님 = 사장.
-   시안: 팀/스튜디오탭_시안.html (비서실 전달, 대표님 확정). 픽셀 그림: Arlan_TR Free Office Pixel Art(자유 이용) → assets/office/.
-   데이터(1단계):
-   - HUD 매출·지출·이익 = ledgerEntries(owner만 읽기 가능)를 탭을 열 때 이번 달 것만 읽어 옴(1분 캐시). 쓰지 않음.
-   - 진행 중 프로젝트 = projItems(status 'doing'), 이번 주 마감 = projItems.dueDate + 캘린더 '마감' 일정(이번 주 월~일).
-   - studioStaff/{직원 id}: {id, state:'work'|'off', task, done, updatedAt} — 문서가 없으면 '쉬는 중'.
-   - studioApprovals/{id}: {id, from(직원 id), title, body, status:'wait'|'ok'|'no', memo, createdAt, decidedAt} — 직원이 올리고 대표님이 승인/반려.
-   - studioLog/{id}: {id, at, text} — 승인/반려 때 기록. 오늘 것만 '오늘의 스튜디오 일지'에 보임.
-   지금은 직원(채팅방)이 자동으로 쓰지 않는다 → 처음엔 다 비어 있음. 직원이 쓰는 통로는 2단계(비서실과 협의). */
+   시안: 팀/스튜디오탭_시안.html, 2단계 설계: 팀/스튜디오_2단계_설계.md (비서실). 픽셀 그림: Arlan_TR Free Office Pixel Art → assets/office/.
+   흐름: 직원 카드에서 지시(studioTasks queued) → Mac의 스튜디오 다리(tools/studio-bridge, C단계)가 Claude 직원을 돌림
+         → 결과 파일(Storage studio/{taskId}/) + 결재 요청(studioApprovals wait) → 대표님 승인/반려 → 후속 작업(studioTasks, parentApprovalId).
+   - HUD 매출·지출·이익 = ledgerEntries(owner만 읽기 가능)를 탭 열 때 이번 달 것만 읽음(1분 캐시). 진행 중/이번 주 마감 = projItems·schedItems.
+   - studioStaff/{직원id} {state:'work'|'wait'|'off', task, done, updatedAt} · studioTasks {staffId,text,status:queued|running|done|failed|canceled,createdAt,startedAt,finishedAt,result,files[],approvalId,parentApprovalId}
+     studioApprovals {staffId,taskId,title,body,files[],status:wait|ok|no,memo,createdAt,decidedAt} · studioLog {at,text,staffId}
+     studioBridge/status {heartbeat,version,todayCount,todayDate}(다리가 씀) · studioBridge/settings {dailyLimit,morningOn,morningAt}(대표님).
+   - 다리 계정은 규칙상 studio* 일부와 projects·schedule 읽기만 가능(firestore.rules isBridge). */
 const STUDIO_STAFF = [
   { id: 'sec', name: '비서실', short: '비서실', role: '실장 · 전체 조율', spr: 'boss', x: 0.500, y: 0.339, hair: '#3b2a1e', shirt: '#ff9a3c', acc: 'tie', detail: '대표님 요청을 받아 각 팀에 나눠 주고, 결과를 모아 보고해요.' },
   { id: 'dev', name: '작업관리 앱 개발', short: '앱 개발', role: '개발팀 · WORKS', spr: 'Julia_PC', x: 0.188, y: 0.606, hair: '#1e1e1e', shirt: '#4f7cff', acc: 'glasses', detail: 'WORKS·수입지출·홈페이지 화면과 기능을 만들어요. 운영 데이터는 백업 후에만 바꿔요.' },
@@ -4395,18 +4409,40 @@ const STUDIO_W = 480, STUDIO_H = 330;
 const STUDIO_STATE_LABEL = { work: '일하는 중', wait: '결재 대기', off: '쉬는 중' };
 const STUDIO_STATE_ICON = { work: '⌨️', wait: '📮', off: '💤' };
 function studioStaffById(id) { return STUDIO_STAFF.find(s => s.id === id) || null; }
+const STUDIO_AUTO_OFF = ['dev', 'mac']; // 다리가 자동 실행하지 않는 직원(설계 5절) — 지시는 쌓아만 둔다
+const STUDIO_TASK_LABEL = { queued: '대기', running: '진행 중', done: '완료', failed: '실패', canceled: '취소' };
 function studioDoc(id) { return studioStaff.find(d => d.id === id) || {}; }
+function studioApprovalStaff(a) { return a.staffId || a.from || ''; }
 function studioWaiting() { return studioApprovals.filter(a => a.status === 'wait'); }
 function studioState(s) {
-  if (studioApprovals.some(a => a.from === s.id && a.status === 'wait')) return 'wait';
-  return studioDoc(s.id).state === 'work' ? 'work' : 'off';
+  if (studioApprovals.some(a => studioApprovalStaff(a) === s.id && a.status === 'wait')) return 'wait';
+  if (studioTasks.some(t => t.staffId === s.id && t.status === 'running')) return 'work';
+  const st = studioDoc(s.id).state; return st === 'work' || st === 'wait' ? st : 'off';
 }
 function studioTask(s) {
   const st = studioState(s), d = studioDoc(s.id);
-  if (st === 'wait') { const a = studioApprovals.find(x => x.from === s.id && x.status === 'wait'); return (a && a.title) + ' 결재 요청'; }
-  return st === 'work' ? (d.task || '일하는 중') : '대기 중';
+  if (st === 'wait') { const a = studioApprovals.find(x => studioApprovalStaff(x) === s.id && x.status === 'wait'); return a ? a.title + ' 결재 요청' : (d.task || '결재 대기'); }
+  if (st === 'work') { const t = studioTasks.find(x => x.staffId === s.id && x.status === 'running'); return d.task || (t && t.text) || '일하는 중'; }
+  return '대기 중';
+}
+/* 설정(studioBridge/settings) — 다리가 읽어서 지킨다. 문서가 없으면 대표님 결정값(2026-10-14)으로 처음 한 번 만든다. */
+const STUDIO_SETTINGS_DEFAULT = { dailyLimit: 20, morningOn: true, morningAt: '09:00' };
+function studioSettings() { return { ...STUDIO_SETTINGS_DEFAULT, ...(studioBridgeDocs.find(d => d.id === 'settings') || {}) }; }
+let studioSettingsSeeded = false;
+function studioSeedSettings() {
+  if (studioSettingsSeeded || !window.cloudSyncReady || IS_LOCAL_DEV || GUEST_MODE) return;
+  studioSettingsSeeded = true;
+  firebase.firestore().collection('studioBridge').doc('settings').get().then(d => { if (!d.exists) studioPut('studioBridge', { id: 'settings', ...STUDIO_SETTINGS_DEFAULT, updatedAt: Date.now() }); }).catch(() => { studioSettingsSeeded = false; });
+}
+/* 다리 연결: studioBridge/status.heartbeat(1분마다 갱신)가 3분 안이면 연결됨 */
+function studioBridgeStatus() {
+  const st = studioBridgeDocs.find(d => d.id === 'status') || {}, hb = Number(st.heartbeat) || 0;
+  const today = todayStr(), doneToday = studioTasks.filter(t => t.startedAt && ymd(new Date(t.startedAt)) === today && t.status !== 'canceled').length;
+  const count = st.todayDate === today && typeof st.todayCount === 'number' ? st.todayCount : doneToday;
+  return { on: hb && Date.now() - hb < 3 * 60000, hb, count, version: st.version || '' };
 }
 function studioHm(t) { const d = new Date(t); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
+function studioWhen(t) { if (!t) return ''; const d = new Date(t); return ymd(d) === todayStr() ? studioHm(t) : `${d.getMonth() + 1}/${d.getDate()} ${studioHm(t)}`; }
 function studioWeekRange() {
   const now = parseYmd(todayStr()), mon = new Date(now); mon.setDate(now.getDate() - ((now.getDay() + 6) % 7));
   const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
@@ -4421,6 +4457,11 @@ function studioDeadlines() {
   const list = projItems.filter(p => p.dueDate && p.dueDate >= a && p.dueDate <= b && p.status !== 'done').map(p => ({ title: p.title, date: p.dueDate }))
     .concat(schedItems.filter(x => x.category === 'deadline' && x.date >= a && x.date <= b && !x.projectId).map(x => ({ title: x.title, date: x.date })));
   return list.sort((x, y) => x.date.localeCompare(y.date));
+}
+/* 결과 파일: files[] = [{name, url}] 또는 url 문자열 */
+function studioFilesHtml(files) {
+  if (!Array.isArray(files) || !files.length) return '';
+  return `<div class="st-files">${files.map(f => { const url = typeof f === 'string' ? f : f && f.url, name = typeof f === 'string' ? decodeURIComponent(f.split('?')[0].split('%2F').pop().split('/').pop()) : (f && (f.name || '파일')); return /^https:\/\//.test(url || '') ? `<a class="att-chip" href="${esc(url)}" target="_blank" rel="noopener">${attIcon({ name })} ${esc(name)}</a>` : ''; }).join('')}</div>`;
 }
 
 /* 수입·지출(ledgerEntries) — 이번 달 매출/지출. 로컬 테스트에서는 클라우드를 건드리지 않으니 '—'. */
@@ -4440,8 +4481,8 @@ function studioLoadLedger() {
 function studioMoney(n) { return n == null ? '—' : '₩' + won(n); }
 
 function renderStudioTab() {
-  studioLoadLedger();
-  const waiting = studioWaiting(), dl = studioDeadlines();
+  studioLoadLedger(); studioSeedSettings();
+  const waiting = studioWaiting(), dl = studioDeadlines(), br = studioBridgeStatus(), cfg = studioSettings();
   const doing = projItems.filter(p => p.status === 'doing').length;
   const dlText = dl.length ? `${esc(dl[0].title)} · ${parseYmd(dl[0].date).getMonth() + 1}/${parseYmd(dl[0].date).getDate()}${dl.length > 1 ? ` 외 ${dl.length - 1}건` : ''}` : '없음';
   const spots = STUDIO_STAFF.map(s => {
@@ -4453,35 +4494,50 @@ function renderStudioTab() {
       <div class="st-plate">${esc(s.short)}</div>
     </div>`;
   }).join('');
-  const roster = STUDIO_STAFF.map(s => { const st = studioState(s); return `<button type="button" class="${S.studio.sel === s.id ? 'on' : ''}" data-action="studio-sel" data-id="${s.id}" title="${esc(studioTask(s))}"><span class="st-dot ${st}"></span><b>${esc(s.short)}</b><small>${STUDIO_STATE_LABEL[st]}</small></button>`; }).join('');
+  const roster = STUDIO_STAFF.map(s => { const st = studioState(s), q = studioTasks.filter(t => t.staffId === s.id && t.status === 'queued').length; return `<button type="button" class="${S.studio.sel === s.id ? 'on' : ''}" data-action="studio-sel" data-id="${s.id}" title="${esc(studioTask(s))}"><span class="st-dot ${st}"></span><b>${esc(s.short)}</b><small>${STUDIO_STATE_LABEL[st]}${q ? ` · 대기 ${q}` : ''}</small></button>`; }).join('');
   const items = studioApprovals.filter(a => S.studio.box === 'wait' ? a.status === 'wait' : a.status !== 'wait')
     .sort((a, b) => S.studio.box === 'wait' ? (a.createdAt || 0) - (b.createdAt || 0) : (b.decidedAt || 0) - (a.decidedAt || 0));
   const cards = items.length ? items.map(a => {
-    const s = studioStaffById(a.from), pill = a.status === 'ok' ? '<span class="st-pill ok">승인</span>' : a.status === 'no' ? '<span class="st-pill bad">반려</span>' : '<span class="st-pill">결재 대기</span>';
-    return `<article class="st-card"><div class="st-card-top"><span class="st-who">${esc(s ? s.name : a.from || '')}${a.createdAt ? ' · ' + esc(studioHm(a.createdAt)) : ''}</span>${pill}</div>
-      <h3>${esc(a.title || '(제목 없음)')}</h3>${a.body ? `<p>${esc(a.body)}</p>` : ''}${a.memo ? `<p>💬 ${esc(a.memo)}</p>` : ''}
-      ${a.status === 'wait' ? `<div class="st-acts"><input id="stMemo-${esc(a.id)}" placeholder="코멘트 (선택)"><button type="button" class="yes" data-action="studio-decide" data-id="${esc(a.id)}" data-v="ok">승인</button><button type="button" class="no" data-action="studio-decide" data-id="${esc(a.id)}" data-v="no">반려</button></div>` : ''}</article>`;
+    const s = studioStaffById(studioApprovalStaff(a)), pill = a.status === 'ok' ? '<span class="st-pill ok">승인</span>' : a.status === 'no' ? '<span class="st-pill bad">반려</span>' : '<span class="st-pill">결재 대기</span>';
+    const aid = esc(a.id);
+    return `<article class="st-card"><div class="st-card-top"><span class="st-who">${esc(s ? s.name : studioApprovalStaff(a))}${a.createdAt ? ' · ' + esc(studioWhen(a.createdAt)) : ''}</span>${pill}</div>
+      <h3>${esc(a.title || '(제목 없음)')}</h3>${a.body ? `<p>${esc(a.body)}</p>` : ''}${studioFilesHtml(a.files)}${a.memo ? `<p>💬 ${esc(a.memo)}</p>` : ''}
+      ${a.status === 'wait' ? `<div class="st-acts"><input id="stMemo-${aid}" placeholder="코멘트 (반려할 땐 꼭)"><button type="button" class="yes" data-action="studio-decide" data-id="${aid}" data-v="ok">승인</button><button type="button" class="no" data-action="studio-decide" data-id="${aid}" data-v="no">반려</button></div>
+        <label class="st-follow"><input type="checkbox" id="stFollow-${aid}" checked> 후속 작업 만들기 <small>(승인: 다음 단계 진행 · 반려: 코멘트 반영해 다시 작업)</small></label>
+        ${S.studio.msg && S.studio.msgId === a.id ? `<p class="st-warn">${esc(S.studio.msg)}</p>` : ''}` : ''}</article>`;
   }).join('') : `<p class="st-empty">${S.studio.box === 'wait' ? '결재할 보고가 없어요. 직원이 결재를 올리면 여기에 떠요.' : '아직 처리한 결재가 없어요.'}</p>`;
   const today = todayStr(), logs = studioLog.filter(l => l.at && ymd(new Date(l.at)) === today).sort((a, b) => b.at - a.at);
   const sel = S.studio.sel && studioStaffById(S.studio.sel);
-  let staffHtml = '<p class="st-empty">사무실에서 직원을 눌러 보세요.</p>';
+  let staffHtml = '<p class="st-empty">사무실에서 직원을 눌러 보세요. 직원 카드에서 일을 지시할 수 있어요.</p>';
   if (sel) {
-    const mine = studioApprovals.filter(a => a.from === sel.id).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 5);
+    const mine = studioApprovals.filter(a => studioApprovalStaff(a) === sel.id).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 5);
     const lab = { wait: '결재 대기', ok: '승인', no: '반려' };
+    const tasks = studioTasks.filter(t => t.staffId === sel.id).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 8);
+    const queuedAll = studioTasks.filter(t => t.status === 'queued').sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    const taskRows = tasks.length ? `<ul class="st-tasks">${tasks.map(t => {
+      const pos = t.status === 'queued' ? queuedAll.findIndex(x => x.id === t.id) + 1 : 0;
+      return `<li><span class="st-tstat ${t.status}">${STUDIO_TASK_LABEL[t.status] || t.status}${pos ? ` ${pos}번째` : ''}</span><div><p>${t.parentApprovalId ? '↪ ' : ''}${esc(t.text)}</p>${t.result ? `<small>${esc(t.result)}</small>` : ''}${studioFilesHtml(t.files)}<small class="st-tmeta">${esc(studioWhen(t.createdAt))}${t.finishedAt ? ' → ' + esc(studioWhen(t.finishedAt)) : ''}</small></div>${t.status === 'queued' ? `<button type="button" data-action="studio-task-cancel" data-id="${esc(t.id)}">취소</button>` : ''}</li>`;
+    }).join('')}</ul>` : '<p class="st-empty">아직 지시한 일이 없어요.</p>';
     staffHtml = `<div class="st-staff"><canvas id="studioStaffCv" width="16" height="24"></canvas><dl>
       <dt>이름</dt><dd><b>${esc(sel.name)}</b> · ${esc(sel.role)}</dd>
       <dt>지금</dt><dd>${STUDIO_STATE_LABEL[studioState(sel)]}${studioState(sel) === 'off' ? '' : ' · ' + esc(studioTask(sel))}</dd>
       <dt>하는 일</dt><dd>${esc(sel.detail)}</dd>
       <dt>최근 완료</dt><dd>${esc(studioDoc(sel.id).done || '아직 기록 없음')}</dd>
-      <dt>올린 결재</dt><dd>${mine.length ? mine.map(a => `${esc(a.title)} (${lab[a.status] || ''})`).join('<br>') : '없음'}</dd></dl></div>`;
+      <dt>올린 결재</dt><dd>${mine.length ? mine.map(a => `${esc(a.title)} (${lab[a.status] || ''})`).join('<br>') : '없음'}</dd></dl></div>
+      <div class="st-order"><label for="stOrder">✍️ 지시하기</label>
+        <textarea id="stOrder" rows="3" placeholder="${esc(sel.short)}에게 맡길 일을 적어 주세요. 예) 다음 주 촬영 준비물 목록 만들어 줘"></textarea>
+        <div class="st-order-row"><small>${STUDIO_AUTO_OFF.includes(sel.id) ? '이 직원은 자동으로 일하지 않아요 — 지시는 쌓아 두고 채팅방에서 진행해요.' : br.on ? 'Mac이 켜져 있어서 순서대로 바로 처리돼요.' : '🔌 Mac이 꺼져 있어도 지시는 쌓였다가 켜지면 처리돼요.'}</small><button type="button" data-action="studio-order" data-id="${sel.id}">보내기</button></div>
+        ${S.studio.taskMsg ? `<p class="st-warn">${esc(S.studio.taskMsg)}</p>` : ''}</div>
+      <h4 class="st-sub">지시 목록</h4>${taskRows}`;
   }
   return `<div class="eq-wrap st-wrap">
     <div class="eq-header"><div class="eq-title-block"><h1 class="eq-title">스튜디오</h1><div class="eq-stat">결재 대기 <b>${waiting.length}</b>건</div></div></div>
     <div class="st-main">
       <div class="st-left">
-        <div class="st-hud top"><span>💾 ${studioWeekLabel()}</span><span>이번 달 매출 <b>${studioMoney(studioLedger.rev)}</b></span></div>
+        <div class="st-hud top"><span>💾 ${studioWeekLabel()}</span><span class="st-link ${br.on ? 'on' : ''}" title="${br.hb ? '마지막 신호 ' + esc(studioWhen(br.hb)) : '다리가 아직 연결된 적 없어요'}">${br.on ? '🟢 Mac 연결됨' : '🔌 Mac 꺼짐'} · 오늘 <b>${br.count}/${cfg.dailyLimit}</b></span><span>이번 달 매출 <b>${studioMoney(studioLedger.rev)}</b></span></div>
         <div class="st-room" id="studioRoom"><canvas id="studioCv" width="960" height="660" aria-label="VINFILM 스튜디오 사무실"></canvas>${spots}</div>
         <div class="st-hud bot"><button type="button" data-action="studio-settle">📊 이번 달 결산</button><span>진행 중 프로젝트 <b>${doing}</b></span><span>이번 주 마감 <b>${dlText}</b></span><span>결재 대기 <b>${waiting.length}</b></span></div>
+        ${br.on ? '' : '<p class="st-offline">🔌 Mac 꺼짐 — 지시는 쌓였다가 Mac이 켜지면 처리돼요.</p>'}
         <div class="st-roster">${roster}</div>
         <div class="st-legend"><span>● 초록 = 일하는 중 · ● 주황 = 결재 대기 · ○ 회색 = 쉬는 중</span><span>· 그림: Arlan_TR Free Office Pixel Art</span></div>
       </div>
@@ -4489,18 +4545,28 @@ function renderStudioTab() {
         <div class="st-tabs" role="tablist">
           <button type="button" role="tab" aria-selected="${S.studio.box === 'wait'}" data-action="studio-box" data-id="wait">결재함${waiting.length ? ` ${waiting.length}` : ''}</button>
           <button type="button" role="tab" aria-selected="${S.studio.box === 'done'}" data-action="studio-box" data-id="done">처리함</button>
+          <button type="button" role="tab" aria-selected="${S.studio.box === 'cfg'}" data-action="studio-box" data-id="cfg">⚙️ 설정</button>
         </div>
         <div class="st-panel-body">
           <div class="st-ceo"><canvas id="studioCeoCv" width="16" height="20"></canvas><div><b>대표 ${esc(greetingName() || '김규빈')}</b><p>${waiting.length ? `결재할 보고가 ${waiting.length}건 있어요` : '오늘 결재를 다 했어요 🎉'}</p></div></div>
-          ${cards}
+          ${S.studio.box === 'cfg' ? studioSettingsHtml(cfg, br) : cards}
         </div>
       </section>
     </div>
     <div class="st-bottom">
       <section class="st-box" aria-live="polite"><h2>직원 카드</h2>${staffHtml}</section>
-      <section class="st-box"><h2>오늘의 스튜디오 일지</h2>${logs.length ? `<ul class="st-log">${logs.map(l => `<li><time>${studioHm(l.at)}</time><span>${esc(l.text)}</span></li>`).join('')}</ul>` : '<p class="st-empty">오늘 기록이 아직 없어요.</p>'}</section>
+      <section class="st-box"><h2>오늘의 스튜디오 일지</h2>${logs.length ? `<ul class="st-log">${logs.map(l => { const s = l.staffId && studioStaffById(l.staffId); return `<li><time>${studioHm(l.at)}</time><span>${s ? `<b>${esc(s.short)}</b> ` : ''}${esc(l.text)}</span></li>`; }).join('')}</ul>` : '<p class="st-empty">오늘 기록이 아직 없어요.</p>'}</section>
     </div>
     ${S.studio.settle ? studioSettleHtml() : ''}
+  </div>`;
+}
+function studioSettingsHtml(cfg, br) {
+  return `<div class="st-cfg">
+    <label>하루 지시 상한 <input type="number" id="stCfgLimit" min="1" max="200" value="${Number(cfg.dailyLimit) || 20}"> 건</label>
+    <label><input type="checkbox" id="stCfgMorning" ${cfg.morningOn ? 'checked' : ''}> 아침 자동 출근 <input type="time" id="stCfgAt" value="${esc(cfg.morningAt || '09:00')}"></label>
+    <p class="st-empty">아침 자동 출근: 정한 시각에 Mac 다리가 직원들에게 "진행중 메모 보고 오늘 할 일 제안"을 지시해요(하루 상한 안에서). 상한을 넘은 지시는 다음 날로 미뤄져요.</p>
+    <p class="st-empty">다리 상태: ${br.on ? '🟢 연결됨' : '🔌 꺼짐'}${br.hb ? ` · 마지막 신호 ${esc(studioWhen(br.hb))}` : ' · 아직 연결된 적 없음'}${br.version ? ` · v${esc(br.version)}` : ''}</p>
+    <button type="button" data-action="studio-cfg-save">저장</button>${S.studio.msg && S.studio.msgId === 'cfg' ? `<span class="st-empty"> ${esc(S.studio.msg)}</span>` : ''}
   </div>`;
 }
 function studioSettleHtml() {
@@ -4508,7 +4574,7 @@ function studioSettleHtml() {
   const rev = studioLedger.rev, exp = studioLedger.exp, profit = rev == null || exp == null ? null : rev - exp;
   const done = projItems.filter(p => p.status === 'done' && (p.dueDate || '').slice(0, 7) === month).length;
   const okThisMonth = studioApprovals.filter(a => a.status === 'ok' && a.decidedAt && ymd(new Date(a.decidedAt)).slice(0, 7) === month);
-  const cnt = {}; okThisMonth.forEach(a => { cnt[a.from] = (cnt[a.from] || 0) + 1; });
+  const cnt = {}; okThisMonth.forEach(a => { const k = studioApprovalStaff(a); cnt[k] = (cnt[k] || 0) + 1; });
   const best = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0], bs = best && studioStaffById(best);
   return `<div class="eq-modal-overlay no-anim" data-action="studio-settle-close"><div class="st-sheet" role="dialog" aria-label="이번 달 결산">
     <h3>📊 ${d.getFullYear()}년 ${d.getMonth() + 1}월 결산</h3>
@@ -4519,18 +4585,51 @@ function studioSettleHtml() {
     ${studioLedger.err ? `<p class="st-empty">수입·지출을 못 불러왔어요: ${esc(studioLedger.err)}</p>` : rev == null ? '<p class="st-empty">수입·지출은 배포된 WORKS(로그인 상태)에서만 불러와요.</p>' : ''}
     <button type="button" data-action="studio-settle-close">닫기</button></div></div>`;
 }
+function studioAddLog(text, staffId) { return studioPut('studioLog', { id: uid(), at: Date.now(), text, staffId: staffId || '' }); }
 function handleStudioAction(action, el, e) {
   const id = el.dataset.id;
-  if (action === 'studio-sel') { S.studio.sel = id; render(); const s = studioStaffById(id); if (s) studioShowBubble(id); return true; }
-  if (action === 'studio-box') { S.studio.box = id; render(); return true; }
+  if (action === 'studio-sel') { if (S.studio.sel !== id) S.studio.taskMsg = ''; S.studio.sel = id; render(); studioShowBubble(id); return true; }
+  if (action === 'studio-box') { S.studio.box = id; S.studio.msg = ''; render(); return true; }
   if (action === 'studio-settle') { S.studio.settle = true; studioLedger.at = 0; studioLoadLedger(); render(); return true; }
   if (action === 'studio-settle-close') { if (el.tagName !== 'BUTTON' && e && e.target.closest('.st-sheet')) return true; S.studio.settle = false; render(); return true; }
+  if (action === 'studio-order') {
+    const ta = document.getElementById('stOrder'), text = ta ? ta.value.trim() : '', s = studioStaffById(id);
+    if (!s) return true;
+    if (!text) { S.studio.taskMsg = '지시 내용을 적어 주세요.'; render(); return true; }
+    if (text.length > 4000) { S.studio.taskMsg = '지시가 너무 길어요(4,000자까지).'; render(); return true; }
+    const now = Date.now();
+    studioPut('studioTasks', { id: uid(), staffId: s.id, text, status: 'queued', createdAt: now, by: 'owner' });
+    studioAddLog(`지시 받음: ${text.length > 40 ? text.slice(0, 40) + '…' : text}`, s.id);
+    S.studio.taskMsg = studioBridgeStatus().on ? '보냈어요. 순서대로 처리돼요.' : '보냈어요. Mac이 켜지면 처리돼요.';
+    render();
+    return true;
+  }
+  if (action === 'studio-task-cancel') {
+    const t = studioTasks.find(x => String(x.id) === id); if (!t || t.status !== 'queued') return true;
+    studioPut('studioTasks', { id: t.id, status: 'canceled', finishedAt: Date.now() });
+    studioAddLog(`지시 취소: ${t.text.length > 40 ? t.text.slice(0, 40) + '…' : t.text}`, t.staffId);
+    render();
+    return true;
+  }
+  if (action === 'studio-cfg-save') {
+    const lim = Math.max(1, Math.min(200, parseInt((document.getElementById('stCfgLimit') || {}).value, 10) || 20));
+    const at = ((document.getElementById('stCfgAt') || {}).value || '09:00').slice(0, 5), on = !!(document.getElementById('stCfgMorning') || {}).checked;
+    studioPut('studioBridge', { id: 'settings', dailyLimit: lim, morningOn: on, morningAt: at, updatedAt: Date.now() });
+    S.studio.msg = '저장했어요.'; S.studio.msgId = 'cfg'; render();
+    return true;
+  }
   if (action === 'studio-decide') {
     const a = studioApprovals.find(x => String(x.id) === id); if (!a || a.status !== 'wait') return true;
     const v = el.dataset.v === 'ok' ? 'ok' : 'no', memoEl = document.getElementById('stMemo-' + id), memo = memoEl ? memoEl.value.trim() : '';
-    const s = studioStaffById(a.from), now = Date.now();
-    saveStudioApprovals(studioApprovals.map(x => x === a ? { ...x, status: v, memo, decidedAt: now } : x));
-    saveStudioLog([...studioLog, { id: uid(), at: now, text: `대표님이 "${a.title}" ${v === 'ok' ? '승인' : '반려'}${memo ? ` (💬 ${memo})` : ''} → ${s ? s.name : a.from}에 전달` }]);
+    const follow = !!(document.getElementById('stFollow-' + id) || {}).checked;
+    if (v === 'no' && !memo) { S.studio.msg = '반려할 때는 코멘트를 꼭 적어 주세요(직원이 보고 다시 작업해요).'; S.studio.msgId = a.id; render(); document.getElementById('stMemo-' + id)?.focus(); return true; }
+    const staffId = studioApprovalStaff(a), s = studioStaffById(staffId), now = Date.now();
+    S.studio.msg = '';
+    studioPut('studioApprovals', { id: a.id, status: v, memo, decidedAt: now });
+    if (follow) studioPut('studioTasks', { id: uid(), staffId, status: 'queued', createdAt: now, by: 'owner', parentApprovalId: a.id,
+      text: v === 'ok' ? `[승인 후속] "${a.title}" 승인됨.${memo ? ` 대표님 코멘트: ${memo}.` : ''} 다음 단계를 진행해 주세요(바깥으로 보내는 일은 초안까지만).`
+        : `[반려 재작업] "${a.title}" 반려됨. 대표님 코멘트: ${memo}. 코멘트를 반영해 다시 작업해 주세요.` });
+    studioAddLog(`대표님이 "${a.title}" ${v === 'ok' ? '승인' : '반려'}${memo ? ` (💬 ${memo})` : ''}${follow ? ' → 후속 작업 등록' : ''}`, staffId);
     render();
     if (s) studioPop(s, v === 'ok' ? '✔ 결재 완료' : '↩ 다시 작업', v === 'ok' ? 'money' : '');
     return true;
@@ -6859,6 +6958,26 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-sheet td.plus { color:#3aa76d; } .st-sheet td.minus { color:#d9534f; }
   .st-mvp { background:var(--surface-hover); border-radius:8px; padding:10px; font-size:13.5px; }
   .st-sheet > button { justify-self:end; font:inherit; border:0; border-radius:8px; padding:7px 16px; background:var(--accent); color:#fff; cursor:pointer; }
+  .st-link.on b { color:#3aa76d; }
+  .st-offline { margin:8px 0 0; font-size:12.5px; color:var(--text-dim); background:var(--surface-hover); border:1px dashed var(--border-strong); border-radius:10px; padding:7px 10px; }
+  .st-files { display:flex; flex-wrap:wrap; gap:6px; }
+  .st-follow { display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim); flex-wrap:wrap; } .st-follow small { color:var(--text-faint); }
+  .st-warn { margin:0; font-size:12.5px; color:#d9534f; }
+  .st-order { margin-top:14px; display:grid; gap:6px; } .st-order label { font-weight:700; font-size:14px; color:var(--text); }
+  .st-order textarea { width:100%; box-sizing:border-box; font:inherit; font-size:13.5px; border:1px solid var(--border); border-radius:10px; padding:8px 10px; background:var(--surface-hover); color:var(--text); resize:vertical; min-height:64px; }
+  .st-order-row { display:flex; align-items:center; justify-content:space-between; gap:10px; } .st-order-row small { color:var(--text-faint); font-size:12px; }
+  .st-order-row button, .st-cfg button { font:inherit; font-weight:700; border:0; border-radius:8px; padding:7px 16px; background:var(--accent); color:#fff; cursor:pointer; flex:none; }
+  .st-sub { margin:16px 0 8px; font-size:14px; color:var(--text); }
+  .st-tasks { list-style:none; margin:0; padding:0; display:grid; gap:6px; }
+  .st-tasks li { display:grid; grid-template-columns:auto 1fr auto; gap:8px; align-items:start; background:var(--row-bg); border:1px solid var(--border); border-radius:10px; padding:8px 10px; font-size:13px; }
+  .st-tasks p { margin:0; color:var(--text); white-space:pre-wrap; word-break:break-word; } .st-tasks small { display:block; color:var(--text-dim); margin-top:3px; } .st-tasks .st-tmeta { color:var(--text-faint); font-size:11.5px; }
+  .st-tasks li > button { font:inherit; font-size:12px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:#d9534f; padding:4px 10px; cursor:pointer; }
+  .st-tstat { font-size:11.5px; border-radius:999px; padding:2px 8px; white-space:nowrap; background:var(--surface-hover); color:var(--text-dim); border:1px solid var(--border); }
+  .st-tstat.running { background:#3aa76d; color:#fff; border-color:#3aa76d; } .st-tstat.done { color:#3aa76d; } .st-tstat.failed { background:#d9534f; color:#fff; border-color:#d9534f; } .st-tstat.canceled { opacity:.6; text-decoration:line-through; }
+  .st-cfg { display:grid; gap:10px; font-size:13.5px; color:var(--text); }
+  .st-cfg label { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .st-cfg input[type=number], .st-cfg input[type=time] { font:inherit; width:90px; border:1px solid var(--border); border-radius:8px; padding:5px 8px; background:var(--surface-hover); color:var(--text); }
+  .st-cfg button { justify-self:start; }
   @media (prefers-reduced-motion: reduce) { .st-pop { display:none; } .st-dot.work { animation:none; } .st-bubble { transition:none; } }
 
   /* ===== 노래연습 ===== */
