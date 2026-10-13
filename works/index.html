@@ -4710,8 +4710,14 @@ function renderStudioTab() {
     ${S.studio.settle ? studioSettleHtml() : ''}
   </div>`;
 }
+/* 스튜디오 애니메이션: 기본은 항상 켬(게임 화면이라). 이 Mac은 '동작 줄이기'가 켜져 있어서 기기 설정을 따르면 다 멈췄음 →
+   기기별(localStorage) 선택: 'on' 항상 켬 / 'system' 기기 설정(동작 줄이기) 따르기. */
+const LS_STUDIO_MOTION = 'vinfilm-studio-motion';
+function studioMotionPref() { try { return localStorage.getItem(LS_STUDIO_MOTION) === 'system' ? 'system' : 'on'; } catch (e) { return 'on'; } }
+function studioReduceMotion() { return studioMotionPref() === 'system' && matchMedia('(prefers-reduced-motion: reduce)').matches; }
 function studioSettingsHtml(cfg, br) {
   return `<div class="st-cfg">
+    <label><input type="checkbox" data-action="studio-motion" ${studioMotionPref() === 'on' ? 'checked' : ''}> 애니메이션 항상 켜기 <small class="st-empty">(끄면 기기의 '동작 줄이기' 설정을 따라요 · 이 기기에만 저장)</small></label>
     <label>하루 지시 상한 <input type="number" id="stCfgLimit" min="1" max="200" value="${Number(cfg.dailyLimit) || 20}"> 건</label>
     <label><input type="checkbox" id="stCfgMorning" ${cfg.morningOn ? 'checked' : ''}> 아침 자동 출근 <input type="time" id="stCfgAt" value="${esc(cfg.morningAt || '09:00')}"></label>
     <p class="st-empty">아침 자동 출근: 정한 시각에 Mac 다리가 직원들에게 "진행중 메모 보고 오늘 할 일 제안"을 지시해요(하루 상한 안에서). 상한을 넘은 지시는 다음 날로 미뤄져요.</p>
@@ -4776,6 +4782,7 @@ function handleStudioAction(action, el, e) {
     S.studio.msg = '저장했어요.'; S.studio.msgId = 'cfg'; render();
     return true;
   }
+  if (action === 'studio-motion') { try { localStorage.setItem(LS_STUDIO_MOTION, el.checked ? 'on' : 'system'); } catch (e) {} render(); return true; }
   if (action === 'studio-choose') { // 버튼 고르기 — 화면만 다시 그림(사무실 캔버스는 유지돼 깜빡이지 않음)
     (S.studio.answers[id] = S.studio.answers[id] || {})[el.dataset.q] = el.dataset.v; render(); return true;
   }
@@ -4898,7 +4905,7 @@ function studioDraw(still) {
     const el = document.getElementById(cid); if (!el || !c || el.dataset.drawn === (c.id || 'ceo')) return;
     const cx = el.getContext('2d'); cx.clearRect(0, 0, el.width, el.height); studioMinimi(cx, c); el.dataset.drawn = c.id || 'ceo';
   });
-  const rm = matchMedia('(prefers-reduced-motion: reduce)').matches; // 움직임 줄이기 설정이면 애니메이션·떠오르는 글자 없이 정지 화면
+  const rm = studioReduceMotion(); // ⚙ 설정에서 '기기 설정 따르기'를 고르고 기기가 움직임 줄이기면 정지 화면
   if (!rm && !still) studioFrame++;
   const now = Date.now();
   if (!rm && !still && now - studioPopAt > 2600) {
@@ -4935,6 +4942,7 @@ function render() {
   if (S.song.full && !(S.activeTab === 'songs' && S.song.playId)) songSetFull(false);
   document.body.classList.toggle('song-full', !!S.song.full);
   document.body.classList.toggle('st-term-on', S.activeTab === 'studio' && !GUEST_MODE && STUDIO_TERMINAL);
+  document.body.classList.toggle('st-still', studioReduceMotion());
   if (S.activeTab === 'studio' && !GUEST_MODE) { studioMountCanvas(); studioRestoreInputs(studioKeep); }
   syncThemeColor();
   const main = document.querySelector('.app-main');
@@ -7225,7 +7233,7 @@ document.addEventListener('DOMContentLoaded', () => {
   @keyframes stBoot { 0% { opacity:0; transform:scaleY(.08); filter:brightness(2.2); } 50% { opacity:1; transform:scaleY(1.04); } 100% { opacity:1; transform:none; filter:none; } }
   .st-spot.show .st-bubble, .st-spot:hover .st-bubble { animation:stPopIn .22s steps(3) both, stBob 1.8s ease-in-out .22s infinite; }
   @keyframes stPopIn { 0% { scale:.4; opacity:0; } 60% { scale:1.12; opacity:1; } 100% { scale:1; opacity:1; } }
-  @media (prefers-reduced-motion: reduce) { .st-card.st-in, .st-panel-body.st-in > *, .st-spot.show .st-bubble, .st-spot:hover .st-bubble { animation:none !important; } }
+  body.st-still .st-card.st-in, body.st-still .st-panel-body.st-in > *, body.st-still .st-spot.show .st-bubble, body.st-still .st-spot:hover .st-bubble { animation:none !important; }
   .st-acts-list { display:grid; gap:5px; padding:8px 10px; border:1px dashed var(--border-strong); border-radius:10px; font-size:13px; }
   .st-acts-list > b { font-size:13px; color:var(--text); } .st-acts-list p { margin:0; color:var(--text); line-height:1.5; } .st-acts-list small { color:var(--text-faint); }
   .st-term .st-acts-list { border-color:var(--t-line); } .st-term .st-acts-list > b, .st-term .st-acts-list p { color:var(--t-hi); } .st-term .st-acts-list small { color:var(--t-dim); }
@@ -7246,7 +7254,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-cfg label { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .st-cfg input[type=number], .st-cfg input[type=time] { font:inherit; width:90px; border:1px solid var(--border); border-radius:8px; padding:5px 8px; background:var(--surface-hover); color:var(--text); }
   .st-cfg button { justify-self:start; }
-  @media (prefers-reduced-motion: reduce) { .st-pop { display:none; } .st-dot.work { animation:none; } .st-bubble { transition:none; animation:none; } .st-badge { animation:none; } }
+  body.st-still .st-pop { display:none; } body.st-still .st-dot.work { animation:none; } body.st-still .st-bubble { transition:none; animation:none; } body.st-still .st-badge { animation:none; }
 
   /* ===== 🏢 스튜디오 · 터미널(블레이드러너 신분증 · CRT) 레이어 — STUDIO_TERMINAL이 켜졌을 때만(.st-term). 의도적으로 다크 고정 ===== */
   @font-face { font-family:'Galmuri11'; src:url('assets/fonts/Galmuri11.woff2') format('woff2'); font-weight:400; font-display:swap; }
