@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="리모트">
+<meta name="theme-color" content="#101216">
+<meta name="robots" content="noindex">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<title>VINFILM 리모트</title>
+<style>
+:root{
+  --bg:#101216; --surface:#171a20; --raise:#1f232b; --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.16);
+  --text:#eef1f6; --dim:#a3acbb; --faint:#6f7787; --accent:#7aa7ff; --accent-soft:rgba(122,167,255,.16);
+  --ok:#4ade80; --warn:#fbbf24; --bad:#f87171;
+  --font:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretendard','Noto Sans KR',sans-serif;
+  --vh:100dvh;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{touch-action:manipulation}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+svg{display:block}
+.app{position:fixed;left:0;right:0;top:0;height:var(--vh);display:flex;flex-direction:column;gap:10px;
+  padding:calc(env(safe-area-inset-top) + 8px) 14px calc(env(safe-area-inset-bottom) + 10px)}
+
+/* 상단 */
+.top{display:flex;align-items:center;gap:10px;min-height:40px}
+.conn{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--faint);flex:none;transition:background .2s}
+.dot.ok{background:var(--ok);box-shadow:0 0 0 4px rgba(74,222,128,.15)}
+.dot.wait{background:var(--warn);animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.35}}
+.conn-name{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.conn-sub{font-size:13px;color:var(--dim);white-space:nowrap}
+.icon-btn{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:var(--dim)}
+.icon-btn:active{background:var(--raise)}
+
+.notice{display:none;font-size:13.5px;line-height:1.45;color:#fde68a;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);
+  border-radius:12px;padding:9px 12px}
+.notice.show{display:block}
+
+/* 트랙패드 */
+.pad{position:relative;flex:1;min-height:120px;border-radius:22px;background:var(--surface);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+  border:1px solid var(--border);touch-action:none;overflow:hidden;transition:border-color .15s}
+.pad.drag{border-color:var(--accent);background:var(--accent-soft)}
+.pad-hint{position:absolute;inset:auto 0 16px;text-align:center;font-size:13px;line-height:1.7;color:var(--faint);pointer-events:none;transition:opacity .4s}
+.pad-hint b{color:var(--dim);font-weight:600}
+.pad.used .pad-hint{opacity:0}
+.pad-ring{position:absolute;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;border:2px solid var(--accent);opacity:0;pointer-events:none}
+.pad-ring.go{animation:ring .35s ease-out}
+.pad-ring.r{border-color:#c4b5fd}
+@keyframes ring{0%{transform:scale(.4);opacity:.9}100%{transform:scale(1.25);opacity:0}}
+.pad-tag{position:absolute;top:12px;left:50%;transform:translateX(-50%);font-size:12.5px;font-weight:600;color:var(--accent);
+  background:var(--accent-soft);padding:4px 10px;border-radius:99px;opacity:0;transition:opacity .15s;pointer-events:none}
+.pad.drag .pad-tag{opacity:1}
+
+/* 마우스 버튼 */
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;height:58px;flex:none}
+.mbtn{border-radius:16px;background:var(--surface);border:1px solid var(--border);font-size:14px;color:var(--dim);touch-action:none}
+.mbtn.on{background:var(--raise);border-color:var(--border-strong);color:var(--text)}
+
+/* 키보드 보조 줄 */
+.kbbar{display:none;gap:6px;overflow-x:auto;scrollbar-width:none;flex:none;padding-bottom:2px}
+.kbbar::-webkit-scrollbar{display:none}
+body.kb .kbbar{display:flex}
+body.kb .btns,body.kb .tools{display:none}
+.kk{flex:none;min-width:44px;height:42px;padding:0 10px;border-radius:11px;background:var(--surface);border:1px solid var(--border);font-size:15px;color:var(--text)}
+.kk.mod.on{background:var(--accent);border-color:var(--accent);color:#0b1020}
+.kk.done{color:var(--accent);font-weight:600}
+.kk:active{background:var(--raise)}
+
+/* 아래 도구 */
+.tools{display:grid;grid-template-columns:1.35fr 1.35fr 1fr 1fr 1fr;gap:8px;flex:none}
+.tool{height:52px;border-radius:15px;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;gap:7px;
+  font-size:14px;color:var(--text)}
+.tool svg{color:var(--dim)}
+.tool:active,.mbtn:active{background:var(--raise)}
+
+/* 시트 */
+.sheet-wrap{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.5);display:none;align-items:flex-end;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.sheet-wrap.show{display:flex}
+.sheet{width:100%;max-height:84%;overflow:auto;background:var(--surface);border-radius:22px 22px 0 0;border-top:1px solid var(--border-strong);
+  padding:10px 16px calc(env(safe-area-inset-bottom) + 18px);animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(30px);opacity:.4}}
+.grab{width:38px;height:5px;border-radius:9px;background:var(--border-strong);margin:0 auto 12px}
+.sheet h2{font-size:17px;margin:0 0 4px;display:flex;align-items:center;justify-content:space-between}
+.sheet h3{font-size:13px;color:var(--dim);font-weight:600;margin:16px 0 8px}
+.x{font-size:14px;color:var(--accent);font-weight:600;padding:6px 2px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.key{min-height:58px;border-radius:13px;background:var(--raise);border:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;padding:6px 4px;text-align:center}
+.key b{font-size:15px;font-weight:600;letter-spacing:.02em}
+.key span{font-size:12px;color:var(--dim)}
+.key:active{background:var(--accent-soft);border-color:var(--accent)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);font-size:15px}
+.row:last-child{border-bottom:0}
+.row small{display:block;color:var(--dim);font-size:13px;margin-top:2px}
+input[type=range]{width:46%;accent-color:var(--accent)}
+.sw{position:relative;width:50px;height:30px;flex:none}
+.sw input{position:absolute;opacity:0;width:1px;height:1px}
+.sw i{position:absolute;inset:0;border-radius:99px;background:var(--border-strong);transition:background .2s}
+.sw i::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:transform .2s}
+.sw input:checked+i{background:var(--accent)}
+.sw input:checked+i::after{transform:translateX(20px)}
+.btn-line{width:100%;height:46px;border-radius:13px;border:1px solid var(--border-strong);font-size:15px;margin-top:12px}
+
+/* 연결 안내 */
+.gate{position:fixed;inset:0;z-index:30;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px}
+.gate.show{display:flex}
+.gate h1{font-size:21px;margin:18px 0 10px}
+.gate p{font-size:15px;line-height:1.65;color:var(--dim);margin:0}
+.gate img{width:72px;height:72px;border-radius:17px}
+
+/* 숨긴 입력칸 — 아이폰 키보드를 띄우는 용도 */
+#kb{position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px;border:0;padding:0;background:transparent;color:transparent;caret-color:transparent}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<script>
+// 손가락 확대(핀치 줌) 막기 — 아이폰 Safari는 viewport 설정을 무시한다
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('gesturechange', e => e.preventDefault());
+</script>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="conn">
+      <span class="dot wait" id="dot"></span>
+      <div style="min-width:0">
+        <div class="conn-name" id="connName">연결 중…</div>
+      </div>
+    </div>
+    <button class="icon-btn" id="setBtn" aria-label="설정">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </header>
+
+  <div class="notice" id="notice"></div>
+
+  <div class="pad" id="pad">
+    <div class="pad-tag">끌기 중</div>
+    <div class="pad-ring" id="ring"></div>
+    <div class="pad-hint"><b>한 손가락</b> 이동 · <b>탭</b> 클릭 · <b>두 번 탭</b> 더블클릭<br><b>두 손가락</b> 스크롤 · <b>두 손가락 탭</b> 오른쪽 클릭<br><b>탭하고 바로 끌기</b> 드래그</div>
+  </div>
+
+  <div class="btns">
+    <button class="mbtn" data-btn="l">왼쪽 클릭</button>
+    <button class="mbtn" data-btn="r">오른쪽 클릭</button>
+  </div>
+
+  <div class="kbbar" id="kbBar">
+    <button class="kk mod" data-mod="cmd">⌘</button>
+    <button class="kk mod" data-mod="alt">⌥</button>
+    <button class="kk mod" data-mod="ctrl">⌃</button>
+    <button class="kk mod" data-mod="shift">⇧</button>
+    <button class="kk" data-key="esc">esc</button>
+    <button class="kk" data-key="tab">tab</button>
+    <button class="kk" data-key="left">←</button>
+    <button class="kk" data-key="up">↑</button>
+    <button class="kk" data-key="down">↓</button>
+    <button class="kk" data-key="right">→</button>
+    <button class="kk" data-key="delete">⌦</button>
+    <button class="kk done" data-kb-done>완료</button>
+  </div>
+
+  <nav class="tools">
+    <button class="tool" id="kbBtn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>키보드
+    </button>
+    <button class="tool" id="keysBtn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3z"/></svg>단축키
+    </button>
+    <button class="tool" data-media="voldown" aria-label="볼륨 낮추기">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5"/></svg>
+    </button>
+    <button class="tool" data-media="volup" aria-label="볼륨 높이기">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5M18.5 6.5a8 8 0 0 1 0 11"/></svg>
+    </button>
+    <button class="tool" data-media="play" aria-label="재생/일시정지">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M4 5.5v13l8-6.5zM14 6h2.4v12H14zM18.6 6H21v12h-2.4z"/></svg>
+    </button>
+  </nav>
+</div>
+
+<input id="kb" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="enter" aria-label="맥으로 보낼 글자">
+
+<!-- 단축키 시트 -->
+<div class="sheet-wrap" id="keysSheet" data-close>
+  <div class="sheet">
+    <div class="grab"></div>
+    <h2>단축키 <button class="x" data-close-btn>닫기</button></h2>
+    <h3>재생</h3>
+    <div class="grid">
+      <button class="key" data-media="prev"><b>⏮</b><span>이전</span></button>
+      <button class="key" data-media="play"><b>⏯</b><span>재생/정지</span></button>
+      <button class="key" data-media="next"><b>⏭</b><span>다음</span></button>
+      <button class="key" data-media="mute"><b>🔇</b><span>음소거</span></button>
+      <button class="key" data-k="left"><b>←</b><span>뒤로</span></button>
+      <button class="key" data-k="space"><b>space</b><span>스페이스</span></button>
+      <button class="key" data-k="right"><b>→</b><span>앞으로</span></button>
+      <button class="key" data-k="f"><b>F</b><span>영상 크게</span></button>
+    </div>
+    <h3>편집</h3>
+    <div class="grid">
+      <button class="key" data-k="c" data-m="cmd"><b>⌘C</b><span>복사</span></button>
+      <button class="key" data-k="v" data-m="cmd"><b>⌘V</b><span>붙여넣기</span></button>
+      <button class="key" data-k="x" data-m="cmd"><b>⌘X</b><span>잘라내기</span></button>
+      <button class="key" data-k="a" data-m="cmd"><b>⌘A</b><span>전체 선택</span></button>
+      <button class="key" data-k="z" data-m="cmd"><b>⌘Z</b><span>실행 취소</span></button>
+      <button class="key" data-k="z" data-m="cmd,shift"><b>⇧⌘Z</b><span>다시 실행</span></button>
+      <button class="key" data-k="f" data-m="cmd"><b>⌘F</b><span>찾기</span></button>
+      <button class="key" data-k="s" data-m="cmd"><b>⌘S</b><span>저장</span></button>
+    </div>
+    <h3>창 · 앱</h3>
+    <div class="grid">
+      <button class="key" data-k="tab" data-m="cmd"><b>⌘⇥</b><span>앱 전환</span></button>
+      <button class="key" data-k="space" data-m="cmd"><b>⌘␣</b><span>Spotlight</span></button>
+      <button class="key" data-k="up" data-m="ctrl"><b>⌃↑</b><span>미션 컨트롤</span></button>
+      <button class="key" data-k="f" data-m="cmd,ctrl"><b>⌃⌘F</b><span>전체 화면</span></button>
+      <button class="key" data-k="t" data-m="cmd"><b>⌘T</b><span>새 탭</span></button>
+      <button class="key" data-k="w" data-m="cmd"><b>⌘W</b><span>창/탭 닫기</span></button>
+      <button class="key" data-k="r" data-m="cmd"><b>⌘R</b><span>새로고침</span></button>
+      <button class="key" data-k="left" data-m="ctrl"><b>⌃←</b><span>왼쪽 화면</span></button>
+    </div>
+    <h3>키</h3>
+    <div class="grid">
+      <button class="key" data-k="esc"><b>esc</b><span>취소</span></button>
+      <button class="key" data-k="enter"><b>⏎</b><span>엔터</span></button>
+      <button class="key" data-k="tab"><b>⇥</b><span>탭</span></button>
+      <button class="key" data-k="backspace"><b>⌫</b><span>지우기</span></button>
+      <button class="key" data-k="up"><b>↑</b><span>위</span></button>
+      <button class="key" data-k="down"><b>↓</b><span>아래</span></button>
+      <button class="key" data-k="pageup"><b>PgUp</b><span>한 화면 위</span></button>
+      <button class="key" data-k="pagedown"><b>PgDn</b><span>한 화면 아래</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- 설정 시트 -->
+<div class="sheet-wrap" id="setSheet" data-close>
+  <div class="sheet">
+    <div class="grab"></div>
+    <h2>설정 <button class="x" data-close-btn>닫기</button></h2>
+    <div class="row"><div>포인터 속도</div><input type="range" id="sSpeed" min="0.4" max="3" step="0.1"></div>
+    <div class="row"><div>스크롤 속도</div><input type="range" id="sScroll" min="0.3" max="3" step="0.1"></div>
+    <div class="row"><div>스크롤 방향 반대로<small>손가락과 반대로 움직이게</small></div><label class="sw"><input type="checkbox" id="sInvert"><i></i></label></div>
+    <div class="row"><div>쓰는 동안 화면 켜두기<small>아이폰 화면이 꺼지지 않게</small></div><label class="sw"><input type="checkbox" id="sWake"><i></i></label></div>
+    <div class="row"><div>연결된 맥<small id="sMac">-</small></div></div>
+    <button class="btn-line" id="reconnect">다시 연결</button>
+  </div>
+</div>
+
+<!-- 연결 코드가 없거나 틀렸을 때 -->
+<div class="gate" id="gate">
+  <img src="/icon-180.png" alt="">
+  <h1 id="gateTitle">맥과 연결해 주세요</h1>
+  <p id="gateText">맥에서 <b>VINFILM 리모트</b> 앱을 켜고,<br>맥 화면의 QR 코드를 아이폰 카메라로 찍어 주세요.</p>
+</div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+
+// ── 연결 코드: 주소의 ?k= (홈 화면 앱은 이 주소 그대로 저장된다) → 없으면 이 기기에 기억해 둔 값
+const LS_K = 'vf-remote-k', LS_SET = 'vf-remote-set';
+const store = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }, set(k, v){ try { localStorage.setItem(k, v); } catch(e){} } };
+let TOKEN = new URLSearchParams(location.search).get('k') || store.get(LS_K) || '';
+if (TOKEN) store.set(LS_K, TOKEN);
+
+const S = Object.assign({ speed:1.4, scroll:1, invert:false, wake:true }, JSON.parse(store.get(LS_SET) || '{}'));
+const saveSet = () => store.set(LS_SET, JSON.stringify(S));
+
+// ── 웹소켓
+let ws = null, live = false, denied = false, retry = 0, retryT = 0, pongT = 0;
+function devName(){ const u = navigator.userAgent; return /iPad/.test(u) ? '아이패드' : /iPhone/.test(u) ? '아이폰' : /Android/.test(u) ? '안드로이드' : '브라우저'; }
+function setConn(kind, name){
+  $('#dot').className = 'dot ' + (kind === 'ok' ? 'ok' : kind === 'wait' ? 'wait' : '');
+  $('#connName').textContent = kind === 'ok' ? name : kind === 'wait' ? '연결 중…' : '연결 끊김 — 다시 시도 중';
+}
+function notice(msg){ const n = $('#notice'); n.innerHTML = msg || ''; n.classList.toggle('show', !!msg); }
+function setAccess(ok){ notice(ok === false ? '맥에서 <b>손쉬운 사용</b> 권한을 허용해야 마우스·키보드가 움직여요. (시스템 설정 → 개인정보 보호 및 보안 → 손쉬운 사용 → VINFILM 리모트 켜기)' : ''); }
+function showGate(kind){
+  $('#gate').classList.add('show');
+  if (kind === 'denied'){
+    $('#gateTitle').textContent = '연결 코드가 바뀌었어요';
+    $('#gateText').innerHTML = '맥 화면의 새 QR 코드를 아이폰 카메라로 다시 찍어 주세요.<br>홈 화면에 추가해 뒀다면 지우고 새로 추가해 주세요.';
+  }
+}
+function connect(){
+  clearTimeout(retryT);
+  if (!TOKEN) return showGate('nokey');
+  if (ws && ws.readyState <= 1) return;
+  setConn('wait');
+  try { ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws'); }
+  catch(e){ return later(); }
+  const me = ws;
+  ws.onopen = () => me.send(JSON.stringify({ t:'auth', k:TOKEN, dev:devName() }));
+  ws.onmessage = e => {
+    let m; try { m = JSON.parse(e.data); } catch(_){ return; }
+    if (m.t === 'hello'){ live = true; retry = 0; setConn('ok', m.name); $('#sMac').textContent = m.name + ' · ' + location.hostname; setAccess(m.access); }
+    else if (m.t === 'pong'){ clearTimeout(pongT); setAccess(m.access); }
+    else if (m.t === 'denied'){ denied = true; showGate('denied'); }
+  };
+  ws.onclose = () => { if (me !== ws) return; live = false; if (!denied){ setConn('off'); later(); } };
+}
+function later(){ clearTimeout(retryT); retryT = setTimeout(connect, Math.min(4000, 400 * 2 ** retry++)); }
+function send(m){ if (live && ws.readyState === 1 && ws.bufferedAmount < 65536) ws.send(JSON.stringify(m)); }
+function checkAlive(){ // 앱으로 돌아왔을 때 소켓이 조용히 죽어 있으면 다시 연결
+  if (!ws || ws.readyState > 1){ retry = 0; return connect(); }
+  if (live){ send({ t:'ping' }); clearTimeout(pongT); pongT = setTimeout(() => { try { ws.close(); } catch(e){} ws = null; live = false; retry = 0; connect(); }, 2500); }
+}
+setInterval(() => { if (live) send({ t:'ping' }); }, 20000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden){ checkAlive(); keepAwake(); } });
+window.addEventListener('pageshow', checkAlive);
+
+// ── 화면 켜두기(Wake Lock)
+let wakeLock = null;
+async function keepAwake(){
+  if (!S.wake || !('wakeLock' in navigator) || document.hidden || wakeLock) return;
+  try { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } catch(e){}
+}
+function dropWake(){ if (wakeLock){ wakeLock.release().catch(() => {}); wakeLock = null; } }
+
+// ── 트랙패드
+const pad = $('#pad'), ring = $('#ring');
+const acc = { mx:0, my:0, sx:0, sy:0 };
+let tch = null, dragging = false, lastTapAt = 0, raf = 0, mom = null;
+function centroid(list){ let x = 0, y = 0; for (const t of list){ x += t.clientX; y += t.clientY; } return [x / list.length, y / list.length]; }
+function schedule(){ if (!raf) raf = requestAnimationFrame(flush); }
+function flush(){
+  if (raf){ cancelAnimationFrame(raf); raf = 0; }
+  if (acc.mx || acc.my){ send({ t:'m', x:+acc.mx.toFixed(2), y:+acc.my.toFixed(2) }); acc.mx = acc.my = 0; }
+  const sx = Math.trunc(acc.sx), sy = Math.trunc(acc.sy);
+  if (sx || sy){ send({ t:'s', x:sx, y:sy }); acc.sx -= sx; acc.sy -= sy; }
+}
+function flash(x, y, right){
+  const r = pad.getBoundingClientRect();
+  ring.style.left = (x - r.left) + 'px'; ring.style.top = (y - r.top) + 'px';
+  ring.classList.toggle('r', !!right); ring.classList.remove('go'); void ring.offsetWidth; ring.classList.add('go');
+}
+function stopMomentum(){ if (mom){ cancelAnimationFrame(mom.raf); mom = null; } }
+function startMomentum(vx, vy){ // 두 손가락을 튕기듯 떼면 관성 스크롤
+  if (Math.hypot(vx, vy) < 3) return;
+  mom = { vx, vy };
+  const step = () => {
+    if (!mom) return;
+    acc.sx += mom.vx; acc.sy += mom.vy; flush();
+    mom.vx *= 0.93; mom.vy *= 0.93;
+    if (Math.hypot(mom.vx, mom.vy) < 0.6){ mom = null; return; }
+    mom.raf = requestAnimationFrame(step);
+  };
+  mom.raf = requestAnimationFrame(step);
+}
+pad.addEventListener('touchstart', e => {
+  e.preventDefault(); stopMomentum(); keepAwake();
+  pad.classList.add('used');
+  const ts = e.targetTouches, [cx, cy] = centroid(ts), now = performance.now();
+  if (!tch) tch = { t0:now, moved:0, maxN:0, vx:0, vy:0, scrolled:false, dragArm: ts.length === 1 && now - lastTapAt < 320 };
+  tch.maxN = Math.max(tch.maxN, ts.length); tch.n = ts.length; tch.lx = cx; tch.ly = cy; tch.lt = now;
+}, { passive:false });
+pad.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (!tch) return;
+  const ts = e.targetTouches; if (!ts.length) return;
+  const [cx, cy] = centroid(ts), now = performance.now();
+  if (ts.length !== tch.n){ tch.n = ts.length; tch.lx = cx; tch.ly = cy; tch.lt = now; return; }
+  const dx = cx - tch.lx, dy = cy - tch.ly, dt = Math.max(4, now - tch.lt);
+  tch.lx = cx; tch.ly = cy; tch.lt = now; tch.moved += Math.abs(dx) + Math.abs(dy);
+  if (ts.length === 1){
+    if (tch.dragArm && !dragging && tch.moved > 5){ dragging = true; send({ t:'b', b:'l', d:1, n:1 }); pad.classList.add('drag'); }
+    const sp = Math.hypot(dx, dy) / dt; // px/ms — 빨리 움직일수록 멀리(가속)
+    const f = S.speed * (0.8 + Math.min(sp * 1.3, 3.2));
+    acc.mx += dx * f; acc.my += dy * f;
+  } else {
+    const k = S.scroll * 1.6 * (S.invert ? -1 : 1);
+    acc.sx += dx * k; acc.sy += dy * k; tch.scrolled = true;
+    tch.vx = tch.vx * 0.4 + (dx * k / dt * 16.7) * 0.6; tch.vy = tch.vy * 0.4 + (dy * k / dt * 16.7) * 0.6;
+  }
+  schedule();
+}, { passive:false });
+function padEnd(e){
+  e.preventDefault();
+  if (!tch) return;
+  const ts = e.targetTouches;
+  if (ts.length){ const [cx, cy] = centroid(ts); tch.n = ts.length; tch.lx = cx; tch.ly = cy; tch.lt = performance.now(); return; }
+  const now = performance.now(), dur = now - tch.t0, t = e.changedTouches[0];
+  if (dragging){ flush(); dragging = false; send({ t:'b', b:'l', d:0 }); pad.classList.remove('drag'); }
+  else if (tch.moved < 12 && dur < 280 && e.type === 'touchend'){
+    flush();
+    if (tch.maxN >= 2){ send({ t:'c', b:'r' }); flash(t.clientX, t.clientY, true); }
+    else { send({ t:'c', b:'l' }); lastTapAt = now; flash(t.clientX, t.clientY); }
+  } else if (tch.scrolled && now - tch.lt < 90){ flush(); startMomentum(tch.vx, tch.vy); }
+  else flush();
+  tch = null;
+}
+pad.addEventListener('touchend', padEnd, { passive:false });
+pad.addEventListener('touchcancel', padEnd, { passive:false });
+
+// 마우스 버튼 — 누르고 있는 동안 눌린 상태(엄지로 누른 채 다른 손가락으로 끌기 가능)
+$$('[data-btn]').forEach(b => {
+  const id = b.dataset.btn; let held = false;
+  const up = () => { if (!held) return; held = false; b.classList.remove('on'); flush(); send({ t:'b', b:id, d:0 }); };
+  b.addEventListener('pointerdown', e => { e.preventDefault(); keepAwake(); if (held) return; held = true; b.classList.add('on'); send({ t:'b', b:id, d:1 }); });
+  b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('lostpointercapture', up);
+  b.addEventListener('contextmenu', e => e.preventDefault());
+});
+
+// ── 키보드: 숨긴 입력칸의 값이 바뀔 때마다 이전 값과 비교해 지운 만큼 ⌫, 새로 생긴 글자를 보낸다
+// (한글 조합 'ㄱ→가→각'도 '⌫ 후 새 글자'로 그대로 따라감) — 맨 앞의 보이지 않는 글자는 빈칸에서 ⌫를 알아채기 위한 것
+const kb = $('#kb'), SENT = '​';
+let last = SENT;
+const mods = new Set();
+const JAMO = { 'ㅂ':'q','ㅈ':'w','ㄷ':'e','ㄱ':'r','ㅅ':'t','ㅛ':'y','ㅕ':'u','ㅑ':'i','ㅐ':'o','ㅔ':'p','ㅁ':'a','ㄴ':'s','ㅇ':'d','ㄹ':'f','ㅎ':'g','ㅗ':'h','ㅓ':'j','ㅏ':'k','ㅣ':'l','ㅋ':'z','ㅌ':'x','ㅊ':'c','ㅍ':'v','ㅠ':'b','ㅜ':'n','ㅡ':'m','ㅃ':'Q','ㅉ':'W','ㄸ':'E','ㄲ':'R','ㅆ':'T','ㅒ':'O','ㅖ':'P' };
+function resetKb(){ kb.value = SENT; last = SENT; try { kb.setSelectionRange(1, 1); } catch(e){} }
+function setMods(){ $$('[data-mod]').forEach(b => b.classList.toggle('on', mods.has(b.dataset.mod))); }
+function sendKey(k, extra){ const m = [...new Set([...(extra || []), ...mods])]; flush(); send({ t:'k', c:k, m }); if (mods.size){ mods.clear(); setMods(); } }
+kb.addEventListener('input', () => {
+  const v = kb.value;
+  const a = Array.from(last), b = Array.from(v);
+  let p = 0; while (p < a.length && p < b.length && a[p] === b[p]) p++;
+  const del = a.length - p, ins = b.slice(p).join('').split(SENT).join('');
+  if (mods.size && ins){ // ⌘ 등을 켠 채 글자를 치면 단축키로
+    const ch = Array.from(ins).pop(); sendKey(JAMO[ch] || ch);
+    return resetKb();
+  }
+  if (del || ins) send({ t:'txt', bs:del, s:ins });
+  if (!v.startsWith(SENT) || b.length > 80) resetKb(); else last = v;
+});
+kb.addEventListener('keydown', e => {
+  if (e.key === 'Enter'){ e.preventDefault(); sendKey('enter'); resetKb(); }
+});
+function openKb(){ resetKb(); kb.focus(); document.body.classList.add('kb'); }
+function closeKb(){ kb.blur(); }
+kb.addEventListener('blur', () => { document.body.classList.remove('kb'); mods.clear(); setMods(); });
+$('#kbBtn').addEventListener('click', openKb);
+// 보조 줄 버튼은 눌러도 입력칸 포커스(=아이폰 키보드)가 유지되게 기본 동작을 막고 바로 처리
+function kbBarAct(e){
+  const b = e.target.closest('button'); if (!b) return;
+  e.preventDefault();
+  if (b.dataset.mod){ mods.has(b.dataset.mod) ? mods.delete(b.dataset.mod) : mods.add(b.dataset.mod); setMods(); }
+  else if (b.dataset.key) sendKey(b.dataset.key);
+  else if ('kbDone' in b.dataset) closeKb();
+}
+$('#kbBar').addEventListener('touchstart', kbBarAct, { passive:false });
+$('#kbBar').addEventListener('mousedown', kbBarAct);
+
+// 키보드가 올라오면 보이는 영역에 맞춰 화면 높이를 줄인다
+function fitViewport(){
+  const vv = window.visualViewport;
+  document.documentElement.style.setProperty('--vh', (vv ? vv.height : innerHeight) + 'px');
+  if (vv && vv.offsetTop) window.scrollTo(0, 0);
+}
+if (window.visualViewport){ visualViewport.addEventListener('resize', fitViewport); visualViewport.addEventListener('scroll', fitViewport); }
+window.addEventListener('resize', fitViewport); fitViewport();
+
+// ── 재생·볼륨, 단축키
+document.addEventListener('click', e => {
+  const m = e.target.closest('[data-media]'); if (m){ send({ t:'media', k:m.dataset.media }); return; }
+  const k = e.target.closest('[data-k]'); if (k){ sendKey(k.dataset.k, (k.dataset.m || '').split(',').filter(Boolean)); return; }
+});
+function openSheet(id){ $(id).classList.add('show'); }
+$$('.sheet-wrap').forEach(w => w.addEventListener('click', e => { if (e.target === w || e.target.closest('[data-close-btn]')) w.classList.remove('show'); }));
+$('#keysBtn').addEventListener('click', () => openSheet('#keysSheet'));
+$('#setBtn').addEventListener('click', () => openSheet('#setSheet'));
+
+// ── 설정
+$('#sSpeed').value = S.speed; $('#sScroll').value = S.scroll; $('#sInvert').checked = S.invert; $('#sWake').checked = S.wake;
+$('#sSpeed').addEventListener('input', e => { S.speed = +e.target.value; saveSet(); });
+$('#sScroll').addEventListener('input', e => { S.scroll = +e.target.value; saveSet(); });
+$('#sInvert').addEventListener('change', e => { S.invert = e.target.checked; saveSet(); });
+$('#sWake').addEventListener('change', e => { S.wake = e.target.checked; saveSet(); S.wake ? keepAwake() : dropWake(); });
+$('#reconnect').addEventListener('click', () => { try { ws && ws.close(); } catch(e){} ws = null; live = false; retry = 0; connect(); });
+
+connect();
+</script>
+</body>
+</html>
