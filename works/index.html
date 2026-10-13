@@ -379,7 +379,7 @@ const S = {
   song: { modalOpen: false, editingId: null, playId: null, search: '', msg: '', syncing: false, syncTimes: [], follow: true },
   shortcut: { modalOpen: false, editingId: null },
   quote: { view: 'quotes', draft: null, cdraft: null, bizOpen: false, bizSignCleared: false, msg: '' },
-  studio: { box: 'wait', sel: null, settle: false, msg: '', taskMsg: '' },
+  studio: { box: 'wait', sel: null, settle: false, msg: '', taskMsg: '', answers: {} },
 };
 let currentEqPhoto = '';
 let currentEqPhotoError = '';
@@ -4521,12 +4521,55 @@ function studioBodyHtml(text, cls) {
   const lines = String(text).replace(/\r/g, '').split('\n').flatMap(line => line
     .replace(/([.?!。])\s+(?=\S)/g, '$1\n')
     .replace(/\s*([①-⑳])\s*/g, '\n$1 ')
-    .replace(/\s*((?:추천|확인해 주실 것|확인할 것|요청|제안|참고|결론|요약|다음 할 일)\s*:)\s*/g, '\n$1\n')
+    .replace(/(^|[^(（\s])\s*((?:추천|결정하실 것|확인해 주실 것|확인할 것|요청|제안|참고|결론|요약|다음 할 일)\s*:)\s*/g, '$1\n$2\n')
     .split('\n')).map(x => x.trim()).filter(Boolean);
   return `<div class="${cls || 'st-body'}">${lines.map(l => {
     const head = /:$/.test(l) && l.length <= 14, item = /^[①-⑳]/.test(l) || /^[-•·]\s/.test(l);
     return `<p class="${head ? 'hd' : item ? 'it' : ''}">${esc(l)}</p>`;
   }).join('')}</div>`;
+}
+/* 결재 안의 '고를 것' — 대표님이 버튼으로 바로 고른다.
+   1) 직원(다리)이 choices:[{id, text, options:[...], recommend?}]를 붙여 보내면 그대로 쓰고,
+   2) 없으면 본문의 ①②③ 항목을 질문으로 읽어 [추천대로/아니오/보류] 버튼을 만든다('(추천: X)'가 있으면 그게 기본 선택).
+   승인/반려할 때 고른 값은 결재 문서 answers{id:{q,a}}에 저장되고 후속 작업 지시에도 붙는다. */
+/* 본문을 [앞 설명 / ①②③ 질문들 / 뒤 설명]으로 나눈다. 마지막 항목은 '(추천: X)' 또는 첫 마침표까지만 질문, 나머지는 뒤 설명. */
+function studioSplitBody(body) {
+  body = String(body || ''); const first = body.search(/[①-⑳]/);
+  if (first < 0) return { head: body, items: [], tail: '' };
+  const head = body.slice(0, first).replace(/(결정하실 것|확인해 주실 것|골라 주실 것)\s*:\s*$/, '').trim();
+  const segs = body.slice(first).split(/(?=[①-⑳])/).map(x => x.replace(/^[①-⑳]\s*/, ''));
+  let last = segs.pop() || '', tail = '';
+  const rec = /[(（]\s*추천\s*:[^)）]*[)）]\s*\.?/.exec(last), dot = /[.。?？]\s+/.exec(last);
+  const cut = rec ? rec.index + rec[0].length : dot ? dot.index + dot[0].length : last.length;
+  tail = last.slice(cut).trim(); last = last.slice(0, cut);
+  return { head, items: [...segs, last].map(x => x.trim()).filter(Boolean), tail };
+}
+function studioChoices(a) {
+  if (Array.isArray(a.choices) && a.choices.length) return a.choices.slice(0, 8).map((c, i) => ({ id: String(c.id || 'q' + (i + 1)), text: String(c.text || ''), options: (Array.isArray(c.options) && c.options.length ? c.options : ['예', '아니오']).map(String).slice(0, 5), recommend: c.recommend != null ? String(c.recommend) : '' }));
+  return studioSplitBody(a.body).items.slice(0, 8).map((seg, i) => {
+    let t = seg; const m = /[(（]\s*추천\s*:\s*([^)）]+)[)）]/.exec(t);
+    const rec = m ? m[1].trim() : ''; if (m) t = t.replace(m[0], '');
+    t = t.replace(/[.。\s]+$/, '').trim();
+    return { id: 'q' + (i + 1), text: t, options: rec ? [`추천대로 (${rec})`, '아니오', '보류'] : ['확인 (진행)', '아니오', '보류'], recommend: rec ? `추천대로 (${rec})` : '', fromBody: true };
+  }).filter(q => q.text);
+}
+function studioChoiceValue(a, q) {
+  const pick = (S.studio.answers[a.id] || {})[q.id]; if (pick != null) return pick;
+  const saved = a.answers && a.answers[q.id]; if (saved) return saved.a;
+  return q.recommend || q.options[0];
+}
+function studioChoicesHtml(a, qs) {
+  if (!qs.length) return '';
+  const done = a.status !== 'wait';
+  return `<div class="st-choices"><b>${done ? '🗳 대표님 선택' : '🗳 골라 주세요'}</b>${qs.map((q, i) => `<div class="st-q"><p>${'①②③④⑤⑥⑦⑧'[i]} ${esc(q.text)}</p><div class="st-opts">${q.options.map(o => {
+    const on = studioChoiceValue(a, q) === o;
+    return done ? (on ? `<span class="st-opt on">${esc(o)}</span>` : '') : `<button type="button" class="st-opt${on ? ' on' : ''}${o === q.recommend ? ' rec' : ''}" data-action="studio-choose" data-id="${esc(a.id)}" data-q="${esc(q.id)}" data-v="${esc(o)}">${esc(o)}</button>`;
+  }).join('')}</div></div>`).join('')}</div>`;
+}
+/* 결재 본문에서 ①②③ 질문으로 뽑아 간 부분은 본문에서 빼고 보여 준다(같은 말이 두 번 나오지 않게) */
+function studioBodyWithoutChoices(a, qs) {
+  if (!qs.length || !qs[0].fromBody) return a.body || '';
+  const p = studioSplitBody(a.body); return [p.head, p.tail].filter(Boolean).join('\n');
 }
 /* 결재에 딸린 일정 반영안(actions) — 승인하면 다리가 schedule에 추가/수정(규칙상 승인된 결재만 가능). 최대 5개. */
 function studioActionsHtml(a) {
@@ -4600,8 +4643,9 @@ function renderStudioTab() {
   const cards = items.length ? items.map(a => {
     const s = studioStaffById(studioApprovalStaff(a)), pill = a.status === 'ok' ? '<span class="st-pill ok">승인</span>' : a.status === 'no' ? '<span class="st-pill bad">반려</span>' : '<span class="st-pill">결재 대기</span>';
     const aid = esc(a.id);
-    return `<article class="st-card"><div class="st-card-top"><span class="st-who">${esc(s ? s.name : studioApprovalStaff(a))}${a.createdAt ? ' · ' + esc(studioWhen(a.createdAt)) : ''}</span>${pill}</div>
-      <h3>${esc(a.title || '(제목 없음)')}</h3>${a.body ? studioBodyHtml(a.body) : ''}${studioActionsHtml(a)}${studioFilesHtml(a.files)}${a.memo ? `<p>💬 ${esc(a.memo)}</p>` : ''}
+    const fresh = !studioSeen.has(a.id + a.status); studioSeen.add(a.id + a.status);
+    return `<article class="st-card${fresh ? ' st-in' : ''}"><div class="st-card-top"><span class="st-who">${esc(s ? s.name : studioApprovalStaff(a))}${a.createdAt ? ' · ' + esc(studioWhen(a.createdAt)) : ''}</span>${pill}</div>
+      <h3>${esc(a.title || '(제목 없음)')}</h3>${(() => { const qs = studioChoices(a), b = studioBodyWithoutChoices(a, qs); return (b ? studioBodyHtml(b) : '') + studioChoicesHtml(a, qs); })()}${studioActionsHtml(a)}${studioFilesHtml(a.files)}${a.memo ? `<p>💬 ${esc(a.memo)}</p>` : ''}
       ${a.status === 'wait' ? `<div class="st-acts"><input id="stMemo-${aid}" placeholder="코멘트 (반려할 땐 꼭)"><button type="button" class="yes" data-action="studio-decide" data-id="${aid}" data-v="ok">승인</button><button type="button" class="no" data-action="studio-decide" data-id="${aid}" data-v="no">반려</button></div>
         <label class="st-follow"><input type="checkbox" id="stFollow-${aid}" checked> 후속 작업 만들기 <small>(승인: 다음 단계 진행 · 반려: 코멘트 반영해 다시 작업)</small></label>
         ${S.studio.msg && S.studio.msgId === a.id ? `<p class="st-warn">${esc(S.studio.msg)}</p>` : ''}` : ''}</article>`;
@@ -4651,7 +4695,7 @@ function renderStudioTab() {
           <button type="button" role="tab" aria-selected="${S.studio.box === 'cfg'}" data-action="studio-box" data-id="cfg">⚙️ 설정</button>
           <button type="button" class="st-sheet-close" data-action="studio-box" data-id="wait" aria-label="닫기">✕</button>
         </div>
-        <div class="st-panel-body">
+        <div class="st-panel-body${studioPanelKey() ? ' st-in' : ''}">
           ${STUDIO_HOME && S.studio.box !== 'staff' && S.studio.box !== 'cfg' ? dashNotifHtml() : ''}
           ${S.studio.box === 'staff' ? staffHtml : `<div class="st-ceo"><canvas id="studioCeoCv" width="16" height="20"></canvas><div><b>대표 ${esc(greetingName() || '김규빈')}</b><p>${waiting.length ? `결재할 보고가 ${waiting.length}건 있어요` : '오늘 결재를 다 했어요 🎉'}</p></div></div>
           ${S.studio.box === 'cfg' ? studioSettingsHtml(cfg, br) : cards}`}
@@ -4691,6 +4735,9 @@ function studioSettleHtml() {
     ${studioLedger.err ? `<p class="st-empty">수입·지출을 못 불러왔어요: ${esc(studioLedger.err)}</p>` : rev == null ? '<p class="st-empty">수입·지출은 배포된 WORKS(로그인 상태)에서만 불러와요.</p>' : ''}
     <button type="button" data-action="studio-settle-close">닫기</button></div></div>`;
 }
+const studioSeen = new Set(); // 이미 화면에 나왔던 결재 카드 — 처음 나올 때만 게임처럼 등장 애니메이션
+let studioLastPanel = '';
+function studioPanelKey() { const k = S.studio.box + '|' + (S.studio.box === 'staff' ? S.studio.sel : ''); const changed = k !== studioLastPanel; studioLastPanel = k; return changed; }
 function studioAddLog(text, staffId) { return studioPut('studioLog', { id: uid(), at: Date.now(), text, staffId: staffId || '' }); }
 function handleStudioAction(action, el, e) {
   const id = el.dataset.id;
@@ -4729,17 +4776,22 @@ function handleStudioAction(action, el, e) {
     S.studio.msg = '저장했어요.'; S.studio.msgId = 'cfg'; render();
     return true;
   }
+  if (action === 'studio-choose') { // 버튼 고르기 — 화면만 다시 그림(사무실 캔버스는 유지돼 깜빡이지 않음)
+    (S.studio.answers[id] = S.studio.answers[id] || {})[el.dataset.q] = el.dataset.v; render(); return true;
+  }
   if (action === 'studio-decide') {
     const a = studioApprovals.find(x => String(x.id) === id); if (!a || a.status !== 'wait') return true;
     const v = el.dataset.v === 'ok' ? 'ok' : 'no', memoEl = document.getElementById('stMemo-' + id), memo = memoEl ? memoEl.value.trim() : '';
     const follow = !!(document.getElementById('stFollow-' + id) || {}).checked;
     if (v === 'no' && !memo) { S.studio.msg = '반려할 때는 코멘트를 꼭 적어 주세요(직원이 보고 다시 작업해요).'; S.studio.msgId = a.id; render(); document.getElementById('stMemo-' + id)?.focus(); return true; }
     const staffId = studioApprovalStaff(a), s = studioStaffById(staffId), now = Date.now();
+    const qs = studioChoices(a), answers = {}; qs.forEach(q => { answers[q.id] = { q: q.text, a: studioChoiceValue(a, q) }; });
+    const picks = qs.length ? ' 대표님 선택: ' + qs.map((q, i) => `${'①②③④⑤⑥⑦⑧'[i]} ${q.text} → ${answers[q.id].a}`).join(' / ') + '.' : '';
     S.studio.msg = '';
-    studioPut('studioApprovals', { id: a.id, status: v, memo, decidedAt: now });
+    studioPut('studioApprovals', { id: a.id, status: v, memo, decidedAt: now, ...(qs.length ? { answers } : {}) });
     if (follow) studioPut('studioTasks', { id: uid(), staffId, status: 'queued', createdAt: now, by: 'owner', parentApprovalId: a.id,
-      text: v === 'ok' ? `[승인 후속] "${a.title}" 승인됨.${memo ? ` 대표님 코멘트: ${memo}.` : ''} 다음 단계를 진행해 주세요(바깥으로 보내는 일은 초안까지만).`
-        : `[반려 재작업] "${a.title}" 반려됨. 대표님 코멘트: ${memo}. 코멘트를 반영해 다시 작업해 주세요.` });
+      text: v === 'ok' ? `[승인 후속] "${a.title}" 승인됨.${picks}${memo ? ` 대표님 코멘트: ${memo}.` : ''} 선택한 대로 다음 단계를 진행해 주세요('아니오'·'보류'는 하지 말 것, 바깥으로 보내는 일은 초안까지만).`
+        : `[반려 재작업] "${a.title}" 반려됨.${picks} 대표님 코멘트: ${memo}. 코멘트를 반영해 다시 작업해 주세요.` });
     studioAddLog(`대표님이 "${a.title}" ${v === 'ok' ? '승인' : '반려'}${memo ? ` (💬 ${memo})` : ''}${follow ? ' → 후속 작업 등록' : ''}`, staffId);
     render();
     if (s) studioPop(s, v === 'ok' ? '✔ 결재 완료' : '↩ 다시 작업', v === 'ok' ? 'money' : '');
@@ -7139,6 +7191,25 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-term .dash-section-title, .st-term .shoot-section-title { color:var(--t-hi); text-transform:uppercase; font-family:inherit; }
   .st-term .eq-add-btn, .st-term .eq-chip.active { background:transparent; color:var(--t-hi); border:1px solid var(--t-line); }
   .pd-studio { margin:-6px 0 12px; font-size:13px; color:var(--text-dim); } .pd-studio small { color:var(--text-faint); }
+  .st-choices { display:grid; gap:8px; padding:10px; border:1px solid var(--border-strong); border-radius:10px; }
+  .st-choices > b { font-size:13px; color:var(--text); }
+  .st-q p { margin:0 0 5px; font-size:13px; line-height:1.5; color:var(--text); }
+  .st-opts { display:flex; flex-wrap:wrap; gap:6px; }
+  .st-opt { font:inherit; font-size:12.5px; padding:5px 11px; border-radius:8px; border:1px solid var(--border); background:var(--surface-hover); color:var(--text-dim); cursor:pointer; }
+  .st-opt.rec { border-style:dashed; } .st-opt.on { background:var(--accent); border-color:var(--accent); color:#fff; border-style:solid; }
+  .st-term .st-choices { border-color:var(--t-line); background:rgba(127,211,200,.04); } .st-term .st-choices > b, .st-term .st-q p { color:var(--t-hi); }
+  .st-term .st-opt { background:transparent; color:var(--t-text); border-color:var(--t-dim); } .st-term .st-opt.rec { border-color:var(--t-line); }
+  .st-term .st-opt.on { background:var(--t-line); color:var(--t-bg); border-color:var(--t-line); box-shadow:0 0 8px rgba(127,211,200,.45); }
+  .st-term .st-opt.on::before { content:'▶ '; }
+  /* 게임 같은 등장: 카드는 옆에서 끊기듯(steps) 미끄러져 들어오며 테두리 번쩍, 패널 내용은 화면이 켜지듯, 말풍선은 톡 튀어나옴 */
+  .st-card.st-in { animation:stCardIn .42s steps(6) both; }
+  @keyframes stCardIn { 0% { opacity:0; transform:translateX(28px); clip-path:inset(0 0 100% 0); } 60% { opacity:1; clip-path:inset(0 0 0 0); box-shadow:0 0 0 2px var(--accent), 0 0 18px var(--accent); } 100% { opacity:1; transform:none; clip-path:inset(0 0 0 0); } }
+  .st-panel-body.st-in > * { animation:stBoot .32s steps(4) both; }
+  .st-panel-body.st-in > *:nth-child(2) { animation-delay:.06s; } .st-panel-body.st-in > *:nth-child(3) { animation-delay:.12s; } .st-panel-body.st-in > *:nth-child(n+4) { animation-delay:.18s; }
+  @keyframes stBoot { 0% { opacity:0; transform:scaleY(.08); filter:brightness(2.2); } 50% { opacity:1; transform:scaleY(1.04); } 100% { opacity:1; transform:none; filter:none; } }
+  .st-spot.show .st-bubble, .st-spot:hover .st-bubble { animation:stPopIn .22s steps(3) both, stBob 1.8s ease-in-out .22s infinite; }
+  @keyframes stPopIn { 0% { scale:.4; opacity:0; } 60% { scale:1.12; opacity:1; } 100% { scale:1; opacity:1; } }
+  @media (prefers-reduced-motion: reduce) { .st-card.st-in, .st-panel-body.st-in > *, .st-spot.show .st-bubble, .st-spot:hover .st-bubble { animation:none !important; } }
   .st-acts-list { display:grid; gap:5px; padding:8px 10px; border:1px dashed var(--border-strong); border-radius:10px; font-size:13px; }
   .st-acts-list > b { font-size:13px; color:var(--text); } .st-acts-list p { margin:0; color:var(--text); line-height:1.5; } .st-acts-list small { color:var(--text-faint); }
   .st-term .st-acts-list { border-color:var(--t-line); } .st-term .st-acts-list > b, .st-term .st-acts-list p { color:var(--t-hi); } .st-term .st-acts-list small { color:var(--t-dim); }
