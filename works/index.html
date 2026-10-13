@@ -4574,7 +4574,7 @@ function renderStudioTab() {
     <div class="st-main">
       <div class="st-left">
         <div class="st-hud top"><span>💾 ${studioWeekLabel()}</span><span class="st-link ${br.on ? 'on' : ''}" title="${br.hb ? '마지막 신호 ' + esc(studioWhen(br.hb)) : '다리가 아직 연결된 적 없어요'}">${br.on ? '🟢 Mac 연결됨' : '🔌 Mac 꺼짐'} · 오늘 <b>${br.count}/${cfg.dailyLimit}</b></span><span>이번 달 매출 <b>${studioMoney(studioLedger.rev)}</b></span></div>
-        <div class="st-room" id="studioRoom"><canvas id="studioCv" width="960" height="660" aria-label="VINFILM 스튜디오 사무실"></canvas>${spots}</div>
+        <div class="st-room" id="studioRoom"><div id="studioCvSlot"></div>${spots}</div>
         <div class="st-hud bot"><button type="button" data-action="studio-settle">📊 이번 달 결산</button><span>진행 중 프로젝트 <b>${doing}</b></span><span>이번 주 마감 <b>${dlText}</b></span><span>결재 대기 <b>${waiting.length}</b></span></div>
         ${br.on ? '' : '<p class="st-offline">🔌 Mac 꺼짐 — 지시는 쌓였다가 Mac이 켜지면 처리돼요.</p>'}
         <div class="st-roster">${roster}</div>
@@ -4643,6 +4643,7 @@ function handleStudioAction(action, el, e) {
     if (!text) { S.studio.taskMsg = '지시 내용을 적어 주세요.'; render(); return true; }
     if (text.length > 4000) { S.studio.taskMsg = '지시가 너무 길어요(4,000자까지).'; render(); return true; }
     const now = Date.now();
+    if (ta) ta.value = ''; // render가 입력칸 값을 보존하므로 보낸 글은 먼저 지움
     studioPut('studioTasks', { id: uid(), staffId: s.id, text, status: 'queued', createdAt: now, by: 'owner' });
     studioAddLog(`지시 받음: ${text.length > 40 ? text.slice(0, 40) + '…' : text}`, s.id);
     S.studio.taskMsg = studioBridgeStatus().on ? '보냈어요. 순서대로 처리돼요.' : '보냈어요. Mac이 켜지면 처리돼요.';
@@ -4693,7 +4694,33 @@ function studioPop(s, text, cls) {
   room.appendChild(e); setTimeout(() => e.remove(), 1700);
 }
 
-/* ---- 사무실 캔버스: render()가 DOM을 새로 만들어도 이어지게, 타이머가 매번 #studioCv를 찾아서 그린다 ---- */
+/* ---- 사무실 캔버스: 한 번만 만들어 두고(studioCanvasEl) render() 때마다 자리(#studioCvSlot)에 옮겨 붙인다.
+   예전엔 render마다 새 canvas가 생겨 다음 그리기(120ms) 전까지 검게 깜빡였음. 작은 얼굴 캔버스는 render 직후 바로 그림.
+   쓰던 지시·코멘트 입력칸은 render(클라우드 갱신 포함) 전후로 값·커서를 보존한다. ---- */
+let studioCanvasEl = null;
+function studioMountCanvas() {
+  const slot = document.getElementById('studioCvSlot'); if (!slot) return;
+  if (!studioCanvasEl) { studioCanvasEl = document.createElement('canvas'); studioCanvasEl.id = 'studioCv'; studioCanvasEl.width = 960; studioCanvasEl.height = 660; studioCanvasEl.setAttribute('aria-label', 'VINFILM 스튜디오 사무실'); }
+  slot.replaceWith(studioCanvasEl);
+  studioDraw(true);
+}
+function studioCaptureInputs() {
+  const out = {}, act = document.activeElement;
+  document.querySelectorAll('#stOrder, [id^="stMemo-"], [id^="stFollow-"], #stCfgLimit, #stCfgAt, #stCfgMorning').forEach(el => { out[el.id] = el.type === 'checkbox' ? el.checked : el.value; });
+  out.__focus = act && act.id && out.hasOwnProperty(act.id) ? { id: act.id, s: act.selectionStart, e: act.selectionEnd } : null;
+  out.__sel = S.studio.sel;
+  return out;
+}
+function studioRestoreInputs(k) {
+  if (!k) return;
+  Object.keys(k).forEach(id => {
+    if (id.startsWith('__')) return;
+    if (id === 'stOrder' && k.__sel !== S.studio.sel) return; // 다른 직원으로 바꾸면 입력칸은 새로
+    const el = document.getElementById(id); if (!el) return;
+    if (el.type === 'checkbox') el.checked = k[id]; else el.value = k[id];
+  });
+  if (k.__focus) { const el = document.getElementById(k.__focus.id); if (el) { el.focus({ preventScroll: true }); try { if (k.__focus.s != null) el.setSelectionRange(k.__focus.s, k.__focus.e); } catch (e) {} } }
+}
 const STUDIO_SPR = {}; let studioFrame = 0, studioPopAt = 0;
 ['boss', 'worker1', 'worker2', 'worker4', 'Julia_PC', 'Julia_Drinking_Coffee', 'desk-with-pc', 'coffee-maker', 'water-cooler', 'printer', 'cabinet', 'plant', 'stamping-table', 'writing-table', 'office-partitions-2', 'Trash']
   .forEach(n => { STUDIO_SPR[n] = null; });
@@ -4714,7 +4741,7 @@ function studioMinimi(ctx, c) {
   if (c.acc === 'tie') P(7, 12, 2, 4, '#2b3640');
   P(5, 17, 2, 2, '#3a4a58'); P(9, 17, 2, 2, '#3a4a58'); P(5, 19, 2, 1, out); P(9, 19, 2, 1, out);
 }
-function studioDraw() {
+function studioDraw(still) {
   const cv = document.getElementById('studioCv'); if (!cv) return;
   studioSprites();
   const ctx = cv.getContext('2d'), W = STUDIO_W, H = STUDIO_H;
@@ -4739,9 +4766,9 @@ function studioDraw() {
     const cx = el.getContext('2d'); cx.clearRect(0, 0, el.width, el.height); studioMinimi(cx, c); el.dataset.drawn = c.id || 'ceo';
   });
   const rm = matchMedia('(prefers-reduced-motion: reduce)').matches; // 움직임 줄이기 설정이면 애니메이션·떠오르는 글자 없이 정지 화면
-  if (!rm) studioFrame++;
+  if (!rm && !still) studioFrame++;
   const now = Date.now();
-  if (!rm && now - studioPopAt > 2600) {
+  if (!rm && !still && now - studioPopAt > 2600) {
     studioPopAt = now;
     const w = STUDIO_STAFF.filter(s => studioState(s) === 'work');
     if (w.length) studioPop(w[Math.random() * w.length | 0], ['+1 진행', '+기획', '+컷 편집', '+초안', '+아이디어', '+정리'][Math.random() * 6 | 0]);
@@ -4765,6 +4792,7 @@ function renderTab() {
   return '';
 }
 function render() {
+  const studioKeep = S.activeTab === 'studio' ? studioCaptureInputs() : null;
   document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderMobileTopBar()}${installBannerHtml()}${renderTab()}</main>${renderMobileTabBar()}</div>${schedModalHtml()}${settingsModalHtml()}${collabModalHtml()}${installGuideHtml()}${notifPanelHtml()}${noticeModalHtml()}${gcalModalHtml()}${gcalDetailModalHtml()}`;
   fitCalendar();
   positionNavIndicator();
@@ -4773,6 +4801,7 @@ function render() {
   if (S.song.full && !(S.activeTab === 'songs' && S.song.playId)) songSetFull(false);
   document.body.classList.toggle('song-full', !!S.song.full);
   document.body.classList.toggle('st-term-on', S.activeTab === 'studio' && !GUEST_MODE && STUDIO_TERMINAL);
+  if (S.activeTab === 'studio' && !GUEST_MODE) { studioMountCanvas(); studioRestoreInputs(studioKeep); }
   syncThemeColor();
   const main = document.querySelector('.app-main');
   if (main && window.__lastTab !== S.activeTab) { main.classList.add('tab-enter'); window.__lastTab = S.activeTab; }
