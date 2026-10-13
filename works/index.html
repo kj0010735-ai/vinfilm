@@ -679,10 +679,10 @@ function renderSidebar() {
       <div class="side-nav-brand"><img class="side-nav-logo" src="../assets/logo.png" alt="VINFILM STUDIO" width="112" height="56" /><small>WORKS</small></div>
       ${GUEST_MODE ? `<div class="side-nav-guest-badge">👋 공유 보기</div>` : ''}
       <div class="side-nav-indicator"></div>
-      ${items.map(it => `
+      ${items.map((it, i) => `
         <button class="side-nav-item ${S.activeTab===it.id?'active':''}" data-action="set-tab" data-id="${it.id}">
           <span class="side-nav-icon">${it.icon}</span><span class="side-nav-label">${it.label}</span>
-        </button>`).join('')}
+        </button>${i === 0 ? sideNotifHtml() : ''}`).join('')}
       <div class="side-nav-sync" title="${window.cloudSyncReady ? '클라우드에 자동으로 저장/동기화되고 있어요' : '이 기기에만 저장돼요'}">
         <span class="side-nav-icon">${window.cloudSyncReady ? '☁️' : '💾'}</span><span class="side-nav-label">${window.cloudSyncReady ? '동기화됨' : '로컬 저장'}</span>
       </div>
@@ -2976,6 +2976,7 @@ function renderTodayTab() {
   const dueToday = projItems.filter(p => p.dueDate === todayStr());
   return `
     <div class="dash-hello"><h1>안녕하세요${greetingName() ? `, ${esc(greetingName())}님` : ''}</h1><p>${longDateLabel(todayStr())}</p></div>
+    ${dashNotifHtml()}
     ${dashQuickHtml()}
     <div class="dash-grid">${dashUpcomingHtml()}${dashProjectsHtml()}</div>
     ${shortcutsSectionHtml()}
@@ -4281,7 +4282,7 @@ function handleInstallAction(action, el, e) {
 
 
 /* ================= 🔔 알림 · 📢 공지 =================
-   오른쪽 위 종(데스크톱은 .d-topbar, 폰은 .m-topbar). 알림 목록은 저장하지 않고 매번 데이터에서 만든다(notifItems) —
+   종 위치: PC는 왼쪽 사이드바 대시보드 아래(sideNotifHtml), 폰은 .m-topbar. 알림 목록은 저장하지 않고 매번 데이터에서 만든다(notifItems) —
    대표님: 견적 승인·계약 서명·오늘/내일 일정·마감 임박/지남·협업자 수정/일정 추가 + 보낸 공지 / 협업자: 받은 공지·자기 공간 일정·마감.
    공지는 Firestore notices(협업자마다 한 문서, groupId로 묶음) — 규칙은 공유 프로젝트와 같은 collabOk(collabId).
    읽음 여부는 기기별 localStorage(vinfilm-notif-read-{공간}), 안 읽은 개수를 종에 빨간 숫자로. */
@@ -4325,6 +4326,18 @@ function notifItems() {
   return out.sort((a, b) => b.at - a.at).slice(0, 60);
 }
 function notifUnread() { const r = notifReadSet(); return notifItems().filter(n => !r.has(n.id)).length; }
+/* PC: 알림은 왼쪽 사이드바 첫 메뉴(대시보드) 바로 아래 '🔔 알림' + 빨간 숫자, 패널은 사이드바 오른쪽에 붙어서 열림.
+   폰(720px 이하)은 사이드바가 없어서 상단 앱바 톱니 옆 종(notifBellHtml) 그대로. 예전 오른쪽 위 떠 있던 종(.d-topbar)은 없앰. */
+function sideNotifHtml() {
+  const n = notifUnread();
+  return `<button class="side-nav-item side-notif ${S.notif.open ? 'on' : ''}" data-action="notif-toggle"><span class="side-nav-icon">🔔${n ? `<span class="side-notif-dot">${n > 9 ? '9+' : n}</span>` : ''}</span><span class="side-nav-label">알림</span>${n ? `<span class="side-notif-badge">${n > 99 ? '99+' : n}</span>` : ''}</button>`;
+}
+/* 대시보드 맨 위 안 읽은 알림 요약(최대 3건) — 누르면 알림 패널 */
+function dashNotifHtml() {
+  const r = notifReadSet(), un = notifItems().filter(x => !r.has(x.id));
+  if (!un.length) return '';
+  return `<button class="dash-notif" data-action="notif-toggle"><span class="dash-notif-head">🔔 안 읽은 알림 <b>${un.length}</b>건<i>모두 보기 ›</i></span>${un.slice(0, 3).map(x => `<span class="dash-notif-row"><em>${x.icon}</em>${esc(x.title)}</span>`).join('')}</button>`;
+}
 function notifBellHtml() {
   const n = notifUnread();
   return `<button class="notif-bell ${S.notif.open ? 'on' : ''}" data-action="notif-toggle" aria-label="알림">🔔${n ? `<span class="notif-badge">${n > 9 ? '9+' : n}</span>` : ''}</button>`;
@@ -4752,7 +4765,7 @@ function renderTab() {
   return '';
 }
 function render() {
-  document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderMobileTopBar()}<div class="d-topbar">${notifBellHtml()}</div>${installBannerHtml()}${renderTab()}</main>${renderMobileTabBar()}</div>${schedModalHtml()}${settingsModalHtml()}${collabModalHtml()}${installGuideHtml()}${notifPanelHtml()}${noticeModalHtml()}${gcalModalHtml()}${gcalDetailModalHtml()}`;
+  document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderMobileTopBar()}${installBannerHtml()}${renderTab()}</main>${renderMobileTabBar()}</div>${schedModalHtml()}${settingsModalHtml()}${collabModalHtml()}${installGuideHtml()}${notifPanelHtml()}${noticeModalHtml()}${gcalModalHtml()}${gcalDetailModalHtml()}`;
   fitCalendar();
   positionNavIndicator();
   quoteAfterRender();
@@ -6823,14 +6836,21 @@ document.addEventListener('DOMContentLoaded', () => {
   a.install-go { display:block; text-align:center; text-decoration:none; color:#fff; margin:6px 0 14px; box-sizing:border-box; }
 
   /* ===== 🔔 알림 ===== */
-  .d-topbar { display:flex; justify-content:flex-end; margin:-24px 0 6px; min-height:36px; }
+  .side-notif { position:relative; }
+  .side-notif.on { color:var(--text); background:var(--surface-hover); }
+  .side-notif-badge { margin-left:auto; min-width:20px; height:20px; padding:0 6px; box-sizing:border-box; border-radius:10px; background:#e5484d; color:#fff; font-size:12px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; }
+  .side-notif .side-nav-icon { position:relative; } .side-notif-dot { display:none; }
+  .dash-notif { display:block; width:100%; text-align:left; margin:0 0 16px; padding:12px 14px; border-radius:14px; border:1px solid var(--border); background:var(--accent-soft); color:var(--text); font-family:var(--font-body); cursor:pointer; }
+  .dash-notif:hover { border-color:var(--accent); }
+  .dash-notif-head { display:flex; align-items:center; gap:6px; font-size:14px; font-weight:700; } .dash-notif-head b { color:#e5484d; } .dash-notif-head i { margin-left:auto; font-style:normal; font-size:12.5px; color:var(--accent); font-weight:700; }
+  .dash-notif-row { display:flex; gap:8px; margin-top:6px; font-size:13px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .dash-notif-row em { font-style:normal; flex:none; }
   .notif-bell { position:relative; width:40px; height:40px; border-radius:12px; border:1px solid var(--border); background:var(--surface); font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow-sm); }
   .notif-bell.on, .notif-bell:hover { border-color:var(--accent); }
   .notif-badge { position:absolute; top:-5px; right:-6px; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#e5484d; color:#fff; font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; border:2px solid var(--bg); }
   .m-top-actions { display:flex; align-items:center; gap:10px; }
   .m-top-actions .notif-bell { width:36px; height:36px; box-shadow:none; background:transparent; border-color:transparent; }
   .notif-backdrop { position:fixed; inset:0; z-index:120; }
-  .notif-panel { position:fixed; z-index:121; top:64px; right:24px; width:360px; max-height:min(560px, calc(100vh - 90px)); display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--border); border-radius:18px; box-shadow:var(--shadow-lg); overflow:hidden; animation:modalIn .2s ease both; }
+  .notif-panel { position:fixed; z-index:121; top:16px; left:180px; width:360px; max-height:min(560px, calc(100vh - 90px)); display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--border); border-radius:18px; box-shadow:var(--shadow-lg); overflow:hidden; animation:modalIn .2s ease both; }
   .notif-head { display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid var(--border); }
   .notif-head b { font-size:15px; }
   .notif-head button { border:none; background:none; color:var(--accent); font-family:var(--font-body); font-size:13px; font-weight:700; cursor:pointer; margin-left:10px; }
@@ -6850,7 +6870,6 @@ document.addEventListener('DOMContentLoaded', () => {
   .notif-sent-row button { border:none; background:none; color:var(--text-faint); cursor:pointer; }
   .notice-body { white-space:pre-wrap; font-size:14px; line-height:1.75; overflow-wrap:anywhere; }
   @media (max-width: 720px) {
-    .d-topbar { display:none; }
     .notif-panel { top:calc(62px + env(safe-area-inset-top)); left:10px; right:10px; width:auto; max-height:calc(100vh - 150px); }
   }
   .proj-row-pill[data-status-menu-id], .proj-row-pill[data-shared-status-menu-id] { cursor:pointer; transition:filter .15s ease; }
