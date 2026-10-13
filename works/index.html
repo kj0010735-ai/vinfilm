@@ -4520,7 +4520,7 @@ function renderStudioTab() {
   }).join('') : `<p class="st-empty">${S.studio.box === 'wait' ? '결재할 보고가 없어요. 직원이 결재를 올리면 여기에 떠요.' : '아직 처리한 결재가 없어요.'}</p>`;
   const today = todayStr(), logs = studioLog.filter(l => l.at && ymd(new Date(l.at)) === today).sort((a, b) => b.at - a.at);
   const sel = S.studio.sel && studioStaffById(S.studio.sel);
-  let staffHtml = '<p class="st-empty">사무실에서 직원을 눌러 보세요. 직원 카드에서 일을 지시할 수 있어요.</p>';
+  let staffHtml = '<p class="st-empty">사무실이나 아래 상태창에서 직원을 누르면 여기서 바로 일을 시킬 수 있어요.</p>';
   if (sel) {
     const mine = studioApprovals.filter(a => studioApprovalStaff(a) === sel.id).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 5);
     const lab = { wait: '결재 대기', ok: '승인', no: '반려' };
@@ -4530,17 +4530,17 @@ function renderStudioTab() {
       const pos = t.status === 'queued' ? queuedAll.findIndex(x => x.id === t.id) + 1 : 0;
       return `<li><span class="st-tstat ${t.status}">${STUDIO_TASK_LABEL[t.status] || t.status}${pos ? ` ${pos}번째` : ''}</span><div><p>${t.parentApprovalId ? '↪ ' : ''}${esc(t.text)}</p>${t.result ? `<small>${esc(t.result)}</small>` : ''}${studioFilesHtml(t.files)}<small class="st-tmeta">${esc(studioWhen(t.createdAt))}${t.finishedAt ? ' → ' + esc(studioWhen(t.finishedAt)) : ''}</small></div>${t.status === 'queued' ? `<button type="button" data-action="studio-task-cancel" data-id="${esc(t.id)}">취소</button>` : ''}</li>`;
     }).join('')}</ul>` : '<p class="st-empty">아직 지시한 일이 없어요.</p>';
-    staffHtml = `<div class="st-staff"><canvas id="studioStaffCv" width="16" height="24"></canvas><dl>
-      <dt>이름</dt><dd><b>${esc(sel.name)}</b> · ${esc(sel.role)}</dd>
-      <dt>지금</dt><dd>${STUDIO_STATE_LABEL[studioState(sel)]}${studioState(sel) === 'off' ? '' : ' · ' + esc(studioTask(sel))}</dd>
-      <dt>하는 일</dt><dd>${esc(sel.detail)}</dd>
-      <dt>최근 완료</dt><dd>${esc(studioDoc(sel.id).done || '아직 기록 없음')}</dd>
-      <dt>올린 결재</dt><dd>${mine.length ? mine.map(a => `${esc(a.title)} (${lab[a.status] || ''})`).join('<br>') : '없음'}</dd></dl></div>
-      <div class="st-order"><label for="stOrder">✍️ 지시하기</label>
-        <textarea id="stOrder" rows="3" placeholder="${esc(sel.short)}에게 맡길 일을 적어 주세요. 예) 다음 주 촬영 준비물 목록 만들어 줘"></textarea>
+    /* 오른쪽 패널 '직원' 탭: 지시하기(맨 위, 바로 입력) → 직원 상태 → 지시 목록 → 최근 결과 */
+    staffHtml = `<div class="st-order"><label for="stOrder">✍️ ${esc(sel.short)}에게 지시하기</label>
+        <textarea id="stOrder" rows="3" placeholder="맡길 일을 적어 주세요. 예) 다음 주 촬영 준비물 목록 만들어 줘"></textarea>
         <div class="st-order-row"><small>${STUDIO_AUTO_OFF.includes(sel.id) ? '이 직원은 자동으로 일하지 않아요 — 지시는 쌓아 두고 채팅방에서 진행해요.' : br.on ? 'Mac이 켜져 있어서 순서대로 바로 처리돼요.' : '🔌 Mac이 꺼져 있어도 지시는 쌓였다가 켜지면 처리돼요.'}</small><button type="button" data-action="studio-order" data-id="${sel.id}">보내기</button></div>
         ${S.studio.taskMsg ? `<p class="st-warn">${esc(S.studio.taskMsg)}</p>` : ''}</div>
-      <h4 class="st-sub">지시 목록</h4>${taskRows}`;
+      <div class="st-staff"><canvas id="studioStaffCv" width="16" height="24"></canvas><dl>
+      <dt>이름</dt><dd><b>${esc(sel.name)}</b> · ${esc(sel.role)}</dd>
+      <dt>지금</dt><dd>${STUDIO_STATE_LABEL[studioState(sel)]}${studioState(sel) === 'off' ? '' : ' · ' + esc(studioTask(sel))}</dd>
+      <dt>하는 일</dt><dd>${esc(sel.detail)}</dd></dl></div>
+      <h4 class="st-sub">지시 목록</h4>${taskRows}
+      <h4 class="st-sub">최근 결과</h4>${mine.length || studioDoc(sel.id).done ? `<ul class="st-tasks">${studioDoc(sel.id).done ? `<li><span class="st-tstat done">완료</span><div><p>${esc(studioDoc(sel.id).done)}</p></div></li>` : ''}${mine.map(a => `<li><span class="st-tstat ${a.status === 'ok' ? 'done' : a.status === 'no' ? 'failed' : 'running'}">${lab[a.status] || ''}</span><div><p>${esc(a.title)}</p>${studioFilesHtml(a.files)}<small class="st-tmeta">${esc(studioWhen(a.createdAt))}</small></div></li>`).join('')}</ul>` : '<p class="st-empty">아직 결과가 없어요.</p>'}`;
   }
   return `<div class="eq-wrap st-wrap${STUDIO_TERMINAL ? ' st-term' : ''}">
     ${STUDIO_TERMINAL ? `<div class="st-sigbar"><b>VINFILM 스튜디오</b><span>${br.on ? 'SIGNAL OK' : 'NO SIGNAL'} <span class="st-batt${br.on ? '' : ' off'}"><i></i><i></i><i></i><i></i></span></span></div>` : ''}
@@ -4554,20 +4554,22 @@ function renderStudioTab() {
         <div class="st-roster">${roster}</div>
         <div class="st-legend"><span>● 초록 = 일하는 중 · ● 주황 = 결재 대기 · ○ 회색 = 쉬는 중</span><span>· 그림: Arlan_TR Free Office Pixel Art</span></div>
       </div>
-      <section class="st-panel" aria-label="사장실">
+      <section class="st-panel${S.studio.box === 'staff' ? ' is-staff' : ''}" aria-label="사장실">
         <div class="st-tabs" role="tablist">
           <button type="button" role="tab" aria-selected="${S.studio.box === 'wait'}" data-action="studio-box" data-id="wait">결재함${waiting.length ? ` ${waiting.length}` : ''}</button>
           <button type="button" role="tab" aria-selected="${S.studio.box === 'done'}" data-action="studio-box" data-id="done">처리함</button>
+          <button type="button" role="tab" aria-selected="${S.studio.box === 'staff'}" data-action="studio-box" data-id="staff">직원${sel ? ` · ${esc(sel.short)}` : ''}</button>
           <button type="button" role="tab" aria-selected="${S.studio.box === 'cfg'}" data-action="studio-box" data-id="cfg">⚙️ 설정</button>
+          <button type="button" class="st-sheet-close" data-action="studio-box" data-id="wait" aria-label="닫기">✕</button>
         </div>
         <div class="st-panel-body">
-          <div class="st-ceo"><canvas id="studioCeoCv" width="16" height="20"></canvas><div><b>대표 ${esc(greetingName() || '김규빈')}</b><p>${waiting.length ? `결재할 보고가 ${waiting.length}건 있어요` : '오늘 결재를 다 했어요 🎉'}</p></div></div>
-          ${S.studio.box === 'cfg' ? studioSettingsHtml(cfg, br) : cards}
+          ${S.studio.box === 'staff' ? staffHtml : `<div class="st-ceo"><canvas id="studioCeoCv" width="16" height="20"></canvas><div><b>대표 ${esc(greetingName() || '김규빈')}</b><p>${waiting.length ? `결재할 보고가 ${waiting.length}건 있어요` : '오늘 결재를 다 했어요 🎉'}</p></div></div>
+          ${S.studio.box === 'cfg' ? studioSettingsHtml(cfg, br) : cards}`}
         </div>
       </section>
+      ${S.studio.box === 'staff' ? '<div class="st-sheet-backdrop" data-action="studio-box" data-id="wait"></div>' : ''}
     </div>
     <div class="st-bottom">
-      <section class="st-box" aria-live="polite"><h2>직원 카드</h2>${staffHtml}</section>
       <section class="st-box"><h2>오늘의 스튜디오 일지</h2>${logs.length ? `<ul class="st-log">${logs.map(l => { const s = l.staffId && studioStaffById(l.staffId); return `<li><time>${studioHm(l.at)}</time><span>${s ? `<b>${esc(s.short)}</b> ` : ''}${esc(l.text)}</span></li>`; }).join('')}</ul>` : '<p class="st-empty">오늘 기록이 아직 없어요.</p>'}</section>
     </div>
     ${S.studio.settle ? studioSettleHtml() : ''}
@@ -4601,7 +4603,11 @@ function studioSettleHtml() {
 function studioAddLog(text, staffId) { return studioPut('studioLog', { id: uid(), at: Date.now(), text, staffId: staffId || '' }); }
 function handleStudioAction(action, el, e) {
   const id = el.dataset.id;
-  if (action === 'studio-sel') { if (S.studio.sel !== id) S.studio.taskMsg = ''; S.studio.sel = id; render(); studioShowBubble(id); return true; }
+  if (action === 'studio-sel') { // 직원을 누르면 오른쪽 패널 '직원' 탭으로 바로 — PC에서는 지시 입력칸에 바로 커서(폰은 키보드가 시트를 가려서 자동 포커스 안 함)
+    if (S.studio.sel !== id) S.studio.taskMsg = ''; S.studio.sel = id; S.studio.box = 'staff'; render(); studioShowBubble(id);
+    const ta = document.getElementById('stOrder'); if (ta && matchMedia('(min-width: 961px)').matches) ta.focus({ preventScroll: true });
+    return true;
+  }
   if (action === 'studio-box') { S.studio.box = id; S.studio.msg = ''; render(); return true; }
   if (action === 'studio-settle') { S.studio.settle = true; studioLedger.at = 0; studioLoadLedger(); render(); return true; }
   if (action === 'studio-settle-close') { if (el.tagName !== 'BUTTON' && e && e.target.closest('.st-sheet')) return true; S.studio.settle = false; render(); return true; }
@@ -6907,7 +6913,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* ===== 🏢 스튜디오 (사무실은 픽셀 그림이라 고정색, 나머지는 테마 변수) ===== */
   .st-main { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(0,1fr); gap:14px; margin-top:14px; }
-  .st-bottom { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; margin-top:14px; }
+  .st-bottom { display:grid; grid-template-columns:minmax(0,1fr); gap:14px; margin-top:14px; }
   @media (max-width: 960px) { .st-main, .st-bottom { grid-template-columns:1fr; } }
   .st-left { min-width:0; }
   .st-hud { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:6px 14px; background:var(--surface-hover); border:1px solid var(--border); color:var(--text-dim); font-size:13px; padding:7px 12px; font-variant-numeric:tabular-nums; }
@@ -6940,6 +6946,17 @@ document.addEventListener('DOMContentLoaded', () => {
   @keyframes stPulse { 50% { box-shadow:0 0 0 5px rgba(58,167,109,0); } }
   .st-legend { display:flex; flex-wrap:wrap; gap:4px 10px; font-size:12px; color:var(--text-faint); margin-top:8px; }
   .st-panel { background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; display:flex; flex-direction:column; min-width:0; align-self:start; }
+  /* PC: 오른쪽 패널은 스크롤해도 화면에 붙어 있음 / 폰: '직원' 탭은 아래에서 올라오는 시트 */
+  @media (min-width: 961px) { .st-panel { position:sticky; top:16px; max-height:calc(100vh - 32px); } .st-panel-body { overflow-y:auto; } }
+  .st-sheet-close, .st-sheet-backdrop { display:none; }
+  .st-tabs { flex-wrap:wrap; }
+  @media (max-width: 960px) { .st-term .st-panel.is-staff { background:var(--t-panel); border:1px solid var(--t-line); } }
+  @media (max-width: 960px) {
+    .st-panel.is-staff { position:fixed; left:0; right:0; bottom:0; z-index:95; max-height:78vh; border-radius:16px 16px 0 0; box-shadow:var(--shadow-lg); padding-bottom:env(safe-area-inset-bottom); }
+    .st-panel.is-staff .st-panel-body { overflow-y:auto; }
+    .st-panel.is-staff .st-sheet-close { display:block; margin-left:auto; }
+    .st-sheet-backdrop { display:block; position:fixed; inset:0; z-index:94; background:rgba(0,0,0,.45); }
+  }
   .st-tabs { display:flex; gap:4px; padding:8px 8px 0; background:var(--surface-hover); }
   .st-tabs button { font:inherit; font-size:14px; font-weight:600; border:0; border-radius:8px 8px 0 0; padding:7px 14px; background:transparent; color:var(--text-dim); cursor:pointer; }
   .st-tabs button[aria-selected="true"] { background:var(--surface); color:var(--text); }
@@ -6978,7 +6995,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-files { display:flex; flex-wrap:wrap; gap:6px; }
   .st-follow { display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim); flex-wrap:wrap; } .st-follow small { color:var(--text-faint); }
   .st-warn { margin:0; font-size:12.5px; color:#d9534f; }
-  .st-order { margin-top:14px; display:grid; gap:6px; } .st-order label { font-weight:700; font-size:14px; color:var(--text); }
+  .st-order { display:grid; gap:6px; margin-bottom:6px; } .st-order label { font-weight:700; font-size:14px; color:var(--text); }
   .st-order textarea { width:100%; box-sizing:border-box; font:inherit; font-size:13.5px; border:1px solid var(--border); border-radius:10px; padding:8px 10px; background:var(--surface-hover); color:var(--text); resize:vertical; min-height:64px; }
   .st-order-row { display:flex; align-items:center; justify-content:space-between; gap:10px; } .st-order-row small { color:var(--text-faint); font-size:12px; }
   .st-order-row button, .st-cfg button { font:inherit; font-weight:700; border:0; border-radius:8px; padding:7px 16px; background:var(--accent); color:#fff; cursor:pointer; flex:none; }
