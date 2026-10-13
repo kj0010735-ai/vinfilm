@@ -4585,7 +4585,9 @@ function renderStudioTab() {
   const dlText = dl.length ? `${esc(dl[0].title)} · ${parseYmd(dl[0].date).getMonth() + 1}/${parseYmd(dl[0].date).getDate()}${dl.length > 1 ? ` 외 ${dl.length - 1}건` : ''}` : '없음';
   const spots = STUDIO_STAFF.map(s => {
     const st = studioState(s), task = studioTask(s);
-    return `<div class="st-spot" style="left:${s.x * 100}%;top:${(s.y * STUDIO_H - 56) / STUDIO_H * 100}%">
+    // 머리 위치(그림 64×64 기준): 쉬는 중 = 책상 오른쪽 커피 마시는 사람(x 56, y 20), 일하는 중 = 책상 뒤 사람(x 38, y 13)
+    const head = st === 'off' ? '--hx:87.5%;--hy:31%' : '--hx:59%;--hy:20%';
+    return `<div class="st-spot" style="left:${s.x * 100}%;top:${(s.y * STUDIO_H - 56) / STUDIO_H * 100}%;${head}">
       <div class="st-bubble ${st}"><b>${esc(s.name)}</b><span>${STUDIO_STATE_ICON[st]} ${esc(task)}</span></div>
       <div class="st-badge">${STUDIO_STATE_ICON[st]}</div>
       <button class="st-hit" type="button" data-action="studio-sel" data-id="${s.id}" aria-label="${esc(s.name)} 업무 보기"></button>
@@ -7050,9 +7052,12 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-spot { position:absolute; transform:translateX(-50%); width:13.3%; height:19.4%; }
   .st-hit { position:absolute; inset:0; background:transparent; border:0; border-radius:8px; cursor:pointer; padding:0; }
   .st-hit:focus-visible { outline:3px solid var(--accent); }
-  .st-badge { position:absolute; left:50%; top:0; transform:translate(-50%,-100%); font-size:clamp(11px,1.3vw,15px); line-height:1; pointer-events:none; }
+  /* 상태 아이콘·말풍선은 캐릭터 머리 바로 위(--hx/--hy)에서 둥실둥실 위아래로 */
+  .st-badge { position:absolute; left:var(--hx,50%); top:var(--hy,0); transform:translate(-50%,calc(-100% - 2px)); font-size:clamp(11px,1.3vw,15px); line-height:1; pointer-events:none; animation:stBob 1.8s ease-in-out infinite; }
+  @keyframes stBob { 0%, 100% { translate:0 0; } 50% { translate:0 -4px; } }
+  .st-spot:hover .st-badge, .st-spot:focus-within .st-badge, .st-spot.show .st-badge { visibility:hidden; }
   .st-plate { position:absolute; left:50%; top:90%; transform:translateX(-50%); background:#fdf6e7; color:#4a3320; border:1.5px solid #6b4a2c; border-radius:3px; padding:0 5px; font-size:clamp(8px,0.95vw,11.5px); font-weight:700; white-space:nowrap; pointer-events:none; box-shadow:0 1px 0 #6b4a2c; }
-  .st-bubble { position:absolute; left:50%; top:-22%; transform:translate(-50%,-100%); background:#fff; color:#333; border:1.5px solid #9a9a9a; border-radius:12px; padding:5px 10px; text-align:center; line-height:1.25; font-size:clamp(10px,1.1vw,13px); font-weight:600; white-space:nowrap; max-width:220px; pointer-events:none; box-shadow:2px 2px 0 rgba(0,0,0,.15); opacity:0; visibility:hidden; transition:opacity .15s; z-index:3; }
+  .st-bubble { position:absolute; left:var(--hx,50%); top:var(--hy,0); transform:translate(-50%,calc(-100% - 8px)); animation:stBob 1.8s ease-in-out infinite; background:#fff; color:#333; border:1.5px solid #9a9a9a; border-radius:12px; padding:5px 10px; text-align:center; line-height:1.25; font-size:clamp(10px,1.1vw,13px); font-weight:600; white-space:nowrap; max-width:220px; pointer-events:none; box-shadow:2px 2px 0 rgba(0,0,0,.15); opacity:0; visibility:hidden; transition:opacity .15s; z-index:3; }
   .st-bubble b { display:block; font-size:.85em; color:#4f6b7d; } .st-bubble span { display:block; overflow:hidden; text-overflow:ellipsis; }
   .st-bubble::after { content:""; position:absolute; left:50%; bottom:-7px; transform:translateX(-50%); border:6px solid transparent; border-top-color:#9a9a9a; border-bottom:0; }
   .st-bubble.wait { background:#fff3d6; } .st-bubble.off { background:#eef1f3; color:#7a8791; }
@@ -7154,7 +7159,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-cfg label { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .st-cfg input[type=number], .st-cfg input[type=time] { font:inherit; width:90px; border:1px solid var(--border); border-radius:8px; padding:5px 8px; background:var(--surface-hover); color:var(--text); }
   .st-cfg button { justify-self:start; }
-  @media (prefers-reduced-motion: reduce) { .st-pop { display:none; } .st-dot.work { animation:none; } .st-bubble { transition:none; } }
+  @media (prefers-reduced-motion: reduce) { .st-pop { display:none; } .st-dot.work { animation:none; } .st-bubble { transition:none; animation:none; } .st-badge { animation:none; } }
 
   /* ===== 🏢 스튜디오 · 터미널(블레이드러너 신분증 · CRT) 레이어 — STUDIO_TERMINAL이 켜졌을 때만(.st-term). 의도적으로 다크 고정 ===== */
   @font-face { font-family:'Galmuri11'; src:url('assets/fonts/Galmuri11.woff2') format('woff2'); font-weight:400; font-display:swap; }
