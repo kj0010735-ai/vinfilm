@@ -4361,6 +4361,7 @@ function notifUnread() { const r = notifReadSet(); return notifItems().filter(n 
 /* PC: 알림은 왼쪽 사이드바 첫 메뉴(대시보드) 바로 아래 '🔔 알림' + 빨간 숫자, 패널은 사이드바 오른쪽에 붙어서 열림.
    폰(720px 이하)은 사이드바가 없어서 상단 앱바 톱니 옆 종(notifBellHtml) 그대로. 예전 오른쪽 위 떠 있던 종(.d-topbar)은 없앰. */
 function sideNotifHtml() {
+  if (STUDIO_HOME && !GUEST_MODE) return ''; // 스튜디오가 홈이면 알림은 스튜디오 탭 안 '🔔 알림'에서만
   const n = notifUnread();
   return `<button class="side-nav-item side-notif ${S.notif.open ? 'on' : ''}" data-action="notif-toggle"><span class="side-nav-icon">🔔${n ? `<span class="side-notif-dot">${n > 9 ? '9+' : n}</span>` : ''}</span><span class="side-nav-label">알림</span>${n ? `<span class="side-notif-badge">${n > 99 ? '99+' : n}</span>` : ''}</button>`;
 }
@@ -4368,7 +4369,7 @@ function sideNotifHtml() {
 function dashNotifHtml() {
   const r = notifReadSet(), un = notifItems().filter(x => !r.has(x.id));
   if (!un.length) return '';
-  return `<button class="dash-notif" data-action="notif-toggle"><span class="dash-notif-head">🔔 안 읽은 알림 <b>${un.length}</b>건<i>모두 보기 ›</i></span>${un.slice(0, 3).map(x => `<span class="dash-notif-row"><em>${x.icon}</em>${esc(x.title)}</span>`).join('')}</button>`;
+  return `<button class="dash-notif" ${STUDIO_HOME && !GUEST_MODE ? 'data-action="studio-box" data-id="notif"' : 'data-action="notif-toggle"'}><span class="dash-notif-head">🔔 안 읽은 알림 <b>${un.length}</b>건<i>모두 보기 ›</i></span>${un.slice(0, 3).map(x => `<span class="dash-notif-row"><em>${x.icon}</em>${esc(x.title)}</span>`).join('')}</button>`;
 }
 function notifBellHtml() {
   const n = notifUnread();
@@ -4424,7 +4425,9 @@ function notifGo(n) {
 }
 function handleNotifAction(action, el, e) {
   switch (action) {
-    case 'notif-toggle': S.notif.open = !S.notif.open; render(); return true;
+    case 'notif-toggle':
+      if (STUDIO_HOME && !GUEST_MODE) { S.activeTab = 'studio'; S.studio.box = 'notif'; S.notif.open = false; S.moreOpen = false; render(); return true; } // 폰 상단 종도 스튜디오 알림으로
+      S.notif.open = !S.notif.open; render(); return true;
     case 'notif-close': S.notif.open = false; render(); return true;
     case 'notif-read-all': notifMarkRead(notifItems().map(n => n.id)); render(); return true;
     case 'notif-go': { const n = notifItems().find(x => x.id === el.dataset.id); if (n) { notifMarkRead([n.id]); notifGo(n); } return true; }
@@ -4450,16 +4453,18 @@ function handleNotifAction(action, el, e) {
      studioBridge/status {heartbeat,version,todayCount,todayDate}(다리가 씀) · studioBridge/settings {dailyLimit,morningOn,morningAt}(대표님).
    - 다리 계정은 규칙상 studio* 일부와 projects·schedule 읽기만 가능(firestore.rules isBridge). */
 const STUDIO_STAFF = [
-  { id: 'sec', name: '비서실', short: '비서실', role: '실장 · 전체 조율', spr: 'boss', x: 0.500, y: 0.339, hair: '#3b2a1e', shirt: '#ff9a3c', acc: 'tie', detail: '대표님 요청을 받아 각 팀에 나눠 주고, 결과를 모아 보고해요.' },
-  { id: 'dev', name: '작업관리 앱 개발', short: '앱 개발', role: '개발팀 · WORKS', spr: 'Julia_PC', x: 0.188, y: 0.606, hair: '#1e1e1e', shirt: '#4f7cff', acc: 'glasses', detail: 'WORKS·수입지출·홈페이지 화면과 기능을 만들어요. 운영 데이터는 백업 후에만 바꿔요.' },
-  { id: 'biz', name: '사업기획팀', short: '사업기획', role: '운영·가격·서비스', spr: 'worker1', x: 0.812, y: 0.606, hair: '#6b3d22', shirt: '#7a5cff', acc: '', detail: '서비스 패키지, 가격표, 월 목표, 새 서비스를 검토해요.' },
-  { id: 'shoot', name: '촬영기획팀', short: '촬영기획', role: '콘티·일정·장비', spr: 'worker4', x: 0.344, y: 0.873, hair: '#2a2a2a', shirt: '#2fb3a3', acc: 'cap', detail: '촬영이 잡히면 기획안, 샷 리스트, 장비·준비물 목록을 만들어요.' },
-  { id: 'fin', name: '재무팀', short: '재무', role: '견적·세금·정산', spr: 'worker2', x: 0.656, y: 0.873, hair: '#4a2f1a', shirt: '#3aa76d', acc: 'glasses', detail: '견적 단가, 원천세·부가세, 월별 손익, 구독료를 챙겨요.' },
-  { id: 'design', name: '디자인팀', short: '디자인', role: '시안·아이콘·썸네일', spr: 'worker1', x: 0.188, y: 0.339, hair: '#c2623b', shirt: '#ff6fa3', acc: 'beret', detail: '썸네일, 포스터, 견적서, 앱 아이콘 시안을 만들어요.' },
-  { id: 'mac', name: 'Mac 환경정리', short: 'Mac 관리', role: '컴퓨터·파일·앱 관리', spr: 'worker4', x: 0.500, y: 0.606, hair: '#555b63', shirt: '#9aa7b1', acc: '', detail: 'Mac 폴더 정리, 앱 설치·삭제, 오디오·속도 점검, 스트림덱 버튼을 맡아요.' },
-  { id: 'mkt', name: '마케팅팀', short: '마케팅', role: '인스타·유튜브·문구', spr: 'worker2', x: 0.812, y: 0.339, hair: '#2d1d14', shirt: '#ffcc33', acc: '', detail: '인스타·유튜브 콘텐츠, 홍보 문구, 문의 응대 문구를 맡아요.' },
+  { id: 'sec', name: '비서실', short: '비서실', role: '실장 · 전체 조율', spr: 'worker1', x: 0.250, y: 0.590, hair: '#3b2a1e', shirt: '#ff9a3c', acc: 'tie', detail: '대표님 요청을 받아 각 팀에 나눠 주고, 결과를 모아 보고해요.' },
+  { id: 'dev', name: '작업관리 앱 개발', short: '앱 개발', role: '개발팀 · WORKS', spr: 'Julia_PC', x: 0.417, y: 0.590, hair: '#1e1e1e', shirt: '#4f7cff', acc: 'glasses', detail: 'WORKS·수입지출·홈페이지 화면과 기능을 만들어요. 운영 데이터는 백업 후에만 바꿔요.' },
+  { id: 'biz', name: '사업기획팀', short: '사업기획', role: '운영·가격·서비스', spr: 'worker1', x: 0.583, y: 0.590, hair: '#6b3d22', shirt: '#7a5cff', acc: '', detail: '서비스 패키지, 가격표, 월 목표, 새 서비스를 검토해요.' },
+  { id: 'shoot', name: '촬영기획팀', short: '촬영기획', role: '콘티·일정·장비', spr: 'worker4', x: 0.750, y: 0.590, hair: '#2a2a2a', shirt: '#2fb3a3', acc: 'cap', detail: '촬영이 잡히면 기획안, 샷 리스트, 장비·준비물 목록을 만들어요.' },
+  { id: 'fin', name: '재무팀', short: '재무', role: '견적·세금·정산', spr: 'worker2', x: 0.250, y: 0.850, hair: '#4a2f1a', shirt: '#3aa76d', acc: 'glasses', detail: '견적 단가, 원천세·부가세, 월별 손익, 구독료를 챙겨요.' },
+  { id: 'design', name: '디자인팀', short: '디자인', role: '시안·아이콘·썸네일', spr: 'worker1', x: 0.417, y: 0.850, hair: '#c2623b', shirt: '#ff6fa3', acc: 'beret', detail: '썸네일, 포스터, 견적서, 앱 아이콘 시안을 만들어요.' },
+  { id: 'mac', name: 'Mac 환경정리', short: 'Mac 관리', role: '컴퓨터·파일·앱 관리', spr: 'worker4', x: 0.750, y: 0.850, hair: '#555b63', shirt: '#9aa7b1', acc: '', detail: 'Mac 폴더 정리, 앱 설치·삭제, 오디오·속도 점검, 스트림덱 버튼을 맡아요.' },
+  { id: 'mkt', name: '마케팅팀', short: '마케팅', role: '인스타·유튜브·문구', spr: 'worker2', x: 0.583, y: 0.850, hair: '#2d1d14', shirt: '#ffcc33', acc: '', detail: '인스타·유튜브 콘텐츠, 홍보 문구, 문의 응대 문구를 맡아요.' },
 ];
 const STUDIO_W = 480, STUDIO_H = 330;
+/* 대표님(사장) 자리 — 위쪽 가운데 큰 책상(사장 캐릭터 + 결재 도장 책상 + 러그). 누르면 오른쪽 패널이 결재함으로 */
+const STUDIO_CEO = { x: 0.500, y: 0.330 };
 const STUDIO_STATE_LABEL = { work: '일하는 중', wait: '결재 대기', off: '쉬는 중' };
 const STUDIO_STATE_ICON = { work: '⌨️', wait: '📮', off: '💤' };
 /* 터미널(블레이드러너 신분증·CRT) 디자인 — 2026-10-14 시험 적용(시안 팀/스튜디오탭_시안_터미널.html). 별로면 false로 바꾸면 예전 모양으로 돌아간다.
@@ -4626,7 +4631,12 @@ function renderStudioTab() {
   const waiting = studioWaiting(), dl = studioDeadlines(), br = studioBridgeStatus(), cfg = studioSettings();
   const doing = projItems.filter(p => p.status === 'doing').length;
   const dlText = dl.length ? `${esc(dl[0].title)} · ${parseYmd(dl[0].date).getMonth() + 1}/${parseYmd(dl[0].date).getDate()}${dl.length > 1 ? ` 외 ${dl.length - 1}건` : ''}` : '없음';
-  const spots = STUDIO_STAFF.map(s => {
+  const ceoSpot = `<div class="st-spot st-ceo-spot" style="left:${STUDIO_CEO.x * 100}%;top:${(STUDIO_CEO.y * STUDIO_H - 56) / STUDIO_H * 100}%;--hx:67%;--hy:20%">
+      <div class="st-bubble ${waiting.length ? 'wait' : ''}"><b>대표님</b><span>${waiting.length ? `📮 결재 대기 ${waiting.length}건` : '✔ 결재 끝'}</span></div>
+      ${waiting.length ? '<div class="st-badge">📮</div>' : ''}
+      <button class="st-hit" type="button" data-action="studio-box" data-id="wait" aria-label="대표님 자리 — 결재함 보기"></button>
+      <div class="st-plate">대표님</div></div>`;
+  const spots = ceoSpot + STUDIO_STAFF.map(s => {
     const st = studioState(s), task = studioTask(s);
     // 머리 위치(그림 64×64 기준): 쉬는 중 = 책상 오른쪽 커피 마시는 사람(x 56, y 20), 일하는 중 = 책상 뒤 사람(x 38, y 13)
     const head = st === 'off' ? '--hx:87.5%;--hy:48%' : '--hx:59%;--hy:20%'; // 쉬는 중은 매트에 누운 머리(x 56, y 31) 위
@@ -4666,7 +4676,7 @@ function renderStudioTab() {
     }).join('')}</ul>` : '<p class="st-empty">아직 지시한 일이 없어요.</p>';
     /* 오른쪽 패널 '직원' 탭: 지시하기(맨 위, 바로 입력) → 직원 상태 → 지시 목록 → 최근 결과 */
     staffHtml = `<div class="st-order"><label for="stOrder">✍️ ${esc(sel.short)}에게 지시하기</label>
-        <textarea id="stOrder" rows="3" placeholder="맡길 일을 적어 주세요. 예) 다음 주 촬영 준비물 목록 만들어 줘"></textarea>
+        <textarea id="stOrder" rows="3" placeholder="맡길 일을 적고 Enter (줄바꿈은 Shift+Enter). 예) 다음 주 촬영 준비물 목록 만들어 줘"></textarea>
         <div class="st-order-row"><small>${STUDIO_AUTO_OFF.includes(sel.id) ? '이 직원은 자동으로 일하지 않아요 — 지시는 쌓아 두고 채팅방에서 진행해요.' : br.on ? 'Mac이 켜져 있어서 순서대로 바로 처리돼요.' : '🔌 Mac이 꺼져 있어도 지시는 쌓였다가 켜지면 처리돼요.'}</small><button type="button" data-action="studio-order" data-id="${sel.id}">보내기</button></div>
         ${S.studio.taskMsg ? `<p class="st-warn">${esc(S.studio.taskMsg)}</p>` : ''}</div>
       <div class="st-staff"><canvas id="studioStaffCv" width="16" height="24"></canvas><dl>
@@ -4694,12 +4704,13 @@ function renderStudioTab() {
           <button type="button" role="tab" aria-selected="${S.studio.box === 'wait'}" data-action="studio-box" data-id="wait">결재함${waiting.length ? ` ${waiting.length}` : ''}</button>
           <button type="button" role="tab" aria-selected="${S.studio.box === 'done'}" data-action="studio-box" data-id="done">처리함</button>
           <button type="button" role="tab" aria-selected="${S.studio.box === 'staff'}" data-action="studio-box" data-id="staff">직원${sel ? ` · ${esc(sel.short)}` : ''}</button>
+          ${STUDIO_HOME ? `<button type="button" role="tab" aria-selected="${S.studio.box === 'notif'}" data-action="studio-box" data-id="notif">🔔 알림${notifUnread() ? ` <span class="st-nbadge">${notifUnread() > 9 ? '9+' : notifUnread()}</span>` : ''}</button>` : ''}
           <button type="button" role="tab" aria-selected="${S.studio.box === 'cfg'}" data-action="studio-box" data-id="cfg">⚙️ 설정</button>
           <button type="button" class="st-sheet-close" data-action="studio-box" data-id="wait" aria-label="닫기">✕</button>
         </div>
         <div class="st-panel-body${studioPanelKey() ? ' st-in' : ''}">
-          ${STUDIO_HOME && S.studio.box !== 'staff' && S.studio.box !== 'cfg' ? dashNotifHtml() : ''}
-          ${S.studio.box === 'staff' ? staffHtml : `<div class="st-ceo"><canvas id="studioCeoCv" width="16" height="20"></canvas><div><b>대표 ${esc(greetingName() || '김규빈')}</b><p>${waiting.length ? `결재할 보고가 ${waiting.length}건 있어요` : '오늘 결재를 다 했어요 🎉'}</p></div></div>
+          ${STUDIO_HOME && (S.studio.box === 'wait' || S.studio.box === 'done') ? dashNotifHtml() : ''}
+          ${S.studio.box === 'notif' ? studioNotifHtml() : S.studio.box === 'staff' ? staffHtml : `<div class="st-ceo"><canvas id="studioCeoCv" width="16" height="20"></canvas><div><b>대표 ${esc(greetingName() || '김규빈')}</b><p>${waiting.length ? `결재할 보고가 ${waiting.length}건 있어요` : '오늘 결재를 다 했어요 🎉'}</p></div></div>
           ${S.studio.box === 'cfg' ? studioSettingsHtml(cfg, br) : cards}`}
         </div>
       </section>
@@ -4717,6 +4728,12 @@ function renderStudioTab() {
 const LS_STUDIO_MOTION = 'vinfilm-studio-motion';
 function studioMotionPref() { try { return localStorage.getItem(LS_STUDIO_MOTION) === 'system' ? 'system' : 'on'; } catch (e) { return 'on'; } }
 function studioReduceMotion() { return studioMotionPref() === 'system' && matchMedia('(prefers-reduced-motion: reduce)').matches; }
+/* 스튜디오 안 알림 목록(예전 사이드바 🔔 패널과 같은 내용) */
+function studioNotifHtml() {
+  const items = notifItems(), r = notifReadSet();
+  return `<div class="st-notif"><div class="st-notif-head"><b>알림</b><span><button type="button" data-action="notice-new">📢 공지 쓰기</button>${items.length ? '<button type="button" data-action="notif-read-all">모두 읽음</button>' : ''}</span></div>
+    ${items.length ? items.map(n => `<button class="notif-item ${r.has(n.id) ? '' : 'unread'}" data-action="notif-go" data-id="${esc(n.id)}"><span class="notif-ic">${n.icon}</span><span class="notif-txt"><b>${esc(n.title)}</b>${n.sub ? `<small>${esc(n.sub)}</small>` : ''}</span><em>${n.act === 'sched' || n.id.startsWith('pd-') ? '' : timeAgo(n.at)}</em></button>`).join('') : '<p class="st-empty">새 알림이 없어요</p>'}</div>`;
+}
 function studioSettingsHtml(cfg, br) {
   return `<div class="st-cfg">
     <label><input type="checkbox" data-action="studio-motion" ${studioMotionPref() === 'on' ? 'checked' : ''}> 애니메이션 항상 켜기 <small class="st-empty">(끄면 기기의 '동작 줄이기' 설정을 따라요 · 이 기기에만 저장)</small></label>
@@ -4810,7 +4827,7 @@ function handleStudioAction(action, el, e) {
   return false;
 }
 function studioShowBubble(id) {
-  const i = STUDIO_STAFF.findIndex(s => s.id === id), spot = document.querySelectorAll('#studioRoom .st-spot')[i];
+  const i = STUDIO_STAFF.findIndex(s => s.id === id), spot = document.querySelectorAll('#studioRoom .st-spot:not(.st-ceo-spot)')[i];
   document.querySelectorAll('#studioRoom .st-spot.show').forEach(x => x.classList.remove('show'));
   if (spot) spot.classList.add('show');
 }
@@ -4825,6 +4842,12 @@ function studioPop(s, text, cls) {
    예전엔 render마다 새 canvas가 생겨 다음 그리기(120ms) 전까지 검게 깜빡였음. 작은 얼굴 캔버스는 render 직후 바로 그림.
    쓰던 지시·코멘트 입력칸은 render(클라우드 갱신 포함) 전후로 값·커서를 보존한다. ---- */
 let studioCanvasEl = null;
+/* 지시하기 칸: Enter = 보내기, Shift+Enter = 줄바꿈 (한글 입력 조합 중 Enter는 무시) */
+document.addEventListener('keydown', (e) => {
+  if (e.target && e.target.id === 'stOrder' && e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
+    e.preventDefault(); const b = document.querySelector('[data-action="studio-order"]'); if (b) b.click();
+  }
+});
 function studioMountCanvas() {
   const slot = document.getElementById('studioCvSlot'); if (!slot) return;
   if (!studioCanvasEl) { studioCanvasEl = document.createElement('canvas'); studioCanvasEl.id = 'studioCv'; studioCanvasEl.width = 960; studioCanvasEl.height = 660; studioCanvasEl.setAttribute('aria-label', 'VINFILM 스튜디오 사무실'); }
@@ -4879,8 +4902,14 @@ function studioDraw(still) {
   ctx.fillStyle = '#e8eef3'; ctx.fillRect(0, 0, W, 48); ctx.fillStyle = '#b9c7d2'; ctx.fillRect(0, 44, W, 4);
   for (const wx of [30, 330]) { ctx.fillStyle = '#6b7f8f'; ctx.fillRect(wx, 8, 96, 30); ctx.fillStyle = '#bfe6f7'; ctx.fillRect(wx + 3, 11, 90, 24); ctx.fillStyle = '#fff'; ctx.fillRect(wx + 46, 11, 3, 24); }
   ctx.fillStyle = '#2b3640'; ctx.fillRect(176, 10, 128, 22); ctx.fillStyle = '#fff'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center'; ctx.fillText('VINFILM STUDIO', 240, 25);
-  img('cabinet', 0, 40); img('coffee-maker', 410, 34); img('water-cooler', 392, 60); img('printer', 8, 300); img('plant', 150, 40); img('plant', 300, 40);
-  img('stamping-table', 272, 96); img('writing-table', 408, 270); img('Trash', 60, 312); img('office-partitions-2', 446, 150);
+  img('cabinet', 0, 40); img('coffee-maker', 410, 34); img('water-cooler', 392, 60); img('printer', 8, 300); img('plant', 132, 46); img('plant', 316, 46);
+  img('writing-table', 412, 262); img('Trash', 60, 312);
+  { // 대표님 자리: 러그 + 사장 책상(boss) + 옆 결재 도장 책상, 결재 대기가 있으면 서류 더미가 깜빡
+    const cx = STUDIO_CEO.x * W, cy = STUDIO_CEO.y * H;
+    ctx.fillStyle = '#b8574a'; ctx.fillRect(cx - 74, cy - 54, 148, 66); ctx.fillStyle = '#d9826f'; ctx.fillRect(cx - 70, cy - 50, 140, 58); ctx.fillStyle = '#b8574a'; ctx.fillRect(cx - 62, cy - 42, 124, 42);
+    img('stamping-table', cx - 96 + 4, cy - 22); img('boss', cx - 32, cy - 56 - (studioWaiting().length && Math.floor(studioFrame / 6) % 2 ? 1 : 0));
+    if (studioWaiting().length && Math.floor(studioFrame / 4) % 2) { ctx.fillStyle = '#fff6d6'; ctx.fillRect(cx - 86, cy - 30, 10, 7); ctx.fillStyle = '#e8a21a'; ctx.fillRect(cx - 86, cy - 33, 10, 3); }
+  }
   STUDIO_STAFF.slice().sort((a, b) => a.y - b.y).forEach(s => {
     const st = studioState(s), x = s.x * W - 32, y = s.y * H - 56;
     const ph = STUDIO_STAFF.indexOf(s) * 7; // 직원마다 박자를 조금씩 어긋나게
@@ -4946,6 +4975,7 @@ function render() {
   document.body.classList.toggle('song-full', !!S.song.full);
   document.body.classList.toggle('st-term-on', S.activeTab === 'studio' && !GUEST_MODE && STUDIO_TERMINAL);
   document.body.classList.toggle('st-still', studioReduceMotion());
+  document.body.classList.toggle('st-side-term', STUDIO_TERMINAL && !GUEST_MODE); // 사이드바도 터미널 톤(스위치 하나로 같이 되돌아감)
   if (S.activeTab === 'studio' && !GUEST_MODE) { studioMountCanvas(); studioRestoreInputs(studioKeep); }
   syncThemeColor();
   const main = document.querySelector('.app-main');
@@ -7250,6 +7280,27 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-spot.show .st-bubble, .st-spot:hover .st-bubble { animation:stPopIn .22s steps(3) both, stBob 1.8s ease-in-out .22s infinite; }
   @keyframes stPopIn { 0% { scale:.4; opacity:0; } 60% { scale:1.12; opacity:1; } 100% { scale:1; opacity:1; } }
   body.st-still .st-card.st-in, body.st-still .st-panel-body.st-in > *, body.st-still .st-spot.show .st-bubble, body.st-still .st-spot:hover .st-bubble { animation:none !important; }
+  .st-nbadge { display:inline-block; min-width:16px; padding:0 4px; margin-left:2px; background:#e5484d; color:#fff; font-size:11px; border-radius:8px; text-align:center; }
+  .st-notif { display:grid; gap:4px; } .st-notif-head { display:flex; justify-content:space-between; align-items:center; padding:2px 2px 6px; }
+  .st-notif-head button { border:none; background:none; color:var(--accent); font:inherit; font-size:12.5px; font-weight:700; cursor:pointer; margin-left:10px; }
+  .st-ceo-spot .st-plate { background:#e7b65a; color:#1d1609; border-color:#8a6420; font-weight:800; }
+  .st-term .st-nbadge { background:transparent; color:#e7b65a; border:1px solid #e7b65a; border-radius:0; }
+  .st-term .st-tabs button[aria-selected="true"] .st-nbadge { color:var(--t-bg); border-color:var(--t-bg); }
+  .st-term .st-notif .notif-item { border-radius:0; color:var(--t-text); } .st-term .st-notif .notif-item.unread { background:rgba(127,211,200,.10); border-left:2px solid var(--t-line); }
+  .st-term .st-notif .notif-txt small, .st-term .st-notif .notif-item em { color:var(--t-dim); } .st-term .st-notif-head b { color:var(--t-hi); } .st-term .st-notif-head button { color:var(--t-line); }
+  .st-term .st-ceo-spot .st-plate { background:#e7b65a; color:#06090b; border-color:#e7b65a; }
+  /* ===== 사이드바 터미널 톤(STUDIO_TERMINAL 켜짐 → body.st-side-term). 본문 다른 탭은 그대로 ===== */
+  body.st-side-term .side-nav { background:#06090b; border-right:1px solid #7fd3c8; box-shadow:none; font-family:'Galmuri11', ui-monospace, monospace; }
+  body.st-side-term .side-nav-brand { border-bottom:1px solid #7fd3c8; padding-bottom:12px; margin-bottom:6px; }
+  body.st-side-term .side-nav-brand small { color:#5f9c96; letter-spacing:.12em; font-family:inherit; }
+  body.st-side-term .side-nav-logo { border-radius:0; border:1px solid #7fd3c8; filter:grayscale(1) sepia(1) hue-rotate(130deg) saturate(2.2) brightness(1.05); }
+  body.st-side-term .side-nav-item, body.st-side-term .side-nav-sync { color:#b5f2ea; font-family:inherit; border-radius:0; border:1px solid transparent; }
+  body.st-side-term .side-nav-item:hover { background:rgba(127,211,200,.10); color:#e6fffb; }
+  body.st-side-term .side-nav-item.active { color:#06090b; background:#7fd3c8; border-color:#7fd3c8; }
+  body.st-side-term .side-nav-indicator { display:none; }
+  body.st-side-term .side-nav-item.active .side-nav-icon { filter:grayscale(1) brightness(.2); }
+  body.st-side-term .side-nav-sync { border-top:1px solid rgba(127,211,200,.35); }
+  body.st-side-term .side-notif-badge { background:transparent; color:#e7b65a; border:1px solid #e7b65a; border-radius:0; }
   .st-acts-list { display:grid; gap:5px; padding:8px 10px; border:1px dashed var(--border-strong); border-radius:10px; font-size:13px; }
   .st-acts-list > b { font-size:13px; color:var(--text); } .st-acts-list p { margin:0; color:var(--text); line-height:1.5; } .st-acts-list small { color:var(--text-faint); }
   .st-term .st-acts-list { border-color:var(--t-line); } .st-term .st-acts-list > b, .st-term .st-acts-list p { color:var(--t-hi); } .st-term .st-acts-list small { color:var(--t-dim); }
