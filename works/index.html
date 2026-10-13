@@ -4,7 +4,9 @@
 <meta charset="UTF-8" />
 <!-- 창 제목줄 색(WORKS.app·설치 웹앱·모바일 브라우저 주소창) — 테마/스튜디오 탭에 맞춰 syncThemeColor()가 바꾼다 -->
 <meta name="theme-color" id="themeColorMeta" content="#f6f7f9">
-<script>try{var t=localStorage.getItem('vinfilm-works-theme')==='dark'?'dark':'light';document.documentElement.setAttribute('data-theme',t);document.getElementById('themeColorMeta').setAttribute('content',t==='dark'?'#101216':'#f6f7f9');}catch(e){}</script>
+<script>/* 테마: light(화이트) / dark(블랙) / terminal(터미널·미니룸 톤, 2026-10-14부터 기본). 기존 기기도 한 번만 터미널로 바꾸고(theme-v2 표시), 그 뒤엔 고른 값 유지 */
+try{var ls=localStorage;if(ls.getItem('vinfilm-works-theme-v2')!=='1'){ls.setItem('vinfilm-works-theme','terminal');ls.setItem('vinfilm-works-theme-v2','1');}
+var v=ls.getItem('vinfilm-works-theme'),t=v==='dark'||v==='light'?v:'terminal';document.documentElement.setAttribute('data-theme',t);document.getElementById('themeColorMeta').setAttribute('content',t==='terminal'?'#06090b':t==='dark'?'#101216':'#f6f7f9');}catch(e){document.documentElement.setAttribute('data-theme','terminal');}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <script>
 /* 앱처럼 쓰는 화면이라 손가락 확대(핀치 줌)를 막는다 — 아이폰 Safari는 viewport만으로는 안 막혀서 제스처 이벤트도 막음 */
@@ -379,7 +381,7 @@ const S = {
   song: { modalOpen: false, editingId: null, playId: null, search: '', msg: '', syncing: false, syncTimes: [], follow: true },
   shortcut: { modalOpen: false, editingId: null },
   quote: { view: 'quotes', draft: null, cdraft: null, bizOpen: false, bizSignCleared: false, msg: '' },
-  studio: { box: 'wait', sel: null, settle: false, msg: '', taskMsg: '', answers: {}, open: {} },
+  studio: { box: 'wait', sel: null, settle: false, msg: '', taskMsg: '', answers: {}, open: {}, openTask: {} },
 };
 let currentEqPhoto = '';
 let currentEqPhotoError = '';
@@ -652,16 +654,17 @@ async function refreshToLatest() {
 
 /* ================= 설정(테마) ================= */
 const LS_THEME = 'vinfilm-works-theme';
-function currentTheme() { return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'; }
+function currentTheme() { const t = document.documentElement.getAttribute('data-theme'); return t === 'dark' || t === 'light' ? t : 'terminal'; }
 function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
-  try { localStorage.setItem(LS_THEME, theme === 'light' ? 'light' : 'dark'); } catch (e) {}
+  const t = theme === 'light' || theme === 'dark' ? theme : 'terminal';
+  document.documentElement.setAttribute('data-theme', t);
+  try { localStorage.setItem(LS_THEME, t); localStorage.setItem('vinfilm-works-theme-v2', '1'); } catch (e) {}
   syncThemeColor();
 }
 /* 창 맨 위 제목줄 색 = 화면 배경색(화이트 #f6f7f9 / 블랙 #101216 / 스튜디오 터미널 #06090b). 예전엔 manifest의 파란색이 보였음 */
 function syncThemeColor() {
   const m = document.getElementById('themeColorMeta'); if (!m) return;
-  const c = S.activeTab === 'studio' && !GUEST_MODE && typeof STUDIO_TERMINAL !== 'undefined' && STUDIO_TERMINAL ? '#06090b' : currentTheme() === 'dark' ? '#101216' : '#f6f7f9';
+  const c = currentTheme() === 'terminal' || (S.activeTab === 'studio' && !GUEST_MODE && typeof STUDIO_TERMINAL !== 'undefined' && STUDIO_TERMINAL) ? '#06090b' : currentTheme() === 'dark' ? '#101216' : '#f6f7f9';
   if (m.getAttribute('content') !== c) m.setAttribute('content', c);
 }
 function settingsModalHtml() {
@@ -674,6 +677,7 @@ function settingsModalHtml() {
         <div class="eq-field">
           <label>화면 테마 <span class="eq-hint">(이 기기에만 저장돼요)</span></label>
           <div style="display:flex; gap:8px;">
+            <button type="button" class="eq-status-option ${cur === 'terminal' ? 'theme-on' : ''}" data-action="set-theme" data-theme="terminal">📟 터미널</button>
             <button type="button" class="eq-status-option ${cur === 'dark' ? 'theme-on' : ''}" data-action="set-theme" data-theme="dark">🌙 블랙</button>
             <button type="button" class="eq-status-option ${cur === 'light' ? 'theme-on' : ''}" data-action="set-theme" data-theme="light">☀️ 화이트</button>
           </div>
@@ -4672,7 +4676,10 @@ function renderStudioTab() {
     const queuedAll = studioTasks.filter(t => t.status === 'queued').sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
     const taskRows = tasks.length ? `<ul class="st-tasks">${tasks.map(t => {
       const pos = t.status === 'queued' ? queuedAll.findIndex(x => x.id === t.id) + 1 : 0;
-      return `<li><span class="st-tstat ${t.status}">${STUDIO_TASK_LABEL[t.status] || t.status}${pos ? ` ${pos}번째` : ''}</span><div><p>${t.parentApprovalId ? '↪ ' : ''}${esc(t.text)}</p>${t.result ? studioBodyHtml(t.result, 'st-body small') : ''}${studioFilesHtml(t.files)}<small class="st-tmeta">${esc(studioWhen(t.createdAt))}${t.finishedAt ? ' → ' + esc(studioWhen(t.finishedAt)) : ''}</small></div>${t.status === 'queued' ? `<button type="button" data-action="studio-task-cancel" data-id="${esc(t.id)}">취소</button>` : ''}</li>`;
+      // 지시 한 줄 요약(상태·요약 제목·시간·첨부 수) → 누르면 원문 지시·결과·파일이 펼쳐짐
+      const open = !!S.studio.openTask[t.id], nf = Array.isArray(t.files) ? t.files.length : 0;
+      return `<li class="st-task${open ? ' open' : ''}"><div class="st-task-head" role="button" tabindex="0" data-action="studio-task-toggle" data-id="${esc(t.id)}"><span class="st-tstat ${t.status}">${STUDIO_TASK_LABEL[t.status] || t.status}${pos ? ` ${pos}번째` : ''}</span><span class="st-task-sum">${esc(studioTaskSummary(t))}</span><span class="st-task-meta">${nf ? `📎${nf} ` : ''}${esc(studioWhen(t.finishedAt || t.createdAt))}</span>${t.status === 'queued' ? `<button type="button" class="st-task-cancel" data-action="studio-task-cancel" data-id="${esc(t.id)}">취소</button>` : ''}<span class="st-note-chev">${open ? '▾' : '▸'}</span></div>
+        ${open ? `<div class="st-task-body"><p class="st-task-full">${esc(t.text)}</p>${t.result ? studioBodyHtml(t.result, 'st-body small') : ''}${studioFilesHtml(t.files)}<small class="st-tmeta">${esc(studioWhen(t.createdAt))}${t.finishedAt ? ' → ' + esc(studioWhen(t.finishedAt)) : ''}</small></div>` : ''}</li>`;
     }).join('')}</ul>` : '<p class="st-empty">아직 지시한 일이 없어요.</p>';
     /* 오른쪽 패널 '직원' 탭: 지시하기(맨 위, 바로 입력) → 직원 상태 → 지시 목록 → 최근 결과 */
     staffHtml = `<div class="st-order"><label for="stOrder">✍️ ${esc(sel.short)}에게 지시하기</label>
@@ -4763,6 +4770,12 @@ function studioSettleHtml() {
 const studioSeen = new Set(); // 이미 화면에 나왔던 결재 카드 — 처음 나올 때만 게임처럼 등장 애니메이션
 let studioLastPanel = '';
 function studioPanelKey() { const k = S.studio.box + '|' + (S.studio.box === 'staff' ? S.studio.sel : ''); const changed = k !== studioLastPanel; studioLastPanel = k; return changed; }
+/* 지시 목록 한 줄 요약: 후속 작업이면 '↪ 승인 후속 · 결재 제목', 아니면 지시 첫 줄(40자) */
+function studioTaskSummary(t) {
+  const m = /^\[(승인 후속|반려 재작업)\]\s*"([^"]+)"/.exec(t.text || '');
+  if (m) return `↪ ${m[1] === '승인 후속' ? '승인 후속' : '재작업'} · ${m[2]}`;
+  const first = String(t.text || '').split('\n')[0].trim(); return (t.morning ? '☀ 아침 출근 · ' : '') + (first.length > 42 ? first.slice(0, 42) + '…' : first);
+}
 function studioAddLog(text, staffId) { return studioPut('studioLog', { id: uid(), at: Date.now(), text, staffId: staffId || '' }); }
 function handleStudioAction(action, el, e) {
   const id = el.dataset.id;
@@ -4802,6 +4815,7 @@ function handleStudioAction(action, el, e) {
     return true;
   }
   if (action === 'studio-motion') { try { localStorage.setItem(LS_STUDIO_MOTION, el.checked ? 'on' : 'system'); } catch (e) {} render(); return true; }
+  if (action === 'studio-task-toggle') { S.studio.openTask[id] = !S.studio.openTask[id]; render(); return true; }
   if (action === 'studio-note-toggle') { S.studio.open[id] = !S.studio.open[id]; render(); return true; }
   if (action === 'studio-choose') { // 버튼 고르기 — 화면만 다시 그림(사무실 캔버스는 유지돼 깜빡이지 않음)
     (S.studio.answers[id] = S.studio.answers[id] || {})[el.dataset.q] = el.dataset.v; render(); return true;
@@ -4975,7 +4989,6 @@ function render() {
   document.body.classList.toggle('song-full', !!S.song.full);
   document.body.classList.toggle('st-term-on', S.activeTab === 'studio' && !GUEST_MODE && STUDIO_TERMINAL);
   document.body.classList.toggle('st-still', studioReduceMotion());
-  document.body.classList.toggle('st-side-term', STUDIO_TERMINAL && !GUEST_MODE); // 사이드바도 터미널 톤(스위치 하나로 같이 되돌아감)
   if (S.activeTab === 'studio' && !GUEST_MODE) { studioMountCanvas(); studioRestoreInputs(studioKeep); }
   syncThemeColor();
   const main = document.querySelector('.app-main');
@@ -6297,6 +6310,28 @@ document.addEventListener('DOMContentLoaded', () => {
     --sidebar-bg: #ffffff; --shadow-sm: 0 1px 2px rgba(16,24,40,0.05), 0 1px 3px rgba(16,24,40,0.05); --shadow-md: 0 6px 18px rgba(16,24,40,0.09); --shadow-lg: 0 24px 60px rgba(16,24,40,0.22);
     --row-bg: #ffffff; --row-bg-hover: #f5f8ff; --row-border: rgba(20,28,45,0.10); --row-title: #14171f; --row-text: #3a4353;
   }
+  /* 📟 터미널 테마(2026-10-14, 기본값) — 스튜디오 미니룸(블레이드러너 신분증·CRT) 톤을 WORKS 전체에. 색은 변수로만 바꿔서 화면별 수정 최소화.
+     블랙 테마용 :root:not([data-theme="light"]) 규칙도 그대로 적용된다(터미널도 어두운 테마라서). */
+  :root[data-theme="terminal"] {
+    --bg:#06090b; --surface:#0b1316; --surface-hover:#10201f; --border:rgba(127,211,200,.28); --border-strong:#7fd3c8; --sidebar-bg:#06090b;
+    --shadow-sm:none; --shadow-md:0 0 0 1px rgba(127,211,200,.22); --shadow-lg:0 0 0 1px #7fd3c8, 0 0 30px rgba(127,211,200,.16);
+    --row-bg:#081114; --row-bg-hover:#0e1b1e; --row-border:rgba(127,211,200,.26); --row-title:#e6fffb; --row-text:#b5f2ea;
+    --text:#e6fffb; --text-dim:#b5f2ea; --text-faint:#6fa8a1; --accent:#7fd3c8; --accent-soft:rgba(127,211,200,.14);
+    --status-owned:#6fd39a; --status-lent:#7aa7ff; --status-repair:#e7b65a; --status-sold:#8f97a5;
+    --sched-shoot:#f0a35e; --sched-meeting:#7aa7ff; --sched-deadline:#ff7a70; --sched-etc:#8f97a5; --sched-scout:#3fd6c6; --sched-calendar:#6fd39a; --sched-hisplan:#b18cff;
+    --font-body:'Galmuri11', ui-monospace, monospace; --font-mono:'Galmuri11', ui-monospace, monospace; --font-display:'Galmuri11', ui-monospace, monospace;
+    color-scheme:dark;
+  }
+  :root[data-theme="terminal"] body { background:#06090b; letter-spacing:.01em; }
+  :root[data-theme="terminal"] *, :root[data-theme="terminal"] *::before, :root[data-theme="terminal"] *::after { border-radius:0 !important; }
+  :root[data-theme="terminal"] body::after { content:""; position:fixed; inset:0; pointer-events:none; z-index:2147483000; background:repeating-linear-gradient(to bottom, rgba(255,255,255,.022) 0 1px, transparent 1px 3px); mix-blend-mode:screen; }
+  :root[data-theme="terminal"] h1, :root[data-theme="terminal"] h2, :root[data-theme="terminal"] .eq-title { text-shadow:0 0 6px rgba(181,242,234,.25); }
+  :root[data-theme="terminal"] .eq-modal, :root[data-theme="terminal"] .notif-panel, :root[data-theme="terminal"] .m-sheet { border:1px solid #7fd3c8; }
+  :root[data-theme="terminal"] input, :root[data-theme="terminal"] textarea, :root[data-theme="terminal"] select { font-family:inherit; }
+  :root[data-theme="terminal"] .m-topbar, :root[data-theme="terminal"] .m-tabbar { background:rgba(6,9,11,.92); border-color:#7fd3c8; }
+  :root[data-theme="terminal"] .m-tab.on { color:#7fd3c8; }
+  :root[data-theme="terminal"] .st-term::after { display:none; } /* 화면 전체 주사선이 있으니 스튜디오 겹침 방지 */
+  :root[data-theme="terminal"] .notif-badge { background:transparent; color:#e7b65a; border:1px solid #e7b65a; }
   :root[data-theme="light"] .eq-add-btn, :root[data-theme="light"] .eq-modal-submit, :root[data-theme="light"] .eq-cat-add-row button, :root[data-theme="light"] .sched-dday-badge.is-today { color:#fff; }
   :root[data-theme="light"] .eq-confirm-bar { background:rgba(255,255,255,0.96); }
   /* .eq-modal-overlay 계열(예: 스케줄 등록 모달)은 프로젝트 탭 등 다른 화면 위에서도 뜰 수 있게
@@ -7289,18 +7324,27 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-term .st-notif .notif-item { border-radius:0; color:var(--t-text); } .st-term .st-notif .notif-item.unread { background:rgba(127,211,200,.10); border-left:2px solid var(--t-line); }
   .st-term .st-notif .notif-txt small, .st-term .st-notif .notif-item em { color:var(--t-dim); } .st-term .st-notif-head b { color:var(--t-hi); } .st-term .st-notif-head button { color:var(--t-line); }
   .st-term .st-ceo-spot .st-plate { background:#e7b65a; color:#06090b; border-color:#e7b65a; }
-  /* ===== 사이드바 터미널 톤(STUDIO_TERMINAL 켜짐 → body.st-side-term). 본문 다른 탭은 그대로 ===== */
-  body.st-side-term .side-nav { background:#06090b; border-right:1px solid #7fd3c8; box-shadow:none; font-family:'Galmuri11', ui-monospace, monospace; }
-  body.st-side-term .side-nav-brand { border-bottom:1px solid #7fd3c8; padding-bottom:12px; margin-bottom:6px; }
-  body.st-side-term .side-nav-brand small { color:#5f9c96; letter-spacing:.12em; font-family:inherit; }
-  body.st-side-term .side-nav-logo { border-radius:0; border:1px solid #7fd3c8; filter:grayscale(1) sepia(1) hue-rotate(130deg) saturate(2.2) brightness(1.05); }
-  body.st-side-term .side-nav-item, body.st-side-term .side-nav-sync { color:#b5f2ea; font-family:inherit; border-radius:0; border:1px solid transparent; }
-  body.st-side-term .side-nav-item:hover { background:rgba(127,211,200,.10); color:#e6fffb; }
-  body.st-side-term .side-nav-item.active { color:#06090b; background:#7fd3c8; border-color:#7fd3c8; }
-  body.st-side-term .side-nav-indicator { display:none; }
-  body.st-side-term .side-nav-item.active .side-nav-icon { filter:grayscale(1) brightness(.2); }
-  body.st-side-term .side-nav-sync { border-top:1px solid rgba(127,211,200,.35); }
-  body.st-side-term .side-notif-badge { background:transparent; color:#e7b65a; border:1px solid #e7b65a; border-radius:0; }
+  /* ===== 사이드바 터미널 톤(STUDIO_TERMINAL 켜짐 → :root[data-theme="terminal"] body). 본문 다른 탭은 그대로 ===== */
+  :root[data-theme="terminal"] body .side-nav { background:#06090b; border-right:1px solid #7fd3c8; box-shadow:none; font-family:'Galmuri11', ui-monospace, monospace; }
+  :root[data-theme="terminal"] body .side-nav-brand { border-bottom:1px solid #7fd3c8; padding-bottom:12px; margin-bottom:6px; }
+  :root[data-theme="terminal"] body .side-nav-brand small { color:#5f9c96; letter-spacing:.12em; font-family:inherit; }
+  :root[data-theme="terminal"] body .side-nav-logo { border-radius:0; border:1px solid #7fd3c8; filter:grayscale(1) sepia(1) hue-rotate(130deg) saturate(2.2) brightness(1.05); }
+  :root[data-theme="terminal"] body .side-nav-item, :root[data-theme="terminal"] body .side-nav-sync { color:#b5f2ea; font-family:inherit; border-radius:0; border:1px solid transparent; }
+  :root[data-theme="terminal"] body .side-nav-item:hover { background:rgba(127,211,200,.10); color:#e6fffb; }
+  :root[data-theme="terminal"] body .side-nav-item.active { color:#06090b; background:#7fd3c8; border-color:#7fd3c8; }
+  :root[data-theme="terminal"] body .side-nav-indicator { display:none; }
+  :root[data-theme="terminal"] body .side-nav-item.active .side-nav-icon { filter:grayscale(1) brightness(.2); }
+  :root[data-theme="terminal"] body .side-nav-sync { border-top:1px solid rgba(127,211,200,.35); }
+  :root[data-theme="terminal"] body .side-notif-badge { background:transparent; color:#e7b65a; border:1px solid #e7b65a; border-radius:0; }
+  .st-tasks li.st-task { display:block; padding:0; }
+  .st-task-head { display:flex; align-items:center; gap:8px; width:100%; text-align:left; padding:8px 10px; background:none; border:0; cursor:pointer; color:var(--text); font:inherit; font-size:13px; }
+  .st-task-head:hover { background:var(--surface-hover); }
+  .st-task-sum { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .st-task.open .st-task-sum { white-space:normal; }
+  .st-task-meta { flex:none; color:var(--text-faint); font-size:11.5px; }
+  .st-task-cancel { flex:none; font:inherit; font-size:12px; border:1px solid #d9534f; background:transparent; color:#d9534f; padding:2px 8px; cursor:pointer; }
+  .st-task-body { display:grid; gap:6px; padding:4px 10px 10px; border-top:1px dashed var(--border-strong); animation:stUnfold .24s steps(4) both; transform-origin:top; }
+  .st-task-full { margin:0; font-size:12.5px; color:var(--text-dim); white-space:pre-wrap; word-break:break-word; }
+  body.st-still .st-task-body { animation:none; }
   .st-acts-list { display:grid; gap:5px; padding:8px 10px; border:1px dashed var(--border-strong); border-radius:10px; font-size:13px; }
   .st-acts-list > b { font-size:13px; color:var(--text); } .st-acts-list p { margin:0; color:var(--text); line-height:1.5; } .st-acts-list small { color:var(--text-faint); }
   .st-term .st-acts-list { border-color:var(--t-line); } .st-term .st-acts-list > b, .st-term .st-acts-list p { color:var(--t-hi); } .st-term .st-acts-list small { color:var(--t-dim); }
