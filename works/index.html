@@ -6330,7 +6330,10 @@ document.addEventListener('DOMContentLoaded', () => {
   :root[data-theme="terminal"] input, :root[data-theme="terminal"] textarea, :root[data-theme="terminal"] select { font-family:inherit; }
   :root[data-theme="terminal"] .m-topbar, :root[data-theme="terminal"] .m-tabbar { background:rgba(6,9,11,.92); border-color:#7fd3c8; }
   :root[data-theme="terminal"] .m-tab.on { color:#7fd3c8; }
-  :root[data-theme="terminal"] .st-term::after { display:none; } /* 화면 전체 주사선이 있으니 스튜디오 겹침 방지 */
+  :root[data-theme="terminal"] .st-term::after { display:none; }
+  /* 터미널 테마: 청록(accent) 바탕 위 흰 글씨는 안 읽혀서 검정으로 */
+  :root[data-theme="terminal"] .cal-cell.is-today .cal-daynum span, :root[data-theme="terminal"] .gcal-steps li.done::before, :root[data-theme="terminal"] .install-banner button,
+  :root[data-theme="terminal"] .song-sec-chorus .song-sec-label, :root[data-theme="terminal"] .sp-play, :root[data-theme="terminal"] .st-opt.on, :root[data-theme="terminal"] .eq-modal-submit, :root[data-theme="terminal"] .eq-cat-add-row button { color:#06090b; } /* 화면 전체 주사선이 있으니 스튜디오 겹침 방지 */
   :root[data-theme="terminal"] .notif-badge { background:transparent; color:#e7b65a; border:1px solid #e7b65a; }
   :root[data-theme="light"] .eq-add-btn, :root[data-theme="light"] .eq-modal-submit, :root[data-theme="light"] .eq-cat-add-row button, :root[data-theme="light"] .sched-dday-badge.is-today { color:#fff; }
   :root[data-theme="light"] .eq-confirm-bar { background:rgba(255,255,255,0.96); }
@@ -6827,7 +6830,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .dash-hello p { font-size:15px; color:var(--text-dim); margin:0 0 22px; }
   .dash-card { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:20px 22px; box-shadow:var(--shadow-sm); margin-bottom:16px; }
   .dash-quick { display:none; }
-  .dash-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:6px; }
+  .dash-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; margin-bottom:6px; } .dash-grid > * { min-width:0; }
   .dash-grid .dash-card { margin-bottom:0; }
   .dash-card-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
   .dash-card-head h2 { font-size:16px; font-weight:800; margin:0; letter-spacing:-0.01em; }
@@ -6890,7 +6893,7 @@ document.addEventListener('DOMContentLoaded', () => {
     .dash-quick { display:grid; grid-template-columns:repeat(4, 1fr); gap:18px 4px; padding:22px 10px; }
     .dash-tile { font-size:13px; }
     .dash-tile-ic { width:58px; height:58px; border-radius:18px; }
-    .dash-grid { grid-template-columns:1fr; }
+    .dash-grid { grid-template-columns:minmax(0,1fr); }
     .dash-card { border-radius:18px; padding:18px; }
     .eq-header { gap:12px; margin-bottom:18px; }
     .eq-header > div:last-child { flex-wrap:wrap; }
@@ -6902,6 +6905,10 @@ document.addEventListener('DOMContentLoaded', () => {
     .eq-modal-overlay { overflow:hidden; }
     .eq-modal { box-sizing:border-box; overflow-x:hidden; overscroll-behavior:contain; touch-action:pan-y; }
     .eq-modal input, .eq-modal select, .eq-modal textarea { font-size:16px !important; max-width:100%; min-width:0; box-sizing:border-box; }
+    /* 창 밖 입력칸(검색창·지시하기·결재 코멘트·목록의 날짜칸 등)도 16px — 아이폰이 눌렀을 때 화면을 확대하지 않게 */
+    input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), textarea, select { font-size:16px !important; }
+    .proj-row-due-input { transform:scale(.82); transform-origin:left center; width:122%; } .proj-row-dday { white-space:nowrap; } /* 16px로 키운 목록 날짜칸은 보기에만 줄임 */
+    .eq-field-row .eq-field { min-width:0; } .eq-field input, .eq-field select, .eq-field textarea { min-width:0; max-width:100%; box-sizing:border-box; } /* 견적 편집기 등 두 칸 줄에서 날짜칸이 밖으로 밀리던 문제 */
     .eq-modal .eq-field-row { min-width:0; }
     .eq-modal .eq-field-row .eq-field { min-width:0; }
     .tab-enter { animation-duration:.28s; }
@@ -7082,7 +7089,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .dash-notif { display:block; width:100%; text-align:left; margin:0 0 16px; padding:12px 14px; border-radius:14px; border:1px solid var(--border); background:var(--accent-soft); color:var(--text); font-family:var(--font-body); cursor:pointer; }
   .dash-notif:hover { border-color:var(--accent); }
   .dash-notif-head { display:flex; align-items:center; gap:6px; font-size:14px; font-weight:700; } .dash-notif-head b { color:#e5484d; } .dash-notif-head i { margin-left:auto; font-style:normal; font-size:12.5px; color:var(--accent); font-weight:700; }
-  .dash-notif-row { display:flex; gap:8px; margin-top:6px; font-size:13px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .dash-notif-row em { font-style:normal; flex:none; }
+  .dash-notif-row { display:block; margin-top:6px; font-size:13px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .dash-notif-row em { font-style:normal; margin-right:8px; }
   .notif-bell { position:relative; width:40px; height:40px; border-radius:12px; border:1px solid var(--border); background:var(--surface); font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow-sm); }
   .notif-bell.on, .notif-bell:hover { border-color:var(--accent); }
   .notif-badge { position:absolute; top:-5px; right:-6px; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#e5484d; color:#fff; font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; border:2px solid var(--bg); }
@@ -7213,7 +7220,8 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-roster { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:6px; margin-top:10px; }
   .st-roster button { display:flex; align-items:center; gap:7px; font:inherit; font-size:13px; text-align:left; background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:10px; padding:7px 10px; cursor:pointer; min-width:0; }
   .st-roster button.on { border-color:var(--accent); background:var(--accent-soft); }
-  .st-roster b { font-weight:700; white-space:nowrap; } .st-roster small { color:var(--text-faint); margin-left:auto; white-space:nowrap; font-size:12px; }
+  .st-roster b { font-weight:700; white-space:nowrap; } .st-roster small { color:var(--text-faint); margin-left:auto; white-space:nowrap; font-size:12px; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  @media (max-width: 720px) { .st-roster { grid-template-columns:repeat(2, minmax(0,1fr)); } .st-roster small { font-size:11px; } }
   .st-dot { width:10px; height:10px; border-radius:50%; flex:none; }
   .st-dot.work { background:#3aa76d; box-shadow:0 0 0 3px rgba(58,167,109,.22); animation:stPulse 1.6s infinite; }
   .st-dot.wait { background:#e8a21a; } .st-dot.off { background:transparent; border:2px solid var(--text-faint); }
@@ -7226,7 +7234,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-tabs { flex-wrap:wrap; }
   @media (max-width: 960px) { .st-term .st-panel.is-staff { background:var(--t-panel); border:1px solid var(--t-line); } }
   @media (max-width: 960px) {
-    .st-panel.is-staff { position:fixed; left:0; right:0; bottom:0; z-index:95; max-height:78vh; border-radius:16px 16px 0 0; box-shadow:var(--shadow-lg); padding-bottom:env(safe-area-inset-bottom); }
+    .st-panel.is-staff { position:fixed; left:0; right:0; bottom:0; z-index:95; max-height:78vh; max-height:82dvh; border-radius:16px 16px 0 0; box-shadow:var(--shadow-lg); padding-bottom:env(safe-area-inset-bottom); }
     .st-panel.is-staff .st-panel-body { overflow-y:auto; }
     .st-panel.is-staff .st-sheet-close { display:block; margin-left:auto; }
     .st-sheet-backdrop { display:block; position:fixed; inset:0; z-index:94; background:rgba(0,0,0,.45); }
@@ -7234,7 +7242,8 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-tabs { display:flex; gap:4px; padding:8px 8px 0; background:var(--surface-hover); }
   .st-tabs button { font:inherit; font-size:14px; font-weight:600; border:0; border-radius:8px 8px 0 0; padding:7px 14px; background:transparent; color:var(--text-dim); cursor:pointer; }
   .st-tabs button[aria-selected="true"] { background:var(--surface); color:var(--text); }
-  .st-panel-body { padding:12px; display:grid; gap:10px; align-content:start; }
+  .st-panel-body { padding:12px; display:grid; grid-template-columns:minmax(0,1fr); gap:10px; align-content:start; }
+  .st-panel-body > * { min-width:0; } /* 긴 한 줄 글자가 패널(폰 시트) 폭을 밀어내 오른쪽이 잘리던 문제 */
   .st-ceo { display:flex; gap:10px; align-items:center; padding:10px; border-radius:10px; background:var(--surface-hover); }
   .st-ceo canvas { width:48px; height:60px; image-rendering:pixelated; flex:none; }
   .st-ceo b { font-size:15px; } .st-ceo p { margin:2px 0 0; color:var(--text-dim); font-size:13px; }
@@ -7336,6 +7345,7 @@ document.addEventListener('DOMContentLoaded', () => {
   :root[data-theme="terminal"] body .side-nav-item.active .side-nav-icon { filter:grayscale(1) brightness(.2); }
   :root[data-theme="terminal"] body .side-nav-sync { border-top:1px solid rgba(127,211,200,.35); }
   :root[data-theme="terminal"] body .side-notif-badge { background:transparent; color:#e7b65a; border:1px solid #e7b65a; border-radius:0; }
+  .st-tasks { grid-template-columns:minmax(0,1fr); } .st-tasks > li { min-width:0; } /* 긴 요약 글자가 줄 폭을 밀어내던 문제 */
   .st-tasks li.st-task { display:block; padding:0; }
   .st-task-head { display:flex; align-items:center; gap:8px; width:100%; text-align:left; padding:8px 10px; background:none; border:0; cursor:pointer; color:var(--text); font:inherit; font-size:13px; }
   .st-task-head:hover { background:var(--surface-hover); }
