@@ -73,7 +73,26 @@ service cloud.firestore {
         && bridgeSchedValid(request.resource.data));
       allow delete: if isOwner() || collabOk(resource.data.collabId);
     }
-    match /projects/{id} { allow read: if isOwner() || isBridge(); allow write: if isOwner(); }
+    // 프로젝트도 일정과 같은 방식: 다리는 승인된 결재(studioApprovalId)에 딸린 추가·수정만. 번호(serial)는 WORKS가 매김. 삭제·연결 필드 변경 불가.
+    function bridgeProjValid(d) {
+      return d.title is string && d.title.size() > 0 && d.title.size() <= 200
+        && d.get('type', '') in ['shoot', 'edit', 'etc', '']
+        && d.get('status', 'todo') in ['todo', 'doing', 'done']
+        && (d.get('dueDate', '') == '' || (d.dueDate is string && d.dueDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')))
+        && studioApprovedBy(d.studioApprovalId);
+    }
+    match /projects/{id} {
+      allow read: if isOwner() || isBridge();
+      allow create: if isOwner() || (isBridge()
+        && request.resource.data.keys().hasOnly(['id', 'title', 'type', 'client', 'dueDate', 'status', 'notes', 'parentId', 'by', 'studioApprovalId', 'createdAt', 'updatedAt'])
+        && request.resource.data.id == id && request.resource.data.by == 'studio'
+        && (request.resource.data.get('parentId', null) == null || exists(/databases/$(database)/documents/projects/$(request.resource.data.parentId)))
+        && bridgeProjValid(request.resource.data));
+      allow update: if isOwner() || (isBridge()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'dueDate', 'notes', 'client', 'title', 'type', 'updatedAt', 'studioApprovalId'])
+        && bridgeProjValid(request.resource.data));
+      allow delete: if isOwner();
+    }
     match /shoots/{id} { allow read, write: if isOwner(); }
     match /presets/{id} { allow read, write: if isOwner(); }
     match /todayTasks/{id} { allow read, write: if isOwner(); }

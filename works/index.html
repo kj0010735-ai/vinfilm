@@ -425,7 +425,7 @@ function applyCloudUpdate(name, items) {
       if (studioChanged && typeof gcalSchedulePush === 'function') gcalSchedulePush();
       break;
     }
-    case 'projects': projItems = items; try { localStorage.setItem(LS_PROJECTS, JSON.stringify(items)); } catch (e) {} break;
+    case 'projects': projItems = items; try { localStorage.setItem(LS_PROJECTS, JSON.stringify(items)); } catch (e) {} studioAssignSerials(); break;
     case 'shoots': shoots = items; try { localStorage.setItem(LS_SHOOTS, JSON.stringify(items)); } catch (e) {} break;
     case 'presets': presets = items; try { localStorage.setItem(LS_PRESETS, JSON.stringify(items)); } catch (e) {} break;
     case 'todayTasks': todayTasks = items; try { localStorage.setItem(LS_TASKS, JSON.stringify(items)); } catch (e) {} break;
@@ -564,6 +564,19 @@ function initCloudSync() {
 }
 
 function nextSerial(items) { let max = 0; items.forEach(it => { const m = /^EQ-(\d+)$/.exec(it.serial || ''); if (m) max = Math.max(max, parseInt(m[1], 10)); }); return `EQ-${String(max + 1).padStart(3, '0')}`; }
+/* 스튜디오 다리가 만든 프로젝트(by:'studio')는 번호가 없이 들어온다 → 대표님 WORKS가 받을 때 PJ-0xx를 매겨 그 문서만 고친다.
+   여러 기기가 동시에 열려 있어도 같은 데이터로 계산하니 같은 번호가 나온다. */
+function studioAssignSerials() {
+  if (GUEST_MODE || IS_LOCAL_DEV || !window.cloudSyncReady || typeof firebase === 'undefined') return;
+  const need = projItems.filter(p => p.by === 'studio' && !p.serial).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  if (!need.length) return;
+  let list = projItems.slice();
+  need.forEach(p => {
+    const serial = nextProjectSerial(list); list = list.map(x => x.id === p.id ? { ...x, serial } : x);
+    firebase.firestore().collection('projects').doc(String(p.id)).update({ serial }).catch(e => console.warn('studio serial failed', e));
+  });
+  projItems = list;
+}
 function nextProjectSerial(list) { let max = 0; list.forEach(p => { const m = /^PJ-(\d+)$/.exec(p.serial || ''); if (m) max = Math.max(max, parseInt(m[1], 10)); }); return `PJ-${String(max + 1).padStart(3, '0')}`; }
 function nextSharedSerial(list) { let max = 0; list.forEach(p => { const m = /^SP-(\d+)$/.exec(p.serial || ''); if (m) max = Math.max(max, parseInt(m[1], 10)); }); return `SP-${String(max + 1).padStart(3, '0')}`; }
 function sharedStatusOf(id) { return SHARED_STATUSES.find(s => s.id === id) || SHARED_STATUSES[0]; }
@@ -2069,6 +2082,7 @@ function projDetailHtml() {
     <div class="eq-modal-overlay is-drawer${again ? ' no-anim' : ''}" data-action="proj-close-detail-backdrop">
       <div class="eq-modal proj-detail" data-stop-close data-row-menu-id="${p.id}" style="${p.color ? `border-top:6px solid ${p.color};` : ''}">
         <div class="eq-modal-head"><h2>${ptype && ptype.icon ? ptype.icon + ' ' : ''}${esc(p.title)}</h2><button class="eq-modal-close" data-action="proj-close-detail">✕</button></div>
+        ${p.by === 'studio' || p.studioApprovalId ? `<p class="pd-studio">🏢 스튜디오가 ${p.by === 'studio' ? '등록' : '수정'} <small>(대표님 결재 승인)</small></p>` : ''}
         <div class="pd-grid">
         <div class="pd-card"><span>상태</span><b><span class="proj-row-pill" data-status-menu-id="${p.id}" style="background:${col.color}26; color:${col.color}; cursor:pointer;"><span class="proj-row-dot" style="background:${col.color};"></span>${col.label}</span></b></div>
         <div class="pd-card"><span>번호</span><b>${esc(p.serial || '-')}</b></div>
@@ -4506,7 +4520,23 @@ function studioBodyHtml(text, cls) {
 }
 /* 결재에 딸린 일정 반영안(actions) — 승인하면 다리가 schedule에 추가/수정(규칙상 승인된 결재만 가능). 최대 5개. */
 function studioActionsHtml(a) {
-  const acts = (Array.isArray(a.actions) ? a.actions : []).filter(x => x && /^schedule\.(add|update)$/.test(x.type)).slice(0, 5);
+  const all = (Array.isArray(a.actions) ? a.actions : []).slice(0, 5);
+  return studioSchedActsHtml(a, all.filter(x => x && /^schedule\.(add|update)$/.test(x.type))) + studioProjActsHtml(a, all.filter(x => x && /^project\.(add|update)$/.test(x.type)));
+}
+const STUDIO_PROJ_FIELD = { title: '제목', type: '종류', client: '클라이언트', dueDate: '마감', status: '상태', notes: '메모', memo: '메모' };
+function studioProjActsHtml(a, acts) {
+  if (!acts.length) return '';
+  const head = a.status === 'ok' ? '📁 반영된(반영할) 프로젝트 변경' : a.status === 'no' ? '📁 반려되어 반영 안 한 프로젝트 변경' : '📁 승인하면 반영될 프로젝트 변경';
+  const val = (k, v) => k === 'type' ? ((projectTypeOf(v) || {}).label || v) : k === 'status' ? ((PROJECT_COLUMNS.find(c => c.id === v) || {}).label || v) : k === 'dueDate' && v ? dateLabel(v) : v;
+  return `<div class="st-acts-list"><b>${head}</b>${acts.map(x => {
+    const old = x.type === 'project.update' && x.id ? projItems.find(p => p.id === x.id) : null;
+    const fields = Object.keys(STUDIO_PROJ_FIELD).filter(k => x[k] != null && x[k] !== '' && !(k === 'title' && x.type === 'project.update' && old && old.title === x[k]));
+    const parent = x.parentId ? projItems.find(p => p.id === x.parentId) : null;
+    return `<p><span class="st-tstat ${x.type === 'project.add' ? 'running' : 'done'}">${x.type === 'project.add' ? '추가' : '수정'}</span> <b>${esc(x.type === 'project.add' ? (x.title || '') : (old ? old.title : '(대상 프로젝트를 못 찾음)'))}</b>${parent ? `<small> · ${esc(parent.title)} 안에</small>` : ''}
+      ${fields.filter(k => !(x.type === 'project.add' && k === 'title')).map(k => `<small> · ${STUDIO_PROJ_FIELD[k]}: ${old && old[k === 'memo' ? 'notes' : k] ? `${esc(String(val(k, old[k === 'memo' ? 'notes' : k])).slice(0, 40))} → ` : ''}${esc(String(val(k, x[k])).slice(0, 60))}</small>`).join('')}</p>`;
+  }).join('')}</div>`;
+}
+function studioSchedActsHtml(a, acts) {
   if (!acts.length) return '';
   const cat = id => (SCHED_CATEGORIES.find(c => c.id === id) || {}).label || id || '';
   const head = a.status === 'ok' ? '📅 캘린더에 반영된(반영할) 일정' : a.status === 'no' ? '📅 반려되어 반영 안 한 일정' : '📅 승인하면 캘린더에 반영될 일정';
@@ -7078,6 +7108,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-body p.hd { margin-top:4px; font-weight:700; color:var(--text); } .st-body p.it { padding-left:1.4em; text-indent:-1.4em; color:var(--text); }
   .st-body.small p { font-size:12.5px; line-height:1.5; }
   .st-term .st-wrap .st-body p, .st-term .st-body p { color:var(--t-text); } .st-term .st-card .st-body p, .st-term .st-tasks .st-body p { color:var(--t-text); } .st-term .st-body p.hd, .st-term .st-body p.it { color:var(--t-hi); }
+  .pd-studio { margin:-6px 0 12px; font-size:13px; color:var(--text-dim); } .pd-studio small { color:var(--text-faint); }
   .st-acts-list { display:grid; gap:5px; padding:8px 10px; border:1px dashed var(--border-strong); border-radius:10px; font-size:13px; }
   .st-acts-list > b { font-size:13px; color:var(--text); } .st-acts-list p { margin:0; color:var(--text); line-height:1.5; } .st-acts-list small { color:var(--text-faint); }
   .st-term .st-acts-list { border-color:var(--t-line); } .st-term .st-acts-list > b, .st-term .st-acts-list p { color:var(--t-hi); } .st-term .st-acts-list small { color:var(--t-dim); }
