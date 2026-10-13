@@ -252,7 +252,10 @@ function getKnownClients() {
   [...projItems, ...sharedProjItems].forEach(p => { if (p.client && p.client.trim()) set.add(p.client.trim()); });
   return [...set].sort((a, b) => a.localeCompare(b, 'ko'));
 }
-const NAV_ITEMS = [
+/* 대시보드 → 스튜디오 통합(2026-10-14 대표님). true면 사이드바 첫 메뉴·첫 화면·폰 홈이 🏢 스튜디오이고, 대시보드 기능(인사·알림 요약·
+   다가오는 일정·진행 중 프로젝트·바로가기·오늘 할 일)이 스튜디오 탭 안으로 들어간다. false로 바꾸면 예전 대시보드로 돌아감. 협업자 화면은 영향 없음. */
+const STUDIO_HOME = true;
+const NAV_ITEMS_BASE = [
   { id: 'today', icon: '📊', label: '대시보드' },
   { id: 'equipment', icon: '🎥', label: '장비목록' },
   { id: 'shootprep', icon: '🎒', label: '촬영준비' },
@@ -264,6 +267,7 @@ const NAV_ITEMS = [
   { id: 'songs', icon: '🎤', label: '노래연습' },
   { id: 'studio', icon: '🏢', label: '스튜디오' },
 ];
+const NAV_ITEMS = STUDIO_HOME ? [NAV_ITEMS_BASE.find(x => x.id === 'studio'), ...NAV_ITEMS_BASE.filter(x => x.id !== 'today' && x.id !== 'studio')] : NAV_ITEMS_BASE;
 const SHARED_STATUSES = [
   { id: 'todo', label: '준비중', color: '#e0a63c' },
   { id: 'doing', label: '진행중', color: '#4cae7d' },
@@ -362,7 +366,7 @@ const S = {
   installOpen: false,
   notif: { open: false, compose: false, viewId: null },
   moreOpen: false,
-  activeTab: COLLAB_MODE ? 'shared' : GUEST_MODE ? 'equipment' : 'today',
+  activeTab: COLLAB_MODE ? 'shared' : GUEST_MODE ? 'equipment' : STUDIO_HOME ? 'studio' : 'today',
   eq: { search: '', categoryFilter: 'all', statusFilter: 'all', sortBy: 'recent', sortOpen: false, modalOpen: false, editingId: null, confirmDeleteId: null, categoryModalOpen: false, detailId: null },
   sched: { view: 'month', cursor: todayStr(), prefillDate: null, search: '', categoryFilter: 'all', showPast: false, modalOpen: false, editingId: null, confirmDeleteId: null, importMsg: '', detailId: null, linkProjectId: null },
   today: { viewMode: 'today', month: todayStr().slice(0, 7) },
@@ -1440,7 +1444,7 @@ const MI = {
   chev: '<svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>',
 };
 const MOBILE_TABS_OWNER = [
-  { id: 'today', label: '홈', icon: MI.home },
+  { id: STUDIO_HOME ? 'studio' : 'today', label: '홈', icon: MI.home },
   { id: 'schedule', label: '캘린더', icon: MI.cal },
   { id: 'projects', label: '프로젝트', icon: MI.proj },
   { id: 'equipment', label: '장비', icon: MI.eq },
@@ -1481,7 +1485,7 @@ function mobileMoreSheetHtml() {
       ${row('data-action="set-tab" data-id="shared"', MI.shared, '공유 프로젝트')}
       ${row('data-action="set-tab" data-id="notes"', MI.note, '메모장')}
       ${row('data-action="set-tab" data-id="songs"', MI.mic, '노래연습')}
-      ${row('data-action="set-tab" data-id="studio"', '<span style="font-size:17px;line-height:1">🏢</span>', '스튜디오')}
+      ${STUDIO_HOME ? '' : row('data-action="set-tab" data-id="studio"', '<span style="font-size:17px;line-height:1">🏢</span>', '스튜디오')}
       <a class="m-sheet-row" href="../ledger/"><span class="m-sheet-ic">${MI.money}</span><span>수입·지출 관리</span><i>${MI.chev}</i></a>
       ${row('data-action="open-settings"', MI.gear, '설정')}
       ${row('data-action="logout"', MI.logout, '로그아웃', 'is-dim')}
@@ -2991,17 +2995,23 @@ function shortcutModalHtml() {
 }
 
 function renderTodayTab() {
-  const isMonth = S.today.viewMode === 'month';
-  const list = [...visibleSchedItems(), ...(gcalEventsByDate()[todayStr()] || [])]
-    .filter(it => it.date === todayStr())
-    .sort((a,b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
-  const dueToday = projItems.filter(p => p.dueDate === todayStr());
   return `
     <div class="dash-hello"><h1>안녕하세요${greetingName() ? `, ${esc(greetingName())}님` : ''}</h1><p>${longDateLabel(todayStr())}</p></div>
     ${dashNotifHtml()}
     ${dashQuickHtml()}
     <div class="dash-grid">${dashUpcomingHtml()}${dashProjectsHtml()}</div>
     ${shortcutsSectionHtml()}
+    ${todayTasksSectionHtml()}
+  `;
+}
+/* 대시보드의 '오늘 할 일'(오늘/월별 보기·오늘 일정·오늘 마감·할 일 메모) — 스튜디오 탭(STUDIO_HOME)에서도 그대로 씀 */
+function todayTasksSectionHtml() {
+  const isMonth = S.today.viewMode === 'month';
+  const list = [...visibleSchedItems(), ...(gcalEventsByDate()[todayStr()] || [])]
+    .filter(it => it.date === todayStr())
+    .sort((a,b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
+  const dueToday = projItems.filter(p => p.dueDate === todayStr());
+  return `
     <h2 class="shoot-section-title dash-section-title">오늘 할 일</h2>
     <div class="eq-chip-row" style="margin-bottom:18px;">
       <button class="eq-chip ${!isMonth?'active':''}" data-action="today-set-view" data-id="today">오늘</button>
@@ -4620,7 +4630,8 @@ function renderStudioTab() {
   }
   return `<div class="eq-wrap st-wrap${STUDIO_TERMINAL ? ' st-term' : ''}">
     ${STUDIO_TERMINAL ? `<div class="st-sigbar"><b>VINFILM 스튜디오</b><span>${br.on ? 'SIGNAL OK' : 'NO SIGNAL'} <span class="st-batt${br.on ? '' : ' off'}"><i></i><i></i><i></i><i></i></span></span></div>` : ''}
-    <div class="eq-header"><div class="eq-title-block"><h1 class="eq-title">${STUDIO_TERMINAL ? 'STUDIO // 스튜디오' : '스튜디오'}</h1><div class="eq-stat">결재 대기 <b>${waiting.length}</b>건</div></div></div>
+    <div class="eq-header"><div class="eq-title-block"><h1 class="eq-title">${STUDIO_TERMINAL ? 'STUDIO // 스튜디오' : '스튜디오'}</h1><div class="eq-stat">결재 대기 <b>${waiting.length}</b>건</div></div>${STUDIO_HOME ? `<p class="st-greet">안녕하세요${greetingName() ? `, ${esc(greetingName())}님` : ''} · ${longDateLabel(todayStr())}</p>` : ''}</div>
+    ${STUDIO_HOME ? `<div class="st-quick">${dashQuickHtml()}</div>` : ''}
     <div class="st-main">
       <div class="st-left">
         <div class="st-hud top"><span>💾 ${studioWeekLabel()}</span><span class="st-link ${br.on ? 'on' : ''}" title="${br.hb ? '마지막 신호 ' + esc(studioWhen(br.hb)) : '다리가 아직 연결된 적 없어요'}">${br.on ? '🟢 Mac 연결됨' : '🔌 Mac 꺼짐'} · 오늘 <b>${br.count}/${cfg.dailyLimit}</b></span><span>이번 달 매출 <b>${studioMoney(studioLedger.rev)}</b></span></div>
@@ -4639,12 +4650,14 @@ function renderStudioTab() {
           <button type="button" class="st-sheet-close" data-action="studio-box" data-id="wait" aria-label="닫기">✕</button>
         </div>
         <div class="st-panel-body">
+          ${STUDIO_HOME && S.studio.box !== 'staff' && S.studio.box !== 'cfg' ? dashNotifHtml() : ''}
           ${S.studio.box === 'staff' ? staffHtml : `<div class="st-ceo"><canvas id="studioCeoCv" width="16" height="20"></canvas><div><b>대표 ${esc(greetingName() || '김규빈')}</b><p>${waiting.length ? `결재할 보고가 ${waiting.length}건 있어요` : '오늘 결재를 다 했어요 🎉'}</p></div></div>
           ${S.studio.box === 'cfg' ? studioSettingsHtml(cfg, br) : cards}`}
         </div>
       </section>
       ${S.studio.box === 'staff' ? '<div class="st-sheet-backdrop" data-action="studio-box" data-id="wait"></div>' : ''}
     </div>
+    ${STUDIO_HOME ? `<div class="st-dash"><div class="dash-grid">${dashUpcomingHtml()}${dashProjectsHtml()}</div>${shortcutsSectionHtml()}${todayTasksSectionHtml()}</div>` : ''}
     <div class="st-bottom">
       <section class="st-box"><h2>오늘의 스튜디오 일지</h2>${logs.length ? `<ul class="st-log">${logs.map(l => { const s = l.staffId && studioStaffById(l.staffId); return `<li><time>${studioHm(l.at)}</time><span>${s ? `<b>${esc(s.short)}</b> ` : ''}${esc(l.text)}</span></li>`; }).join('')}</ul>` : '<p class="st-empty">오늘 기록이 아직 없어요.</p>'}</section>
     </div>
@@ -4842,6 +4855,7 @@ function renderTab() {
   return '';
 }
 function render() {
+  if (STUDIO_HOME && !GUEST_MODE && S.activeTab === 'today') S.activeTab = 'studio'; // 예전 대시보드로 가는 링크·알림은 스튜디오로
   const studioKeep = S.activeTab === 'studio' ? studioCaptureInputs() : null;
   document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderMobileTopBar()}${installBannerHtml()}${renderTab()}</main>${renderMobileTabBar()}</div>${schedModalHtml()}${settingsModalHtml()}${collabModalHtml()}${installGuideHtml()}${notifPanelHtml()}${noticeModalHtml()}${gcalModalHtml()}${gcalDetailModalHtml()}`;
   fitCalendar();
@@ -4958,7 +4972,7 @@ function bootApp() {
         // 캘린더 탭을 누를 때마다 동기화하지 않는다 — 마지막 동기화 후 5분이 지났을 때만 조용히 가져온다.
         // (저장할 때는 gcalSchedulePush가 따로 올려준다. 로그인이 만료되면 팝업을 자동으로 띄우지 않고 "📱 탭해서 동기화" 버튼만 보여준다)
         if (id === 'schedule' && gcalTokenValid() && Date.now() - gcal.lastSync > GCAL_TAB_SYNC_GAP) gcalSync(false);
-        if (id === 'schedule' || id === 'today') hisplanRefresh(false);
+        if (id === 'schedule' || id === 'today' || id === 'studio') hisplanRefresh(false);
         break;
       case 'app-refresh': el.disabled = true; el.textContent = '확인 중…'; refreshToLatest(); break;
       case 'open-settings': S.settingsOpen = true; S.moreOpen = false; render(); break;
@@ -7108,6 +7122,17 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-body p.hd { margin-top:4px; font-weight:700; color:var(--text); } .st-body p.it { padding-left:1.4em; text-indent:-1.4em; color:var(--text); }
   .st-body.small p { font-size:12.5px; line-height:1.5; }
   .st-term .st-wrap .st-body p, .st-term .st-body p { color:var(--t-text); } .st-term .st-card .st-body p, .st-term .st-tasks .st-body p { color:var(--t-text); } .st-term .st-body p.hd, .st-term .st-body p.it { color:var(--t-hi); }
+  .st-greet { margin:4px 0 0; font-size:13.5px; color:var(--text-dim); }
+  .st-quick { display:none; margin-top:12px; } @media (max-width: 720px) { .st-quick { display:block; } }
+  .st-dash { margin-top:18px; }
+  .st-term .st-quick, .st-term .st-dash { padding:0 12px; } .st-term .st-dash { padding-top:6px; padding-bottom:12px; border-bottom:1px solid var(--t-line); margin-top:0; }
+  .st-term .st-greet { color:var(--t-text); text-transform:none; }
+  /* 스튜디오(터미널) 안에 들어온 대시보드 부품들 — WORKS 테마 변수를 터미널 색으로 바꿔 끼워서 한 번에 같은 톤으로 */
+  .st-term { --bg:#06090b; --surface:#0b1316; --surface-hover:#10201f; --border:rgba(127,211,200,.32); --border-strong:#7fd3c8; --text:#e6fffb; --text-dim:#b5f2ea; --text-faint:#5f9c96;
+    --accent:#7fd3c8; --accent-soft:rgba(127,211,200,.12); --row-bg:#06090b; --row-bg-hover:#0e1b1e; --row-border:rgba(127,211,200,.32); --row-title:#e6fffb; --row-text:#b5f2ea;
+    --shadow-sm:none; --shadow-md:none; --font-body:'Galmuri11', ui-monospace, monospace; --font-mono:'Galmuri11', ui-monospace, monospace; }
+  .st-term .dash-section-title, .st-term .shoot-section-title { color:var(--t-hi); text-transform:uppercase; font-family:inherit; }
+  .st-term .eq-add-btn, .st-term .eq-chip.active { background:transparent; color:var(--t-hi); border:1px solid var(--t-line); }
   .pd-studio { margin:-6px 0 12px; font-size:13px; color:var(--text-dim); } .pd-studio small { color:var(--text-faint); }
   .st-acts-list { display:grid; gap:5px; padding:8px 10px; border:1px dashed var(--border-strong); border-radius:10px; font-size:13px; }
   .st-acts-list > b { font-size:13px; color:var(--text); } .st-acts-list p { margin:0; color:var(--text); line-height:1.5; } .st-acts-list small { color:var(--text-faint); }
