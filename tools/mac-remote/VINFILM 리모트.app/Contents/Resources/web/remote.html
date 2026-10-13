@@ -375,8 +375,10 @@ pad.addEventListener('touchmove', e => {
   tch.lx = cx; tch.ly = cy; tch.lt = now; tch.moved += Math.abs(dx) + Math.abs(dy);
   if (ts.length === 1){
     if (tch.dragArm && !dragging && tch.moved > 5){ dragging = true; send({ t:'b', b:'l', d:1, n:1 }); pad.classList.add('drag'); }
-    const sp = Math.hypot(dx, dy) / dt; // px/ms — 빨리 움직일수록 멀리(가속)
-    const f = S.speed * (0.8 + Math.min(sp * 1.3, 3.2));
+    // px/ms — 빨리 움직일수록 멀리(가속). 속도를 바로 쓰면 가속이 들쭉날쭉해서 직전 값과 섞어 부드럽게
+    const inst = Math.hypot(dx, dy) / dt;
+    tch.sp = tch.sp == null ? inst : tch.sp * 0.65 + inst * 0.35;
+    const f = S.speed * (0.8 + Math.min(tch.sp * 1.3, 3.2));
     acc.mx += dx * f; acc.my += dy * f;
   } else {
     const k = S.scroll * 1.6 * (S.invert ? -1 : 1);

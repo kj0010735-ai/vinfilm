@@ -220,6 +220,7 @@ class MacInput:
             self.CGPreflightPostEventAccess = self.CGRequestPostEventAccess = lambda: True
 
         self.down = {"l": False, "r": False}
+        self.cur = None  # 소수점까지 기억하는 커서 위치 — 매번 정수 위치를 다시 읽으면 천천히 움직일 때 계단처럼 끊긴다
         self.last_click = (0.0, None, 0, (0.0, 0.0))  # 시각, 버튼, 연속 횟수, 위치 — 더블클릭 판단용
         self.disp_cache = (0.0, [])
         self.lock = threading.Lock()
@@ -295,8 +296,12 @@ class MacInput:
     # 동작
     def move(self, dx, dy):
         with self.lock:
-            x, y = self._pos()
-            x, y = self._clamp(x + dx, y + dy)
+            rx, ry = self._pos()
+            cx, cy = self.cur or (rx, ry)
+            if abs(rx - cx) > 2 or abs(ry - cy) > 2:  # 실제 마우스·트랙패드로 움직였으면 거기서부터
+                cx, cy = rx, ry
+            x, y = self._clamp(cx + dx, cy + dy)
+            self.cur = (x, y)
             if self.down["l"]:
                 t, b = 6, 0   # kCGEventLeftMouseDragged
             elif self.down["r"]:
@@ -408,6 +413,73 @@ else:
     INPUT_ERROR = ""
 
 
+# ───────────────────────── 부드럽게 ─────────────────────────
+
+class Glide:
+    """와이파이는 아이폰 신호를 고르게 보내지 않고 가끔 몰아서 보낸다 — 받은 움직임을 바로 쓰지 않고
+    4ms마다 남은 양의 일부씩 흘려보내서(지수 감쇠, 약 10~20ms 지연) 커서·스크롤이 툭툭 튀지 않게 한다."""
+    TICK = 0.004
+    RATE = 0.3
+
+    def __init__(self):
+        self.mx = self.my = 0.0   # 아직 안 보낸 이동량
+        self.sx = self.sy = 0.0   # 아직 안 보낸 스크롤량
+        self.rx = self.ry = 0.0   # 스크롤은 정수(픽셀)로만 보낼 수 있어 남은 소수점
+        self.lock = threading.Lock()
+        self.wake = threading.Event()
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def move(self, dx, dy):
+        with self.lock:
+            self.mx += dx
+            self.my += dy
+            self.wake.set()
+
+    def scroll(self, dx, dy):
+        with self.lock:
+            self.sx += dx
+            self.sy += dy
+            self.wake.set()
+
+    def flush(self):
+        """클릭 직전에 — 밀린 움직임을 다 보내서 클릭이 커서가 도착할 자리에서 일어나게"""
+        with self.lock:
+            dx, dy, self.mx, self.my = self.mx, self.my, 0.0, 0.0
+        if dx or dy:
+            INPUT.move(dx, dy)
+
+    @staticmethod
+    def _part(v, small):
+        return v if abs(v) < small else v * Glide.RATE
+
+    def _run(self):
+        while True:
+            self.wake.wait()
+            with self.lock:
+                if abs(self.mx) + abs(self.my) < 0.01 and abs(self.sx) + abs(self.sy) < 0.05:
+                    self.wake.clear()
+                    continue
+                tx, ty = self._part(self.mx, 0.6), self._part(self.my, 0.6)
+                self.mx -= tx
+                self.my -= ty
+                ux, uy = self._part(self.sx, 1.5), self._part(self.sy, 1.5)
+                self.sx -= ux
+                self.sy -= uy
+                self.rx += ux
+                self.ry += uy
+                ix, iy = int(self.rx), int(self.ry)
+                self.rx -= ix
+                self.ry -= iy
+            try:
+                if tx or ty:
+                    INPUT.move(tx, ty)
+                if ix or iy:
+                    INPUT.scroll(ix, iy)
+            except Exception:
+                stats["err"] = traceback.format_exc(limit=3)[-600:]
+            time.sleep(self.TICK)
+
+
 # ───────────────────────── 잠자기 방지 ─────────────────────────
 # 아이폰이 연결돼 있는 동안만 caffeinate로 맥이 잠들지 않게(잠들면 와이파이가 끊겨 다시 깨울 수 없음)
 
@@ -444,13 +516,21 @@ def num(v, lim=4000.0):
 stats = {"msgs": 0, "at": 0, "err": ""}  # 맥 화면에 보여줄 진단 정보 — 아이폰 입력이 맥까지 오는지, 오다가 어디서 실패하는지
 
 
+GLIDE = None  # 서버가 뜰 때 만든다(아래 main)
+
+
 def handle_msg(m):
     stats["msgs"] += 1
     stats["at"] = int(time.time() * 1000)
     t = m.get("t")
     if t == "m":
-        INPUT.move(num(m.get("x")), num(m.get("y")))
-    elif t == "b":
+        GLIDE.move(num(m.get("x")), num(m.get("y")))
+        return
+    if t == "s":
+        GLIDE.scroll(num(m.get("x"), 2000), num(m.get("y"), 2000))
+        return
+    GLIDE.flush()
+    if t == "b":
         b = m.get("b")
         if b in ("l", "r"):
             n = m.get("n")
@@ -459,8 +539,6 @@ def handle_msg(m):
         b = m.get("b") if m.get("b") in ("l", "r") else "l"
         INPUT.button(b, True)
         INPUT.button(b, False)
-    elif t == "s":
-        INPUT.scroll(num(m.get("x"), 2000), num(m.get("y"), 2000))
     elif t == "k":
         name = m.get("c")
         mods = [x for x in (m.get("m") or []) if x in FLAGS]
@@ -763,7 +841,7 @@ def self_test():
 
 
 def main():
-    global PORT
+    global PORT, GLIDE
     if "--test" in sys.argv:
         return self_test()
     open_page = "--no-open" not in sys.argv
@@ -797,6 +875,7 @@ def main():
         cfg["port"] = PORT  # 번호가 바뀌면 아이폰 주소도 바뀌므로 다음부터 같은 번호를 쓴다
         save_config(cfg)
     state["server"] = srv
+    GLIDE = Glide()
     if IS_MAC and not INPUT.access():
         INPUT.request_access()  # 시스템이 "손쉬운 사용" 허용을 물어본다
     print("VINFILM 리모트: %s" % info()["url"].split("?")[0], flush=True)
