@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VINFILM 리모트</title>
+<link rel="icon" href="/icon-180.png">
+<style>
+:root{
+  --bg:#101216; --surface:#171a20; --raise:#1f232b; --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.16);
+  --text:#eef1f6; --dim:#a3acbb; --faint:#6f7787; --accent:#7aa7ff; --ok:#4ade80; --warn:#fbbf24; --bad:#f87171;
+  --font:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretendard','Noto Sans KR',sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font)}
+body{padding:22px 22px 28px;max-width:520px;margin:0 auto}
+button{font:inherit;color:inherit;cursor:pointer}
+.head{display:flex;align-items:center;gap:12px}
+.head img{width:44px;height:44px;border-radius:11px}
+.head h1{font-size:18px;margin:0}
+.head p{margin:2px 0 0;font-size:13.5px;color:var(--dim);display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(74,222,128,.18)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px;margin-top:16px}
+.qr{display:grid;place-items:center;background:#fff;border-radius:14px;padding:14px;width:min(100%,260px);margin:0 auto;aspect-ratio:1}
+.qr svg{width:100%;height:100%}
+.qr-cap{text-align:center;font-size:14.5px;margin:14px 0 4px;font-weight:600}
+.url{font-size:12.5px;color:var(--dim);text-align:center;overflow-wrap:anywhere;user-select:all}
+.alt{display:block;margin:10px auto 0;background:none;border:0;color:var(--accent);font-size:13px}
+ol{margin:0;padding-left:20px;font-size:14px;line-height:1.75;color:var(--dim)}
+ol b{color:var(--text);font-weight:600}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:14.5px}
+.row + .row{margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.row small{display:block;color:var(--dim);font-size:12.5px;margin-top:2px}
+.badge{font-size:12.5px;font-weight:600;padding:4px 9px;border-radius:99px;white-space:nowrap}
+.badge.ok{color:var(--ok);background:rgba(74,222,128,.12)}
+.badge.warn{color:var(--warn);background:rgba(251,191,36,.12)}
+.btn{height:36px;padding:0 14px;border-radius:10px;border:1px solid var(--border-strong);background:var(--raise);font-size:13.5px;white-space:nowrap}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#0b1020;font-weight:600}
+.btn.danger{color:var(--bad)}
+.foot{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.err{color:var(--bad);font-size:13px;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="head">
+  <img src="/icon-180.png" alt="">
+  <div>
+    <h1>VINFILM 리모트</h1>
+    <p><span class="dot"></span><span id="state">켜져 있어요</span></p>
+  </div>
+</div>
+
+<div class="card">
+  <div class="qr" id="qr"></div>
+  <div class="qr-cap">아이폰 카메라로 찍으면 바로 열려요</div>
+  <div class="url" id="url"></div>
+  <button class="alt" id="alt">QR로 안 열리면 → IP 주소로 보기</button>
+</div>
+
+<div class="card">
+  <ol>
+    <li>아이폰이 이 맥과 <b>같은 와이파이</b>에 있어야 해요.</li>
+    <li>열린 화면에서 Safari <b>공유 → 홈 화면에 추가</b>하면 다음부터 앱처럼 바로 열려요.</li>
+    <li>맥에서 이 리모트(앱)가 켜져 있을 때만 동작해요. 이 창은 닫아도 계속 켜져 있어요.</li>
+  </ol>
+</div>
+
+<div class="card">
+  <div class="row">
+    <div>손쉬운 사용 권한<small>있어야 마우스·키보드를 움직일 수 있어요</small></div>
+    <div id="access"></div>
+  </div>
+  <div class="row">
+    <div>연결된 기기<small id="clients">없음</small></div>
+  </div>
+  <div class="err" id="err" hidden></div>
+</div>
+
+<div class="foot">
+  <button class="btn" id="newTok">연결 코드 새로 만들기</button>
+  <button class="btn danger" id="quit">리모트 끄기</button>
+</div>
+
+<script src="/qrcode.js"></script>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+let info = null, useIp = false, shownUrl = '';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+
+function drawQr(url){
+  if (url === shownUrl) return;
+  shownUrl = url;
+  $('#url').textContent = url;
+  try {
+    const q = qrcode(0, 'M'); q.addData(url); q.make();
+    $('#qr').innerHTML = q.createSvgTag({ cellSize:4, margin:0, scalable:true });
+  } catch(e){ $('#qr').textContent = 'QR을 만들지 못했어요 — 아래 주소를 아이폰 Safari에 직접 입력하세요'; }
+}
+function ago(ms){ const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? '방금' : m + '분 전'; }
+function paint(){
+  if (!info) return;
+  drawQr(useIp ? info.ipUrl : info.url);
+  $('#alt').textContent = useIp ? '맥 이름 주소로 보기(추천)' : 'QR로 안 열리면 → IP 주소로 보기';
+  $('#access').innerHTML = info.access
+    ? '<span class="badge ok">허용됨</span>'
+    : '<button class="btn primary" id="grant">권한 켜기</button>';
+  $('#clients').innerHTML = info.clients.length
+    ? info.clients.map(c => esc(c.name) + ' · ' + ago(c.since) + ' 연결').join('<br>')
+    : '없음';
+  $('#state').textContent = info.clients.length ? info.clients.length + '대 연결됨' : '켜져 있어요 · 연결 기다리는 중';
+  const err = info.error || (info.isMac ? '' : '맥이 아니라서 실제 입력 대신 시험 모드로 돌고 있어요.');
+  $('#err').hidden = !err; $('#err').textContent = err;
+}
+async function load(){
+  try { const r = await fetch('/api/status', { cache:'no-store' }); info = await r.json(); paint(); }
+  catch(e){ $('#state').textContent = '꺼져 있어요'; document.querySelector('.dot').style.background = 'var(--faint)'; }
+}
+async function post(path){ const r = await fetch(path, { method:'POST' }); try { info = await r.json(); paint(); } catch(e){} }
+
+document.addEventListener('click', e => {
+  if (e.target.id === 'grant') post('/api/request-access');
+});
+$('#alt').addEventListener('click', () => { useIp = !useIp; paint(); });
+$('#newTok').addEventListener('click', () => {
+  if (confirm('연결 코드를 새로 만들까요?\n지금까지 연결한 아이폰은 QR을 다시 찍어야 해요. (홈 화면 앱도 다시 추가)')) post('/api/new-token');
+});
+$('#quit').addEventListener('click', async () => {
+  if (!confirm('리모트를 끌까요? 아이폰에서 더 이상 조종할 수 없어요.')) return;
+  try { await fetch('/api/quit', { method:'POST' }); } catch(e){}
+  document.body.innerHTML = '<div class="card" style="text-align:center;color:var(--dim)">리모트를 껐어요. 다시 쓰려면 <b style="color:var(--text)">VINFILM 리모트</b> 앱을 실행하세요.<br><br>이 창은 닫아도 돼요.</div>';
+  clearInterval(timer);
+});
+load();
+const timer = setInterval(load, 2000);
+</script>
+</body>
+</html>
