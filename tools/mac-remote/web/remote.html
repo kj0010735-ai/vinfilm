@@ -60,27 +60,26 @@ svg{display:block}
   background:var(--accent-soft);padding:4px 10px;border-radius:99px;opacity:0;transition:opacity .15s;pointer-events:none}
 .pad.drag .pad-tag{opacity:1}
 
-/* 마우스 버튼 */
-.btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;height:58px;flex:none}
-.mbtn{border-radius:16px;background:var(--surface);border:1px solid var(--border);font-size:14px;color:var(--dim);touch-action:none}
-.mbtn.on{background:var(--raise);border-color:var(--border-strong);color:var(--text)}
-
 /* 키보드 보조 줄 */
 .kbbar{display:none;gap:6px;overflow-x:auto;scrollbar-width:none;flex:none;padding-bottom:2px}
 .kbbar::-webkit-scrollbar{display:none}
 body.kb .kbbar{display:flex}
-body.kb .btns,body.kb .tools{display:none}
+body.kb .tools{display:none}
 .kk{flex:none;min-width:44px;height:42px;padding:0 10px;border-radius:11px;background:var(--surface);border:1px solid var(--border);font-size:15px;color:var(--text)}
 .kk.mod.on{background:var(--accent);border-color:var(--accent);color:#0b1020}
 .kk.done{color:var(--accent);font-weight:600}
 .kk:active{background:var(--raise)}
 
 /* 아래 도구 */
-.tools{display:grid;grid-template-columns:1.35fr 1.35fr 1fr 1fr 1fr;gap:8px;flex:none}
-.tool{height:52px;border-radius:15px;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;gap:7px;
+/* 키보드는 엄지가 바로 닿는 왼쪽 아래에 크게(가장 자주 쓰는 버튼) */
+.tools{display:grid;grid-template-columns:2.4fr 1fr 1fr 1fr 1fr;gap:8px;flex:none}
+.tool{height:60px;border-radius:15px;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;gap:7px;
   font-size:14px;color:var(--text)}
 .tool svg{color:var(--dim)}
-.tool:active,.mbtn:active{background:var(--raise)}
+.tool:active{background:var(--raise)}
+.tool.primary{background:var(--accent);border-color:var(--accent);color:#0b1020;font-size:16px;font-weight:700}
+.tool.primary svg{color:#0b1020}
+.tool.primary:active{filter:brightness(.92);background:var(--accent)}
 
 /* 시트 */
 .sheet-wrap{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.5);display:none;align-items:flex-end;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
@@ -152,11 +151,6 @@ document.addEventListener('gesturechange', e => e.preventDefault());
     <div class="pad-hint"><b>한 손가락</b> 이동 · <b>탭</b> 클릭 · <b>두 번 탭</b> 더블클릭<br><b>두 손가락</b> 스크롤 · <b>두 손가락 탭</b> 오른쪽 클릭<br><b>탭하고 바로 끌기</b> 드래그</div>
   </div>
 
-  <div class="btns">
-    <button class="mbtn" data-btn="l">왼쪽 클릭</button>
-    <button class="mbtn" data-btn="r">오른쪽 클릭</button>
-  </div>
-
   <div class="kbbar" id="kbBar">
     <button class="kk mod" data-mod="cmd">⌘</button>
     <button class="kk mod" data-mod="alt">⌥</button>
@@ -173,11 +167,11 @@ document.addEventListener('gesturechange', e => e.preventDefault());
   </div>
 
   <nav class="tools">
-    <button class="tool" id="kbBtn">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>키보드
+    <button class="tool primary" id="kbBtn">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>키보드
     </button>
-    <button class="tool" id="keysBtn">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3z"/></svg>단축키
+    <button class="tool" id="keysBtn" aria-label="단축키">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3z"/></svg>
     </button>
     <button class="tool" data-media="voldown" aria-label="볼륨 낮추기">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5"/></svg>
@@ -412,14 +406,6 @@ function padEnd(e){
 pad.addEventListener('touchend', padEnd, { passive:false });
 pad.addEventListener('touchcancel', padEnd, { passive:false });
 
-// 마우스 버튼 — 누르고 있는 동안 눌린 상태(엄지로 누른 채 다른 손가락으로 끌기 가능)
-$$('[data-btn]').forEach(b => {
-  const id = b.dataset.btn; let held = false;
-  const up = () => { if (!held) return; held = false; b.classList.remove('on'); flush(); send({ t:'b', b:id, d:0 }); };
-  b.addEventListener('pointerdown', e => { e.preventDefault(); keepAwake(); if (held) return; held = true; b.classList.add('on'); send({ t:'b', b:id, d:1 }); });
-  b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('lostpointercapture', up);
-  b.addEventListener('contextmenu', e => e.preventDefault());
-});
 
 // ── 키보드: 숨긴 입력칸의 값이 바뀔 때마다 이전 값과 비교해 지운 만큼 ⌫, 새로 생긴 글자를 보낸다
 // (한글 조합 'ㄱ→가→각'도 '⌫ 후 새 글자'로 그대로 따라감) — 맨 앞의 보이지 않는 글자는 빈칸에서 ⌫를 알아채기 위한 것
