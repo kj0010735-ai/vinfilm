@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<script>try{document.documentElement.setAttribute('data-theme', localStorage.getItem('vinfilm-works-theme')==='dark'?'dark':'light');}catch(e){}</script>
 <meta charset="UTF-8" />
+<!-- 창 제목줄 색(WORKS.app·설치 웹앱·모바일 브라우저 주소창) — 테마/스튜디오 탭에 맞춰 syncThemeColor()가 바꾼다 -->
+<meta name="theme-color" id="themeColorMeta" content="#f6f7f9">
+<script>try{var t=localStorage.getItem('vinfilm-works-theme')==='dark'?'dark':'light';document.documentElement.setAttribute('data-theme',t);document.getElementById('themeColorMeta').setAttribute('content',t==='dark'?'#101216':'#f6f7f9');}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <script>
 /* 앱처럼 쓰는 화면이라 손가락 확대(핀치 줌)를 막는다 — 아이폰 Safari는 viewport만으로는 안 막혀서 제스처 이벤트도 막음 */
@@ -630,6 +632,13 @@ function currentTheme() { return document.documentElement.getAttribute('data-the
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
   try { localStorage.setItem(LS_THEME, theme === 'light' ? 'light' : 'dark'); } catch (e) {}
+  syncThemeColor();
+}
+/* 창 맨 위 제목줄 색 = 화면 배경색(화이트 #f6f7f9 / 블랙 #101216 / 스튜디오 터미널 #06090b). 예전엔 manifest의 파란색이 보였음 */
+function syncThemeColor() {
+  const m = document.getElementById('themeColorMeta'); if (!m) return;
+  const c = S.activeTab === 'studio' && !GUEST_MODE && typeof STUDIO_TERMINAL !== 'undefined' && STUDIO_TERMINAL ? '#06090b' : currentTheme() === 'dark' ? '#101216' : '#f6f7f9';
+  if (m.getAttribute('content') !== c) m.setAttribute('content', c);
 }
 function settingsModalHtml() {
   if (!S.settingsOpen) return '';
@@ -4732,6 +4741,7 @@ function render() {
   if (S.song.full && !(S.activeTab === 'songs' && S.song.playId)) songSetFull(false);
   document.body.classList.toggle('song-full', !!S.song.full);
   document.body.classList.toggle('st-term-on', S.activeTab === 'studio' && !GUEST_MODE && STUDIO_TERMINAL);
+  syncThemeColor();
   const main = document.querySelector('.app-main');
   if (main && window.__lastTab !== S.activeTab) { main.classList.add('tab-enter'); window.__lastTab = S.activeTab; }
   const af = document.querySelector('[autofocus]');
