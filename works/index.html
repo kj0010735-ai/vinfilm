@@ -4408,6 +4408,9 @@ const STUDIO_STAFF = [
 const STUDIO_W = 480, STUDIO_H = 330;
 const STUDIO_STATE_LABEL = { work: '일하는 중', wait: '결재 대기', off: '쉬는 중' };
 const STUDIO_STATE_ICON = { work: '⌨️', wait: '📮', off: '💤' };
+/* 터미널(블레이드러너 신분증·CRT) 디자인 — 2026-10-14 시험 적용(시안 팀/스튜디오탭_시안_터미널.html). 별로면 false로 바꾸면 예전 모양으로 돌아간다.
+   스타일은 전부 .st-term 아래에만 걸려 있어서 다른 탭·화이트 테마에는 영향 없음(스튜디오 탭은 테마와 상관없이 다크 고정). */
+const STUDIO_TERMINAL = true;
 function studioStaffById(id) { return STUDIO_STAFF.find(s => s.id === id) || null; }
 const STUDIO_AUTO_OFF = ['dev', 'mac']; // 다리가 자동 실행하지 않는 직원(설계 5절) — 지시는 쌓아만 둔다
 const STUDIO_TASK_LABEL = { queued: '대기', running: '진행 중', done: '완료', failed: '실패', canceled: '취소' };
@@ -4530,8 +4533,9 @@ function renderStudioTab() {
         ${S.studio.taskMsg ? `<p class="st-warn">${esc(S.studio.taskMsg)}</p>` : ''}</div>
       <h4 class="st-sub">지시 목록</h4>${taskRows}`;
   }
-  return `<div class="eq-wrap st-wrap">
-    <div class="eq-header"><div class="eq-title-block"><h1 class="eq-title">스튜디오</h1><div class="eq-stat">결재 대기 <b>${waiting.length}</b>건</div></div></div>
+  return `<div class="eq-wrap st-wrap${STUDIO_TERMINAL ? ' st-term' : ''}">
+    ${STUDIO_TERMINAL ? `<div class="st-sigbar"><b>VINFILM 스튜디오</b><span>${br.on ? 'SIGNAL OK' : 'NO SIGNAL'} <span class="st-batt${br.on ? '' : ' off'}"><i></i><i></i><i></i><i></i></span></span></div>` : ''}
+    <div class="eq-header"><div class="eq-title-block"><h1 class="eq-title">${STUDIO_TERMINAL ? 'STUDIO // 스튜디오' : '스튜디오'}</h1><div class="eq-stat">결재 대기 <b>${waiting.length}</b>건</div></div></div>
     <div class="st-main">
       <div class="st-left">
         <div class="st-hud top"><span>💾 ${studioWeekLabel()}</span><span class="st-link ${br.on ? 'on' : ''}" title="${br.hb ? '마지막 신호 ' + esc(studioWhen(br.hb)) : '다리가 아직 연결된 적 없어요'}">${br.on ? '🟢 Mac 연결됨' : '🔌 Mac 꺼짐'} · 오늘 <b>${br.count}/${cfg.dailyLimit}</b></span><span>이번 달 매출 <b>${studioMoney(studioLedger.rev)}</b></span></div>
@@ -4727,6 +4731,7 @@ function render() {
   syncSongDock();
   if (S.song.full && !(S.activeTab === 'songs' && S.song.playId)) songSetFull(false);
   document.body.classList.toggle('song-full', !!S.song.full);
+  document.body.classList.toggle('st-term-on', S.activeTab === 'studio' && !GUEST_MODE && STUDIO_TERMINAL);
   const main = document.querySelector('.app-main');
   if (main && window.__lastTab !== S.activeTab) { main.classList.add('tab-enter'); window.__lastTab = S.activeTab; }
   const af = document.querySelector('[autofocus]');
@@ -6979,6 +6984,68 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-cfg input[type=number], .st-cfg input[type=time] { font:inherit; width:90px; border:1px solid var(--border); border-radius:8px; padding:5px 8px; background:var(--surface-hover); color:var(--text); }
   .st-cfg button { justify-self:start; }
   @media (prefers-reduced-motion: reduce) { .st-pop { display:none; } .st-dot.work { animation:none; } .st-bubble { transition:none; } }
+
+  /* ===== 🏢 스튜디오 · 터미널(블레이드러너 신분증 · CRT) 레이어 — STUDIO_TERMINAL이 켜졌을 때만(.st-term). 의도적으로 다크 고정 ===== */
+  @font-face { font-family:'Galmuri11'; src:url('assets/fonts/Galmuri11.woff2') format('woff2'); font-weight:400; font-display:swap; }
+  @font-face { font-family:'Galmuri11'; src:url('assets/fonts/Galmuri11-Bold.woff2') format('woff2'); font-weight:700; font-display:swap; }
+  body.st-term-on, body.st-term-on .app-main { background:#06090b; }
+  .st-term { --t-bg:#06090b; --t-panel:#0b1316; --t-line:#5e98a1; --t-dim:#3f6a71; --t-text:#8cc6ce; --t-hi:#c9f1f5; --t-warn:#e7b65a; --t-ok:#7fd6a0; --t-bad:#d96a6a;
+    position:relative; color:var(--t-text); font-family:'Galmuri11', ui-monospace, monospace; letter-spacing:.02em; color-scheme:dark;
+    background:var(--t-panel); border:1px solid var(--t-line); box-shadow:0 0 0 4px #020405, 0 0 30px rgba(94,152,161,.12); padding:0 0 12px; }
+  .st-term::after { content:""; position:absolute; inset:0; pointer-events:none; z-index:20; background:repeating-linear-gradient(to bottom, rgba(255,255,255,.035) 0 1px, transparent 1px 3px); mix-blend-mode:screen; }
+  .st-term *, .st-term input, .st-term textarea, .st-term button { font-family:inherit; border-radius:0 !important; }
+  .st-sigbar { display:flex; justify-content:space-between; align-items:center; text-transform:uppercase; font-size:12px; color:var(--t-dim); border-bottom:1px solid var(--t-line); padding:6px 12px; }
+  .st-sigbar b { color:var(--t-hi); font-size:14px; }
+  .st-batt { display:inline-flex; gap:2px; border:1px solid var(--t-line); padding:2px; margin-left:8px; vertical-align:middle; }
+  .st-batt i { width:5px; height:8px; background:var(--t-line); } .st-batt.off i { background:transparent; } .st-batt.off i:first-child { background:var(--t-bad); }
+  .st-term .eq-header { padding:10px 12px; border-bottom:1px solid var(--t-line); margin:0; }
+  .st-term .eq-title { font-family:inherit; font-weight:700; font-size:21px; color:var(--t-hi); text-transform:uppercase; text-shadow:0 0 6px rgba(140,198,206,.35); letter-spacing:.02em; }
+  .st-term .eq-stat { color:var(--t-dim); text-transform:uppercase; } .st-term .eq-stat b { color:var(--t-hi); }
+  .st-term .st-main, .st-term .st-bottom { gap:0; margin:0; border-bottom:1px solid var(--t-line); }
+  .st-term .st-main > * + *, .st-term .st-bottom > * + * { border-left:1px solid var(--t-line); }
+  @media (max-width: 960px) { .st-term .st-main > * + *, .st-term .st-bottom > * + * { border-left:0; border-top:1px solid var(--t-line); } }
+  .st-term .st-left { padding:12px; }
+  .st-term .st-hud { background:var(--t-bg); color:var(--t-text); border:1px solid var(--t-line); text-transform:uppercase; font-size:12px; }
+  .st-term .st-hud.top { border-bottom:0; } .st-term .st-hud.bot { border-top:0; }
+  .st-term .st-hud b { color:var(--t-hi); } .st-term .st-link.on b { color:var(--t-ok); }
+  .st-term .st-hud button { background:transparent; color:var(--t-hi); border:1px solid var(--t-line); font-weight:400; }
+  .st-term .st-room { border:1px solid var(--t-line); background:#081114; }
+  .st-term .st-room canvas { filter:grayscale(1) sepia(1) hue-rotate(145deg) saturate(1.4) brightness(.58) contrast(1.25); }
+  .st-term .st-room::after { content:""; position:absolute; inset:0; pointer-events:none; z-index:2; background:repeating-linear-gradient(to bottom, rgba(0,0,0,.28) 0 1px, transparent 1px 3px), radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.45)); }
+  .st-term .st-bubble { background:var(--t-bg); color:var(--t-hi); border:1px solid var(--t-line); box-shadow:0 0 8px rgba(94,152,161,.3); font-weight:400; }
+  .st-term .st-bubble.wait { color:var(--t-warn); } .st-term .st-bubble.off { color:var(--t-text); }
+  .st-term .st-bubble::after { border-top-color:var(--t-line); } .st-term .st-bubble b { color:var(--t-dim); }
+  .st-term .st-plate { background:var(--t-bg); color:var(--t-hi); border:1px solid var(--t-line); box-shadow:none; font-weight:400; z-index:3; }
+  .st-term .st-badge { z-index:3; }
+  .st-term .st-pop { color:var(--t-ok); text-shadow:0 0 6px rgba(127,214,160,.6); } .st-term .st-pop.money { color:var(--t-warn); }
+  .st-term .st-offline { background:transparent; border:1px dashed var(--t-warn); color:var(--t-warn); }
+  .st-term .st-roster { gap:0; border:1px solid var(--t-line); border-right:0; border-bottom:0; }
+  .st-term .st-roster button { background:transparent; color:var(--t-text); border:0; border-right:1px solid var(--t-dim); border-bottom:1px solid var(--t-dim); }
+  .st-term .st-roster button.on { background:rgba(94,152,161,.18); color:var(--t-hi); }
+  .st-term .st-dot.work { background:var(--t-ok); box-shadow:0 0 6px var(--t-ok); animation:none; } .st-term .st-dot.wait { background:var(--t-warn); } .st-term .st-dot.off { border-color:var(--t-dim); }
+  .st-term .st-roster small, .st-term .st-legend, .st-term .st-who, .st-term .st-empty { color:var(--t-dim); }
+  .st-term .st-panel, .st-term .st-box { border:0; background:transparent; box-shadow:none; }
+  .st-term .st-tabs { background:transparent; border-bottom:1px solid var(--t-line); padding:0; gap:0; }
+  .st-term .st-tabs button { background:transparent; color:var(--t-dim); border-right:1px solid var(--t-line); text-transform:uppercase; font-weight:400; }
+  .st-term .st-tabs button[aria-selected="true"] { color:var(--t-bg); background:var(--t-line); }
+  .st-term .st-ceo, .st-term .st-card, .st-term .st-mvp, .st-term .st-staff canvas, .st-term .st-tasks li { background:var(--t-bg); border:1px solid var(--t-dim); }
+  .st-term .st-ceo canvas, .st-term .st-staff canvas { filter:grayscale(1) sepia(1) hue-rotate(145deg) saturate(1.6); }
+  .st-term .st-card h3, .st-term .st-ceo b, .st-term .st-box h2, .st-term .st-sub, .st-term .st-order label { color:var(--t-hi); font-weight:700; }
+  .st-term .st-box h2 { text-transform:uppercase; font-size:14px; border-bottom:1px dashed var(--t-dim); padding-bottom:6px; }
+  .st-term .st-card p, .st-term .st-ceo p, .st-term .st-staff dt, .st-term .st-tasks small, .st-term .st-follow, .st-term .st-order-row small { color:var(--t-dim); }
+  .st-term .st-staff dd, .st-term .st-tasks p, .st-term .st-log, .st-term .st-cfg { color:var(--t-text); }
+  .st-term .st-pill { background:transparent; border:1px solid var(--t-warn); color:var(--t-warn); }
+  .st-term .st-pill.ok { border-color:var(--t-ok); color:var(--t-ok); } .st-term .st-pill.bad { border-color:var(--t-bad); color:var(--t-bad); }
+  .st-term .st-acts button, .st-term .st-acts input, .st-term .st-order textarea, .st-term .st-cfg input, .st-term .st-tasks li > button { background:transparent; color:var(--t-text); border:1px solid var(--t-dim); }
+  .st-term .st-acts button.yes { border-color:var(--t-ok); color:var(--t-ok); } .st-term .st-acts button.no, .st-term .st-tasks li > button { border-color:var(--t-bad); color:var(--t-bad); }
+  .st-term .st-order-row button, .st-term .st-cfg button, .st-term .st-sheet > button { background:transparent; color:var(--t-hi); border:1px solid var(--t-line); font-weight:400; }
+  .st-term .st-tstat { background:transparent; border:1px solid var(--t-dim); color:var(--t-dim); }
+  .st-term .st-tstat.running { border-color:var(--t-ok); color:var(--t-ok); } .st-term .st-tstat.done { color:var(--t-hi); } .st-term .st-tstat.failed { border-color:var(--t-bad); color:var(--t-bad); }
+  .st-term .st-warn { color:var(--t-bad); }
+  .st-term .st-log time { color:var(--t-hi); }
+  .st-term .att-chip { background:transparent; color:var(--t-hi); border:1px solid var(--t-line); }
+  .st-term .st-sheet { background:var(--t-panel); color:var(--t-text); border:1px solid var(--t-line); }
+  .st-term .st-sheet td { border-bottom:1px dashed var(--t-dim); } .st-term .st-sheet td.plus { color:var(--t-ok); } .st-term .st-sheet td.minus { color:var(--t-bad); } .st-term .st-sheet h3 { color:var(--t-hi); }
 
   /* ===== 노래연습 ===== */
   .song-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:14px; margin-top:14px; }
