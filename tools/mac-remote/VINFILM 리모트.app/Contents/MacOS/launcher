@@ -1,6 +1,6 @@
 #!/bin/bash
 RES="$(cd "$(dirname "$0")/../Resources" && pwd)"
 for PY in /usr/bin/python3 /opt/homebrew/bin/python3 /usr/local/bin/python3; do
-  [ -x "$PY" ] && exec "$PY" "$RES/remote_server.py"
+  if [ -x "$PY" ]; then "$PY" "$RES/remote_server.py"; exit $?; fi
 done
 osascript -e 'display dialog "python3를 찾을 수 없어요. 터미널에서 xcode-select --install 을 실행해 설치해 주세요." buttons {"확인"}'

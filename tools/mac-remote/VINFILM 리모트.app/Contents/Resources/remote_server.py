@@ -20,13 +20,14 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
 IS_MAC = sys.platform == "darwin"
-PORT = int(os.environ.get("VF_REMOTE_PORT", "8765"))
+DEFAULT_PORT = 8765  # 다른 프로그램(Anki 등)이 쓰고 있으면 8766, 8767… 중 빈 번호를 찾아 config에 기억한다
 HERE = Path(__file__).resolve().parent
 WEB = HERE / "web"
 SUPPORT = (Path.home() / "Library" / "Application Support" / "VINFILM Remote") if IS_MAC else (Path.home() / ".vinfilm-remote")
@@ -48,6 +49,10 @@ def load_config():
 
 def new_token(cfg):
     cfg["token"] = secrets.token_urlsafe(12)
+    return save_config(cfg)
+
+
+def save_config(cfg):
     SUPPORT.mkdir(parents=True, exist_ok=True)
     CONFIG.write_text(json.dumps(cfg))
     try:
@@ -58,6 +63,7 @@ def new_token(cfg):
 
 
 cfg = load_config()
+PORT = int(os.environ.get("VF_REMOTE_PORT") or cfg.get("port") or DEFAULT_PORT)
 
 
 # ───────────────────────── 맥 정보 ─────────────────────────
@@ -435,7 +441,12 @@ def num(v, lim=4000.0):
     return max(-lim, min(lim, f))
 
 
+stats = {"msgs": 0, "at": 0, "err": ""}  # 맥 화면에 보여줄 진단 정보 — 아이폰 입력이 맥까지 오는지, 오다가 어디서 실패하는지
+
+
 def handle_msg(m):
+    stats["msgs"] += 1
+    stats["at"] = int(time.time() * 1000)
     t = m.get("t")
     if t == "m":
         INPUT.move(num(m.get("x")), num(m.get("y")))
@@ -523,6 +534,11 @@ def info():
         "clients": cl,
         "access": INPUT.access(),
         "error": INPUT_ERROR,
+        "input": type(INPUT).__name__,
+        "msgs": stats["msgs"],
+        "msgAt": stats["at"],
+        "msgErr": stats["err"],
+        "python": sys.executable,
         "isMac": IS_MAC,
     }
 
@@ -595,6 +611,17 @@ class Handler(BaseHTTPRequestHandler):
             if IS_MAC:
                 subprocess.Popen(["open", "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"])
             return self._send(200, json.dumps(info()), "application/json")
+        if path == "/api/test-move":  # 아이폰 없이 이 맥에서 마우스가 움직이는지 — 네모를 한 바퀴 그린다
+            try:
+                for dx, dy in ((80, 0), (0, 80), (-80, 0), (0, -80)):
+                    for _ in range(10):
+                        INPUT.move(dx / 10, dy / 10)
+                        time.sleep(0.015)
+                if stats["err"].startswith("시험"):
+                    stats["err"] = ""
+            except Exception:
+                stats["err"] = "시험 실패\n" + traceback.format_exc(limit=3)[-600:]
+            return self._send(200, json.dumps(info()), "application/json")
         if path == "/api/new-token":
             new_token(cfg)
             return self._send(200, json.dumps(info()), "application/json")
@@ -661,8 +688,9 @@ class Handler(BaseHTTPRequestHandler):
                     continue
                 try:
                     handle_msg(msg)
-                except Exception as e:
-                    print("처리 실패:", e, flush=True)
+                except Exception:
+                    stats["err"] = traceback.format_exc(limit=3)[-600:]
+                    print("처리 실패:", stats["err"], flush=True)
         except (OSError, ValueError):
             pass
         finally:
@@ -696,30 +724,78 @@ def open_mac_page():
     subprocess.Popen(["open", url])
 
 
-def already_running():
+def already_running(port):
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # 시스템 프록시를 타지 않게
     try:
-        with urllib.request.urlopen("http://127.0.0.1:%d/ping" % PORT, timeout=1.5) as r:
+        with opener.open("http://127.0.0.1:%d/ping" % port, timeout=1.5) as r:
             return r.read() == b"vinfilm-remote"
     except Exception:
         return False
 
 
+def port_busy(port):
+    try:
+        socket.create_connection(("127.0.0.1", port), timeout=0.5).close()
+        return True
+    except OSError:
+        return False
+
+
+def self_test():
+    """python3 remote_server.py --test — 터미널에서 원인을 한눈에 보는 자가진단"""
+    print("── VINFILM 리모트 자가진단 ──")
+    print("파이썬:", sys.executable, sys.version.split()[0])
+    print("macOS:", run_out(["sw_vers", "-productVersion"]) if IS_MAC else "(맥 아님)")
+    print("입력 방식:", type(INPUT).__name__, ("· 준비 실패: " + INPUT_ERROR) if INPUT_ERROR else "")
+    print("손쉬운 사용 권한:", "허용됨" if INPUT.access() else "없음 ← 이 프로그램(터미널/앱)에 권한이 없어요")
+    try:
+        if isinstance(INPUT, MacInput):
+            before = INPUT._pos()
+            INPUT.move(150, 0)
+            time.sleep(0.3)
+            after = INPUT._pos()
+            INPUT.move(-150, 0)
+            print("마우스 위치: %s → %s" % (tuple(round(v) for v in before), tuple(round(v) for v in after)))
+            print("결과:", "마우스가 움직였어요 ✓" if abs(after[0] - before[0]) > 50 else "마우스가 안 움직였어요 ✗ (권한이 막고 있을 가능성이 커요)")
+    except Exception:
+        traceback.print_exc()
+    print("이미 켜진 리모트:", "있음(포트 %d)" % PORT if already_running(PORT) else "없음")
+
+
 def main():
+    global PORT
+    if "--test" in sys.argv:
+        return self_test()
     open_page = "--no-open" not in sys.argv
-    if already_running():  # 이미 켜져 있으면 맥 화면만 다시 연다
-        if open_page:
-            open_mac_page()
-        return
     ThreadingHTTPServer.daemon_threads = True
     ThreadingHTTPServer.allow_reuse_address = True
-    try:
-        srv = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
-    except OSError as e:
-        msg = "포트 %d을(를) 다른 프로그램이 쓰고 있어요: %s" % (PORT, e)
+    # 기억해 둔 번호부터 시도 — 이미 이 리모트가 켜져 있으면 맥 화면만 다시 열고, 다른 프로그램이 쓰고 있으면 다음 번호로
+    candidates = [PORT] + [p for p in range(DEFAULT_PORT, DEFAULT_PORT + 20) if p != PORT]
+    srv, err = None, None
+    for port in candidates:
+        if already_running(port):
+            PORT = port
+            if open_page:
+                open_mac_page()
+            return
+        if port_busy(port):  # 다른 프로그램이 127.0.0.1에서만 듣고 있으면 bind가 성공해 버릴 수 있어 먼저 확인
+            continue
+        try:
+            srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
+        except OSError as e:
+            err = e
+            continue
+        PORT = port
+        break
+    if srv is None:
+        msg = "리모트를 켤 빈 포트를 찾지 못했어요: %s" % err
         print(msg, flush=True)
         if IS_MAC:
             subprocess.run(["osascript", "-e", 'display dialog "%s" buttons {"확인"}' % msg.replace('"', "'")])
         sys.exit(1)
+    if cfg.get("port") != PORT and not os.environ.get("VF_REMOTE_PORT"):
+        cfg["port"] = PORT  # 번호가 바뀌면 아이폰 주소도 바뀌므로 다음부터 같은 번호를 쓴다
+        save_config(cfg)
     state["server"] = srv
     if IS_MAC and not INPUT.access():
         INPUT.request_access()  # 시스템이 "손쉬운 사용" 허용을 물어본다

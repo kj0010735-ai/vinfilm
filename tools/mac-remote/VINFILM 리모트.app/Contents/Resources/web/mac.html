@@ -38,7 +38,7 @@ ol b{color:var(--text);font-weight:600}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:#0b1020;font-weight:600}
 .btn.danger{color:var(--bad)}
 .foot{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
-.err{color:var(--bad);font-size:13px;margin-top:10px}
+.err{color:var(--bad);font-size:12.5px;margin-top:10px;white-space:pre-wrap;overflow-wrap:anywhere;font-family:ui-monospace,Menlo,monospace}
 </style>
 </head>
 <body>
@@ -73,6 +73,10 @@ ol b{color:var(--text);font-weight:600}
   <div class="row">
     <div>연결된 기기<small id="clients">없음</small></div>
   </div>
+  <div class="row">
+    <div>아이폰에서 받은 입력<small id="msgs">아직 없음</small></div>
+    <button class="btn" id="testMove">마우스 시험</button>
+  </div>
   <div class="err" id="err" hidden></div>
 </div>
 
@@ -97,7 +101,7 @@ function drawQr(url){
     $('#qr').innerHTML = q.createSvgTag({ cellSize:4, margin:0, scalable:true });
   } catch(e){ $('#qr').textContent = 'QR을 만들지 못했어요 — 아래 주소를 아이폰 Safari에 직접 입력하세요'; }
 }
-function ago(ms){ const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? '방금' : m + '분 전'; }
+function ago(ms){ const sec = Math.round((Date.now() - ms) / 1000); return sec < 60 ? (sec < 3 ? '방금' : sec + '초 전') : Math.round(sec / 60) + '분 전'; }
 function paint(){
   if (!info) return;
   drawQr(useIp ? info.ipUrl : info.url);
@@ -109,7 +113,9 @@ function paint(){
     ? info.clients.map(c => esc(c.name) + ' · ' + ago(c.since) + ' 연결').join('<br>')
     : '없음';
   $('#state').textContent = info.clients.length ? info.clients.length + '대 연결됨' : '켜져 있어요 · 연결 기다리는 중';
-  const err = info.error || (info.isMac ? '' : '맥이 아니라서 실제 입력 대신 시험 모드로 돌고 있어요.');
+  $('#msgs').textContent = info.msgs ? info.msgs + '개 · 마지막 ' + ago(info.msgAt) : '아직 없음 — 아이폰 패드를 움직여 보세요';
+  const err = [info.error && ('입력 준비 실패: ' + info.error), info.msgErr,
+    info.isMac ? '' : '맥이 아니라서 실제 입력 대신 시험 모드로 돌고 있어요.'].filter(Boolean).join('\n');
   $('#err').hidden = !err; $('#err').textContent = err;
 }
 async function load(){
@@ -121,6 +127,7 @@ async function post(path){ const r = await fetch(path, { method:'POST' }); try {
 document.addEventListener('click', e => {
   if (e.target.id === 'grant') post('/api/request-access');
 });
+$('#testMove').addEventListener('click', () => post('/api/test-move'));
 $('#alt').addEventListener('click', () => { useIp = !useIp; paint(); });
 $('#newTok').addEventListener('click', () => {
   if (confirm('연결 코드를 새로 만들까요?\n지금까지 연결한 아이폰은 QR을 다시 찍어야 해요. (홈 화면 앱도 다시 추가)')) post('/api/new-token');
