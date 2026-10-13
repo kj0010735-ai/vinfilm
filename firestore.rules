@@ -104,5 +104,10 @@ service cloud.firestore {
     match /ledgerEntries/{id} { allow read, write: if isOwner(); }
     match /ledgerSubscriptions/{id} { allow read, write: if isOwner(); }
     match /ledgerSettings/{id} { allow read, write: if isOwner(); }
+
+    // WORKS 🏢 스튜디오 탭 — 직원(채팅방) 상태·결재함·일지. owner 전용(게스트·협업자는 못 읽음).
+    match /studioStaff/{id} { allow read, write: if isOwner(); }
+    match /studioApprovals/{id} { allow read, write: if isOwner(); }
+    match /studioLog/{id} { allow read, write: if isOwner(); }
   }
 }

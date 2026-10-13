@@ -260,6 +260,7 @@ const NAV_ITEMS = [
   { id: 'shared', icon: '🤝', label: '공유 프로젝트' },
   { id: 'notes', icon: '📝', label: '메모장' },
   { id: 'songs', icon: '🎤', label: '노래연습' },
+  { id: 'studio', icon: '🏢', label: '스튜디오' },
 ];
 const SHARED_STATUSES = [
   { id: 'todo', label: '준비중', color: '#e0a63c' },
@@ -322,6 +323,13 @@ let notes = GUEST_MODE ? [] : loadJSON(LS_NOTES, []);
 let songs = GUEST_MODE ? [] : loadJSON(LS_SONGS, []);
 let shortcuts = loadJSON(LS_SHORTCUTS, DEFAULT_SHORTCUTS);
 let sharedProjItems = loadJSON(LS_SHARED, []);
+/* 🏢 스튜디오 탭(owner 전용) — 직원(Claude 채팅방) 상태·결재함·일지. 게스트/협업자 화면에는 내려받지 않는다. */
+const LS_STUDIO_STAFF = 'eq-manager-studio-staff', LS_STUDIO_APPROVALS = 'eq-manager-studio-approvals', LS_STUDIO_LOG = 'eq-manager-studio-log';
+let studioStaff = GUEST_MODE ? [] : loadJSON(LS_STUDIO_STAFF, []);
+let studioApprovals = GUEST_MODE ? [] : loadJSON(LS_STUDIO_APPROVALS, []);
+let studioLog = GUEST_MODE ? [] : loadJSON(LS_STUDIO_LOG, []);
+function saveStudioApprovals(next) { const prev = studioApprovals; studioApprovals = next; try { localStorage.setItem(LS_STUDIO_APPROVALS, JSON.stringify(next)); } catch (e) {} pushToCloud('studioApprovals', prev, next); }
+function saveStudioLog(next) { const prev = studioLog; studioLog = next; try { localStorage.setItem(LS_STUDIO_LOG, JSON.stringify(next)); } catch (e) {} pushToCloud('studioLog', prev, next); }
 const LS_COLLABS = 'eq-manager-collabs';
 let collabs = GUEST_MODE ? [] : loadJSON(LS_COLLABS, []);
 function saveCollabs(next) { const prev = collabs; collabs = next; try { localStorage.setItem(LS_COLLABS, JSON.stringify(next)); } catch (e) {} pushToCloud('collabs', prev, next); }
@@ -346,6 +354,7 @@ const S = {
   song: { modalOpen: false, editingId: null, playId: null, search: '', msg: '', syncing: false, syncTimes: [], follow: true },
   shortcut: { modalOpen: false, editingId: null },
   quote: { view: 'quotes', draft: null, cdraft: null, bizOpen: false, bizSignCleared: false, msg: '' },
+  studio: { box: 'wait', sel: null, settle: false },
 };
 let currentEqPhoto = '';
 let currentEqPhotoError = '';
@@ -380,6 +389,9 @@ function getLocalArrayFor(name) {
     case 'contracts': return contracts;
     case 'collabs': return collabs;
     case 'notices': return notices;
+    case 'studioStaff': return studioStaff;
+    case 'studioApprovals': return studioApprovals;
+    case 'studioLog': return studioLog;
     default: return [];
   }
 }
@@ -400,6 +412,9 @@ function applyCloudUpdate(name, items) {
     case 'contracts': contracts = items; try { localStorage.setItem(LS_CONTRACTS, JSON.stringify(items)); } catch (e) {} break;
     case 'collabs': collabs = items; try { localStorage.setItem(LS_COLLABS, JSON.stringify(items)); } catch (e) {} break;
     case 'notices': notices = items; try { localStorage.setItem(LS_NOTICES, JSON.stringify(items)); } catch (e) {} break;
+    case 'studioStaff': studioStaff = items; try { localStorage.setItem(LS_STUDIO_STAFF, JSON.stringify(items)); } catch (e) {} break;
+    case 'studioApprovals': studioApprovals = items; try { localStorage.setItem(LS_STUDIO_APPROVALS, JSON.stringify(items)); } catch (e) {} break;
+    case 'studioLog': studioLog = items; try { localStorage.setItem(LS_STUDIO_LOG, JSON.stringify(items)); } catch (e) {} break;
   }
   render();
 }
@@ -414,7 +429,7 @@ async function pushToCloud(name, prevArr, nextArr) {
   } catch (e) { console.warn('cloud sync push failed for', name, e); }
 }
 
-const CLOUD_COLLECTIONS = ['equipment', 'categories', 'schedule', 'projects', 'shoots', 'presets', 'todayTasks', 'notes', 'songs', 'shortcuts', 'sharedProjects', 'quotes', 'contracts', 'collabs', 'notices'];
+const CLOUD_COLLECTIONS = ['equipment', 'categories', 'schedule', 'projects', 'shoots', 'presets', 'todayTasks', 'notes', 'songs', 'shortcuts', 'sharedProjects', 'quotes', 'contracts', 'collabs', 'notices', 'studioStaff', 'studioApprovals', 'studioLog'];
 /* 공유 링크(?guest=1)로 접속했을 때는 이 목록만 동기화한다 — 스케줄/메모장 등 내부 데이터는 외부 브라우저로 아예 내려받지 않는다. */
 const GUEST_CLOUD_COLLECTIONS = ['equipment', 'categories', 'sharedProjects'];
 const FIREBASE_CONFIG = {
@@ -1423,6 +1438,7 @@ function mobileMoreSheetHtml() {
       ${row('data-action="set-tab" data-id="shared"', MI.shared, '공유 프로젝트')}
       ${row('data-action="set-tab" data-id="notes"', MI.note, '메모장')}
       ${row('data-action="set-tab" data-id="songs"', MI.mic, '노래연습')}
+      ${row('data-action="set-tab" data-id="studio"', '<span style="font-size:17px;line-height:1">🏢</span>', '스튜디오')}
       <a class="m-sheet-row" href="../ledger/"><span class="m-sheet-ic">${MI.money}</span><span>수입·지출 관리</span><i>${MI.chev}</i></a>
       ${row('data-action="open-settings"', MI.gear, '설정')}
       ${row('data-action="logout"', MI.logout, '로그아웃', 'is-dim')}
@@ -4355,6 +4371,240 @@ function handleNotifAction(action, el, e) {
   return false;
 }
 
+/* ================= 🏢 스튜디오 탭 (owner 전용) =================
+   Claude 사이드바 'VINFILM' 그룹의 채팅방 8개를 '직원'으로 보여 주는 경영 게임풍 사무실. 대표님 = 사장.
+   시안: 팀/스튜디오탭_시안.html (비서실 전달, 대표님 확정). 픽셀 그림: Arlan_TR Free Office Pixel Art(자유 이용) → assets/office/.
+   데이터(1단계):
+   - HUD 매출·지출·이익 = ledgerEntries(owner만 읽기 가능)를 탭을 열 때 이번 달 것만 읽어 옴(1분 캐시). 쓰지 않음.
+   - 진행 중 프로젝트 = projItems(status 'doing'), 이번 주 마감 = projItems.dueDate + 캘린더 '마감' 일정(이번 주 월~일).
+   - studioStaff/{직원 id}: {id, state:'work'|'off', task, done, updatedAt} — 문서가 없으면 '쉬는 중'.
+   - studioApprovals/{id}: {id, from(직원 id), title, body, status:'wait'|'ok'|'no', memo, createdAt, decidedAt} — 직원이 올리고 대표님이 승인/반려.
+   - studioLog/{id}: {id, at, text} — 승인/반려 때 기록. 오늘 것만 '오늘의 스튜디오 일지'에 보임.
+   지금은 직원(채팅방)이 자동으로 쓰지 않는다 → 처음엔 다 비어 있음. 직원이 쓰는 통로는 2단계(비서실과 협의). */
+const STUDIO_STAFF = [
+  { id: 'sec', name: '비서실', short: '비서실', role: '실장 · 전체 조율', spr: 'boss', x: 0.500, y: 0.339, hair: '#3b2a1e', shirt: '#ff9a3c', acc: 'tie', detail: '대표님 요청을 받아 각 팀에 나눠 주고, 결과를 모아 보고해요.' },
+  { id: 'dev', name: '작업관리 앱 개발', short: '앱 개발', role: '개발팀 · WORKS', spr: 'Julia_PC', x: 0.188, y: 0.606, hair: '#1e1e1e', shirt: '#4f7cff', acc: 'glasses', detail: 'WORKS·수입지출·홈페이지 화면과 기능을 만들어요. 운영 데이터는 백업 후에만 바꿔요.' },
+  { id: 'biz', name: '사업기획팀', short: '사업기획', role: '운영·가격·서비스', spr: 'worker1', x: 0.812, y: 0.606, hair: '#6b3d22', shirt: '#7a5cff', acc: '', detail: '서비스 패키지, 가격표, 월 목표, 새 서비스를 검토해요.' },
+  { id: 'shoot', name: '촬영기획팀', short: '촬영기획', role: '콘티·일정·장비', spr: 'worker4', x: 0.344, y: 0.873, hair: '#2a2a2a', shirt: '#2fb3a3', acc: 'cap', detail: '촬영이 잡히면 기획안, 샷 리스트, 장비·준비물 목록을 만들어요.' },
+  { id: 'fin', name: '재무팀', short: '재무', role: '견적·세금·정산', spr: 'worker2', x: 0.656, y: 0.873, hair: '#4a2f1a', shirt: '#3aa76d', acc: 'glasses', detail: '견적 단가, 원천세·부가세, 월별 손익, 구독료를 챙겨요.' },
+  { id: 'design', name: '디자인팀', short: '디자인', role: '시안·아이콘·썸네일', spr: 'worker1', x: 0.188, y: 0.339, hair: '#c2623b', shirt: '#ff6fa3', acc: 'beret', detail: '썸네일, 포스터, 견적서, 앱 아이콘 시안을 만들어요.' },
+  { id: 'mac', name: 'Mac 환경정리', short: 'Mac 관리', role: '컴퓨터·파일·앱 관리', spr: 'worker4', x: 0.500, y: 0.606, hair: '#555b63', shirt: '#9aa7b1', acc: '', detail: 'Mac 폴더 정리, 앱 설치·삭제, 오디오·속도 점검, 스트림덱 버튼을 맡아요.' },
+  { id: 'mkt', name: '마케팅팀', short: '마케팅', role: '인스타·유튜브·문구', spr: 'worker2', x: 0.812, y: 0.339, hair: '#2d1d14', shirt: '#ffcc33', acc: '', detail: '인스타·유튜브 콘텐츠, 홍보 문구, 문의 응대 문구를 맡아요.' },
+];
+const STUDIO_W = 480, STUDIO_H = 330;
+const STUDIO_STATE_LABEL = { work: '일하는 중', wait: '결재 대기', off: '쉬는 중' };
+const STUDIO_STATE_ICON = { work: '⌨️', wait: '📮', off: '💤' };
+function studioStaffById(id) { return STUDIO_STAFF.find(s => s.id === id) || null; }
+function studioDoc(id) { return studioStaff.find(d => d.id === id) || {}; }
+function studioWaiting() { return studioApprovals.filter(a => a.status === 'wait'); }
+function studioState(s) {
+  if (studioApprovals.some(a => a.from === s.id && a.status === 'wait')) return 'wait';
+  return studioDoc(s.id).state === 'work' ? 'work' : 'off';
+}
+function studioTask(s) {
+  const st = studioState(s), d = studioDoc(s.id);
+  if (st === 'wait') { const a = studioApprovals.find(x => x.from === s.id && x.status === 'wait'); return (a && a.title) + ' 결재 요청'; }
+  return st === 'work' ? (d.task || '일하는 중') : '대기 중';
+}
+function studioHm(t) { const d = new Date(t); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
+function studioWeekRange() {
+  const now = parseYmd(todayStr()), mon = new Date(now); mon.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  return [ymd(mon), ymd(sun)];
+}
+function studioWeekLabel() {
+  const d = parseYmd(todayStr()), first = new Date(d.getFullYear(), d.getMonth(), 1);
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${Math.ceil((d.getDate() + (first.getDay() + 6) % 7) / 7)}주차`;
+}
+function studioDeadlines() {
+  const [a, b] = studioWeekRange();
+  const list = projItems.filter(p => p.dueDate && p.dueDate >= a && p.dueDate <= b && p.status !== 'done').map(p => ({ title: p.title, date: p.dueDate }))
+    .concat(schedItems.filter(x => x.category === 'deadline' && x.date >= a && x.date <= b && !x.projectId).map(x => ({ title: x.title, date: x.date })));
+  return list.sort((x, y) => x.date.localeCompare(y.date));
+}
+
+/* 수입·지출(ledgerEntries) — 이번 달 매출/지출. 로컬 테스트에서는 클라우드를 건드리지 않으니 '—'. */
+let studioLedger = { month: '', at: 0, rev: null, exp: null, loading: false, err: '' };
+function studioLoadLedger() {
+  const month = todayStr().slice(0, 7);
+  if (IS_LOCAL_DEV || typeof firebase === 'undefined' || !firebase.firestore || !window.cloudSyncReady) return;
+  if (studioLedger.loading || (studioLedger.month === month && Date.now() - studioLedger.at < 60000)) return;
+  studioLedger.loading = true;
+  firebase.firestore().collection('ledgerEntries').where('date', '>=', month + '-01').where('date', '<=', month + '-31').get().then(snap => {
+    let rev = 0, exp = 0;
+    snap.forEach(doc => { const e = doc.data(); if (e.category === 'revenue') rev += Number(e.totalAmount) || 0; else if (e.category === 'expense' || e.category === 'labor') exp += Number(e.totalAmount) || 0; });
+    studioLedger = { month, at: Date.now(), rev, exp, loading: false, err: '' };
+  }).catch(err => { studioLedger = { ...studioLedger, month, at: Date.now(), loading: false, err: String(err && err.message || err) }; })
+    .then(() => { if (S.activeTab === 'studio') render(); });
+}
+function studioMoney(n) { return n == null ? '—' : '₩' + won(n); }
+
+function renderStudioTab() {
+  studioLoadLedger();
+  const waiting = studioWaiting(), dl = studioDeadlines();
+  const doing = projItems.filter(p => p.status === 'doing').length;
+  const dlText = dl.length ? `${esc(dl[0].title)} · ${parseYmd(dl[0].date).getMonth() + 1}/${parseYmd(dl[0].date).getDate()}${dl.length > 1 ? ` 외 ${dl.length - 1}건` : ''}` : '없음';
+  const spots = STUDIO_STAFF.map(s => {
+    const st = studioState(s), task = studioTask(s);
+    return `<div class="st-spot" style="left:${s.x * 100}%;top:${(s.y * STUDIO_H - 56) / STUDIO_H * 100}%">
+      <div class="st-bubble ${st}"><b>${esc(s.name)}</b><span>${STUDIO_STATE_ICON[st]} ${esc(task)}</span></div>
+      <div class="st-badge">${STUDIO_STATE_ICON[st]}</div>
+      <button class="st-hit" type="button" data-action="studio-sel" data-id="${s.id}" aria-label="${esc(s.name)} 업무 보기"></button>
+      <div class="st-plate">${esc(s.short)}</div>
+    </div>`;
+  }).join('');
+  const roster = STUDIO_STAFF.map(s => { const st = studioState(s); return `<button type="button" class="${S.studio.sel === s.id ? 'on' : ''}" data-action="studio-sel" data-id="${s.id}" title="${esc(studioTask(s))}"><span class="st-dot ${st}"></span><b>${esc(s.short)}</b><small>${STUDIO_STATE_LABEL[st]}</small></button>`; }).join('');
+  const items = studioApprovals.filter(a => S.studio.box === 'wait' ? a.status === 'wait' : a.status !== 'wait')
+    .sort((a, b) => S.studio.box === 'wait' ? (a.createdAt || 0) - (b.createdAt || 0) : (b.decidedAt || 0) - (a.decidedAt || 0));
+  const cards = items.length ? items.map(a => {
+    const s = studioStaffById(a.from), pill = a.status === 'ok' ? '<span class="st-pill ok">승인</span>' : a.status === 'no' ? '<span class="st-pill bad">반려</span>' : '<span class="st-pill">결재 대기</span>';
+    return `<article class="st-card"><div class="st-card-top"><span class="st-who">${esc(s ? s.name : a.from || '')}${a.createdAt ? ' · ' + esc(studioHm(a.createdAt)) : ''}</span>${pill}</div>
+      <h3>${esc(a.title || '(제목 없음)')}</h3>${a.body ? `<p>${esc(a.body)}</p>` : ''}${a.memo ? `<p>💬 ${esc(a.memo)}</p>` : ''}
+      ${a.status === 'wait' ? `<div class="st-acts"><input id="stMemo-${esc(a.id)}" placeholder="코멘트 (선택)"><button type="button" class="yes" data-action="studio-decide" data-id="${esc(a.id)}" data-v="ok">승인</button><button type="button" class="no" data-action="studio-decide" data-id="${esc(a.id)}" data-v="no">반려</button></div>` : ''}</article>`;
+  }).join('') : `<p class="st-empty">${S.studio.box === 'wait' ? '결재할 보고가 없어요. 직원이 결재를 올리면 여기에 떠요.' : '아직 처리한 결재가 없어요.'}</p>`;
+  const today = todayStr(), logs = studioLog.filter(l => l.at && ymd(new Date(l.at)) === today).sort((a, b) => b.at - a.at);
+  const sel = S.studio.sel && studioStaffById(S.studio.sel);
+  let staffHtml = '<p class="st-empty">사무실에서 직원을 눌러 보세요.</p>';
+  if (sel) {
+    const mine = studioApprovals.filter(a => a.from === sel.id).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 5);
+    const lab = { wait: '결재 대기', ok: '승인', no: '반려' };
+    staffHtml = `<div class="st-staff"><canvas id="studioStaffCv" width="16" height="24"></canvas><dl>
+      <dt>이름</dt><dd><b>${esc(sel.name)}</b> · ${esc(sel.role)}</dd>
+      <dt>지금</dt><dd>${STUDIO_STATE_LABEL[studioState(sel)]}${studioState(sel) === 'off' ? '' : ' · ' + esc(studioTask(sel))}</dd>
+      <dt>하는 일</dt><dd>${esc(sel.detail)}</dd>
+      <dt>최근 완료</dt><dd>${esc(studioDoc(sel.id).done || '아직 기록 없음')}</dd>
+      <dt>올린 결재</dt><dd>${mine.length ? mine.map(a => `${esc(a.title)} (${lab[a.status] || ''})`).join('<br>') : '없음'}</dd></dl></div>`;
+  }
+  return `<div class="eq-wrap st-wrap">
+    <div class="eq-header"><div class="eq-title-block"><h1 class="eq-title">스튜디오</h1><div class="eq-stat">결재 대기 <b>${waiting.length}</b>건</div></div></div>
+    <div class="st-main">
+      <div class="st-left">
+        <div class="st-hud top"><span>💾 ${studioWeekLabel()}</span><span>이번 달 매출 <b>${studioMoney(studioLedger.rev)}</b></span></div>
+        <div class="st-room" id="studioRoom"><canvas id="studioCv" width="960" height="660" aria-label="VINFILM 스튜디오 사무실"></canvas>${spots}</div>
+        <div class="st-hud bot"><button type="button" data-action="studio-settle">📊 이번 달 결산</button><span>진행 중 프로젝트 <b>${doing}</b></span><span>이번 주 마감 <b>${dlText}</b></span><span>결재 대기 <b>${waiting.length}</b></span></div>
+        <div class="st-roster">${roster}</div>
+        <div class="st-legend"><span>● 초록 = 일하는 중 · ● 주황 = 결재 대기 · ○ 회색 = 쉬는 중</span><span>· 그림: Arlan_TR Free Office Pixel Art</span></div>
+      </div>
+      <section class="st-panel" aria-label="사장실">
+        <div class="st-tabs" role="tablist">
+          <button type="button" role="tab" aria-selected="${S.studio.box === 'wait'}" data-action="studio-box" data-id="wait">결재함${waiting.length ? ` ${waiting.length}` : ''}</button>
+          <button type="button" role="tab" aria-selected="${S.studio.box === 'done'}" data-action="studio-box" data-id="done">처리함</button>
+        </div>
+        <div class="st-panel-body">
+          <div class="st-ceo"><canvas id="studioCeoCv" width="16" height="20"></canvas><div><b>대표 ${esc(greetingName() || '김규빈')}</b><p>${waiting.length ? `결재할 보고가 ${waiting.length}건 있어요` : '오늘 결재를 다 했어요 🎉'}</p></div></div>
+          ${cards}
+        </div>
+      </section>
+    </div>
+    <div class="st-bottom">
+      <section class="st-box" aria-live="polite"><h2>직원 카드</h2>${staffHtml}</section>
+      <section class="st-box"><h2>오늘의 스튜디오 일지</h2>${logs.length ? `<ul class="st-log">${logs.map(l => `<li><time>${studioHm(l.at)}</time><span>${esc(l.text)}</span></li>`).join('')}</ul>` : '<p class="st-empty">오늘 기록이 아직 없어요.</p>'}</section>
+    </div>
+    ${S.studio.settle ? studioSettleHtml() : ''}
+  </div>`;
+}
+function studioSettleHtml() {
+  const d = parseYmd(todayStr()), month = todayStr().slice(0, 7);
+  const rev = studioLedger.rev, exp = studioLedger.exp, profit = rev == null || exp == null ? null : rev - exp;
+  const done = projItems.filter(p => p.status === 'done' && (p.dueDate || '').slice(0, 7) === month).length;
+  const okThisMonth = studioApprovals.filter(a => a.status === 'ok' && a.decidedAt && ymd(new Date(a.decidedAt)).slice(0, 7) === month);
+  const cnt = {}; okThisMonth.forEach(a => { cnt[a.from] = (cnt[a.from] || 0) + 1; });
+  const best = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0], bs = best && studioStaffById(best);
+  return `<div class="eq-modal-overlay no-anim" data-action="studio-settle-close"><div class="st-sheet" role="dialog" aria-label="이번 달 결산">
+    <h3>📊 ${d.getFullYear()}년 ${d.getMonth() + 1}월 결산</h3>
+    <table><tr><td>매출</td><td>${studioMoney(rev)}</td></tr><tr><td>지출 (인건비 포함)</td><td>${studioMoney(exp)}</td></tr>
+    <tr><td>이익</td><td class="${profit != null && profit < 0 ? 'minus' : 'plus'}">${profit == null ? '—' : (profit < 0 ? '-' : '') + '₩' + won(Math.abs(profit))}</td></tr>
+    <tr><td>완료한 프로젝트 (이번 달 마감)</td><td>${done}건</td></tr><tr><td>이번 달 승인한 결재</td><td>${okThisMonth.length}건</td></tr></table>
+    <div class="st-mvp">🏆 이달의 직원: ${bs ? `<b>${esc(bs.short)}</b> — 승인받은 결재 ${cnt[best]}건` : '아직 없어요 (승인한 결재가 생기면 뽑혀요)'}</div>
+    ${studioLedger.err ? `<p class="st-empty">수입·지출을 못 불러왔어요: ${esc(studioLedger.err)}</p>` : rev == null ? '<p class="st-empty">수입·지출은 배포된 WORKS(로그인 상태)에서만 불러와요.</p>' : ''}
+    <button type="button" data-action="studio-settle-close">닫기</button></div></div>`;
+}
+function handleStudioAction(action, el, e) {
+  const id = el.dataset.id;
+  if (action === 'studio-sel') { S.studio.sel = id; render(); const s = studioStaffById(id); if (s) studioShowBubble(id); return true; }
+  if (action === 'studio-box') { S.studio.box = id; render(); return true; }
+  if (action === 'studio-settle') { S.studio.settle = true; studioLedger.at = 0; studioLoadLedger(); render(); return true; }
+  if (action === 'studio-settle-close') { if (el.tagName !== 'BUTTON' && e && e.target.closest('.st-sheet')) return true; S.studio.settle = false; render(); return true; }
+  if (action === 'studio-decide') {
+    const a = studioApprovals.find(x => String(x.id) === id); if (!a || a.status !== 'wait') return true;
+    const v = el.dataset.v === 'ok' ? 'ok' : 'no', memoEl = document.getElementById('stMemo-' + id), memo = memoEl ? memoEl.value.trim() : '';
+    const s = studioStaffById(a.from), now = Date.now();
+    saveStudioApprovals(studioApprovals.map(x => x === a ? { ...x, status: v, memo, decidedAt: now } : x));
+    saveStudioLog([...studioLog, { id: uid(), at: now, text: `대표님이 "${a.title}" ${v === 'ok' ? '승인' : '반려'}${memo ? ` (💬 ${memo})` : ''} → ${s ? s.name : a.from}에 전달` }]);
+    render();
+    if (s) studioPop(s, v === 'ok' ? '✔ 결재 완료' : '↩ 다시 작업', v === 'ok' ? 'money' : '');
+    return true;
+  }
+  return false;
+}
+function studioShowBubble(id) {
+  const i = STUDIO_STAFF.findIndex(s => s.id === id), spot = document.querySelectorAll('#studioRoom .st-spot')[i];
+  document.querySelectorAll('#studioRoom .st-spot.show').forEach(x => x.classList.remove('show'));
+  if (spot) spot.classList.add('show');
+}
+function studioPop(s, text, cls) {
+  const room = document.getElementById('studioRoom'); if (!room) return;
+  const e = document.createElement('div'); e.className = 'st-pop ' + (cls || ''); e.textContent = text;
+  e.style.left = (s.x * 100) + '%'; e.style.top = ((s.y * STUDIO_H - 62) / STUDIO_H * 100) + '%';
+  room.appendChild(e); setTimeout(() => e.remove(), 1700);
+}
+
+/* ---- 사무실 캔버스: render()가 DOM을 새로 만들어도 이어지게, 타이머가 매번 #studioCv를 찾아서 그린다 ---- */
+const STUDIO_SPR = {}; let studioFrame = 0, studioPopAt = 0;
+['boss', 'worker1', 'worker2', 'worker4', 'Julia_PC', 'Julia_Drinking_Coffee', 'desk-with-pc', 'coffee-maker', 'water-cooler', 'printer', 'cabinet', 'plant', 'stamping-table', 'writing-table', 'office-partitions-2', 'Trash']
+  .forEach(n => { STUDIO_SPR[n] = null; });
+function studioSprites() { // 못 불러온 그림(네트워크 끊김 등)은 3초마다 다시 시도
+  if (STUDIO_SPR.__at && Date.now() - STUDIO_SPR.__at < 3000) return; STUDIO_SPR.__at = Date.now();
+  Object.keys(STUDIO_SPR).forEach(n => { if (n.startsWith('__')) return; const old = STUDIO_SPR[n]; if (old && (!old.complete || old.naturalWidth)) return; const im = new Image(); im.src = '../assets/office/' + n + '.png'; STUDIO_SPR[n] = im; });
+}
+function studioMinimi(ctx, c) {
+  const P = (x, y, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(x, y, w, h); };
+  const skin = '#ffe0c4', out = '#2b3640';
+  P(3, 1, 10, 1, out); P(2, 2, 12, 1, out); P(1, 3, 1, 8, out); P(14, 3, 1, 8, out); P(2, 11, 12, 1, out);
+  P(2, 3, 12, 8, skin); P(2, 2, 12, 3, c.hair); P(1, 3, 2, 4, c.hair); P(13, 3, 2, 4, c.hair); P(4, 1, 8, 1, c.hair);
+  P(5, 7, 1, 2, out); P(10, 7, 1, 2, out); P(4, 9, 2, 1, '#ffb3a8'); P(10, 9, 2, 1, '#ffb3a8'); P(7, 10, 2, 1, '#e46a5c');
+  if (c.acc === 'glasses') { P(4, 6, 3, 1, out); P(9, 6, 3, 1, out); P(7, 6, 2, 1, out); }
+  if (c.acc === 'cap') { P(2, 1, 12, 2, '#2b3640'); P(11, 3, 4, 1, '#2b3640'); }
+  if (c.acc === 'beret') { P(3, 0, 10, 2, '#d23a3a'); }
+  P(4, 12, 8, 5, c.shirt); P(3, 13, 1, 3, c.shirt); P(12, 13, 1, 3, c.shirt); P(3, 16, 1, 1, skin); P(12, 16, 1, 1, skin);
+  if (c.acc === 'tie') P(7, 12, 2, 4, '#2b3640');
+  P(5, 17, 2, 2, '#3a4a58'); P(9, 17, 2, 2, '#3a4a58'); P(5, 19, 2, 1, out); P(9, 19, 2, 1, out);
+}
+function studioDraw() {
+  const cv = document.getElementById('studioCv'); if (!cv) return;
+  studioSprites();
+  const ctx = cv.getContext('2d'), W = STUDIO_W, H = STUDIO_H;
+  ctx.setTransform(2, 0, 0, 2, 0, 0); ctx.imageSmoothingEnabled = false;
+  const img = (n, x, y, sx, sy, sw, sh) => { const im = STUDIO_SPR[n]; if (!im || !im.complete || !im.naturalWidth) return; if (sw) ctx.drawImage(im, sx, sy, sw, sh, x, y, sw, sh); else ctx.drawImage(im, x, y); };
+  ctx.clearRect(0, 0, W, H);
+  for (let y = 48; y < H; y += 16) for (let x = 0; x < W; x += 16) { ctx.fillStyle = ((x + y) / 16) % 2 ? '#c9dfd0' : '#d8eadc'; ctx.fillRect(x, y, 16, 16); }
+  ctx.fillStyle = '#e8eef3'; ctx.fillRect(0, 0, W, 48); ctx.fillStyle = '#b9c7d2'; ctx.fillRect(0, 44, W, 4);
+  for (const wx of [30, 330]) { ctx.fillStyle = '#6b7f8f'; ctx.fillRect(wx, 8, 96, 30); ctx.fillStyle = '#bfe6f7'; ctx.fillRect(wx + 3, 11, 90, 24); ctx.fillStyle = '#fff'; ctx.fillRect(wx + 46, 11, 3, 24); }
+  ctx.fillStyle = '#2b3640'; ctx.fillRect(176, 10, 128, 22); ctx.fillStyle = '#fff'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center'; ctx.fillText('VINFILM STUDIO', 240, 25);
+  img('cabinet', 0, 40); img('coffee-maker', 410, 34); img('water-cooler', 392, 60); img('printer', 8, 300); img('plant', 150, 40); img('plant', 300, 40);
+  img('stamping-table', 272, 96); img('writing-table', 408, 270); img('Trash', 60, 312); img('office-partitions-2', 446, 150);
+  STUDIO_STAFF.slice().sort((a, b) => a.y - b.y).forEach(s => {
+    const st = studioState(s), x = s.x * W - 32, y = s.y * H - 56;
+    if (st === 'off') { img('desk-with-pc', x, y); img('Julia_Drinking_Coffee', x + 40, y + 20, (Math.floor(studioFrame / 6) % 3) * 32, 0, 32, 32); }
+    else if (s.spr === 'Julia_PC') { img('desk-with-pc', x, y); img('Julia_PC', x, y, (Math.floor(studioFrame / 3) % 6) * 64, 0, 64, 64); }
+    else img(s.spr, x, y);
+    if (st === 'wait') { ctx.fillStyle = '#e8a21a'; ctx.fillRect(s.x * W - 2, y - 6, 4, 7); ctx.fillRect(s.x * W - 2, y + 3, 4, 2); }
+  });
+  [['studioCeoCv', { hair: '#2b1d14', shirt: '#2b3640', acc: 'tie' }], ['studioStaffCv', S.studio.sel && studioStaffById(S.studio.sel)]].forEach(([cid, c]) => {
+    const el = document.getElementById(cid); if (!el || !c || el.dataset.drawn === (c.id || 'ceo')) return;
+    const cx = el.getContext('2d'); cx.clearRect(0, 0, el.width, el.height); studioMinimi(cx, c); el.dataset.drawn = c.id || 'ceo';
+  });
+  const rm = matchMedia('(prefers-reduced-motion: reduce)').matches; // 움직임 줄이기 설정이면 애니메이션·떠오르는 글자 없이 정지 화면
+  if (!rm) studioFrame++;
+  const now = Date.now();
+  if (!rm && now - studioPopAt > 2600) {
+    studioPopAt = now;
+    const w = STUDIO_STAFF.filter(s => studioState(s) === 'work');
+    if (w.length) studioPop(w[Math.random() * w.length | 0], ['+1 진행', '+기획', '+컷 편집', '+초안', '+아이디어', '+정리'][Math.random() * 6 | 0]);
+  }
+}
+setInterval(() => { if (S.activeTab === 'studio' && !document.hidden) studioDraw(); }, 120);
+
 /* ================= main render ================= */
 function renderTab() {
   if (GUEST_MODE && !GUEST_ALLOWED_TABS.includes(S.activeTab)) S.activeTab = GUEST_ALLOWED_TABS[0];
@@ -4367,6 +4617,7 @@ function renderTab() {
   if (S.activeTab === 'notes') return renderNotesTab();
   if (S.activeTab === 'songs') return renderSongsTab();
   if (S.activeTab === 'quotes') return renderQuotesTab();
+  if (S.activeTab === 'studio' && !GUEST_MODE) return renderStudioTab();
   return '';
 }
 function render() {
@@ -4467,6 +4718,7 @@ function bootApp() {
     }
     if (/^(notif-|notice-)/.test(action) && handleNotifAction(action, el, e)) return;
 
+    if (/^studio-/.test(action) && !GUEST_MODE && handleStudioAction(action, el, e)) return;
     switch (action) {
       case 'set-tab':
         if (GUEST_MODE && !GUEST_ALLOWED_TABS.includes(id)) return;
@@ -6538,6 +6790,76 @@ document.addEventListener('DOMContentLoaded', () => {
   @media (max-width: 720px) { .pd-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
 
   .eq-modal-overlay.no-anim, .eq-modal-overlay.no-anim .eq-modal { animation:none !important; }
+
+  /* ===== 🏢 스튜디오 (사무실은 픽셀 그림이라 고정색, 나머지는 테마 변수) ===== */
+  .st-main { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(0,1fr); gap:14px; margin-top:14px; }
+  .st-bottom { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; margin-top:14px; }
+  @media (max-width: 960px) { .st-main, .st-bottom { grid-template-columns:1fr; } }
+  .st-left { min-width:0; }
+  .st-hud { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:6px 14px; background:var(--surface-hover); border:1px solid var(--border); color:var(--text-dim); font-size:13px; padding:7px 12px; font-variant-numeric:tabular-nums; }
+  .st-hud b { color:var(--text); font-weight:700; }
+  .st-hud.top { border-radius:12px 12px 0 0; border-bottom:0; } .st-hud.bot { border-radius:0 0 12px 12px; border-top:0; }
+  .st-hud button { font:inherit; font-weight:700; background:var(--accent); color:#fff; border:0; border-radius:8px; padding:4px 12px; cursor:pointer; }
+  .st-room { position:relative; overflow:hidden; background:#d8eadc; aspect-ratio:16/11; width:100%; border-left:1px solid var(--border); border-right:1px solid var(--border); }
+  .st-room canvas { width:100%; height:100%; display:block; image-rendering:pixelated; }
+  .st-spot { position:absolute; transform:translateX(-50%); width:13.3%; height:19.4%; }
+  .st-hit { position:absolute; inset:0; background:transparent; border:0; border-radius:8px; cursor:pointer; padding:0; }
+  .st-hit:focus-visible { outline:3px solid var(--accent); }
+  .st-badge { position:absolute; left:50%; top:0; transform:translate(-50%,-100%); font-size:clamp(11px,1.3vw,15px); line-height:1; pointer-events:none; }
+  .st-plate { position:absolute; left:50%; top:90%; transform:translateX(-50%); background:#fdf6e7; color:#4a3320; border:1.5px solid #6b4a2c; border-radius:3px; padding:0 5px; font-size:clamp(8px,0.95vw,11.5px); font-weight:700; white-space:nowrap; pointer-events:none; box-shadow:0 1px 0 #6b4a2c; }
+  .st-bubble { position:absolute; left:50%; top:-22%; transform:translate(-50%,-100%); background:#fff; color:#333; border:1.5px solid #9a9a9a; border-radius:12px; padding:5px 10px; text-align:center; line-height:1.25; font-size:clamp(10px,1.1vw,13px); font-weight:600; white-space:nowrap; max-width:220px; pointer-events:none; box-shadow:2px 2px 0 rgba(0,0,0,.15); opacity:0; visibility:hidden; transition:opacity .15s; z-index:3; }
+  .st-bubble b { display:block; font-size:.85em; color:#4f6b7d; } .st-bubble span { display:block; overflow:hidden; text-overflow:ellipsis; }
+  .st-bubble::after { content:""; position:absolute; left:50%; bottom:-7px; transform:translateX(-50%); border:6px solid transparent; border-top-color:#9a9a9a; border-bottom:0; }
+  .st-bubble.wait { background:#fff3d6; } .st-bubble.off { background:#eef1f3; color:#7a8791; }
+  .st-spot:hover .st-bubble, .st-spot:focus-within .st-bubble, .st-spot.show .st-bubble { opacity:1; visibility:visible; }
+  .st-spot:hover, .st-spot.show { z-index:5; }
+  .st-pop { position:absolute; transform:translate(-50%,-100%); font-weight:800; font-size:clamp(10px,1.2vw,14px); color:#2f9e5b; text-shadow:0 1px 0 #fff,0 -1px 0 #fff,1px 0 0 #fff,-1px 0 0 #fff; pointer-events:none; animation:stUp 1.6s ease-out forwards; z-index:6; white-space:nowrap; }
+  .st-pop.money { color:#d48a00; }
+  @keyframes stUp { from { opacity:0; margin-top:0; } 15% { opacity:1; } to { opacity:0; margin-top:-28px; } }
+  .st-roster { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:6px; margin-top:10px; }
+  .st-roster button { display:flex; align-items:center; gap:7px; font:inherit; font-size:13px; text-align:left; background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:10px; padding:7px 10px; cursor:pointer; min-width:0; }
+  .st-roster button.on { border-color:var(--accent); background:var(--accent-soft); }
+  .st-roster b { font-weight:700; white-space:nowrap; } .st-roster small { color:var(--text-faint); margin-left:auto; white-space:nowrap; font-size:12px; }
+  .st-dot { width:10px; height:10px; border-radius:50%; flex:none; }
+  .st-dot.work { background:#3aa76d; box-shadow:0 0 0 3px rgba(58,167,109,.22); animation:stPulse 1.6s infinite; }
+  .st-dot.wait { background:#e8a21a; } .st-dot.off { background:transparent; border:2px solid var(--text-faint); }
+  @keyframes stPulse { 50% { box-shadow:0 0 0 5px rgba(58,167,109,0); } }
+  .st-legend { display:flex; flex-wrap:wrap; gap:4px 10px; font-size:12px; color:var(--text-faint); margin-top:8px; }
+  .st-panel { background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; display:flex; flex-direction:column; min-width:0; align-self:start; }
+  .st-tabs { display:flex; gap:4px; padding:8px 8px 0; background:var(--surface-hover); }
+  .st-tabs button { font:inherit; font-size:14px; font-weight:600; border:0; border-radius:8px 8px 0 0; padding:7px 14px; background:transparent; color:var(--text-dim); cursor:pointer; }
+  .st-tabs button[aria-selected="true"] { background:var(--surface); color:var(--text); }
+  .st-panel-body { padding:12px; display:grid; gap:10px; align-content:start; }
+  .st-ceo { display:flex; gap:10px; align-items:center; padding:10px; border-radius:10px; background:var(--surface-hover); }
+  .st-ceo canvas { width:48px; height:60px; image-rendering:pixelated; flex:none; }
+  .st-ceo b { font-size:15px; } .st-ceo p { margin:2px 0 0; color:var(--text-dim); font-size:13px; }
+  .st-card { border:1px solid var(--border); border-radius:10px; padding:10px; display:grid; gap:6px; background:var(--row-bg); }
+  .st-card-top { display:flex; justify-content:space-between; gap:8px; align-items:center; }
+  .st-who { font-size:12px; color:var(--text-faint); }
+  .st-card h3 { margin:0; font-size:14.5px; color:var(--text); } .st-card p { margin:0; font-size:13px; color:var(--text-dim); line-height:1.5; white-space:pre-wrap; }
+  .st-pill { font-size:11.5px; border-radius:999px; padding:2px 8px; color:#fff; background:#e8a21a; white-space:nowrap; }
+  .st-pill.ok { background:#3aa76d; } .st-pill.bad { background:#d9534f; }
+  .st-acts { display:flex; gap:6px; flex-wrap:wrap; }
+  .st-acts input { flex:1 1 140px; min-width:0; font:inherit; font-size:13px; border:1px solid var(--border); border-radius:8px; padding:6px 8px; background:var(--surface); color:var(--text); }
+  .st-acts button { font:inherit; font-size:13px; border-radius:8px; border:1px solid var(--border); background:var(--surface-hover); color:var(--text); padding:6px 12px; cursor:pointer; }
+  .st-acts button.yes { background:#3aa76d; border-color:#3aa76d; color:#fff; } .st-acts button.no { color:#d9534f; }
+  .st-box { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:14px; min-width:0; }
+  .st-box h2 { font-size:15px; font-weight:700; margin:0 0 10px; color:var(--text); }
+  .st-staff { display:flex; gap:12px; align-items:flex-start; }
+  .st-staff canvas { width:56px; height:84px; image-rendering:pixelated; flex:none; background:var(--surface-hover); border-radius:8px; padding:4px; box-sizing:border-box; }
+  .st-staff dl { margin:0; display:grid; grid-template-columns:auto 1fr; gap:5px 12px; font-size:13px; }
+  .st-staff dt { color:var(--text-faint); } .st-staff dd { margin:0; color:var(--text); }
+  .st-log { list-style:none; margin:0; padding:0; display:grid; gap:6px; font-size:13px; color:var(--text); }
+  .st-log li { display:grid; grid-template-columns:3.2em 1fr; gap:8px; } .st-log time { color:var(--accent); font-variant-numeric:tabular-nums; font-weight:700; }
+  .st-empty { color:var(--text-faint); font-size:13px; margin:0; }
+  .st-sheet { background:var(--surface); color:var(--text); border:1px solid var(--border-strong); border-radius:14px; max-width:440px; width:calc(100% - 32px); padding:18px; display:grid; gap:12px; box-shadow:var(--shadow-lg); }
+  .st-sheet h3 { margin:0; font-size:17px; }
+  .st-sheet table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; font-size:14px; }
+  .st-sheet td { padding:7px 4px; border-bottom:1px solid var(--border); } .st-sheet td:last-child { text-align:right; font-weight:700; }
+  .st-sheet td.plus { color:#3aa76d; } .st-sheet td.minus { color:#d9534f; }
+  .st-mvp { background:var(--surface-hover); border-radius:8px; padding:10px; font-size:13.5px; }
+  .st-sheet > button { justify-self:end; font:inherit; border:0; border-radius:8px; padding:7px 16px; background:var(--accent); color:#fff; cursor:pointer; }
+  @media (prefers-reduced-motion: reduce) { .st-pop { display:none; } .st-dot.work { animation:none; } .st-bubble { transition:none; } }
 
   /* ===== 노래연습 ===== */
   .song-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:14px; margin-top:14px; }
