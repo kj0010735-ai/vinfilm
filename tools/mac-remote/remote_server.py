@@ -20,6 +20,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -440,7 +441,12 @@ def num(v, lim=4000.0):
     return max(-lim, min(lim, f))
 
 
+stats = {"msgs": 0, "at": 0, "err": ""}  # 맥 화면에 보여줄 진단 정보 — 아이폰 입력이 맥까지 오는지, 오다가 어디서 실패하는지
+
+
 def handle_msg(m):
+    stats["msgs"] += 1
+    stats["at"] = int(time.time() * 1000)
     t = m.get("t")
     if t == "m":
         INPUT.move(num(m.get("x")), num(m.get("y")))
@@ -528,6 +534,11 @@ def info():
         "clients": cl,
         "access": INPUT.access(),
         "error": INPUT_ERROR,
+        "input": type(INPUT).__name__,
+        "msgs": stats["msgs"],
+        "msgAt": stats["at"],
+        "msgErr": stats["err"],
+        "python": sys.executable,
         "isMac": IS_MAC,
     }
 
@@ -600,6 +611,17 @@ class Handler(BaseHTTPRequestHandler):
             if IS_MAC:
                 subprocess.Popen(["open", "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"])
             return self._send(200, json.dumps(info()), "application/json")
+        if path == "/api/test-move":  # 아이폰 없이 이 맥에서 마우스가 움직이는지 — 네모를 한 바퀴 그린다
+            try:
+                for dx, dy in ((80, 0), (0, 80), (-80, 0), (0, -80)):
+                    for _ in range(10):
+                        INPUT.move(dx / 10, dy / 10)
+                        time.sleep(0.015)
+                if stats["err"].startswith("시험"):
+                    stats["err"] = ""
+            except Exception:
+                stats["err"] = "시험 실패\n" + traceback.format_exc(limit=3)[-600:]
+            return self._send(200, json.dumps(info()), "application/json")
         if path == "/api/new-token":
             new_token(cfg)
             return self._send(200, json.dumps(info()), "application/json")
@@ -666,8 +688,9 @@ class Handler(BaseHTTPRequestHandler):
                     continue
                 try:
                     handle_msg(msg)
-                except Exception as e:
-                    print("처리 실패:", e, flush=True)
+                except Exception:
+                    stats["err"] = traceback.format_exc(limit=3)[-600:]
+                    print("처리 실패:", stats["err"], flush=True)
         except (OSError, ValueError):
             pass
         finally:
@@ -718,8 +741,31 @@ def port_busy(port):
         return False
 
 
+def self_test():
+    """python3 remote_server.py --test — 터미널에서 원인을 한눈에 보는 자가진단"""
+    print("── VINFILM 리모트 자가진단 ──")
+    print("파이썬:", sys.executable, sys.version.split()[0])
+    print("macOS:", run_out(["sw_vers", "-productVersion"]) if IS_MAC else "(맥 아님)")
+    print("입력 방식:", type(INPUT).__name__, ("· 준비 실패: " + INPUT_ERROR) if INPUT_ERROR else "")
+    print("손쉬운 사용 권한:", "허용됨" if INPUT.access() else "없음 ← 이 프로그램(터미널/앱)에 권한이 없어요")
+    try:
+        if isinstance(INPUT, MacInput):
+            before = INPUT._pos()
+            INPUT.move(150, 0)
+            time.sleep(0.3)
+            after = INPUT._pos()
+            INPUT.move(-150, 0)
+            print("마우스 위치: %s → %s" % (tuple(round(v) for v in before), tuple(round(v) for v in after)))
+            print("결과:", "마우스가 움직였어요 ✓" if abs(after[0] - before[0]) > 50 else "마우스가 안 움직였어요 ✗ (권한이 막고 있을 가능성이 커요)")
+    except Exception:
+        traceback.print_exc()
+    print("이미 켜진 리모트:", "있음(포트 %d)" % PORT if already_running(PORT) else "없음")
+
+
 def main():
     global PORT
+    if "--test" in sys.argv:
+        return self_test()
     open_page = "--no-open" not in sys.argv
     ThreadingHTTPServer.daemon_threads = True
     ThreadingHTTPServer.allow_reuse_address = True
