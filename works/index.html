@@ -4470,6 +4470,19 @@ function studioDeadlines() {
     .concat(schedItems.filter(x => x.category === 'deadline' && x.date >= a && x.date <= b && !x.projectId).map(x => ({ title: x.title, date: x.date })));
   return list.sort((x, y) => x.date.localeCompare(y.date));
 }
+/* 직원 보고 본문을 읽기 쉽게: 문장(마침표·물음표 뒤)마다 줄 바꿈, ①②… 항목과 '추천:'·'확인해 주실 것:' 같은 머리말은 따로 줄.
+   직원이 이미 줄을 나눠 보냈으면 그 줄은 그대로 두고 그 안에서만 나눈다. 숫자 소수점(1.5)·날짜(10.14)는 안 끊음. */
+function studioBodyHtml(text, cls) {
+  const lines = String(text).replace(/\r/g, '').split('\n').flatMap(line => line
+    .replace(/([.?!。])\s+(?=\S)/g, '$1\n')
+    .replace(/\s*([①-⑳])\s*/g, '\n$1 ')
+    .replace(/\s*((?:추천|확인해 주실 것|확인할 것|요청|제안|참고|결론|요약|다음 할 일)\s*:)\s*/g, '\n$1\n')
+    .split('\n')).map(x => x.trim()).filter(Boolean);
+  return `<div class="${cls || 'st-body'}">${lines.map(l => {
+    const head = /:$/.test(l) && l.length <= 14, item = /^[①-⑳]/.test(l) || /^[-•·]\s/.test(l);
+    return `<p class="${head ? 'hd' : item ? 'it' : ''}">${esc(l)}</p>`;
+  }).join('')}</div>`;
+}
 /* 결과 파일: files[] = [{name, url}] 또는 url 문자열 */
 function studioFilesHtml(files) {
   if (!Array.isArray(files) || !files.length) return '';
@@ -4513,7 +4526,7 @@ function renderStudioTab() {
     const s = studioStaffById(studioApprovalStaff(a)), pill = a.status === 'ok' ? '<span class="st-pill ok">승인</span>' : a.status === 'no' ? '<span class="st-pill bad">반려</span>' : '<span class="st-pill">결재 대기</span>';
     const aid = esc(a.id);
     return `<article class="st-card"><div class="st-card-top"><span class="st-who">${esc(s ? s.name : studioApprovalStaff(a))}${a.createdAt ? ' · ' + esc(studioWhen(a.createdAt)) : ''}</span>${pill}</div>
-      <h3>${esc(a.title || '(제목 없음)')}</h3>${a.body ? `<p>${esc(a.body)}</p>` : ''}${studioFilesHtml(a.files)}${a.memo ? `<p>💬 ${esc(a.memo)}</p>` : ''}
+      <h3>${esc(a.title || '(제목 없음)')}</h3>${a.body ? studioBodyHtml(a.body) : ''}${studioFilesHtml(a.files)}${a.memo ? `<p>💬 ${esc(a.memo)}</p>` : ''}
       ${a.status === 'wait' ? `<div class="st-acts"><input id="stMemo-${aid}" placeholder="코멘트 (반려할 땐 꼭)"><button type="button" class="yes" data-action="studio-decide" data-id="${aid}" data-v="ok">승인</button><button type="button" class="no" data-action="studio-decide" data-id="${aid}" data-v="no">반려</button></div>
         <label class="st-follow"><input type="checkbox" id="stFollow-${aid}" checked> 후속 작업 만들기 <small>(승인: 다음 단계 진행 · 반려: 코멘트 반영해 다시 작업)</small></label>
         ${S.studio.msg && S.studio.msgId === a.id ? `<p class="st-warn">${esc(S.studio.msg)}</p>` : ''}` : ''}</article>`;
@@ -4528,7 +4541,7 @@ function renderStudioTab() {
     const queuedAll = studioTasks.filter(t => t.status === 'queued').sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
     const taskRows = tasks.length ? `<ul class="st-tasks">${tasks.map(t => {
       const pos = t.status === 'queued' ? queuedAll.findIndex(x => x.id === t.id) + 1 : 0;
-      return `<li><span class="st-tstat ${t.status}">${STUDIO_TASK_LABEL[t.status] || t.status}${pos ? ` ${pos}번째` : ''}</span><div><p>${t.parentApprovalId ? '↪ ' : ''}${esc(t.text)}</p>${t.result ? `<small>${esc(t.result)}</small>` : ''}${studioFilesHtml(t.files)}<small class="st-tmeta">${esc(studioWhen(t.createdAt))}${t.finishedAt ? ' → ' + esc(studioWhen(t.finishedAt)) : ''}</small></div>${t.status === 'queued' ? `<button type="button" data-action="studio-task-cancel" data-id="${esc(t.id)}">취소</button>` : ''}</li>`;
+      return `<li><span class="st-tstat ${t.status}">${STUDIO_TASK_LABEL[t.status] || t.status}${pos ? ` ${pos}번째` : ''}</span><div><p>${t.parentApprovalId ? '↪ ' : ''}${esc(t.text)}</p>${t.result ? studioBodyHtml(t.result, 'st-body small') : ''}${studioFilesHtml(t.files)}<small class="st-tmeta">${esc(studioWhen(t.createdAt))}${t.finishedAt ? ' → ' + esc(studioWhen(t.finishedAt)) : ''}</small></div>${t.status === 'queued' ? `<button type="button" data-action="studio-task-cancel" data-id="${esc(t.id)}">취소</button>` : ''}</li>`;
     }).join('')}</ul>` : '<p class="st-empty">아직 지시한 일이 없어요.</p>';
     /* 오른쪽 패널 '직원' 탭: 지시하기(맨 위, 바로 입력) → 직원 상태 → 지시 목록 → 최근 결과 */
     staffHtml = `<div class="st-order"><label for="stOrder">✍️ ${esc(sel.short)}에게 지시하기</label>
@@ -6993,6 +7006,10 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-link.on b { color:#3aa76d; }
   .st-offline { margin:8px 0 0; font-size:12.5px; color:var(--text-dim); background:var(--surface-hover); border:1px dashed var(--border-strong); border-radius:10px; padding:7px 10px; }
   .st-files { display:flex; flex-wrap:wrap; gap:6px; }
+  .st-body { display:grid; gap:5px; } .st-body p { margin:0; font-size:13.5px; line-height:1.6; color:var(--text-dim); }
+  .st-body p.hd { margin-top:4px; font-weight:700; color:var(--text); } .st-body p.it { padding-left:1.4em; text-indent:-1.4em; color:var(--text); }
+  .st-body.small p { font-size:12.5px; line-height:1.5; }
+  .st-term .st-wrap .st-body p, .st-term .st-body p { color:var(--t-text); } .st-term .st-card .st-body p, .st-term .st-tasks .st-body p { color:var(--t-text); } .st-term .st-body p.hd, .st-term .st-body p.it { color:var(--t-hi); }
   .st-follow { display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim); flex-wrap:wrap; } .st-follow small { color:var(--text-faint); }
   .st-warn { margin:0; font-size:12.5px; color:#d9534f; }
   .st-order { display:grid; gap:6px; margin-bottom:6px; } .st-order label { font-weight:700; font-size:14px; color:var(--text); }
