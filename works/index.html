@@ -379,7 +379,7 @@ const S = {
   song: { modalOpen: false, editingId: null, playId: null, search: '', msg: '', syncing: false, syncTimes: [], follow: true },
   shortcut: { modalOpen: false, editingId: null },
   quote: { view: 'quotes', draft: null, cdraft: null, bizOpen: false, bizSignCleared: false, msg: '' },
-  studio: { box: 'wait', sel: null, settle: false, msg: '', taskMsg: '', answers: {} },
+  studio: { box: 'wait', sel: null, settle: false, msg: '', taskMsg: '', answers: {}, open: {} },
 };
 let currentEqPhoto = '';
 let currentEqPhotoError = '';
@@ -4644,12 +4644,13 @@ function renderStudioTab() {
     const s = studioStaffById(studioApprovalStaff(a)), pill = a.status === 'ok' ? '<span class="st-pill ok">승인</span>' : a.status === 'no' ? '<span class="st-pill bad">반려</span>' : '<span class="st-pill">결재 대기</span>';
     const aid = esc(a.id);
     const fresh = !studioSeen.has(a.id + a.status); studioSeen.add(a.id + a.status);
-    // 결재 = 직원이 대표님께 보낸 쪽지: 위에 '보낸 사람 → 받는 사람' 띠, 접힌 모서리, 아래 절취선
-    return `<article class="st-card st-note${fresh ? ' st-in' : ''}"><div class="st-note-head"><span class="st-note-from">📨 <b>${esc(s ? s.name : studioApprovalStaff(a))}</b> → 대표님</span><span class="st-note-time">${a.createdAt ? esc(studioWhen(a.createdAt)) : ''}</span>${pill}</div>
-      <h3>${esc(a.title || '(제목 없음)')}</h3>${(() => { const qs = studioChoices(a), b = studioBodyWithoutChoices(a, qs); return (b ? studioBodyHtml(b) : '') + studioChoicesHtml(a, qs); })()}${studioActionsHtml(a)}${studioFilesHtml(a.files)}${a.memo ? `<p>💬 ${esc(a.memo)}</p>` : ''}
+    // 결재 = 직원이 보낸 쪽지(폴더). 접혀 있을 땐 '보낸 사람·제목·시간·상태' 한 줄만, 누르면 펼쳐져 내용·선택·승인/반려가 나온다.
+    const open = !!S.studio.open[a.id];
+    return `<article class="st-card st-note${open ? ' open' : ''}${fresh ? ' st-in' : ''}"><button type="button" class="st-note-head" data-action="studio-note-toggle" data-id="${aid}" aria-expanded="${open}"><span class="st-note-ic">${open ? '📂' : '📁'}</span><span class="st-note-main"><span class="st-note-from"><b>${esc(s ? s.short : studioApprovalStaff(a))}</b> → 대표님 · ${a.createdAt ? esc(studioWhen(a.createdAt)) : ''}</span><span class="st-note-title">${esc(a.title || '(제목 없음)')}</span></span>${pill}<span class="st-note-chev">${open ? '▾' : '▸'}</span></button>
+      ${open ? `<div class="st-note-body">${(() => { const qs = studioChoices(a), b = studioBodyWithoutChoices(a, qs); return (b ? studioBodyHtml(b) : '') + studioChoicesHtml(a, qs); })()}${studioActionsHtml(a)}${studioFilesHtml(a.files)}${a.memo ? `<p>💬 ${esc(a.memo)}</p>` : ''}
       ${a.status === 'wait' ? `<div class="st-acts"><input id="stMemo-${aid}" placeholder="코멘트 (반려할 땐 꼭)"><button type="button" class="yes" data-action="studio-decide" data-id="${aid}" data-v="ok">승인</button><button type="button" class="no" data-action="studio-decide" data-id="${aid}" data-v="no">반려</button></div>
         <label class="st-follow"><input type="checkbox" id="stFollow-${aid}" checked> 후속 작업 만들기 <small>(승인: 다음 단계 진행 · 반려: 코멘트 반영해 다시 작업)</small></label>
-        ${S.studio.msg && S.studio.msgId === a.id ? `<p class="st-warn">${esc(S.studio.msg)}</p>` : ''}` : ''}</article>`;
+        ${S.studio.msg && S.studio.msgId === a.id ? `<p class="st-warn">${esc(S.studio.msg)}</p>` : ''}` : ''}</div>` : ''}</article>`;
   }).join('') : `<p class="st-empty">${S.studio.box === 'wait' ? '결재할 보고가 없어요. 직원이 결재를 올리면 여기에 떠요.' : '아직 처리한 결재가 없어요.'}</p>`;
   const today = todayStr(), logs = studioLog.filter(l => l.at && ymd(new Date(l.at)) === today).sort((a, b) => b.at - a.at);
   const sel = S.studio.sel && studioStaffById(S.studio.sel);
@@ -4784,6 +4785,7 @@ function handleStudioAction(action, el, e) {
     return true;
   }
   if (action === 'studio-motion') { try { localStorage.setItem(LS_STUDIO_MOTION, el.checked ? 'on' : 'system'); } catch (e) {} render(); return true; }
+  if (action === 'studio-note-toggle') { S.studio.open[id] = !S.studio.open[id]; render(); return true; }
   if (action === 'studio-choose') { // 버튼 고르기 — 화면만 다시 그림(사무실 캔버스는 유지돼 깜빡이지 않음)
     (S.studio.answers[id] = S.studio.answers[id] || {})[el.dataset.q] = el.dataset.v; render(); return true;
   }
@@ -7172,15 +7174,19 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-ceo canvas { width:48px; height:60px; image-rendering:pixelated; flex:none; }
   .st-ceo b { font-size:15px; } .st-ceo p { margin:2px 0 0; color:var(--text-dim); font-size:13px; }
   .st-card { border:1px solid var(--border); border-radius:10px; padding:10px; display:grid; gap:6px; background:var(--row-bg); }
-  /* 쪽지 모양 결재 카드 */
-  .st-note { position:relative; padding:0 14px 14px; margin:4px 0 10px; background:#fffdf5; color:#2b2a26; border:1px solid #e3dcc6; border-radius:4px; box-shadow:0 3px 0 rgba(0,0,0,.08), 0 8px 18px rgba(0,0,0,.10);
-    clip-path:polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%); }
-  .st-note::before { content:""; position:absolute; top:0; right:0; width:18px; height:18px; background:linear-gradient(225deg, transparent 50%, #e7dfc6 50%); }
-  .st-note::after { content:""; position:absolute; left:10px; right:10px; bottom:6px; border-bottom:2px dashed #d8cfb3; }
-  .st-note:nth-of-type(odd) { rotate:-.35deg; } .st-note:nth-of-type(even) { rotate:.35deg; }
-  .st-note-head { display:flex; align-items:center; gap:8px; margin:0 -14px 4px; padding:8px 26px 8px 14px; border-bottom:1px dashed #d8cfb3; background:repeating-linear-gradient(45deg, rgba(229,72,77,.06) 0 6px, rgba(47,111,238,.06) 6px 12px); }
-  .st-note-from { font-size:12.5px; color:#5b5646; } .st-note-from b { color:#2b2a26; } .st-note-time { margin-left:auto; font-size:12px; color:#8a846f; }
-  .st-note h3 { color:#1d1c19; } .st-note .st-body p, .st-note p { color:#3d3a31; } .st-note .st-body p.hd, .st-note .st-body p.it { color:#1d1c19; }
+  /* 결재 = 폴더/쪽지: 접힌 한 줄 → 누르면 펼쳐짐 */
+  .st-note { position:relative; padding:0; gap:0; overflow:hidden; background:var(--row-bg); border:1px solid var(--border); border-radius:8px; }
+  .st-note::before { content:""; position:absolute; top:-1px; left:12px; width:46px; height:5px; background:var(--accent); border-radius:0 0 4px 4px; opacity:.55; } /* 폴더 탭 */
+  .st-note-head { display:flex; align-items:center; gap:10px; width:100%; text-align:left; padding:12px 12px 10px; background:none; border:0; cursor:pointer; color:var(--text); font:inherit; }
+  .st-note-head:hover { background:var(--surface-hover); }
+  .st-note-ic { font-size:18px; flex:none; } .st-note-main { flex:1; min-width:0; display:grid; gap:2px; }
+  .st-note-from { font-size:12px; color:var(--text-faint); } .st-note-from b { color:var(--text-dim); }
+  .st-note-title { font-size:14px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .st-note.open .st-note-title { white-space:normal; }
+  .st-note-chev { flex:none; color:var(--text-faint); font-size:12px; }
+  .st-note-body { display:grid; gap:8px; padding:4px 12px 14px; border-top:1px dashed var(--border-strong); animation:stUnfold .28s steps(5) both; transform-origin:top; }
+  @keyframes stUnfold { 0% { opacity:0; transform:scaleY(.05); } 60% { opacity:1; } 100% { opacity:1; transform:none; } }
+  body.st-still .st-note-body { animation:none; }
   .st-card-top { display:flex; justify-content:space-between; gap:8px; align-items:center; }
   .st-who { font-size:12px; color:var(--text-faint); }
   .st-card h3 { margin:0; font-size:14.5px; color:var(--text); } .st-card p { margin:0; font-size:13px; color:var(--text-dim); line-height:1.5; white-space:pre-wrap; }
@@ -7310,13 +7316,14 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-term .st-tabs button { background:transparent; color:var(--t-dim); border-right:1px solid var(--t-line); text-transform:uppercase; font-weight:400; }
   .st-term .st-tabs button[aria-selected="true"] { color:var(--t-bg); background:var(--t-line); }
   .st-term .st-ceo, .st-term .st-card, .st-term .st-mvp, .st-term .st-staff canvas, .st-term .st-tasks li { background:var(--t-bg); border:1px solid var(--t-dim); }
-  /* 터미널 테마의 쪽지: 수신 메시지 창 — 위 띠 'MSG FROM', 접힌 모서리는 선 색, 아래 절취선 */
-  .st-term .st-note { background:var(--t-bg); color:var(--t-text); border:1px solid var(--t-line); box-shadow:0 0 0 1px #020405, 0 0 14px rgba(127,211,200,.18); }
-  .st-term .st-note::before { background:linear-gradient(225deg, transparent 50%, var(--t-line) 50%); }
-  .st-term .st-note::after { border-bottom-color:var(--t-dim); }
-  .st-term .st-note-head { background:rgba(127,211,200,.10); border-bottom:1px dashed var(--t-line); }
-  .st-term .st-note-from { color:var(--t-dim); text-transform:uppercase; } .st-term .st-note-from b { color:var(--t-hi); } .st-term .st-note-time { color:var(--t-dim); }
-  .st-term .st-note h3 { color:var(--t-hi); } .st-term .st-note .st-body p, .st-term .st-note p { color:var(--t-text); } .st-term .st-note .st-body p.hd, .st-term .st-note .st-body p.it { color:var(--t-hi); }
+  /* 터미널 테마의 폴더 쪽지 */
+  .st-term .st-note { background:var(--t-bg); border:1px solid var(--t-line); }
+  .st-term .st-note::before { background:var(--t-line); opacity:1; border-radius:0; }
+  .st-term .st-note-head { color:var(--t-text); } .st-term .st-note-head:hover, .st-term .st-note.open .st-note-head { background:rgba(127,211,200,.10); }
+  .st-term .st-note-from { color:var(--t-dim); text-transform:uppercase; } .st-term .st-note-from b { color:var(--t-text); }
+  .st-term .st-note-title { color:var(--t-hi); } .st-term .st-note-chev { color:var(--t-line); }
+  .st-term .st-note-body { border-top-color:var(--t-line); }
+  .st-term .st-note .st-body p { color:var(--t-text); } .st-term .st-note .st-body p.hd, .st-term .st-note .st-body p.it { color:var(--t-hi); }
   .st-term .st-ceo canvas, .st-term .st-staff canvas { filter:grayscale(1) sepia(1) hue-rotate(145deg) saturate(1.6); }
   .st-term .st-card h3, .st-term .st-ceo b, .st-term .st-box h2, .st-term .st-sub, .st-term .st-order label { color:var(--t-hi); font-weight:700; }
   .st-term .st-box h2 { text-transform:uppercase; font-size:14px; border-bottom:1px dashed var(--t-dim); padding-bottom:6px; }
