@@ -417,7 +417,14 @@ function applyCloudUpdate(name, items) {
   switch (name) {
     case 'equipment': eqItems = items; try { localStorage.setItem(LS_ITEMS, JSON.stringify(items)); } catch (e) {} break;
     case 'categories': eqCategories = items.length ? items : DEFAULT_CATEGORIES; try { localStorage.setItem(LS_CATEGORIES, JSON.stringify(eqCategories)); } catch (e) {} break;
-    case 'schedule': schedItems = items; try { localStorage.setItem(LS_SCHEDULE, JSON.stringify(items)); } catch (e) {} break;
+    case 'schedule': {
+      // 스튜디오 다리가 쓴 일정(studioApprovalId)이 새로 오거나 바뀌면 Google 캘린더에도 밀어 줌(10분 자동 동기화보다 빠르게)
+      const sig = x => x.studioApprovalId ? `${x.id}|${x.date}|${x.endDate || ''}|${x.time || ''}|${x.title}|${x.category}|${x.location || ''}|${x.updatedAt || ''}` : '';
+      const before = new Set(schedItems.map(sig).filter(Boolean)), studioChanged = items.some(x => sig(x) && !before.has(sig(x)));
+      schedItems = items; try { localStorage.setItem(LS_SCHEDULE, JSON.stringify(items)); } catch (e) {}
+      if (studioChanged && typeof gcalSchedulePush === 'function') gcalSchedulePush();
+      break;
+    }
     case 'projects': projItems = items; try { localStorage.setItem(LS_PROJECTS, JSON.stringify(items)); } catch (e) {} break;
     case 'shoots': shoots = items; try { localStorage.setItem(LS_SHOOTS, JSON.stringify(items)); } catch (e) {} break;
     case 'presets': presets = items; try { localStorage.setItem(LS_PRESETS, JSON.stringify(items)); } catch (e) {} break;
@@ -1687,6 +1694,7 @@ function schedDetailModalHtml() {
     <div class="eq-modal-overlay" data-action="sched-close-detail-backdrop">
       <div class="eq-modal" data-stop-close>
         <div class="eq-modal-head"><h2>${esc(item.title)}</h2><button class="eq-modal-close" data-action="sched-close-detail">✕</button></div>
+        ${!GUEST_MODE && (item.by === 'studio' || item.studioApprovalId) ? `<div class="eq-detail-row"><span>등록</span><b>🏢 스튜디오가 ${item.by === 'studio' ? '등록' : '수정'} <small style="color:var(--text-faint)">(대표님 결재 승인)</small></b></div>` : ''}
         <div class="eq-detail-row"><span>날짜</span><b>${dateLabel(item.date)}${item.endDate && item.endDate > item.date ? ` – ${dateLabel(item.endDate)} <small style="color:var(--text-faint)">(${Math.round((parseYmd(item.endDate) - parseYmd(item.date)) / 86400000) + 1}일)</small>` : ''}</b></div>
         <div class="eq-detail-row"><span>시간</span><b>${item.time || '종일'}</b></div>
         <div class="eq-detail-row"><span>카테고리</span><b><span class="eq-status-dot" style="background:var(--sched-${item.category})"></span> ${esc(catLabel)}${item.source === 'calendar' ? ' <span class="sched-badge-cal">캘린더</span>' : ''}</b></div>
@@ -4496,6 +4504,18 @@ function studioBodyHtml(text, cls) {
     return `<p class="${head ? 'hd' : item ? 'it' : ''}">${esc(l)}</p>`;
   }).join('')}</div>`;
 }
+/* 결재에 딸린 일정 반영안(actions) — 승인하면 다리가 schedule에 추가/수정(규칙상 승인된 결재만 가능). 최대 5개. */
+function studioActionsHtml(a) {
+  const acts = (Array.isArray(a.actions) ? a.actions : []).filter(x => x && /^schedule\.(add|update)$/.test(x.type)).slice(0, 5);
+  if (!acts.length) return '';
+  const cat = id => (SCHED_CATEGORIES.find(c => c.id === id) || {}).label || id || '';
+  const head = a.status === 'ok' ? '📅 캘린더에 반영된(반영할) 일정' : a.status === 'no' ? '📅 반려되어 반영 안 한 일정' : '📅 승인하면 캘린더에 반영될 일정';
+  return `<div class="st-acts-list"><b>${head}</b>${acts.map(x => {
+    const old = x.type === 'schedule.update' && x.id ? schedItems.find(it => it.id === x.id) : null;
+    const when = `${x.date ? dateLabel(x.date) : ''}${x.endDate && x.endDate > x.date ? ' – ' + dateLabel(x.endDate) : ''}${x.time ? ' ' + x.time : ''}`;
+    return `<p><span class="st-tstat ${x.type === 'schedule.add' ? 'running' : 'done'}">${x.type === 'schedule.add' ? '추가' : '수정'}</span> ${esc(when)} · <b>${esc(x.title || (old && old.title) || '')}</b>${x.category ? ` <small>${esc(cat(x.category))}</small>` : ''}${old ? `<small> ← 지금: ${esc(old.date)} ${esc(old.time || '')} ${esc(old.title)}</small>` : x.type === 'schedule.update' ? '<small> (대상 일정을 못 찾음)</small>' : ''}${x.location ? `<small> · ${esc(x.location)}</small>` : ''}</p>`;
+  }).join('')}</div>`;
+}
 /* 결과 파일: files[] = [{name, url}] 또는 url 문자열 */
 function studioFilesHtml(files) {
   if (!Array.isArray(files) || !files.length) return '';
@@ -4539,7 +4559,7 @@ function renderStudioTab() {
     const s = studioStaffById(studioApprovalStaff(a)), pill = a.status === 'ok' ? '<span class="st-pill ok">승인</span>' : a.status === 'no' ? '<span class="st-pill bad">반려</span>' : '<span class="st-pill">결재 대기</span>';
     const aid = esc(a.id);
     return `<article class="st-card"><div class="st-card-top"><span class="st-who">${esc(s ? s.name : studioApprovalStaff(a))}${a.createdAt ? ' · ' + esc(studioWhen(a.createdAt)) : ''}</span>${pill}</div>
-      <h3>${esc(a.title || '(제목 없음)')}</h3>${a.body ? studioBodyHtml(a.body) : ''}${studioFilesHtml(a.files)}${a.memo ? `<p>💬 ${esc(a.memo)}</p>` : ''}
+      <h3>${esc(a.title || '(제목 없음)')}</h3>${a.body ? studioBodyHtml(a.body) : ''}${studioActionsHtml(a)}${studioFilesHtml(a.files)}${a.memo ? `<p>💬 ${esc(a.memo)}</p>` : ''}
       ${a.status === 'wait' ? `<div class="st-acts"><input id="stMemo-${aid}" placeholder="코멘트 (반려할 땐 꼭)"><button type="button" class="yes" data-action="studio-decide" data-id="${aid}" data-v="ok">승인</button><button type="button" class="no" data-action="studio-decide" data-id="${aid}" data-v="no">반려</button></div>
         <label class="st-follow"><input type="checkbox" id="stFollow-${aid}" checked> 후속 작업 만들기 <small>(승인: 다음 단계 진행 · 반려: 코멘트 반영해 다시 작업)</small></label>
         ${S.studio.msg && S.studio.msgId === a.id ? `<p class="st-warn">${esc(S.studio.msg)}</p>` : ''}` : ''}</article>`;
@@ -7058,6 +7078,9 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-body p.hd { margin-top:4px; font-weight:700; color:var(--text); } .st-body p.it { padding-left:1.4em; text-indent:-1.4em; color:var(--text); }
   .st-body.small p { font-size:12.5px; line-height:1.5; }
   .st-term .st-wrap .st-body p, .st-term .st-body p { color:var(--t-text); } .st-term .st-card .st-body p, .st-term .st-tasks .st-body p { color:var(--t-text); } .st-term .st-body p.hd, .st-term .st-body p.it { color:var(--t-hi); }
+  .st-acts-list { display:grid; gap:5px; padding:8px 10px; border:1px dashed var(--border-strong); border-radius:10px; font-size:13px; }
+  .st-acts-list > b { font-size:13px; color:var(--text); } .st-acts-list p { margin:0; color:var(--text); line-height:1.5; } .st-acts-list small { color:var(--text-faint); }
+  .st-term .st-acts-list { border-color:var(--t-line); } .st-term .st-acts-list > b, .st-term .st-acts-list p { color:var(--t-hi); } .st-term .st-acts-list small { color:var(--t-dim); }
   .st-follow { display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim); flex-wrap:wrap; } .st-follow small { color:var(--text-faint); }
   .st-warn { margin:0; font-size:12.5px; color:#d9534f; }
   .st-order { display:grid; gap:6px; margin-bottom:6px; } .st-order label { font-weight:700; font-size:14px; color:var(--text); }

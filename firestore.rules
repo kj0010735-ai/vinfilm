@@ -48,10 +48,29 @@ service cloud.firestore {
 
     // 내부 전용 — guest 모드에서도 노출되지 않는 데이터.
     // 캘린더: 대표님 일정은 대표님만, collabId가 붙은 일정은 그 협업자도 보고 고칠 수 있다.
+    // 스튜디오 다리: 대표님이 '승인'한 결재(studioApprovals status ok)에 딸린 일정만 추가·수정. 삭제·협업자 공간·연결 필드(프로젝트·답사·출처) 변경은 불가.
+    function studioApprovedBy(aid) {
+      return aid is string && exists(/databases/$(database)/documents/studioApprovals/$(aid))
+        && get(/databases/$(database)/documents/studioApprovals/$(aid)).data.status == 'ok';
+    }
+    function bridgeSchedEditable() { return ['date', 'endDate', 'time', 'title', 'location', 'memo', 'category', 'updatedAt', 'studioApprovalId']; }
+    function bridgeSchedValid(d) {
+      return d.date is string && d.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && d.title is string && d.title.size() > 0 && d.title.size() <= 200
+        && d.category in ['shoot', 'meeting', 'scout', 'deadline', 'etc']
+        && studioApprovedBy(d.studioApprovalId);
+    }
     match /schedule/{id} {
       allow read: if isOwner() || isBridge() || collabOk(resource.data.collabId);
-      allow create: if isOwner() || collabOk(request.resource.data.collabId);
-      allow update: if isOwner() || (collabOk(resource.data.collabId) && request.resource.data.collabId == resource.data.collabId);
+      allow create: if isOwner() || collabOk(request.resource.data.collabId) || (isBridge()
+        && request.resource.data.keys().hasOnly(['id', 'date', 'endDate', 'time', 'title', 'category', 'location', 'memo', 'contact', 'by', 'studioApprovalId', 'createdAt', 'updatedAt', 'source'])
+        && request.resource.data.id == id && request.resource.data.by == 'studio'
+        && request.resource.data.get('source', 'manual') == 'manual'
+        && bridgeSchedValid(request.resource.data));
+      allow update: if isOwner() || (collabOk(resource.data.collabId) && request.resource.data.collabId == resource.data.collabId) || (isBridge()
+        && resource.data.get('collabId', '') == '' && resource.data.get('source', 'manual') == 'manual'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(bridgeSchedEditable())
+        && bridgeSchedValid(request.resource.data));
       allow delete: if isOwner() || collabOk(resource.data.collabId);
     }
     match /projects/{id} { allow read: if isOwner() || isBridge(); allow write: if isOwner(); }
