@@ -7290,6 +7290,14 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-ceo b { font-size:15px; } .st-ceo p { margin:2px 0 0; color:var(--text-dim); font-size:13px; }
   .st-card { border:1px solid var(--border); border-radius:10px; padding:10px; display:grid; gap:6px; background:var(--row-bg); }
   /* 결재 = 폴더/쪽지: 접힌 한 줄 → 누르면 펼쳐짐 */
+  /* 펼친 결재가 폰에서 오른쪽으로 삐져나가던 문제: 카드·본문·선택지·코멘트 줄 모두 부모 폭 안에서 줄바꿈 */
+  .st-note, .st-note-body, .st-note-body > *, .st-choices, .st-q, .st-acts-list, .st-items { min-width:0; max-width:100%; box-sizing:border-box; }
+  .st-note { width:100%; grid-template-columns:minmax(0,1fr); } .st-note-body { grid-template-columns:minmax(0,1fr); }
+  .st-note-body, .st-note-body p, .st-note-title, .st-q p, .st-acts-list p { overflow-wrap:anywhere; word-break:break-word; }
+  .st-opts { flex-wrap:wrap; } .st-opt { max-width:100%; white-space:normal; text-align:left; }
+  .st-acts { flex-wrap:wrap; }
+  @media (max-width: 720px) { .st-note .st-acts input { flex:1 1 100%; min-width:0; } .st-note .st-acts button { flex:1 1 0; padding:8px 12px; } } /* 폰: 코멘트 한 줄, 아래 줄에 승인·반려 */
+  .st-files { min-width:0; } .st-files .att-chip { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .st-note { position:relative; padding:0; gap:0; overflow:visible; background:var(--row-bg); border:1px solid var(--border); border-radius:8px; }
   .st-note::before { content:""; position:absolute; top:-1px; left:12px; width:46px; height:5px; background:var(--accent); border-radius:0 0 4px 4px; opacity:.55; } /* 폴더 탭 */
   .st-note-head { display:flex; align-items:center; gap:10px; width:100%; text-align:left; padding:12px 12px 10px; background:none; border:0; cursor:pointer; color:var(--text); font:inherit; }
@@ -7358,7 +7366,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-term .st-opt.on::before { content:'▶ '; }
   /* 게임 같은 등장: 카드는 옆에서 끊기듯(steps) 미끄러져 들어오며 테두리 번쩍, 패널 내용은 화면이 켜지듯, 말풍선은 톡 튀어나옴 */
   .st-card.st-in { animation:stCardIn .42s steps(6) both; }
-  @keyframes stCardIn { 0% { opacity:0; translate:28px 0; } 60% { opacity:1; box-shadow:0 0 0 2px var(--accent), 0 0 18px var(--accent); } 100% { opacity:1; translate:0 0; } }
+  @keyframes stCardIn { 0% { opacity:0; translate:12px 0; } 60% { opacity:1; box-shadow:0 0 0 2px var(--accent), 0 0 18px var(--accent); } 100% { opacity:1; translate:0 0; } }
   .st-panel-body.st-in > * { animation:stBoot .32s steps(4) both; }
   .st-panel-body.st-in > *:nth-child(2) { animation-delay:.06s; } .st-panel-body.st-in > *:nth-child(3) { animation-delay:.12s; } .st-panel-body.st-in > *:nth-child(n+4) { animation-delay:.18s; }
   @keyframes stBoot { 0% { opacity:0; translate:0 6px; filter:brightness(2.2); } 50% { opacity:1; } 100% { opacity:1; translate:0 0; filter:none; } }
