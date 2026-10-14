@@ -1269,9 +1269,10 @@ function gcalEventIdFor(item) { let h = ''; const s = String(item.id); for (let 
 function addDaysYmd(dateStr, n) { const d = parseYmd(dateStr); d.setDate(d.getDate() + n); return ymd(d); }
 function gcalBodyFor(item) {
   const cat = SCHED_CATEGORIES.find(c => c.id === item.category);
-  const desc = [item.memo || '', item.contact ? '연락처: ' + item.contact : '', cat ? '분류: ' + cat.label : ''].filter(Boolean).join('\n');
-  const body = { id: gcalEventIdFor(item), summary: item.title, location: item.location || '', description: desc, status: 'confirmed',
+  const desc = [item.memo || '', item.contact ? '연락처: ' + item.contact : '', cat ? '분류: ' + cat.label : '', item.meetUrl ? '🎥 구글미팅: ' + item.meetUrl : ''].filter(Boolean).join('\n');
+  const body = { id: gcalEventIdFor(item), summary: item.title, location: item.location || item.meetUrl || '', description: desc, status: 'confirmed',
     extendedProperties: { private: { vfId: String(item.id) } } };
+  if (item.meet) body.reminders = { useDefault: false, overrides: [{ method: 'popup', minutes: 30 }] }; // 구글미팅 일정은 30분 전 알림(Code.gs와 같게)
   if (item.time) {
     const [h, m] = item.time.split(':').map(Number);
     const endH = String(Math.min(h + 1, 23)).padStart(2, '0'), endM = h + 1 > 23 ? '59' : String(m).padStart(2, '0');
@@ -1661,6 +1662,14 @@ function schedGroupsHtml() {
 }
 function refreshSchedList() { const el = document.getElementById('schedList'); if (el) el.innerHTML = schedGroupsHtml(); }
 
+/* 🎥 구글미팅: 일정에 meet:true면 캘린더 동기화 Apps Script가 Google 캘린더에 Meet 회의를 만들고 주소를 meetUrl에 적고,
+   회의 30분 전에 대표님 메일로 주소를 보낸다(tools/calendar-sync/Code.gs). 제목·메모에 '구글미팅/구글 미팅/Google Meet/meet'가 있으면 자동으로 켬. */
+const SCHED_MEET_RE = /구글\s*미팅|google\s*meet|(^|[^a-z])meet([^a-z]|$)|구글\s*화상|구글\s*영상\s*회의/i;
+function schedMeetWord(t) { return SCHED_MEET_RE.test(String(t || '')); }
+document.addEventListener('input', e => { // 제목·메모에 구글미팅 단어를 쓰면 토글을 바로 켬(끄는 건 직접)
+  const f = e.target && e.target.closest && e.target.closest('[data-form-role="sched-form"]'); if (!f) return;
+  const cb = f.querySelector('#schedMeetCb'); if (cb && !cb.checked && schedMeetWord(e.target.value || e.target.textContent)) cb.checked = true;
+});
 function schedModalHtml() {
   if (!S.sched.modalOpen) return '';
   const editing = S.sched.editingId ? schedItems.find(it => it.id === S.sched.editingId) : null;
@@ -1682,7 +1691,9 @@ function schedModalHtml() {
             <div class="eq-field" id="schedEndWrap" style="${multi ? '' : 'display:none'}"><label>종료일</label><input type="date" name="endDate" value="${esc(f.endDate > f.date ? f.endDate : addDaysYmd(f.date, 1))}" min="${esc(f.date)}" ${multi ? 'required' : 'disabled'} /></div>
             <div class="eq-field"><label>시간(콜타임)</label>${timeFieldHtml('time', f.time, `id="schedTimeInput"`)}</div>
           </div>
-          <div class="sched-allday-toggle"><input type="checkbox" name="allDay" id="schedAllDayCb" ${f.allDay?'checked':''} /><label for="schedAllDayCb" style="margin:0">하루 종일</label></div>
+          <div class="sched-allday-toggle"><input type="checkbox" name="allDay" id="schedAllDayCb" ${f.allDay?'checked':''} /><label for="schedAllDayCb" style="margin:0">하루 종일</label>
+            <span style="width:14px"></span><input type="checkbox" name="meet" id="schedMeetCb" ${(editing ? editing.meet : false) || schedMeetWord(f.title + ' ' + (f.memo || '')) ? 'checked' : ''} /><label for="schedMeetCb" style="margin:0">🎥 구글미팅</label></div>
+          ${editing && editing.meetUrl ? `<p class="eq-hint" style="margin:-4px 0 10px">회의 주소: ${esc(editing.meetUrl)}</p>` : ''}
           <div class="eq-field"><label>카테고리</label><select name="category">${SCHED_CATEGORIES.map(c => `<option value="${c.id}" ${f.category===c.id?'selected':''}>${c.label}</option>`).join('')}</select></div>
           ${!GUEST_MODE && collabs.length ? `<div class="eq-field"><label>👥 협업자에게 공유 <span class="eq-hint">(고르면 그 협업자 캘린더에도 보여요)</span></label><select name="collabId"><option value="">나만 보기</option>${collabs.map(x => `<option value="${x.id}" ${(editing ? editing.collabId : S.sched.prefillCollabId) === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>` : ''}
           <div class="eq-field-row">
@@ -1727,6 +1738,7 @@ function schedDetailModalHtml() {
         <div class="eq-detail-row"><span>시간</span><b>${item.time || '종일'}</b></div>
         <div class="eq-detail-row"><span>카테고리</span><b><span class="eq-status-dot" style="background:var(--sched-${item.category})"></span> ${esc(catLabel)}${item.source === 'calendar' ? ' <span class="sched-badge-cal">캘린더</span>' : ''}</b></div>
         ${item.location ? `<div class="eq-detail-row"><span>장소</span><b>${esc(item.location)}</b></div>` : ''}
+        ${item.meet ? `<div class="eq-detail-row"><span>회의</span><b>${item.meetUrl ? `<a class="sched-meet-btn" href="${esc(item.meetUrl)}" target="_blank" rel="noopener">🎥 회의 참여</a> <button type="button" class="sched-meet-copy" data-action="sched-meet-copy" data-id="${esc(item.meetUrl)}">복사</button>` : '🎥 구글미팅 주소 만드는 중 <small style="color:var(--text-faint)">(캘린더 동기화가 10분 안에 만들어요)</small>'}</b></div>` : ''}
         ${item.contact ? `<div class="eq-detail-row"><span>담당자</span><b>${esc(item.contact)}</b></div>` : ''}
         ${item.memo ? `<div class="eq-detail-notes">${linkify(item.memo)}</div>` : ''}
         ${collabLine}
@@ -5369,6 +5381,7 @@ function bootApp() {
         render();
         break;
       }
+      case 'sched-meet-copy': { const u = id; try { navigator.clipboard.writeText(u).then(() => { el.textContent = '복사됨'; setTimeout(() => { el.textContent = '복사'; }, 1500); }); } catch (err) { window.prompt('회의 주소', u); } break; }
       case 'sched-detail-edit': S.sched.detailId = null; S.sched.editingId = id; S.sched.modalOpen = true; render(); break;
       case 'sched-detail-delete': {
         const item = schedItems.find(it => it.id === id);
@@ -5955,6 +5968,7 @@ function bootApp() {
       const endRaw = (fd.get('endDate') || '').toString();
       const payload = { title, date: fd.get('date'), endDate: endRaw && endRaw > fd.get('date') ? endRaw : '', time: allDay ? null : (parseTimeInput(fd.get('time')) || null), location: fd.get('location') || '', contact: fd.get('contact') || '', category: fd.get('category') || 'shoot', memo: fd.get('memo') || '' };
       if (!GUEST_MODE && fd.has('collabId')) { const cid = (fd.get('collabId') || '').toString(); payload.collabId = cid; }
+      payload.meet = fd.has('meet');
       if (S.sched.editingId) {
         saveSchedItems(schedItems.map(it => it.id === S.sched.editingId ? { ...it, ...payload } : it));
       } else {
@@ -7531,6 +7545,8 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-doc-pre { white-space:pre-wrap; font-family:inherit; margin:0; }
   .st-doc-foot { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; padding-top:10px; border-top:1px solid var(--border); }
   .st-doc-foot button, .st-doc-foot a { font:inherit; font-size:13px; padding:6px 12px; border:1px solid var(--border-strong); background:var(--surface-hover); color:var(--text); cursor:pointer; text-decoration:none; }
+  .sched-meet-btn { display:inline-block; padding:4px 10px; border:1px solid var(--accent); color:var(--accent); text-decoration:none; font-weight:700; }
+  .sched-meet-copy { font:inherit; font-size:12px; padding:3px 8px; margin-left:6px; border:1px solid var(--border); background:var(--surface-hover); color:var(--text); cursor:pointer; }
   .st-acts-list { display:grid; gap:5px; padding:8px 10px; border:1px dashed var(--border-strong); border-radius:10px; font-size:13px; }
   .st-acts-list > b { font-size:13px; color:var(--text); } .st-acts-list p { margin:0; color:var(--text); line-height:1.5; } .st-acts-list small { color:var(--text-faint); }
   .st-term .st-acts-list { border-color:var(--t-line); } .st-term .st-acts-list > b, .st-term .st-acts-list p { color:var(--t-hi); } .st-term .st-acts-list small { color:var(--t-dim); }

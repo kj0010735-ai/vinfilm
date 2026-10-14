@@ -53,7 +53,7 @@ service cloud.firestore {
       return aid is string && exists(/databases/$(database)/documents/studioApprovals/$(aid))
         && get(/databases/$(database)/documents/studioApprovals/$(aid)).data.status == 'ok';
     }
-    function bridgeSchedEditable() { return ['date', 'endDate', 'time', 'title', 'location', 'memo', 'category', 'updatedAt', 'studioApprovalId']; }
+    function bridgeSchedEditable() { return ['date', 'endDate', 'time', 'title', 'location', 'memo', 'category', 'updatedAt', 'studioApprovalId', 'meet']; } // meetUrl은 캘린더 동기화(대표님 계정)만
     function bridgeSchedValid(d) {
       return d.date is string && d.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
         && d.title is string && d.title.size() > 0 && d.title.size() <= 200
@@ -63,7 +63,8 @@ service cloud.firestore {
     match /schedule/{id} {
       allow read: if isOwner() || isBridge() || collabOk(resource.data.collabId);
       allow create: if isOwner() || collabOk(request.resource.data.collabId) || (isBridge()
-        && request.resource.data.keys().hasOnly(['id', 'date', 'endDate', 'time', 'title', 'category', 'location', 'memo', 'contact', 'by', 'studioApprovalId', 'createdAt', 'updatedAt', 'source'])
+        && request.resource.data.keys().hasOnly(['id', 'date', 'endDate', 'time', 'title', 'category', 'location', 'memo', 'contact', 'by', 'studioApprovalId', 'createdAt', 'updatedAt', 'source', 'meet'])
+        && request.resource.data.get('meet', false) is bool
         && request.resource.data.id == id && request.resource.data.by == 'studio'
         && request.resource.data.get('source', 'manual') == 'manual'
         && bridgeSchedValid(request.resource.data));
