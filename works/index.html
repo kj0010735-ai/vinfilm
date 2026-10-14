@@ -5297,11 +5297,39 @@ function render() {
   if (S.activeTab === 'studio' && !GUEST_MODE) { studioMountCanvas(); studioRestoreInputs(studioKeep); }
   syncThemeColor();
   const main = document.querySelector('.app-main');
-  if (main && window.__lastTab !== S.activeTab) { main.classList.add('tab-enter'); window.__lastTab = S.activeTab; }
+  if (main && window.__lastTab !== S.activeTab) { main.classList.add('tab-enter'); if (window.__lastTab && !window.__tabBack) { (window.__tabHist = window.__tabHist || []).push(window.__lastTab); if (window.__tabHist.length > 20) window.__tabHist.shift(); } window.__tabBack = false; window.__lastTab = S.activeTab; }
   const af = document.querySelector('[autofocus]');
   if (af) { af.focus(); if (af.value) { const v = af.value; af.value = ''; af.value = v; } }
 }
 window.addEventListener('resize', () => { window.__navY = null; positionNavIndicator(); });
+/* ‹ 왼쪽 가장자리에서 오른쪽으로 밀면 '뒤로' (2026-10-14, 홈 화면 앱엔 브라우저 뒤로가기가 없어서).
+   맨 위에 열린 것부터 닫는다: 사진 뷰어 → 창(모달) → 알림 → 직원 시트 → 더보기 → 노래·견적·계약 보기 → 상위 폴더 → 이전 탭. 밀 때 왼쪽에 ‹ 표시. */
+(function () {
+  let sx = null, sy = 0, ind = null;
+  const pick = () => {
+    const q = sel => { const all = [...document.querySelectorAll(sel)].filter(el => el.offsetParent !== null || getComputedStyle(el).position === 'fixed'); return all[all.length - 1] || null; };
+    const btn = q('.st-viewer [data-action="studio-view-close"]') || q('.eq-modal-overlay .eq-modal-close') || q('.eq-modal-overlay [data-action$="-close"]') || q('[data-action="notif-close"]')
+      || q('.st-panel.is-staff .st-sheet-close') || q('.m-sheet-backdrop') || q('[data-action="song-back"]') || q('[data-action="quote-back"]') || q('[data-action="contract-back"]');
+    if (btn) return () => btn.click();
+    const crumbs = [...document.querySelectorAll('[data-action="proj-go-parent"], [data-action="shared-go-parent"]')];
+    if (crumbs.length) return () => crumbs[crumbs.length - 1].click();
+    const hist = window.__tabHist || [];
+    if (hist.length) return () => { window.__tabBack = true; S.activeTab = hist.pop(); S.moreOpen = false; render(); window.scrollTo(0, 0); };
+    return null;
+  };
+  document.addEventListener('touchstart', e => { const t = e.touches[0]; sx = t.clientX <= 28 && e.touches.length === 1 ? t.clientX : null; sy = t.clientY; }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (sx == null) return; const t = e.touches[0], dx = t.clientX - sx, dy = Math.abs(t.clientY - sy);
+    if (dy > 60) { sx = null; if (ind) ind.style.opacity = 0; return; }
+    if (!ind) { ind = document.createElement('div'); ind.className = 'swipe-back-ind'; ind.textContent = '‹'; document.body.appendChild(ind); }
+    ind.style.top = (t.clientY - 22) + 'px'; ind.style.opacity = Math.min(1, Math.max(0, dx / 90)); ind.style.translate = Math.min(dx / 3, 30) + 'px 0';
+  }, { passive: true });
+  document.addEventListener('touchend', e => {
+    if (sx == null) return; const t = e.changedTouches[0], dx = t.clientX - sx, dy = Math.abs(t.clientY - sy); sx = null;
+    if (ind) ind.style.opacity = 0;
+    if (dx > 70 && dy < 60) { const go = pick(); if (go) go(); }
+  }, { passive: true });
+})();
 /* 사이드바 선택 표시가 이전 메뉴 위치에서 새 메뉴 위치로 미끄러지듯 움직이게 한다.
    render()가 매번 DOM을 새로 만들기 때문에 CSS transition만으로는 안 움직여서, 이전 위치를 기억해 두었다가
    새 요소를 이전 위치에 먼저 그린 뒤 다음 프레임에 새 위치로 옮긴다. */
@@ -7449,6 +7477,9 @@ document.addEventListener('DOMContentLoaded', () => {
   .time-field { display:flex; flex-direction:column; gap:5px; min-width:0; }
   .time-hint { font-size:12.5px; color:var(--accent); min-height:1em; } .time-hint.bad { color:#d9534f; }
   .time-chips { display:flex; flex-wrap:wrap; gap:4px; }
+  .swipe-back-ind { position:fixed; left:4px; z-index:400; width:34px; height:44px; display:flex; align-items:center; justify-content:center; font-size:30px; color:var(--accent); background:var(--surface); border:1px solid var(--accent); opacity:0; pointer-events:none; transition:opacity .15s; }
+  /* 아이폰 날짜칸이 칸 폭보다 넓어져 오른쪽으로 삐져나가던 문제 */
+  .eq-modal input[type=date] { -webkit-appearance:none; appearance:none; display:block; width:100%; min-width:0; max-width:100%; box-sizing:border-box; min-height:44px; }
   /* 폰: 일정 등록 창은 한 줄에 칸 하나씩(날짜·시간이 겹치거나 좁아 보이던 것 정리) */
   @media (max-width: 720px) {
     [data-form-role="sched-form"] .eq-field-row { flex-direction:column; gap:0; }
