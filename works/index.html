@@ -4783,7 +4783,7 @@ function renderStudioTab() {
     const open = !!S.studio.open[a.id];
     const digest = isDigest(a);
     return `${idx === firstTeam ? '<h4 class="st-group">팀 직접 보고</h4>' : ''}<article class="st-card st-note${digest ? ' st-digest' : ''}${open ? ' open' : ''}${fresh ? ' st-in' : ''}"><button type="button" class="st-note-head" data-action="studio-note-toggle" data-id="${aid}" aria-expanded="${open}"><span class="st-note-ic">${open ? '📂' : '📁'}</span><span class="st-note-main"><span class="st-note-from"><b>${esc(s ? s.short : studioApprovalStaff(a))}</b> → 대표님 · ${a.createdAt ? esc(studioWhen(a.createdAt)) : ''}</span><span class="st-note-title">${esc(a.title || '(제목 없음)')}</span></span>${pill}<span class="st-note-chev">${open ? '▾' : '▸'}</span></button>
-      ${open ? `<div class="st-note-body">${digest ? studioDigestHtml(a) : (() => { const qs = studioChoices(a), b = studioBodyWithoutChoices(a, qs); return (b ? studioLinkFileNames(studioBodyHtml(b), a.files) : '') + studioChoicesHtml(a, qs); })()}${studioActionsHtml(a)}${studioFilesHtml(digest ? (a.files || []).filter(f => !/^팀보고_/.test(f && f.name || '')) : a.files)}${a.memo ? `<p>💬 ${esc(a.memo)}</p>` : ''}
+      ${open ? `<div class="st-note-body${studioJustOpened === 'a:' + a.id ? ' st-unfold' : ''}">${digest ? studioDigestHtml(a) : (() => { const qs = studioChoices(a), b = studioBodyWithoutChoices(a, qs); return (b ? studioLinkFileNames(studioBodyHtml(b), a.files) : '') + studioChoicesHtml(a, qs); })()}${studioActionsHtml(a)}${studioFilesHtml(digest ? (a.files || []).filter(f => !/^팀보고_/.test(f && f.name || '')) : a.files)}${a.memo ? `<p>💬 ${esc(a.memo)}</p>` : ''}
       ${a.status === 'wait' ? `<div class="st-acts"><input id="stMemo-${aid}" placeholder="코멘트 (반려할 땐 꼭)"><button type="button" class="yes" data-action="studio-decide" data-id="${aid}" data-v="ok">승인</button><button type="button" class="no" data-action="studio-decide" data-id="${aid}" data-v="no">반려</button></div>
         ${digest ? '<p class="st-follow"><small>승인하면 \'진행\'으로 고른 항목만 각 팀에 자동으로 지시돼요(비서실 배분).</small></p>' : `<label class="st-follow"><input type="checkbox" id="stFollow-${aid}" checked> 후속 작업 만들기 <small>(승인: 다음 단계 진행 · 반려: 코멘트 반영해 다시 작업)</small></label>`}
         ${S.studio.msg && S.studio.msgId === a.id ? `<p class="st-warn">${esc(S.studio.msg)}</p>` : ''}` : ''}</div>` : ''}</article>`;
@@ -4801,7 +4801,7 @@ function renderStudioTab() {
       // 지시 한 줄 요약(상태·요약 제목·시간·첨부 수) → 누르면 원문 지시·결과·파일이 펼쳐짐
       const open = !!S.studio.openTask[t.id], nf = Array.isArray(t.files) ? t.files.length : 0;
       return `<li class="st-task${open ? ' open' : ''}"><div class="st-task-head" role="button" tabindex="0" data-action="studio-task-toggle" data-id="${esc(t.id)}"><span class="st-tstat ${t.status}">${STUDIO_TASK_LABEL[t.status] || t.status}${pos ? ` ${pos}번째` : ''}</span><span class="st-task-sum">${esc(studioTaskSummary(t))}</span><span class="st-task-meta">${nf ? `📎${nf} ` : ''}${esc(studioWhen(t.finishedAt || t.createdAt))}</span>${t.status === 'queued' ? `<button type="button" class="st-task-cancel" data-action="studio-task-cancel" data-id="${esc(t.id)}">취소</button>` : ''}<span class="st-note-chev">${open ? '▾' : '▸'}</span></div>
-        ${open ? `<div class="st-task-body"><p class="st-task-full">${esc(t.text)}</p>${t.result ? studioBodyHtml(t.result, 'st-body small') : ''}${studioFilesHtml(t.files)}<small class="st-tmeta">${esc(studioWhen(t.createdAt))}${t.finishedAt ? ' → ' + esc(studioWhen(t.finishedAt)) : ''}</small></div>` : ''}</li>`;
+        ${open ? `<div class="st-task-body${studioJustOpened === 't:' + t.id ? ' st-unfold' : ''}"><p class="st-task-full">${esc(t.text)}</p>${t.result ? studioBodyHtml(t.result, 'st-body small') : ''}${studioFilesHtml(t.files)}<small class="st-tmeta">${esc(studioWhen(t.createdAt))}${t.finishedAt ? ' → ' + esc(studioWhen(t.finishedAt)) : ''}</small></div>` : ''}</li>`;
     }).join('')}</ul>` : '<p class="st-empty">아직 지시한 일이 없어요.</p>';
     /* 오른쪽 패널 '직원' 탭: 지시하기(맨 위, 바로 입력) → 직원 상태 → 지시 목록 → 최근 결과 */
     staffHtml = `<div class="st-order"><label for="stOrder">✍️ ${esc(sel.short)}에게 지시하기</label>
@@ -4890,6 +4890,7 @@ function studioSettleHtml() {
     ${studioLedger.err ? `<p class="st-empty">수입·지출을 못 불러왔어요: ${esc(studioLedger.err)}</p>` : rev == null ? '<p class="st-empty">수입·지출은 배포된 WORKS(로그인 상태)에서만 불러와요.</p>' : ''}
     <button type="button" data-action="studio-settle-close">닫기</button></div></div>`;
 }
+let studioJustOpened = '';
 const studioSeen = new Set(); // 이미 화면에 나왔던 결재 카드 — 처음 나올 때만 게임처럼 등장 애니메이션
 let studioLastPanel = '';
 function studioPanelKey() { const k = S.studio.box + '|' + (S.studio.box === 'staff' ? S.studio.sel : ''); const changed = k !== studioLastPanel; studioLastPanel = k; return changed; }
@@ -4942,8 +4943,9 @@ function handleStudioAction(action, el, e) {
   if (action === 'studio-view') { const list = studioFileReg.get(el.dataset.key); if (!list) return true; S.studio.viewer = { list, i: +el.dataset.i || 0, text: null, err: '' }; studioViewerLoad(); render(); return true; }
   if (action === 'studio-view-step') { studioViewerStep(+el.dataset.d || 1); return true; }
   if (action === 'studio-view-close') { if (el.tagName !== 'BUTTON' && e && e.target !== el) return true; S.studio.viewer = null; render(); return true; } // ✕ 버튼이나 바깥 어두운 곳을 눌렀을 때만 닫힘
-  if (action === 'studio-task-toggle') { S.studio.openTask[id] = !S.studio.openTask[id]; render(); return true; }
-  if (action === 'studio-note-toggle') { S.studio.open[id] = !S.studio.open[id]; render(); return true; }
+  /* 펼침 애니메이션은 '방금 누른 그 카드'에만 한 번 — 예전엔 클라우드 갱신 등으로 화면이 다시 그려질 때마다 펼친 카드가 다시 펼쳐지는 모션이 나와 깜빡였음 */
+  if (action === 'studio-task-toggle') { S.studio.openTask[id] = !S.studio.openTask[id]; studioJustOpened = S.studio.openTask[id] ? 't:' + id : ''; render(); studioJustOpened = ''; return true; }
+  if (action === 'studio-note-toggle') { S.studio.open[id] = !S.studio.open[id]; studioJustOpened = S.studio.open[id] ? 'a:' + id : ''; render(); studioJustOpened = ''; return true; }
   if (action === 'studio-choose') { // 버튼 고르기 — 화면만 다시 그림(사무실 캔버스는 유지돼 깜빡이지 않음)
     (S.studio.answers[id] = S.studio.answers[id] || {})[el.dataset.q] = el.dataset.v; render(); return true;
   }
@@ -7393,7 +7395,8 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-note-title { font-size:14px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .st-note.open .st-note-title { white-space:normal; }
   .st-note-chev { flex:none; color:var(--text-faint); font-size:12px; }
-  .st-note-body { display:grid; gap:8px; padding:4px 12px 14px; border-top:1px dashed var(--border-strong); animation:stUnfold .28s steps(5) both; transform-origin:top; }
+  .st-note-body { display:grid; gap:8px; padding:4px 12px 14px; border-top:1px dashed var(--border-strong); }
+  .st-note-body.st-unfold, .st-task-body.st-unfold { animation:stUnfold .26s steps(4) both; }
   @keyframes stUnfold { 0% { opacity:0; translate:0 -8px; } 60% { opacity:1; } 100% { opacity:1; translate:0 0; } } /* 크기를 줄였다 펴면 내용이 잘려 보이는 일이 있어 위치·투명도만 */
   body.st-still .st-note-body { animation:none; }
   .st-card-top { display:flex; justify-content:space-between; gap:8px; align-items:center; }
@@ -7456,7 +7459,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-panel-body.st-in > * { animation:stBoot .32s steps(4) both; }
   .st-panel-body.st-in > *:nth-child(2) { animation-delay:.06s; } .st-panel-body.st-in > *:nth-child(3) { animation-delay:.12s; } .st-panel-body.st-in > *:nth-child(n+4) { animation-delay:.18s; }
   @keyframes stBoot { 0% { opacity:0; translate:0 6px; filter:brightness(2.2); } 50% { opacity:1; } 100% { opacity:1; translate:0 0; filter:none; } }
-  .st-spot.show .st-bubble, .st-spot:hover .st-bubble { animation:stPopIn .22s steps(3) both, stBob 1.8s ease-in-out .22s infinite; }
+  .st-spot.show .st-bubble { animation:stPopIn .22s steps(3) both, stBob 1.8s ease-in-out .22s infinite; } /* 마우스만 올린 말풍선은 다시 그려질 때 튀지 않게 둥실만 */
   @keyframes stPopIn { 0% { scale:.4; opacity:0; } 60% { scale:1.12; opacity:1; } 100% { scale:1; opacity:1; } }
   body.st-still .st-card.st-in, body.st-still .st-panel-body.st-in > *, body.st-still .st-spot.show .st-bubble, body.st-still .st-spot:hover .st-bubble { animation:none !important; }
   .st-nbadge { display:inline-block; min-width:16px; padding:0 4px; margin-left:2px; background:#e5484d; color:#fff; font-size:11px; border-radius:8px; text-align:center; }
@@ -7487,7 +7490,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-task-sum { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .st-task.open .st-task-sum { white-space:normal; }
   .st-task-meta { flex:none; color:var(--text-faint); font-size:11.5px; }
   .st-task-cancel { flex:none; font:inherit; font-size:12px; border:1px solid #d9534f; background:transparent; color:#d9534f; padding:2px 8px; cursor:pointer; }
-  .st-task-body { display:grid; gap:6px; padding:4px 10px 10px; border-top:1px dashed var(--border-strong); animation:stUnfold .24s steps(4) both; transform-origin:top; }
+  .st-task-body { display:grid; gap:6px; padding:4px 10px 10px; border-top:1px dashed var(--border-strong); }
   .st-task-full { margin:0; font-size:12.5px; color:var(--text-dim); white-space:pre-wrap; word-break:break-word; }
   body.st-still .st-task-body { animation:none; }
   .st-group { margin:6px 0 -2px; font-size:12.5px; color:var(--text-faint); letter-spacing:.04em; }
