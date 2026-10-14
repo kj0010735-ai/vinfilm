@@ -4554,6 +4554,7 @@ function studioSplitBody(body) {
   return { head, items: [...segs, last].map(x => x.trim()).filter(Boolean), tail };
 }
 function studioChoices(a) {
+  if (Array.isArray(a.items) && a.items.length && !(Array.isArray(a.choices) && a.choices.length)) return a.items.slice(0, 5).map(it => ({ id: String(it.id), text: String(it.title || ''), options: ['진행', '아니오', '보류'], recommend: '진행' }));
   if (Array.isArray(a.choices) && a.choices.length) return a.choices.slice(0, 8).map((c, i) => ({ id: String(c.id || 'q' + (i + 1)), text: String(c.text || ''), options: (Array.isArray(c.options) && c.options.length ? c.options : ['예', '아니오']).map(String).slice(0, 5), recommend: c.recommend != null ? String(c.recommend) : '' }));
   return studioSplitBody(a.body).items.slice(0, 8).map((seg, i) => {
     let t = seg; const m = /[(（]\s*추천\s*:\s*([^)）]+)[)）]/.exec(t);
@@ -4561,6 +4562,18 @@ function studioChoices(a) {
     t = t.replace(/[.。\s]+$/, '').trim();
     return { id: 'q' + (i + 1), text: t, options: rec ? [`추천대로 (${rec})`, '아니오', '보류'] : ['확인 (진행)', '아니오', '보류'], recommend: rec ? `추천대로 (${rec})` : '', fromBody: true };
   }).filter(q => q.text);
+}
+/* 비서실 정리 결재: items[{id, team, title, why, output}]를 항목 표로. 줄마다 팀 칩·제목·왜·결과물(접힘) + 진행/아니오/보류(choices의 같은 id) */
+function studioDigestHtml(a) {
+  const qs = studioChoices(a), byId = {}; qs.forEach(q => { byId[q.id] = q; });
+  const rows = a.items.slice(0, 5), go = rows.filter(it => { const q = byId[it.id]; return q && /진행/.test(studioChoiceValue(a, q)); }).length;
+  const done = a.status !== 'wait', team = id => { const t = studioStaffById(id); return t ? t.short : (id || ''); };
+  const orig = (a.files || []).filter(f => /^팀보고_/.test(f && f.name || ''));
+  return `<div class="st-digest-sum"><b>${rows.length}건</b> 중 진행 <b>${go}</b>${a.body ? ` <small>· ${esc(String(a.body).split('\n')[0].slice(0, 60))}</small>` : ''}</div>
+    <div class="st-items">${rows.map(it => { const q = byId[it.id];
+      return `<div class="st-item"><div class="st-item-main"><span class="st-team">${esc(team(it.team))}</span><b>${esc(it.title || '')}</b>${it.why ? `<small>${esc(it.why)}</small>` : ''}${it.output ? `<details><summary>결과물</summary><p>${esc(it.output)}</p></details>` : ''}</div>
+        <div class="st-opts">${q ? q.options.map(o => { const on = studioChoiceValue(a, q) === o; return done ? (on ? `<span class="st-opt on">${esc(o)}</span>` : '') : `<button type="button" class="st-opt${on ? ' on' : ''}" data-action="studio-choose" data-id="${esc(a.id)}" data-q="${esc(q.id)}" data-v="${esc(o)}">${esc(o)}</button>`; }).join('') : ''}</div></div>`; }).join('')}</div>
+    ${orig.length ? `<details class="st-orig"><summary>팀 원본 보기 (${orig.length})</summary>${studioFilesHtml(orig)}</details>` : ''}`;
 }
 function studioChoiceValue(a, q) {
   const pick = (S.studio.answers[a.id] || {})[q.id]; if (pick != null) return pick;
@@ -4652,18 +4665,21 @@ function renderStudioTab() {
     </div>`;
   }).join('');
   const roster = STUDIO_STAFF.map(s => { const st = studioState(s), q = studioTasks.filter(t => t.staffId === s.id && t.status === 'queued').length; return `<button type="button" class="${S.studio.sel === s.id ? 'on' : ''}" data-action="studio-sel" data-id="${s.id}" title="${esc(studioTask(s))}"><span class="st-dot ${st}"></span><b>${esc(s.short)}</b><small>${STUDIO_STATE_LABEL[st]}${q ? ` · 대기 ${q}` : ''}</small></button>`; }).join('');
+  const isDigest = a => Array.isArray(a.items) && a.items.length > 0; // 비서실이 팀 보고를 모아 정리한 결재
   const items = studioApprovals.filter(a => S.studio.box === 'wait' ? a.status === 'wait' : a.status !== 'wait')
-    .sort((a, b) => S.studio.box === 'wait' ? (a.createdAt || 0) - (b.createdAt || 0) : (b.decidedAt || 0) - (a.decidedAt || 0));
-  const cards = items.length ? items.map(a => {
+    .sort((a, b) => S.studio.box === 'wait' ? (isDigest(b) - isDigest(a)) || (a.createdAt || 0) - (b.createdAt || 0) : (b.decidedAt || 0) - (a.decidedAt || 0));
+  const firstTeam = S.studio.box === 'wait' && items.some(isDigest) ? items.findIndex(a => !isDigest(a)) : -1;
+  const cards = items.length ? items.map((a, idx) => {
     const s = studioStaffById(studioApprovalStaff(a)), pill = a.status === 'ok' ? '<span class="st-pill ok">승인</span>' : a.status === 'no' ? '<span class="st-pill bad">반려</span>' : '<span class="st-pill">결재 대기</span>';
     const aid = esc(a.id);
     const fresh = !studioSeen.has(a.id + a.status); studioSeen.add(a.id + a.status);
     // 결재 = 직원이 보낸 쪽지(폴더). 접혀 있을 땐 '보낸 사람·제목·시간·상태' 한 줄만, 누르면 펼쳐져 내용·선택·승인/반려가 나온다.
     const open = !!S.studio.open[a.id];
-    return `<article class="st-card st-note${open ? ' open' : ''}${fresh ? ' st-in' : ''}"><button type="button" class="st-note-head" data-action="studio-note-toggle" data-id="${aid}" aria-expanded="${open}"><span class="st-note-ic">${open ? '📂' : '📁'}</span><span class="st-note-main"><span class="st-note-from"><b>${esc(s ? s.short : studioApprovalStaff(a))}</b> → 대표님 · ${a.createdAt ? esc(studioWhen(a.createdAt)) : ''}</span><span class="st-note-title">${esc(a.title || '(제목 없음)')}</span></span>${pill}<span class="st-note-chev">${open ? '▾' : '▸'}</span></button>
-      ${open ? `<div class="st-note-body">${(() => { const qs = studioChoices(a), b = studioBodyWithoutChoices(a, qs); return (b ? studioBodyHtml(b) : '') + studioChoicesHtml(a, qs); })()}${studioActionsHtml(a)}${studioFilesHtml(a.files)}${a.memo ? `<p>💬 ${esc(a.memo)}</p>` : ''}
+    const digest = isDigest(a);
+    return `${idx === firstTeam ? '<h4 class="st-group">팀 직접 보고</h4>' : ''}<article class="st-card st-note${digest ? ' st-digest' : ''}${open ? ' open' : ''}${fresh ? ' st-in' : ''}"><button type="button" class="st-note-head" data-action="studio-note-toggle" data-id="${aid}" aria-expanded="${open}"><span class="st-note-ic">${open ? '📂' : '📁'}</span><span class="st-note-main"><span class="st-note-from"><b>${esc(s ? s.short : studioApprovalStaff(a))}</b> → 대표님 · ${a.createdAt ? esc(studioWhen(a.createdAt)) : ''}</span><span class="st-note-title">${esc(a.title || '(제목 없음)')}</span></span>${pill}<span class="st-note-chev">${open ? '▾' : '▸'}</span></button>
+      ${open ? `<div class="st-note-body">${digest ? studioDigestHtml(a) : (() => { const qs = studioChoices(a), b = studioBodyWithoutChoices(a, qs); return (b ? studioBodyHtml(b) : '') + studioChoicesHtml(a, qs); })()}${studioActionsHtml(a)}${studioFilesHtml(digest ? (a.files || []).filter(f => !/^팀보고_/.test(f && f.name || '')) : a.files)}${a.memo ? `<p>💬 ${esc(a.memo)}</p>` : ''}
       ${a.status === 'wait' ? `<div class="st-acts"><input id="stMemo-${aid}" placeholder="코멘트 (반려할 땐 꼭)"><button type="button" class="yes" data-action="studio-decide" data-id="${aid}" data-v="ok">승인</button><button type="button" class="no" data-action="studio-decide" data-id="${aid}" data-v="no">반려</button></div>
-        <label class="st-follow"><input type="checkbox" id="stFollow-${aid}" checked> 후속 작업 만들기 <small>(승인: 다음 단계 진행 · 반려: 코멘트 반영해 다시 작업)</small></label>
+        ${digest ? '<p class="st-follow"><small>승인하면 \'진행\'으로 고른 항목만 각 팀에 자동으로 지시돼요(비서실 배분).</small></p>' : `<label class="st-follow"><input type="checkbox" id="stFollow-${aid}" checked> 후속 작업 만들기 <small>(승인: 다음 단계 진행 · 반려: 코멘트 반영해 다시 작업)</small></label>`}
         ${S.studio.msg && S.studio.msgId === a.id ? `<p class="st-warn">${esc(S.studio.msg)}</p>` : ''}` : ''}</div>` : ''}</article>`;
   }).join('') : `<p class="st-empty">${S.studio.box === 'wait' ? '결재할 보고가 없어요. 직원이 결재를 올리면 여기에 떠요.' : '아직 처리한 결재가 없어요.'}</p>`;
   const today = todayStr(), logs = studioLog.filter(l => l.at && ymd(new Date(l.at)) === today).sort((a, b) => b.at - a.at);
@@ -4772,6 +4788,7 @@ let studioLastPanel = '';
 function studioPanelKey() { const k = S.studio.box + '|' + (S.studio.box === 'staff' ? S.studio.sel : ''); const changed = k !== studioLastPanel; studioLastPanel = k; return changed; }
 /* 지시 목록 한 줄 요약: 후속 작업이면 '↪ 승인 후속 · 결재 제목', 아니면 지시 첫 줄(40자) */
 function studioTaskSummary(t) {
+  if (t.by === 'bridge') { const f = String(t.text || '').replace(/^\[[^\]]*\]\s*/, '').split('\n')[0].trim(); return '↪ 비서실 배분 · ' + (f.length > 36 ? f.slice(0, 36) + '…' : f); }
   const m = /^\[(승인 후속|반려 재작업)\]\s*"([^"]+)"/.exec(t.text || '');
   if (m) return `↪ ${m[1] === '승인 후속' ? '승인 후속' : '재작업'} · ${m[2]}`;
   const first = String(t.text || '').split('\n')[0].trim(); return (t.morning ? '☀ 아침 출근 · ' : '') + (first.length > 42 ? first.slice(0, 42) + '…' : first);
@@ -4823,7 +4840,7 @@ function handleStudioAction(action, el, e) {
   if (action === 'studio-decide') {
     const a = studioApprovals.find(x => String(x.id) === id); if (!a || a.status !== 'wait') return true;
     const v = el.dataset.v === 'ok' ? 'ok' : 'no', memoEl = document.getElementById('stMemo-' + id), memo = memoEl ? memoEl.value.trim() : '';
-    const follow = !!(document.getElementById('stFollow-' + id) || {}).checked;
+    const follow = !(Array.isArray(a.items) && a.items.length) && !!(document.getElementById('stFollow-' + id) || {}).checked; // 비서실 정리 결재는 다리가 팀별로 배분하므로 후속 작업 안 만듦
     if (v === 'no' && !memo) { S.studio.msg = '반려할 때는 코멘트를 꼭 적어 주세요(직원이 보고 다시 작업해요).'; S.studio.msgId = a.id; render(); document.getElementById('stMemo-' + id)?.focus(); return true; }
     const staffId = studioApprovalStaff(a), s = studioStaffById(staffId), now = Date.now();
     const qs = studioChoices(a), answers = {}; qs.forEach(q => { answers[q.id] = { q: q.text, a: studioChoiceValue(a, q) }; });
@@ -7355,6 +7372,19 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-task-body { display:grid; gap:6px; padding:4px 10px 10px; border-top:1px dashed var(--border-strong); animation:stUnfold .24s steps(4) both; transform-origin:top; }
   .st-task-full { margin:0; font-size:12.5px; color:var(--text-dim); white-space:pre-wrap; word-break:break-word; }
   body.st-still .st-task-body { animation:none; }
+  .st-group { margin:6px 0 -2px; font-size:12.5px; color:var(--text-faint); letter-spacing:.04em; }
+  .st-digest { border-color:var(--accent); } .st-digest .st-note-ic::after { content:'★'; font-size:10px; color:var(--accent); vertical-align:top; }
+  .st-digest-sum { font-size:13px; color:var(--text-dim); } .st-digest-sum b { color:var(--text); }
+  .st-items { display:grid; gap:0; border:1px solid var(--border); }
+  .st-item { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:start; padding:9px 10px; border-top:1px solid var(--border); }
+  .st-item:first-child { border-top:0; }
+  .st-item-main { display:grid; gap:3px; min-width:0; } .st-item-main b { font-size:13.5px; color:var(--text); } .st-item-main small { font-size:12px; color:var(--text-dim); }
+  .st-item details summary { cursor:pointer; font-size:12px; color:var(--accent); } .st-item details p { margin:4px 0 0; font-size:12.5px; color:var(--text-dim); white-space:pre-wrap; }
+  .st-team { justify-self:start; font-size:11px; padding:1px 7px; border:1px solid var(--accent); color:var(--accent); }
+  .st-item .st-opts { flex-wrap:nowrap; } .st-item .st-opt { padding:4px 8px; font-size:12px; }
+  @media (max-width: 720px) { .st-item { grid-template-columns:minmax(0,1fr); } }
+  .st-orig summary { cursor:pointer; font-size:12.5px; color:var(--text-dim); }
+  .st-term .st-item-main b { color:var(--t-hi); } .st-term .st-item-main small, .st-term .st-digest-sum { color:var(--t-text); } .st-term .st-team { border-color:var(--t-line); color:var(--t-line); }
   .st-acts-list { display:grid; gap:5px; padding:8px 10px; border:1px dashed var(--border-strong); border-radius:10px; font-size:13px; }
   .st-acts-list > b { font-size:13px; color:var(--text); } .st-acts-list p { margin:0; color:var(--text); line-height:1.5; } .st-acts-list small { color:var(--text-faint); }
   .st-term .st-acts-list { border-color:var(--t-line); } .st-term .st-acts-list > b, .st-term .st-acts-list p { color:var(--t-hi); } .st-term .st-acts-list small { color:var(--t-dim); }
