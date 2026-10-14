@@ -2,6 +2,10 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
+<meta name="theme-color" id="themeColorMeta" content="#06090b">
+<script>/* WORKS에서 고른 테마를 따라감(같은 사이트라 localStorage 공유): terminal(기본) → 터미널 톤, dark/light → 지금 모양(라이트).
+   WORKS를 아직 안 연 기기도 기본 터미널. */
+try{var v=localStorage.getItem('vinfilm-works-theme'),t=(v==='dark'||v==='light')&&localStorage.getItem('vinfilm-works-theme-v2')==='1'?v:'terminal';document.documentElement.setAttribute('data-theme',t);if(t!=='terminal')document.getElementById('themeColorMeta').setAttribute('content','#f2f4f8');}catch(e){document.documentElement.setAttribute('data-theme','terminal');}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <script>
 /* 앱처럼 쓰는 화면이라 손가락 확대(핀치 줌)를 막는다 — 아이폰 Safari는 viewport만으로는 안 막혀서 제스처 이벤트도 막음 */
@@ -57,6 +61,30 @@ if ('launchQueue' in window) launchQueue.setConsumer(function (p) {
     --font-body: 'Paperozi', 'Noto Sans KR', 'Pretendard', 'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
   }
+  /* 📟 터미널 테마(WORKS와 같은 톤) — 색은 변수로만 바꾸고, 하드코딩된 흰색/회색 몇 곳은 아래에서 덮음 */
+  @font-face { font-family:'Galmuri11'; src:url('../works/assets/fonts/Galmuri11.woff2') format('woff2'); font-weight:400; font-display:swap; }
+  @font-face { font-family:'Galmuri11'; src:url('../works/assets/fonts/Galmuri11-Bold.woff2') format('woff2'); font-weight:700 900; font-display:swap; }
+  :root[data-theme="terminal"] {
+    --sf-bg:#06090b; --sf-card:#0b1316; --sf-border:rgba(127,211,200,.30);
+    --sf-navy:#0e1b1e; --sf-navy-text:#e6fffb;
+    --sf-blue:#7fd3c8; --sf-blue-soft:rgba(127,211,200,.14);
+    --sf-text:#e6fffb; --sf-text-dim:#b5f2ea; --sf-text-faint:#6fa8a1;
+    --sf-green:#6fd39a; --sf-green-soft:rgba(111,211,154,.14);
+    --sf-amber:#e7b65a; --sf-amber-soft:rgba(231,182,90,.15);
+    --sf-red:#ff7a70; --sf-red-soft:rgba(255,122,112,.14);
+    --sf-gray-soft:rgba(143,151,165,.16);
+    --font-body:'Galmuri11', ui-monospace, monospace; --font-mono:'Galmuri11', ui-monospace, monospace;
+    color-scheme:dark;
+  }
+  :root[data-theme="terminal"] *, :root[data-theme="terminal"] *::before, :root[data-theme="terminal"] *::after { border-radius:0 !important; }
+  :root[data-theme="terminal"] body::after { content:""; position:fixed; inset:0; pointer-events:none; z-index:2147483000; background:repeating-linear-gradient(to bottom, rgba(255,255,255,.022) 0 1px, transparent 1px 3px); mix-blend-mode:screen; }
+  :root[data-theme="terminal"] .sf-logout:hover, :root[data-theme="terminal"] .sf-btn-ghost:hover, :root[data-theme="terminal"] .sf-edit-btn:hover,
+  :root[data-theme="terminal"] .sf-quick-add-btn:hover, :root[data-theme="terminal"] .sf-btn-flat:hover { background:#10201f; }
+  :root[data-theme="terminal"] .sf-btn-primary, :root[data-theme="terminal"] .sf-btn-fill { color:#06090b; }
+  :root[data-theme="terminal"] .sf-btn-danger { color:#06090b; }
+  :root[data-theme="terminal"] .sf-google-btn { background:#0b1316; color:#e6fffb; }
+  :root[data-theme="terminal"] .sf-logo, :root[data-theme="terminal"] .sf-login-logo { border:1px solid #7fd3c8; filter:grayscale(1) sepia(1) hue-rotate(130deg) saturate(2.2) brightness(1.05); }
+  :root[data-theme="terminal"] input, :root[data-theme="terminal"] select, :root[data-theme="terminal"] textarea { color-scheme:dark; }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: var(--sf-bg); }
   body { color: var(--sf-text); font-family: var(--font-body); }
@@ -73,7 +101,7 @@ if ('launchQueue' in window) launchQueue.setConsumer(function (p) {
   .sf-eyebrow { font-size: 12px; letter-spacing: 2.5px; color: var(--sf-blue); font-weight: 800; }
   .sf-title { font-size: 30px; font-weight: 900; letter-spacing: -0.02em; margin: 6px 0 6px; }
   .sf-subtitle { font-size: 14px; color: var(--sf-text-dim); margin:0; }
-  .sf-header-controls { display:flex; align-items:center; gap:10px; padding-top: 4px; }
+  .sf-header-controls { display:flex; align-items:center; gap:10px; padding-top: 4px; flex-wrap:wrap; }
   .sf-month-input { background: var(--sf-card); border:1px solid var(--sf-border); border-radius:8px; padding:9px 12px; font-family: var(--font-body); font-size:14px; color: var(--sf-text); outline:none; }
   .sf-month-input:focus { border-color: var(--sf-blue); }
   .sf-month-nav { background: var(--sf-card); border:1px solid var(--sf-border); border-radius:8px; width:36px; height:38px; font-size:18px; color: var(--sf-text); cursor:pointer; font-family: var(--font-body); }
@@ -100,7 +128,8 @@ if ('launchQueue' in window) launchQueue.setConsumer(function (p) {
   .sf-card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; padding:22px 24px 16px; }
   .sf-card-head h2 { font-size:17px; font-weight:800; margin:0 0 5px; }
   .sf-card-head p { font-size:12.5px; color: var(--sf-text-faint); margin:0; }
-  .sf-card-actions { display:flex; gap:8px; align-items:center; }
+  .sf-card-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; min-width:0; }
+  @media (max-width: 720px) { .sf-card-actions > * { flex:1 1 auto; min-width:0; } input:not([type=checkbox]):not([type=radio]), select, textarea { font-size:16px !important; } } /* 폰: 버튼 줄바꿈, 입력칸 16px(아이폰 확대 방지) */
   .sf-search-input { background: var(--sf-bg); border:1px solid var(--sf-border); border-radius:8px; padding:8px 12px; font-family: var(--font-body); font-size:13px; color: var(--sf-text); outline:none; min-width:180px; }
   .sf-search-input:focus { border-color: var(--sf-blue); }
   .sf-btn-ghost { background: var(--sf-card); border:1px solid var(--sf-border); color: var(--sf-text-dim); padding:8px 14px; border-radius:8px; font-family: var(--font-body); font-size:12.5px; font-weight:600; cursor:pointer; white-space:nowrap; }
