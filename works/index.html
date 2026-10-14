@@ -4811,18 +4811,19 @@ function renderStudioTab() {
     const mine = studioApprovals.filter(a => studioApprovalStaff(a) === sel.id).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 5);
     const lab = { wait: '결재 대기', ok: '승인', no: '반려' };
     const tasks = studioTasks.filter(t => t.staffId === sel.id).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 8);
-    const queuedAll = studioTasks.filter(t => t.status === 'queued').sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    const queuedAll = studioTasks.filter(t => t.status === 'queued' && !STUDIO_AUTO_OFF.includes(t.staffId)).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); // 앱 개발·Mac 관리는 대기열에 안 들어가 순서 표시 안 함
     const taskRows = tasks.length ? `<ul class="st-tasks">${tasks.map(t => {
-      const pos = t.status === 'queued' ? queuedAll.findIndex(x => x.id === t.id) + 1 : 0;
+      const manual = STUDIO_AUTO_OFF.includes(t.staffId) && t.status === 'queued'; // 다리가 Mac 알림만 보내고 채팅방에서 진행하는 지시
+      const pos = t.status === 'queued' && !manual ? queuedAll.findIndex(x => x.id === t.id) + 1 : 0;
       // 지시 한 줄 요약(상태·요약 제목·시간·첨부 수) → 누르면 원문 지시·결과·파일이 펼쳐짐
       const open = !!S.studio.openTask[t.id], nf = Array.isArray(t.files) ? t.files.length : 0;
-      return `<li class="st-task${open ? ' open' : ''}"><div class="st-task-head" role="button" tabindex="0" data-action="studio-task-toggle" data-id="${esc(t.id)}"><span class="st-tstat ${t.status}">${STUDIO_TASK_LABEL[t.status] || t.status}${pos ? ` ${pos}번째` : ''}</span><span class="st-task-sum">${esc(studioTaskSummary(t))}</span><span class="st-task-meta">${nf ? `📎${nf} ` : ''}${esc(studioWhen(t.finishedAt || t.createdAt))}</span>${t.status === 'queued' ? `<button type="button" class="st-task-cancel" data-action="studio-task-cancel" data-id="${esc(t.id)}">취소</button>` : ''}<span class="st-note-chev">${open ? '▾' : '▸'}</span></div>
+      return `<li class="st-task${open ? ' open' : ''}"><div class="st-task-head" role="button" tabindex="0" data-action="studio-task-toggle" data-id="${esc(t.id)}"><span class="st-tstat ${t.status}">${manual ? (t.result ? '📮 알림 보냄' : '전달 대기') : (STUDIO_TASK_LABEL[t.status] || t.status) + (pos ? ` ${pos}번째` : '')}</span><span class="st-task-sum">${esc(studioTaskSummary(t))}</span><span class="st-task-meta">${nf ? `📎${nf} ` : ''}${esc(studioWhen(t.finishedAt || t.createdAt))}</span>${t.status === 'queued' ? `<button type="button" class="st-task-cancel" data-action="studio-task-cancel" data-id="${esc(t.id)}">취소</button>` : ''}<span class="st-note-chev">${open ? '▾' : '▸'}</span></div>
         ${open ? `<div class="st-task-body${studioJustOpened === 't:' + t.id ? ' st-unfold' : ''}"><p class="st-task-full">${esc(t.text)}</p>${t.result ? studioBodyHtml(t.result, 'st-body small') : ''}${studioFilesHtml(t.files)}<small class="st-tmeta">${esc(studioWhen(t.createdAt))}${t.finishedAt ? ' → ' + esc(studioWhen(t.finishedAt)) : ''}</small></div>` : ''}</li>`;
     }).join('')}</ul>` : '<p class="st-empty">아직 지시한 일이 없어요.</p>';
     /* 오른쪽 패널 '직원' 탭: 지시하기(맨 위, 바로 입력) → 직원 상태 → 지시 목록 → 최근 결과 */
     staffHtml = `<div class="st-order"><label for="stOrder">✍️ ${esc(sel.short)}에게 지시하기</label>
-        <textarea id="stOrder" rows="3" placeholder="맡길 일을 적고 Enter (줄바꿈은 Shift+Enter). 예) 다음 주 촬영 준비물 목록 만들어 줘"></textarea>
-        <div class="st-order-row"><small>${STUDIO_AUTO_OFF.includes(sel.id) ? '이 직원은 자동으로 일하지 않아요 — 지시는 쌓아 두고 채팅방에서 진행해요.' : br.on ? 'Mac이 켜져 있어서 순서대로 바로 처리돼요.' : '🔌 Mac이 꺼져 있어도 지시는 쌓였다가 켜지면 처리돼요.'}</small><button type="button" data-action="studio-order" data-id="${sel.id}">보내기</button></div>
+        <textarea id="stOrder" rows="3" placeholder="맡길 일을 적고 Enter (줄바꿈은 Shift+Enter). 예) ${sel.id === 'dev' ? '수입·지출 화면 글씨 좀 키워 줘' : sel.id === 'mac' ? '바탕화면 스크린샷 폴더 정리해 줘' : '다음 주 촬영 준비물 목록 만들어 줘'}"></textarea>
+        <div class="st-order-row"><small>${STUDIO_AUTO_OFF.includes(sel.id) ? `보내면 대표님 Mac에 알림이 가요. 작업은 '${sel.id === 'mac' ? 'Mac 환경정리' : '작업관리 앱 개발'}' 채팅방이나 비서실에 한마디 하면 시작돼요.` : br.on ? 'Mac이 켜져 있어서 순서대로 바로 처리돼요.' : '🔌 Mac이 꺼져 있어도 지시는 쌓였다가 켜지면 처리돼요.'}</small><button type="button" data-action="studio-order" data-id="${sel.id}">보내기</button></div>
         ${S.studio.taskMsg ? `<p class="st-warn">${esc(S.studio.taskMsg)}</p>` : ''}</div>
       <div class="st-staff"><canvas id="studioStaffCv" width="16" height="24"></canvas><dl>
       <dt>이름</dt><dd><b>${esc(sel.name)}</b> · ${esc(sel.role)}</dd>
