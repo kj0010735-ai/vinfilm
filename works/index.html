@@ -4499,7 +4499,7 @@ function studioTask(s) {
   return '대기 중';
 }
 /* 설정(studioBridge/settings) — 다리가 읽어서 지킨다. 문서가 없으면 대표님 결정값(2026-10-14)으로 처음 한 번 만든다. */
-const STUDIO_SETTINGS_DEFAULT = { dailyLimit: 20, morningOn: true, morningAt: '09:00' };
+const STUDIO_SETTINGS_DEFAULT = { dailyLimit: 100, morningOn: true, morningAt: '09:00' }; // 상한 100 = 비상 브레이크(2026-10-14 대표님)
 function studioSettings() { return { ...STUDIO_SETTINGS_DEFAULT, ...(studioBridgeDocs.find(d => d.id === 'settings') || {}) }; }
 let studioSettingsSeeded = false;
 function studioSeedSettings() {
@@ -4785,7 +4785,7 @@ function renderStudioTab() {
     return `${idx === firstTeam ? '<h4 class="st-group">팀 직접 보고</h4>' : ''}<article class="st-card st-note${digest ? ' st-digest' : ''}${open ? ' open' : ''}${fresh ? ' st-in' : ''}"><button type="button" class="st-note-head" data-action="studio-note-toggle" data-id="${aid}" aria-expanded="${open}"><span class="st-note-ic">${open ? '📂' : '📁'}</span><span class="st-note-main"><span class="st-note-from"><b>${esc(s ? s.short : studioApprovalStaff(a))}</b> → 대표님 · ${a.createdAt ? esc(studioWhen(a.createdAt)) : ''}</span><span class="st-note-title">${esc(a.title || '(제목 없음)')}</span></span>${pill}<span class="st-note-chev">${open ? '▾' : '▸'}</span></button>
       ${open ? `<div class="st-note-body${studioJustOpened === 'a:' + a.id ? ' st-unfold' : ''}">${digest ? studioDigestHtml(a) : (() => { const qs = studioChoices(a), b = studioBodyWithoutChoices(a, qs); return (b ? studioLinkFileNames(studioBodyHtml(b), a.files) : '') + studioChoicesHtml(a, qs); })()}${studioActionsHtml(a)}${studioFilesHtml(digest ? (a.files || []).filter(f => !/^팀보고_/.test(f && f.name || '')) : a.files)}${a.memo ? `<p>💬 ${esc(a.memo)}</p>` : ''}
       ${a.status === 'wait' ? `<div class="st-acts"><input id="stMemo-${aid}" placeholder="코멘트 (반려할 땐 꼭)"><button type="button" class="yes" data-action="studio-decide" data-id="${aid}" data-v="ok">승인</button><button type="button" class="no" data-action="studio-decide" data-id="${aid}" data-v="no">반려</button></div>
-        ${digest ? '<p class="st-follow"><small>승인하면 \'진행\'으로 고른 항목만 각 팀에 자동으로 지시돼요(비서실 배분).</small></p>' : `<label class="st-follow"><input type="checkbox" id="stFollow-${aid}" checked> 후속 작업 만들기 <small>(승인: 다음 단계 진행 · 반려: 코멘트 반영해 다시 작업)</small></label>`}
+        ${digest ? '<p class="st-follow"><small>승인하면 \'진행\'으로 고른 항목만 각 팀에 자동으로 지시돼요(비서실 배분).</small></p>' : `<label class="st-follow"><input type="checkbox" id="stFollow-${aid}" ${a.followUp !== false ? 'checked' : ''}> 승인 후 다음 단계 지시 <small>${a.followUp === false ? '(확인만 하면 끝나는 보고예요 · 반려하면 코멘트대로 다시 작업)' : '(반려하면 코멘트대로 다시 작업)'}</small></label>`}
         ${S.studio.msg && S.studio.msgId === a.id ? `<p class="st-warn">${esc(S.studio.msg)}</p>` : ''}` : ''}</div>` : ''}</article>`;
   }).join('') : `<p class="st-empty">${S.studio.box === 'wait' ? '결재할 보고가 없어요. 직원이 결재를 올리면 여기에 떠요.' : '아직 처리한 결재가 없어요.'}</p>`;
   const today = todayStr(), logs = studioLog.filter(l => l.at && ymd(new Date(l.at)) === today).sort((a, b) => b.at - a.at);
@@ -4867,7 +4867,7 @@ function studioNotifHtml() {
 function studioSettingsHtml(cfg, br) {
   return `<div class="st-cfg">
     <label><input type="checkbox" data-action="studio-motion" ${studioMotionPref() === 'on' ? 'checked' : ''}> 애니메이션 항상 켜기 <small class="st-empty">(끄면 기기의 '동작 줄이기' 설정을 따라요 · 이 기기에만 저장)</small></label>
-    <label>하루 지시 상한 <input type="number" id="stCfgLimit" min="1" max="200" value="${Number(cfg.dailyLimit) || 20}"> 건</label>
+    <label>하루 지시 상한 <input type="number" id="stCfgLimit" min="1" max="200" value="${Number(cfg.dailyLimit) || 100}"> 건 <small class="st-empty">비상 브레이크 — 평소엔 닿지 않아요</small></label>
     <label><input type="checkbox" id="stCfgMorning" ${cfg.morningOn ? 'checked' : ''}> 아침 자동 출근 <input type="time" id="stCfgAt" value="${esc(cfg.morningAt || '09:00')}"></label>
     <p class="st-empty">아침 자동 출근: 정한 시각에 Mac 다리가 직원들에게 "진행중 메모 보고 오늘 할 일 제안"을 지시해요(하루 상한 안에서). 상한을 넘은 지시는 다음 날로 미뤄져요.</p>
     <p class="st-empty">다리 상태: ${br.on ? '🟢 연결됨' : '🔌 꺼짐'}${br.hb ? ` · 마지막 신호 ${esc(studioWhen(br.hb))}` : ' · 아직 연결된 적 없음'}${br.version ? ` · v${esc(br.version)}` : ''}</p>
@@ -4933,7 +4933,7 @@ function handleStudioAction(action, el, e) {
     return true;
   }
   if (action === 'studio-cfg-save') {
-    const lim = Math.max(1, Math.min(200, parseInt((document.getElementById('stCfgLimit') || {}).value, 10) || 20));
+    const lim = Math.max(1, Math.min(200, parseInt((document.getElementById('stCfgLimit') || {}).value, 10) || 100));
     const at = ((document.getElementById('stCfgAt') || {}).value || '09:00').slice(0, 5), on = !!(document.getElementById('stCfgMorning') || {}).checked;
     studioPut('studioBridge', { id: 'settings', dailyLimit: lim, morningOn: on, morningAt: at, updatedAt: Date.now() });
     S.studio.msg = '저장했어요.'; S.studio.msgId = 'cfg'; render();
@@ -4952,7 +4952,9 @@ function handleStudioAction(action, el, e) {
   if (action === 'studio-decide') {
     const a = studioApprovals.find(x => String(x.id) === id); if (!a || a.status !== 'wait') return true;
     const v = el.dataset.v === 'ok' ? 'ok' : 'no', memoEl = document.getElementById('stMemo-' + id), memo = memoEl ? memoEl.value.trim() : '';
-    const follow = !(Array.isArray(a.items) && a.items.length) && !!(document.getElementById('stFollow-' + id) || {}).checked; // 비서실 정리 결재는 다리가 팀별로 배분하므로 후속 작업 안 만듦
+    // 꼬리물기 방지(2026-10-14): 승인 후속은 체크했을 때만(다리가 followUp:false로 보낸 결재는 기본 꺼짐), 비서실 정리 결재는 다리가 배분하니 안 만듦.
+    // 반려는 '다시 해 달라'는 뜻이라 항상 재작업 지시를 만든다.
+    const follow = v === 'no' ? true : !(Array.isArray(a.items) && a.items.length) && !!(document.getElementById('stFollow-' + id) || {}).checked;
     if (v === 'no' && !memo) { S.studio.msg = '반려할 때는 코멘트를 꼭 적어 주세요(직원이 보고 다시 작업해요).'; S.studio.msgId = a.id; render(); document.getElementById('stMemo-' + id)?.focus(); return true; }
     const staffId = studioApprovalStaff(a), s = studioStaffById(staffId), now = Date.now();
     const qs = studioChoices(a), answers = {}; qs.forEach(q => { answers[q.id] = { q: q.text, a: studioChoiceValue(a, q) }; });
