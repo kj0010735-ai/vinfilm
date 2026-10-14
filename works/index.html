@@ -340,7 +340,7 @@ STUDIO_COLLECTIONS.forEach(n => { studioData[n] = GUEST_MODE ? [] : loadJSON('eq
 let studioStaff = studioData.studioStaff, studioTasks = studioData.studioTasks, studioApprovals = studioData.studioApprovals, studioLog = studioData.studioLog, studioBridgeDocs = studioData.studioBridge;
 function studioApply(name, items) {
   studioData[name] = items;
-  if (name === 'studioStaff') studioStaff = items; else if (name === 'studioTasks') studioTasks = items; else if (name === 'studioApprovals') studioApprovals = items;
+  if (name === 'studioStaff') { studioStaff = items; if (typeof studioTalkIngest === 'function') studioTalkIngest(items); } else if (name === 'studioTasks') studioTasks = items; else if (name === 'studioApprovals') studioApprovals = items;
   else if (name === 'studioLog') studioLog = items; else if (name === 'studioBridge') studioBridgeDocs = items;
   try { localStorage.setItem('eq-manager-' + name, JSON.stringify(items)); } catch (e) {}
 }
@@ -5014,6 +5014,7 @@ function studioMountCanvas() {
   const slot = document.getElementById('studioCvSlot'); if (!slot) return;
   if (!studioCanvasEl) { studioCanvasEl = document.createElement('canvas'); studioCanvasEl.id = 'studioCv'; studioCanvasEl.width = 960; studioCanvasEl.height = 660; studioCanvasEl.setAttribute('aria-label', 'VINFILM 스튜디오 사무실'); }
   slot.replaceWith(studioCanvasEl);
+  const room = document.getElementById('studioRoom'); if (room) room.appendChild(studioTalkLayer()); // 대화 말풍선 층도 다시 만들지 않고 옮겨 붙임
   studioDraw(true);
 }
 function studioCaptureInputs() {
@@ -5095,6 +5096,7 @@ function studioDraw(still) {
     else img(s.spr, x, y);
     if (st === 'wait') { ctx.fillStyle = '#e8a21a'; ctx.fillRect(s.x * W - 2, y - 6, 4, 7); ctx.fillRect(s.x * W - 2, y + 3, 4, 2); }
   });
+  studioTalkCanvas(ctx, W, H);
   [['studioCeoCv', { hair: '#2b1d14', shirt: '#2b3640', acc: 'tie' }], ['studioStaffCv', S.studio.sel && studioStaffById(S.studio.sel)]].forEach(([cid, c]) => {
     const el = document.getElementById(cid); if (!el || !c || el.dataset.drawn === (c.id || 'ceo')) return;
     const cx = el.getContext('2d'); cx.clearRect(0, 0, el.width, el.height); studioMinimi(cx, c); el.dataset.drawn = c.id || 'ceo';
@@ -5107,6 +5109,75 @@ function studioDraw(still) {
     const w = STUDIO_STAFF.filter(s => studioState(s) === 'work');
     if (w.length) studioPop(w[Math.random() * w.length | 0], ['+1 진행', '+기획', '+컷 편집', '+초안', '+아이디어', '+정리'][Math.random() * 6 | 0]);
   }
+  studioTalkTick(rm);
+}
+
+/* ---- 💬 직원 대화 말풍선 (2026-10-14) ----
+   다리가 studioStaff/{id}.say = {text, to, at}를 쓰면(작업 시작·아침 보고·배분·완료 등) 45초 안의 것을 그 직원 머리 위에 띄운다:
+   "…" 타이핑 0.6초 → 한 글자씩 → 11초 뒤 사라짐. to가 있으면 '→ 받는 사람' 표시 + 두 자리 사이 점선 + 받는 책상 반짝(대표님이면 대표님 자리).
+   이벤트가 없을 땐 화면에서만 가끔 '잡담'(20~40초에 한 명, 저장 안 함). 움직임 정지(st-still)면 타이핑·잡담 없이 실제 say만 바로 표시.
+   말풍선 층(studioTalkEl)은 render가 DOM을 새로 만들어도 다시 만들지 않고 #studioRoom에 옮겨 붙인다. */
+const studioTalkSeen = {}; let studioTalks = [], studioTalkEl = null, studioTalkNextChat = Date.now() + 15000;
+function studioTalkLayer() { if (!studioTalkEl) { studioTalkEl = document.createElement('div'); studioTalkEl.className = 'st-talk-layer'; } return studioTalkEl; }
+function studioTalkAdd(id, text, to, kind) {
+  studioTalks = studioTalks.filter(t => t.id !== id); // 한 사람은 말풍선 하나
+  studioTalks.push({ id, text: String(text || '').slice(0, 40), to: to || '', t0: Date.now(), kind, el: null });
+}
+function studioTalkIngest(items) {
+  const now = Date.now();
+  (items || []).forEach(d => {
+    const sy = d && d.say; if (!sy || !sy.text || !sy.at) return;
+    const key = d.id + ':' + sy.at; if (studioTalkSeen[d.id] === key) return; studioTalkSeen[d.id] = key;
+    if (now - Number(sy.at) <= 45000 && studioStaffById(d.id)) studioTalkAdd(d.id, sy.text, sy.to, 'real');
+  });
+}
+function studioHeadPt(id) { // 머리 위 지점(사무실 논리 좌표 480×330)
+  if (id === 'ceo') return { x: STUDIO_CEO.x * STUDIO_W + 11, y: STUDIO_CEO.y * STUDIO_H - 56 + 13 };
+  const s = studioStaffById(id); if (!s) return null; const off = studioState(s) === 'off';
+  return { x: s.x * STUDIO_W - 32 + (off ? 56 : 38), y: s.y * STUDIO_H - 56 + (off ? 31 : 13) };
+}
+function studioTalkCanvas(ctx, W, H) { // 대화 중 받는 쪽으로 점선 + 받는 자리 반짝(처음 3초)
+  const now = Date.now();
+  studioTalks.forEach(t => {
+    if (!t.to || now - t.t0 > 3200) return;
+    const a = studioHeadPt(t.id), b = studioHeadPt(t.to); if (!a || !b) return;
+    ctx.save(); ctx.strokeStyle = '#2fb3a3'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.lineDashOffset = -Math.floor(now / 80) % 6;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y + 6); ctx.lineTo(b.x, b.y + 6); ctx.stroke();
+    if (Math.floor(now / 250) % 2) { ctx.setLineDash([]); ctx.strokeStyle = '#ffe680'; ctx.lineWidth = 2; ctx.strokeRect(b.x - 30, b.y - 6, 52, 44); }
+    ctx.restore();
+  });
+}
+function studioTalkTick(still) {
+  const layer = studioTalkEl, room = document.getElementById('studioRoom'); if (!layer || !room || !layer.isConnected) return;
+  const now = Date.now();
+  // 잡담: 실제 대화가 없을 때만, 20~40초에 한 명
+  if (!still && !studioTalks.length && now > studioTalkNextChat) {
+    studioTalkNextChat = now + 20000 + Math.random() * 20000;
+    const pool = STUDIO_STAFF.filter(s => !STUDIO_AUTO_OFF.includes(s.id)); const s = pool[Math.random() * pool.length | 0], st = studioState(s);
+    const task = (studioDoc(s.id).task || '').replace(/\s+/g, ' ');
+    const lines = st === 'work' && task ? [`${task.slice(0, 18)} 하는 중…`] : st === 'wait' ? ['결재 기다리는 중… 📮', '대표님 결재 언제 오시려나'] : ['커피 한 잔 ☕', '잠깐 스트레칭~', '오늘 할 일 뭐였더라…', '창밖 날씨 좋다 🌤'];
+    studioTalkAdd(s.id, lines[Math.random() * lines.length | 0], '', 'chat');
+  }
+  studioTalks = studioTalks.filter(t => { const keep = now - t.t0 < (t.kind === 'chat' ? 7000 : 11600); if (!keep && t.el) t.el.remove(); return keep; });
+  const hovered = room.querySelector('.st-spot:not(.st-ceo-spot):hover'), hovIdx = hovered ? [...room.querySelectorAll('.st-spot:not(.st-ceo-spot)')].indexOf(hovered) : -1, hovId = hovIdx >= 0 ? STUDIO_STAFF[hovIdx].id : '';
+  const rw = room.clientWidth, rh = room.clientHeight;
+  layer.style.fontSize = Math.max(8.5, Math.min(12.5, rw / 52)) + 'px'; // 사무실 크기에 맞춰 글씨 크기(폰에선 작게)
+  studioTalks.forEach(t => {
+    if (!t.el) { t.el = document.createElement('div'); t.el.className = 'st-talk' + (t.kind === 'chat' ? ' chat' : ''); layer.appendChild(t.el); }
+    const el = t.el, age = now - t.t0, typing = still ? 0 : 600;
+    const shown = still ? t.text.length : Math.max(0, Math.floor((age - typing) / 55));
+    const toName = t.to === 'ceo' ? '대표님' : t.to && studioStaffById(t.to) ? studioStaffById(t.to).short : '';
+    const body = age < typing ? '<i class="st-talk-dots"><b>.</b><b>.</b><b>.</b></i>' : esc(t.text.slice(0, shown)) + (shown < t.text.length ? '<u>▌</u>' : '');
+    const html = `${toName ? `<em>→ ${esc(toName)}</em>` : ''}${body}`;
+    if (el.dataset.h !== html) { el.innerHTML = html; el.dataset.h = html; }
+    el.style.display = t.id === hovId ? 'none' : ''; // 마우스 올린 직원은 기존 말풍선(이름·하는 일) 우선
+    const p = studioHeadPt(t.id); if (!p) return;
+    const hx = p.x / STUDIO_W * rw, hy = p.y / STUDIO_H * rh - 6, w = el.offsetWidth || 120;
+    const left = Math.max(4, Math.min(rw - w - 4, hx - w / 2)); // 가장자리 직원은 말풍선을 안쪽으로
+    el.style.left = left + 'px'; el.style.top = Math.max(2, hy - el.offsetHeight) + 'px';
+    el.style.setProperty('--tail', Math.max(8, Math.min(w - 8, hx - left)) + 'px');
+    el.classList.toggle('out', age > (t.kind === 'chat' ? 6400 : 11000));
+  });
 }
 setInterval(() => { if (S.activeTab === 'studio' && !document.hidden) studioDraw(); }, 120);
 
@@ -7552,6 +7623,16 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-doc-foot button, .st-doc-foot a { font:inherit; font-size:13px; padding:6px 12px; border:1px solid var(--border-strong); background:var(--surface-hover); color:var(--text); cursor:pointer; text-decoration:none; }
   .sched-meet-btn { display:inline-block; padding:4px 10px; border:1px solid var(--accent); color:var(--accent); text-decoration:none; font-weight:700; }
   .sched-meet-copy { font:inherit; font-size:12px; padding:3px 8px; margin-left:6px; border:1px solid var(--border); background:var(--surface-hover); color:var(--text); cursor:pointer; }
+  .st-talk-layer { position:absolute; inset:0; pointer-events:none; z-index:7; }
+  .st-talk { position:absolute; max-width:min(58%, 260px); padding:.3em .6em; background:#06090b; color:#e6fffb; border:1px solid #7fd3c8; font-family:'Galmuri11', ui-monospace, monospace; font-size:1em; line-height:1.35; box-shadow:2px 2px 0 rgba(0,0,0,.35), 0 0 8px rgba(127,211,200,.35); white-space:normal; word-break:keep-all; overflow-wrap:anywhere; transition:opacity .4s; }
+  .st-talk::after { content:""; position:absolute; left:var(--tail, 50%); bottom:-6px; width:8px; height:6px; translate:-50% 0; background:#06090b; border-right:1px solid #7fd3c8; border-bottom:1px solid #7fd3c8; clip-path:polygon(0 0, 100% 0, 50% 100%); }
+  .st-talk::before { content:""; position:absolute; left:var(--tail, 50%); bottom:-7px; width:10px; height:7px; translate:-50% 0; background:#7fd3c8; clip-path:polygon(0 0, 100% 0, 50% 100%); }
+  .st-talk.chat { border-style:dashed; color:#b5f2ea; }
+  .st-talk em { font-style:normal; color:#e7b65a; margin-right:5px; font-size:.9em; }
+  .st-talk u { text-decoration:none; color:#7fd3c8; animation:stBlink .8s steps(1) infinite; }
+  .st-talk.out { opacity:0; }
+  .st-talk-dots b { display:inline-block; animation:stDot 0.6s steps(2) infinite; } .st-talk-dots b:nth-child(2) { animation-delay:.2s; } .st-talk-dots b:nth-child(3) { animation-delay:.4s; }
+  @keyframes stBlink { 50% { opacity:0; } } @keyframes stDot { 50% { translate:0 -2px; } }
   .st-acts-list { display:grid; gap:5px; padding:8px 10px; border:1px dashed var(--border-strong); border-radius:10px; font-size:13px; }
   .st-acts-list > b { font-size:13px; color:var(--text); } .st-acts-list p { margin:0; color:var(--text); line-height:1.5; } .st-acts-list small { color:var(--text-faint); }
   .st-term .st-acts-list { border-color:var(--t-line); } .st-term .st-acts-list > b, .st-term .st-acts-list p { color:var(--t-hi); } .st-term .st-acts-list small { color:var(--t-dim); }
