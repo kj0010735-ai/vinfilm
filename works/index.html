@@ -4488,6 +4488,9 @@ const STUDIO_STAFF = [
   { id: 'fin', name: '재무팀', short: '재무', role: '견적·세금·정산', spr: 'worker2', x: 0.250, y: 0.850, hair: '#4a2f1a', shirt: '#3aa76d', acc: 'glasses', detail: '견적 단가, 원천세·부가세, 월별 손익, 구독료를 챙겨요.' },
   { id: 'design', name: '디자인팀', short: '디자인', role: '시안·아이콘·썸네일', spr: 'worker1', x: 0.417, y: 0.850, hair: '#c2623b', shirt: '#ff6fa3', acc: 'beret', detail: '썸네일, 포스터, 견적서, 앱 아이콘 시안을 만들어요.' },
   { id: 'mac', name: 'Mac 환경정리', short: 'Mac 관리', role: '컴퓨터·파일·앱 관리', spr: 'worker4', x: 0.750, y: 0.850, hair: '#555b63', shirt: '#9aa7b1', acc: '', detail: 'Mac 폴더 정리, 앱 설치·삭제, 오디오·속도 점검, 스트림덱 버튼을 맡아요.' },
+  // 🏯 히스플랜 지사(2026-10-14): 히스플랜 맥북(다른 Claude 계정)의 Claude. 통로 iCloud '히스플랜 전달함/지사', VINFILM 맥 다리가 중계(branchSend/branchPoll).
+  // studioStaff/hisplan.online = 맥북 heartbeat(5분). 사무실 왼쪽 보라색 '지사' 방에 앉음.
+  { id: 'hisplan', name: '히스플랜 지사', short: '히스플랜 지사', role: '히스플랜 맥북의 Claude', spr: 'worker2', x: 0.092, y: 0.630, hair: '#2b1d14', shirt: '#8b5cf6', acc: '', detail: '히스플랜 맥북의 Claude — 히스플랜 운영툴·사역 일을 맡아요. 운영 반영은 대표님 승인 후에만.' },
   { id: 'mkt', name: '마케팅팀', short: '마케팅', role: '인스타·유튜브·문구', spr: 'worker2', x: 0.583, y: 0.850, hair: '#2d1d14', shirt: '#ffcc33', acc: '', detail: '인스타·유튜브 콘텐츠, 홍보 문구, 문의 응대 문구를 맡아요.' },
 ];
 const STUDIO_W = 480, STUDIO_H = 330;
@@ -4504,8 +4507,10 @@ const STUDIO_TASK_LABEL = { queued: '대기', running: '진행 중', done: '완�
 function studioDoc(id) { return studioStaff.find(d => d.id === id) || {}; }
 function studioApprovalStaff(a) { return a.staffId || a.from || ''; }
 function studioWaiting() { return studioApprovals.filter(a => a.status === 'wait'); }
+function studioBranchOff(s) { return s && s.id === 'hisplan' && studioDoc('hisplan').online !== true; } // 히스플랜 맥북 꺼짐
 function studioState(s) {
   if (studioApprovals.some(a => studioApprovalStaff(a) === s.id && a.status === 'wait')) return 'wait';
+  if (studioBranchOff(s)) return 'off';
   if (studioTasks.some(t => t.staffId === s.id && t.status === 'running')) return 'work';
   const st = studioDoc(s.id).state; return st === 'work' || st === 'wait' ? st : 'off';
 }
@@ -4849,14 +4854,14 @@ function renderStudioTab() {
     const st = studioState(s), task = studioTask(s);
     // 머리 위치(그림 64×64 기준): 쉬는 중 = 책상 오른쪽 커피 마시는 사람(x 56, y 20), 일하는 중 = 책상 뒤 사람(x 38, y 13)
     const head = st === 'off' ? '--hx:87.5%;--hy:48%' : '--hx:59%;--hy:20%'; // 쉬는 중은 매트에 누운 머리(x 56, y 31) 위
-    return `<div class="st-spot" style="left:${s.x * 100}%;top:${(s.y * STUDIO_H - 56) / STUDIO_H * 100}%;${head}">
+    return `<div class="st-spot" data-staff="${s.id}" style="left:${s.x * 100}%;top:${(s.y * STUDIO_H - 56) / STUDIO_H * 100}%;${head}">
       <div class="st-bubble ${st}"><b>${esc(s.name)}</b><span>${STUDIO_STATE_ICON[st]} ${esc(task)}</span></div>
-      ${st === 'off' ? '' : `<div class="st-badge">${STUDIO_STATE_ICON[st]}</div>`}
+      ${studioBranchOff(s) && st !== 'wait' ? '<div class="st-badge">🔌</div>' : st === 'off' ? '' : `<div class="st-badge">${STUDIO_STATE_ICON[st]}</div>`}
       <button class="st-hit" type="button" data-action="studio-sel" data-id="${s.id}" aria-label="${esc(s.name)} 업무 보기"></button>
       <div class="st-plate">${esc(s.short)}</div>
     </div>`;
   }).join('');
-  const roster = STUDIO_STAFF.map(s => { const st = studioState(s), q = studioTasks.filter(t => t.staffId === s.id && t.status === 'queued').length; return `<button type="button" class="${S.studio.sel === s.id ? 'on' : ''}" data-action="studio-sel" data-id="${s.id}" title="${esc(studioTask(s))}"><span class="st-dot ${st}"></span><b>${esc(s.short)}</b><small>${STUDIO_STATE_LABEL[st]}${q ? ` · 대기 ${q}` : ''}</small></button>`; }).join('');
+  const roster = STUDIO_STAFF.map(s => { const st = studioState(s), q = studioTasks.filter(t => t.staffId === s.id && t.status === 'queued').length; return `<button type="button" class="${S.studio.sel === s.id ? 'on' : ''}" data-action="studio-sel" data-id="${s.id}" title="${esc(studioTask(s))}"><span class="st-dot ${st}"></span><b>${esc(s.short)}</b><small>${studioBranchOff(s) && st !== 'wait' ? '맥북 꺼짐' : STUDIO_STATE_LABEL[st]}${q ? ` · 대기 ${q}` : ''}</small></button>`; }).join('');
   const isDigest = a => Array.isArray(a.items) && a.items.length > 0; // 비서실이 팀 보고를 모아 정리한 결재
   const items = studioApprovals.filter(a => S.studio.box === 'wait' ? a.status === 'wait' : a.status !== 'wait')
     .sort((a, b) => S.studio.box === 'wait' ? (isDigest(b) - isDigest(a)) || (a.createdAt || 0) - (b.createdAt || 0) : (b.decidedAt || 0) - (a.decidedAt || 0));
@@ -4881,19 +4886,19 @@ function renderStudioTab() {
     const mine = studioApprovals.filter(a => studioApprovalStaff(a) === sel.id).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 5);
     const lab = { wait: '결재 대기', ok: '승인', no: '반려' };
     const tasks = studioTasks.filter(t => t.staffId === sel.id).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 8);
-    const queuedAll = studioTasks.filter(t => t.status === 'queued' && !STUDIO_AUTO_OFF.includes(t.staffId)).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); // 앱 개발·Mac 관리는 대기열에 안 들어가 순서 표시 안 함
+    const queuedAll = studioTasks.filter(t => t.status === 'queued' && !STUDIO_AUTO_OFF.includes(t.staffId) && t.staffId !== 'hisplan').sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); // 앱 개발·Mac 관리는 대기열에 안 들어가 순서 표시 안 함
     const taskRows = tasks.length ? `<ul class="st-tasks">${tasks.map(t => {
-      const manual = STUDIO_AUTO_OFF.includes(t.staffId) && t.status === 'queued'; // 다리가 Mac 알림만 보내고 채팅방에서 진행하는 지시
+      const manual = (STUDIO_AUTO_OFF.includes(t.staffId) || t.staffId === 'hisplan') && t.status === 'queued'; // Mac 알림/지사 전달만 하고 대기열엔 안 들어가는 지시
       const pos = t.status === 'queued' && !manual ? queuedAll.findIndex(x => x.id === t.id) + 1 : 0;
       // 지시 한 줄 요약(상태·요약 제목·시간·첨부 수) → 누르면 원문 지시·결과·파일이 펼쳐짐
       const open = !!S.studio.openTask[t.id], nf = Array.isArray(t.files) ? t.files.length : 0;
-      return `<li class="st-task${open ? ' open' : ''}"><div class="st-task-head" role="button" tabindex="0" data-action="studio-task-toggle" data-id="${esc(t.id)}"><span class="st-tstat ${t.status}">${manual ? (t.result ? '📮 알림 보냄' : '전달 대기') : (STUDIO_TASK_LABEL[t.status] || t.status) + (pos ? ` ${pos}번째` : '')}</span><span class="st-task-sum">${esc(studioTaskSummary(t))}</span><span class="st-task-meta">${nf ? `📎${nf} ` : ''}${esc(studioWhen(t.finishedAt || t.createdAt))}</span>${t.status === 'queued' ? `<button type="button" class="st-task-cancel" data-action="studio-task-cancel" data-id="${esc(t.id)}">취소</button>` : ''}<span class="st-note-chev">${open ? '▾' : '▸'}</span></div>
+      return `<li class="st-task${open ? ' open' : ''}"><div class="st-task-head" role="button" tabindex="0" data-action="studio-task-toggle" data-id="${esc(t.id)}"><span class="st-tstat ${t.status}">${manual ? (t.result ? (t.staffId === 'hisplan' ? '📮 지사로 보냄' : '📮 알림 보냄') : '전달 대기') : (STUDIO_TASK_LABEL[t.status] || t.status) + (pos ? ` ${pos}번째` : '')}</span><span class="st-task-sum">${esc(studioTaskSummary(t))}</span><span class="st-task-meta">${nf ? `📎${nf} ` : ''}${esc(studioWhen(t.finishedAt || t.createdAt))}</span>${t.status === 'queued' ? `<button type="button" class="st-task-cancel" data-action="studio-task-cancel" data-id="${esc(t.id)}">취소</button>` : ''}<span class="st-note-chev">${open ? '▾' : '▸'}</span></div>
         ${open ? `<div class="st-task-body${studioJustOpened === 't:' + t.id ? ' st-unfold' : ''}"><p class="st-task-full">${esc(t.text)}</p>${t.result ? studioBodyHtml(t.result, 'st-body small') : ''}${studioFilesHtml(t.files)}<small class="st-tmeta">${esc(studioWhen(t.createdAt))}${t.finishedAt ? ' → ' + esc(studioWhen(t.finishedAt)) : ''}</small></div>` : ''}</li>`;
     }).join('')}</ul>` : '<p class="st-empty">아직 지시한 일이 없어요.</p>';
     /* 오른쪽 패널 '직원' 탭: 지시하기(맨 위, 바로 입력) → 직원 상태 → 지시 목록 → 최근 결과 */
     staffHtml = `<div class="st-order"><label for="stOrder">✍️ ${esc(sel.short)}에게 지시하기</label>
-        <textarea id="stOrder" rows="3" placeholder="맡길 일을 적고 Enter (줄바꿈은 Shift+Enter). 예) ${sel.id === 'dev' ? '수입·지출 화면 글씨 좀 키워 줘' : sel.id === 'mac' ? '바탕화면 스크린샷 폴더 정리해 줘' : '다음 주 촬영 준비물 목록 만들어 줘'}"></textarea>
-        <div class="st-order-row"><small>${STUDIO_AUTO_OFF.includes(sel.id) ? `보내면 대표님 Mac에 알림이 가요. 작업은 '${sel.id === 'mac' ? 'Mac 환경정리' : '작업관리 앱 개발'}' 채팅방이나 비서실에 한마디 하면 시작돼요.` : br.on ? 'Mac이 켜져 있어서 순서대로 바로 처리돼요.' : '🔌 Mac이 꺼져 있어도 지시는 쌓였다가 켜지면 처리돼요.'}</small><button type="button" data-action="studio-order" data-id="${sel.id}">보내기</button></div>
+        <textarea id="stOrder" rows="3" placeholder="맡길 일을 적고 Enter (줄바꿈은 Shift+Enter). 예) ${sel.id === 'hisplan' ? '이번 주 예배 순서지 초안 만들어 줘' : sel.id === 'dev' ? '수입·지출 화면 글씨 좀 키워 줘' : sel.id === 'mac' ? '바탕화면 스크린샷 폴더 정리해 줘' : '다음 주 촬영 준비물 목록 만들어 줘'}"></textarea>
+        <div class="st-order-row"><small>${sel.id === 'hisplan' ? (studioBranchOff(sel) ? '히스플랜 맥북이 꺼져 있어요. 지시는 쌓였다가 켜지면 처리돼요.' : '히스플랜 맥북으로 보내져서 그쪽 Claude가 처리해요.') : STUDIO_AUTO_OFF.includes(sel.id) ? `보내면 대표님 Mac에 알림이 가요. 작업은 '${sel.id === 'mac' ? 'Mac 환경정리' : '작업관리 앱 개발'}' 채팅방이나 비서실에 한마디 하면 시작돼요.` : br.on ? 'Mac이 켜져 있어서 순서대로 바로 처리돼요.' : '🔌 Mac이 꺼져 있어도 지시는 쌓였다가 켜지면 처리돼요.'}</small><button type="button" data-action="studio-order" data-id="${sel.id}">보내기</button></div>
         ${S.studio.taskMsg ? `<p class="st-warn">${esc(S.studio.taskMsg)}</p>` : ''}</div>
       <div class="st-staff"><canvas id="studioStaffCv" width="16" height="24"></canvas><dl>
       <dt>이름</dt><dd><b>${esc(sel.name)}</b> · ${esc(sel.role)}</dd>
@@ -5149,8 +5154,13 @@ function studioDraw(still) {
     img('stamping-table', cx - 96 + 4, cy - 22); img('boss', cx - 32, cy - 56 - (studioWaiting().length && Math.floor(studioFrame / 6) % 2 ? 1 : 0));
     if (studioWaiting().length && Math.floor(studioFrame / 4) % 2) { ctx.fillStyle = '#fff6d6'; ctx.fillRect(cx - 86, cy - 30, 10, 7); ctx.fillStyle = '#e8a21a'; ctx.fillRect(cx - 86, cy - 33, 10, 3); }
   }
+  { // 🏯 히스플랜 지사 방(왼쪽): 보라 바닥·칸막이·현판
+    ctx.fillStyle = 'rgba(139,92,246,.16)'; ctx.fillRect(2, 132, 84, 132); ctx.fillStyle = '#6d4bc9'; ctx.fillRect(2, 132, 84, 3); ctx.fillRect(84, 132, 3, 132); ctx.fillRect(2, 261, 84, 3);
+    ctx.fillStyle = '#2b1f4d'; ctx.fillRect(10, 138, 68, 13); ctx.fillStyle = '#e6dcff'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.fillText('HISPLAN', 44, 148);
+  }
   STUDIO_STAFF.slice().sort((a, b) => a.y - b.y).forEach(s => {
     const st = studioState(s), x = s.x * W - 32, y = s.y * H - 56;
+    if (studioBranchOff(s) && st !== 'wait') { img('desk-with-pc', x, y); ctx.fillStyle = 'rgba(6,9,11,.55)'; ctx.fillRect(4, 152, 80, 110); return; } // 맥북 꺼짐: 빈 책상 + 어둡게
     const ph = STUDIO_STAFF.indexOf(s) * 7; // 직원마다 박자를 조금씩 어긋나게
     if (st === 'off') { // 쉬는 중: 책상 옆 매트에 누워서 숨 쉬듯 들썩 + zZz가 떠오름
       img('desk-with-pc', x, y);
@@ -5229,7 +5239,7 @@ function studioTalkTick(still) {
   // 잡담: 실제 대화가 없을 때만, 20~40초에 한 명
   if (!still && !studioTalks.length && now > studioTalkNextChat) {
     studioTalkNextChat = now + 20000 + Math.random() * 20000;
-    const pool = STUDIO_STAFF.filter(s => !STUDIO_AUTO_OFF.includes(s.id)); const s = pool[Math.random() * pool.length | 0], st = studioState(s);
+    const pool = STUDIO_STAFF.filter(s => !STUDIO_AUTO_OFF.includes(s.id) && !studioBranchOff(s)); const s = pool[Math.random() * pool.length | 0], st = studioState(s);
     const task = (studioDoc(s.id).task || '').replace(/\s+/g, ' ');
     const lines = st === 'work' && task ? [`${task.slice(0, 18)} 하는 중…`] : st === 'wait' ? ['결재 기다리는 중… 📮', '대표님 결재 언제 오시려나'] : ['커피 한 잔 ☕', '잠깐 스트레칭~', '오늘 할 일 뭐였더라…', '창밖 날씨 좋다 🌤'];
     studioTalkAdd(s.id, lines[Math.random() * lines.length | 0], '', 'chat');
@@ -7718,6 +7728,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .pd-studio-out { display:grid; gap:8px; margin:0 0 14px; padding:10px; border:1px dashed var(--border-strong); }
   .pd-studio-out-head { display:flex; justify-content:space-between; align-items:center; } .pd-studio-out-head button { font:inherit; font-size:12.5px; background:none; border:0; color:var(--accent); cursor:pointer; }
   @media (max-width: 720px) { .st-thumbs { grid-template-columns:repeat(3, minmax(0,1fr)); } }
+  .st-spot[data-staff="hisplan"] .st-plate { background:#2b1f4d; color:#e6dcff; border-color:#8b5cf6; }
   .st-acts-list { display:grid; gap:5px; padding:8px 10px; border:1px dashed var(--border-strong); border-radius:10px; font-size:13px; }
   .st-acts-list > b { font-size:13px; color:var(--text); } .st-acts-list p { margin:0; color:var(--text); line-height:1.5; } .st-acts-list small { color:var(--text-faint); }
   .st-term .st-acts-list { border-color:var(--t-line); } .st-term .st-acts-list > b, .st-term .st-acts-list p { color:var(--t-hi); } .st-term .st-acts-list small { color:var(--t-dim); }
