@@ -427,8 +427,15 @@ function applyCloudUpdate(name, items) {
       // 스튜디오 다리가 쓴 일정(studioApprovalId)이 새로 오거나 바뀌면 Google 캘린더에도 밀어 줌(10분 자동 동기화보다 빠르게)
       const sig = x => x.studioApprovalId ? `${x.id}|${x.date}|${x.endDate || ''}|${x.time || ''}|${x.title}|${x.category}|${x.location || ''}|${x.updatedAt || ''}` : '';
       const before = new Set(schedItems.map(sig).filter(Boolean)), studioChanged = items.some(x => sig(x) && !before.has(sig(x)));
+      // 스튜디오 다리가 결재 승인으로 '취소'(canceled:true) 표시한 일정은 화면에서 바로 숨기고, 대표님 WORKS가 실제로 지운다
+      // (Google 캘린더는 앱 동기화·Apps Script가 문서가 없어진 일정을 지움). 협업자·게스트 화면은 숨기기만.
+      const canceled = items.filter(x => x.canceled === true);
+      if (canceled.length) {
+        items = items.filter(x => x.canceled !== true);
+        if (!GUEST_MODE && !IS_LOCAL_DEV && typeof firebase !== 'undefined') canceled.forEach(x => firebase.firestore().collection('schedule').doc(String(x.id)).delete().catch(e => console.warn('canceled schedule delete failed', e)));
+      }
       schedItems = items; try { localStorage.setItem(LS_SCHEDULE, JSON.stringify(items)); } catch (e) {}
-      if (studioChanged && typeof gcalSchedulePush === 'function') gcalSchedulePush();
+      if ((studioChanged || canceled.length) && typeof gcalSchedulePush === 'function') gcalSchedulePush();
       break;
     }
     case 'projects': projItems = items; try { localStorage.setItem(LS_PROJECTS, JSON.stringify(items)); } catch (e) {} studioAssignSerials(); break;

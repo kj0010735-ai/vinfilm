@@ -69,7 +69,10 @@ service cloud.firestore {
         && bridgeSchedValid(request.resource.data));
       allow update: if isOwner() || (collabOk(resource.data.collabId) && request.resource.data.collabId == resource.data.collabId) || (isBridge()
         && resource.data.get('collabId', '') == '' && resource.data.get('source', 'manual') == 'manual'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(bridgeSchedEditable())
+        && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(bridgeSchedEditable())
+            // 스튜디오가 만든 일정(by:'studio')만 승인된 결재로 '취소' 표시 가능(삭제는 불가) — 대표님 WORKS가 받으면 실제로 지움
+            || (resource.data.get('by', '') == 'studio' && request.resource.data.get('canceled', false) == true
+                && request.resource.data.diff(resource.data).affectedKeys().hasOnly(bridgeSchedEditable().concat(['canceled', 'canceledAt']))))
         && bridgeSchedValid(request.resource.data));
       allow delete: if isOwner() || collabOk(resource.data.collabId);
     }

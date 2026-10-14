@@ -33,7 +33,7 @@ function syncNow() {
     if (!calShare || !calWork) throw new Error('VINFILM 캘린더를 찾지 못했어요 — 앱에서 휴대폰 캘린더 연결을 먼저 한 번 해 주세요.');
     var want = {}; // 캘린더id|이벤트id → body
     items.forEach(function (it) {
-      if (it.source === 'calendar' || !it.date) return;
+      if (it.source === 'calendar' || !it.date || it.canceled === true) return; // 스튜디오가 취소 표시한 일정은 캘린더에서 지움
       var cal = SHARE_CATS.indexOf(it.category) >= 0 ? calShare : calWork;
       var body = bodyFor_(it);
       want[cal + '|' + body.id] = { cal: cal, body: body };
