@@ -85,7 +85,7 @@ const TIME_CHIPS = ['09:00', '10:00', '13:00', '14:00', '18:00', '19:00', '20:00
 function timeFieldHtml(name, value, attrs = '') {
   return `<div class="time-field"><input type="text" name="${name}" class="time-input" data-role="time-input" autocomplete="off" inputmode="text" value="${esc(value || '')}" placeholder="예: 8:30, 오후 2시, 1930" ${attrs} />
     <div class="time-hint" data-time-hint>${value ? timeLabelKo(value) : '비우면 하루 종일'}</div>
-    <div class="time-chips">${TIME_CHIPS.map(t => `<button type="button" class="time-chip" data-action="time-chip" data-id="${t}">${timeLabelKo(t).replace(':00', '시')}</button>`).join('')}</div></div>`;
+    </div>`; /* 시간 빠른 선택 버튼(오전 9시 등)은 2026-10-14 대표님 요청으로 뺌 — 직접 입력만 */
 }
 /* 메모 편집 칸: 굵게(⌘B)가 별표가 아니라 진짜 굵은 글씨로 보이는 편집 칸.
    화면은 contenteditable, 저장 값은 예전과 같은 "**굵게**" 텍스트(숨긴 textarea에 계속 옮겨 적는다 — FormData가 그대로 읽음). */
@@ -7449,6 +7449,14 @@ document.addEventListener('DOMContentLoaded', () => {
   .time-field { display:flex; flex-direction:column; gap:5px; min-width:0; }
   .time-hint { font-size:12.5px; color:var(--accent); min-height:1em; } .time-hint.bad { color:#d9534f; }
   .time-chips { display:flex; flex-wrap:wrap; gap:4px; }
+  /* 폰: 일정 등록 창은 한 줄에 칸 하나씩(날짜·시간이 겹치거나 좁아 보이던 것 정리) */
+  @media (max-width: 720px) {
+    [data-form-role="sched-form"] .eq-field-row { flex-direction:column; gap:0; }
+    [data-form-role="sched-form"] .eq-field-row > .eq-field { width:100%; }
+    [data-form-role="sched-form"] .sched-span-seg { display:flex; width:100%; margin-left:0; margin-right:0; box-sizing:border-box; } [data-form-role="sched-form"] .sched-span-seg button { flex:1; }
+    [data-form-role="sched-form"] input[type=date] { width:100%; text-align:left; }
+    [data-form-role="sched-form"] .time-hint { margin-top:4px; }
+  }
   .time-chip { border:1px solid var(--border); background:var(--bg); color:var(--text-dim); border-radius:999px; padding:3px 8px; font-family:var(--font-body); font-size:12.5px; cursor:pointer; }
   .time-chip:hover { border-color:var(--accent); color:var(--accent); }
   .time-field input:disabled ~ .time-chips { opacity:.5; }

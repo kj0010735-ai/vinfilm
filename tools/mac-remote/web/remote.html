@@ -110,6 +110,30 @@ input[type=range]{width:46%;accent-color:var(--accent)}
 .sw input:checked+i::after{transform:translateX(20px)}
 .btn-line{width:100%;height:46px;border-radius:13px;border:1px solid var(--border-strong);font-size:15px;margin-top:12px}
 
+/* NEXUS Player 전용 리모트 */
+.nx-btn{height:36px;padding:0 12px;border-radius:11px;border:1px solid var(--border-strong);background:var(--surface);font-size:13px;font-weight:700;letter-spacing:.08em;color:var(--accent);margin-left:auto;margin-right:8px}
+.nx{position:fixed;inset:0;z-index:25;background:var(--bg);display:none;flex-direction:column;gap:12px;
+  padding:calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 14px)}
+.nx.show{display:flex}
+.nx-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.nx-top h2{margin:0;font-size:17px;letter-spacing:.06em}
+.nx-top h2 small{display:block;font-size:12px;color:var(--dim);letter-spacing:0;font-weight:500;margin-top:2px}
+.nx-front{height:36px;padding:0 12px;border-radius:11px;border:1px solid var(--border);background:var(--surface);font-size:13px;color:var(--text)}
+.nx-swipe{flex:1;min-height:200px;border-radius:24px;background:var(--surface);border:1px solid var(--border);position:relative;touch-action:none;
+  display:grid;grid-template-columns:1fr 1.15fr 1fr;grid-template-rows:1fr 1.15fr 1fr;padding:10px;gap:8px}
+.nx-swipe button{border-radius:18px;background:var(--raise);border:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:22px;color:var(--text)}
+.nx-swipe button span{font-size:12px;color:var(--dim)}
+.nx-swipe button:active,.nx-row button:active{background:var(--accent-soft);border-color:var(--accent)}
+.nx-swipe .c{grid-column:2;grid-row:2;background:var(--accent);border-color:var(--accent);color:#0b1020;font-size:30px}
+.nx-swipe .c span{color:#0b1020;opacity:.75}
+.nx-swipe .u{grid-column:2;grid-row:1}.nx-swipe .d{grid-column:2;grid-row:3}.nx-swipe .l{grid-column:1;grid-row:2}.nx-swipe .r{grid-column:3;grid-row:2}
+.nx-swipe .hint{grid-column:1;grid-row:1;align-self:start;font-size:11px;color:var(--dim);line-height:1.5;pointer-events:none}
+.nx-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;flex:none}
+.nx-row button{height:56px;border-radius:15px;background:var(--surface);border:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:17px;color:var(--text)}
+.nx-row button span{font-size:11.5px;color:var(--dim)}
+.nx-flash{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:8px 14px;border-radius:12px;background:rgba(0,0,0,.65);color:#fff;font-size:15px;opacity:0;transition:opacity .2s;pointer-events:none}
+.nx-flash.on{opacity:1}
+
 /* 연결 안내 */
 .gate{position:fixed;inset:0;z-index:30;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px}
 .gate.show{display:flex}
@@ -136,6 +160,7 @@ document.addEventListener('gesturechange', e => e.preventDefault());
         <div class="conn-name" id="connName">연결 중…</div>
       </div>
     </div>
+    <button class="nx-btn" id="nxBtn" aria-label="NEXUS Player 리모트">NEXUS</button>
     <button class="icon-btn" id="setBtn" aria-label="설정">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
     </button>
@@ -189,6 +214,44 @@ document.addEventListener('gesturechange', e => e.preventDefault());
 </div>
 
 <input id="kb" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="enter" aria-label="맥으로 보낼 글자">
+
+<!-- NEXUS Player 전용 리모트 -->
+<div class="nx" id="nx">
+  <div class="nx-top">
+    <h2>NEXUS PLAYER<small>밀어서 넘기기 · 가운데 재생</small></h2>
+    <div style="display:flex;gap:8px">
+      <button class="nx-front" data-app="nexus">앞으로 띄우기</button>
+      <button class="x" id="nxClose">닫기</button>
+    </div>
+  </div>
+  <div class="nx-swipe" id="nxPad">
+    <div class="hint">위로 밀기 = 다음 영상<br>옆으로 밀기 = 5초</div>
+    <button class="u" data-k="up"><b>▲</b><span>이전 영상</span></button>
+    <button class="l" data-k="left"><b>◀</b><span>5초 뒤로</span></button>
+    <button class="c" data-k="space"><b>⏯</b><span>재생 / 정지</span></button>
+    <button class="r" data-k="right"><b>▶</b><span>5초 앞으로</span></button>
+    <button class="d" data-k="down"><b>▼</b><span>다음 영상</span></button>
+    <div class="nx-flash" id="nxFlash"></div>
+  </div>
+  <div class="nx-row">
+    <button data-k="left" data-m="shift"><b>«</b><span>30초 뒤로</span></button>
+    <button data-k="right" data-m="shift"><b>»</b><span>30초 앞으로</span></button>
+    <button data-k="down" data-m="cmd"><b>🔉</b><span>소리 작게</span></button>
+    <button data-k="up" data-m="cmd"><b>🔊</b><span>소리 크게</span></button>
+  </div>
+  <div class="nx-row">
+    <button data-k="-" data-m="cmd"><b>－</b><span>화면 축소</span></button>
+    <button data-k="0" data-m="cmd"><b>1:1</b><span>원래 크기</span></button>
+    <button data-k="=" data-m="cmd,shift"><b>＋</b><span>화면 확대</span></button>
+    <button data-k="f" data-m="cmd,ctrl"><b>⛶</b><span>전체 화면</span></button>
+  </div>
+  <div class="nx-row">
+    <button data-k="r" data-m="cmd"><b>🔁</b><span>반복 방식</span></button>
+    <button data-k="o" data-m="cmd"><b>📂</b><span>열기</span></button>
+    <button data-k="esc"><b>esc</b><span>취소</span></button>
+    <button data-k="enter"><b>⏎</b><span>확인</span></button>
+  </div>
+</div>
 
 <!-- 단축키 시트 -->
 <div class="sheet-wrap" id="keysSheet" data-close>
@@ -469,6 +532,30 @@ function openSheet(id){ $(id).classList.add('show'); }
 $$('.sheet-wrap').forEach(w => w.addEventListener('click', e => { if (e.target === w || e.target.closest('[data-close-btn]')) w.classList.remove('show'); }));
 $('#keysBtn').addEventListener('click', () => openSheet('#keysSheet'));
 $('#setBtn').addEventListener('click', () => openSheet('#setSheet'));
+
+// ── NEXUS Player 전용 리모트: 열 때 NEXUS Player를 맨 앞으로, 패드에서 밀면 넘기기
+document.addEventListener('click', e => { const a = e.target.closest('[data-app]'); if (a) send({ t:'app', a:a.dataset.app }); });
+function nxOpen(){ $('#nx').classList.add('show'); send({ t:'app', a:'nexus' }); try { localStorage.setItem('vf-remote-nexus', '1'); } catch(e){} }
+function nxCloseFn(){ $('#nx').classList.remove('show'); try { localStorage.removeItem('vf-remote-nexus'); } catch(e){} }
+$('#nxBtn').addEventListener('click', nxOpen);
+$('#nxClose').addEventListener('click', nxCloseFn);
+try { if (localStorage.getItem('vf-remote-nexus') === '1') $('#nx').classList.add('show'); } catch(e){}
+let nxT = null;
+function nxFlash(txt){ const f = $('#nxFlash'); f.textContent = txt; f.classList.add('on'); clearTimeout(nxT); nxT = setTimeout(() => f.classList.remove('on'), 650); }
+(() => {
+  const pad = $('#nxPad'); let sx = 0, sy = 0, st = 0, on = false;
+  pad.addEventListener('touchstart', e => { if (e.touches.length !== 1) return; const t = e.touches[0]; sx = t.clientX; sy = t.clientY; st = Date.now(); on = true; }, { passive:true });
+  pad.addEventListener('touchmove', e => { if (on) e.preventDefault(); }, { passive:false });
+  pad.addEventListener('touchend', e => {
+    if (!on) return; on = false;
+    const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 40 || Date.now() - st > 700) return; // 짧은 탭은 버튼 클릭으로
+    e.preventDefault();
+    if (Math.abs(dy) > Math.abs(dx)) { sendKey(dy < 0 ? 'down' : 'up'); nxFlash(dy < 0 ? '다음 영상 ▼' : '▲ 이전 영상'); }
+    else { sendKey(dx < 0 ? 'left' : 'right'); nxFlash(dx < 0 ? '◀ 5초' : '5초 ▶'); }
+    if (navigator.vibrate) navigator.vibrate(10);
+  });
+})();
 
 // ── 설정
 $('#sSpeed').value = S.speed; $('#sScroll').value = S.scroll; $('#sInvert').checked = S.invert; $('#sWake').checked = S.wake;
