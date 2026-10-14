@@ -381,7 +381,7 @@ const S = {
   song: { modalOpen: false, editingId: null, playId: null, search: '', msg: '', syncing: false, syncTimes: [], follow: true },
   shortcut: { modalOpen: false, editingId: null },
   quote: { view: 'quotes', draft: null, cdraft: null, bizOpen: false, bizSignCleared: false, msg: '' },
-  studio: { box: 'wait', sel: null, settle: false, msg: '', taskMsg: '', answers: {}, open: {}, openTask: {} },
+  studio: { box: 'wait', sel: null, settle: false, msg: '', taskMsg: '', answers: {}, open: {}, openTask: {}, outTeam: 'all', outImg: false, outMore: {}, outProject: '' },
 };
 let currentEqPhoto = '';
 let currentEqPhotoError = '';
@@ -2113,6 +2113,7 @@ function projDetailHtml() {
     <div class="eq-modal-overlay is-drawer${again ? ' no-anim' : ''}" data-action="proj-close-detail-backdrop">
       <div class="eq-modal proj-detail" data-stop-close data-row-menu-id="${p.id}" style="${p.color ? `border-top:6px solid ${p.color};` : ''}">
         <div class="eq-modal-head"><h2>${ptype && ptype.icon ? ptype.icon + ' ' : ''}${esc(p.title)}</h2><button class="eq-modal-close" data-action="proj-close-detail">✕</button></div>
+        ${projStudioOutputsHtml(p.id)}
         ${p.by === 'studio' || p.studioApprovalId ? `<p class="pd-studio">🏢 스튜디오가 ${p.by === 'studio' ? '등록' : '수정'} <small>(대표님 결재 승인)</small></p>` : ''}
         <div class="pd-grid">
         <div class="pd-card"><span>상태</span><b><span class="proj-row-pill" data-status-menu-id="${p.id}" style="background:${col.color}26; color:${col.color}; cursor:pointer;"><span class="proj-row-dot" style="background:${col.color};"></span>${col.label}</span></b></div>
@@ -4715,13 +4716,82 @@ function studioCsv(src) {
   if (cell || row.length) { row.push(cell); rows.push(row); }
   return `<div class="md-table"><table>${rows.slice(0, 500).map((r, k) => `<tr>${r.map(c => k === 0 ? `<th>${esc(c)}</th>` : `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></div>`;
 }
+/* ---- 🖼 결과물 갤러리(2026-10-14): 결재·지시에 붙은 파일을 프로젝트 → 주제(또는 같은 지시 사슬) 묶음으로 ----
+   묶음: projectId(+projectTitle) → topic → parentApprovalId로 이어진 사슬의 맨 처음 결재 제목 → 결재 제목. 같은 묶음에서 같은 이름 파일은 최신 판만, 이전 판은 접기.
+   읽기 전용(데이터 쓰기 없음). 뷰어는 기존 전체화면 뷰어 재사용 — 넘김 범위는 그 묶음 이미지 전체, '어느 결재에서' 한 줄 + 결재 보기. */
+function studioChainRoot(a) {
+  let cur = a, guard = 0;
+  while (cur && guard++ < 20) {
+    const t = cur.taskId && studioTasks.find(x => x.id === cur.taskId), pa = t && t.parentApprovalId && studioApprovals.find(x => x.id === t.parentApprovalId);
+    if (!pa) break; cur = pa;
+  }
+  return cur || a;
+}
+function studioOutputs() {
+  const out = [], seenTask = new Set();
+  const projTitle = (id, fb) => { const p = id && projItems.find(x => x.id === id); return p ? p.title : (fb || ''); };
+  studioApprovals.forEach(a => {
+    const files = studioFileList(a.files); if (!files.length) return;
+    const root = studioChainRoot(a), pid = a.projectId || root.projectId || '', topic = a.topic || root.topic || '';
+    const sub = topic || root.title || a.title || '결과물';
+    if (a.taskId) seenTask.add(a.taskId);
+    files.forEach(f => out.push({ ...f, at: a.createdAt || 0, staffId: studioApprovalStaff(a), aid: a.id, from: `${(studioStaffById(studioApprovalStaff(a)) || {}).short || ''} · ${a.title || ''}`,
+      key: (pid || '-') + '|' + (topic ? 't:' + topic : 'c:' + root.id), pid, ptitle: projTitle(pid, a.projectTitle || root.projectTitle), sub }));
+  });
+  studioTasks.forEach(t => { // 결재 없이 끝난 지시의 파일
+    if (seenTask.has(t.id) || t.approvalId || t.status !== 'done') return;
+    const files = studioFileList(t.files); if (!files.length) return;
+    const pa = t.parentApprovalId && studioApprovals.find(x => x.id === t.parentApprovalId), root = pa ? studioChainRoot(pa) : null;
+    const pid = t.projectId || (root && root.projectId) || '', topic = t.topic || (root && root.topic) || '';
+    files.forEach(f => out.push({ ...f, at: t.finishedAt || t.createdAt || 0, staffId: t.staffId, aid: pa ? pa.id : '', from: `${(studioStaffById(t.staffId) || {}).short || ''} · 지시 결과`,
+      key: (pid || '-') + '|' + (topic ? 't:' + topic : root ? 'c:' + root.id : 'k:' + t.id), pid, ptitle: projTitle(pid, root && root.projectTitle), sub: topic || (root && root.title) || studioTaskSummary(t) }));
+  });
+  const groups = {};
+  out.forEach(o => { const g = groups[o.key] = groups[o.key] || { key: o.key, pid: o.pid, ptitle: o.ptitle, sub: o.sub, items: [], at: 0, teams: new Set() }; g.items.push(o); g.at = Math.max(g.at, o.at); g.teams.add(o.staffId); });
+  return Object.values(groups).map(g => { // 같은 이름은 최신 판만
+    const byName = {}; g.items.sort((a, b) => b.at - a.at).forEach(o => { (byName[o.name] = byName[o.name] || []).push(o); });
+    g.latest = Object.values(byName).map(v => v[0]); g.older = Object.values(byName).flatMap(v => v.slice(1)); return g;
+  }).sort((a, b) => b.at - a.at);
+}
+function studioOutputsHtml() {
+  let gs = studioOutputs();
+  const teams = [...new Set(gs.flatMap(g => [...g.teams]))].filter(Boolean);
+  if (S.studio.outProject) gs = gs.filter(g => g.pid === S.studio.outProject);
+  if (S.studio.outTeam !== 'all') gs = gs.filter(g => g.teams.has(S.studio.outTeam));
+  const chip = (id, label, on, act) => `<button type="button" class="st-opt${on ? ' on' : ''}" data-action="${act}" data-id="${id}">${esc(label)}</button>`;
+  const head = `<div class="st-out-filters">${chip('all', '전체', S.studio.outTeam === 'all', 'studio-out-team')}${teams.map(t => chip(t, (studioStaffById(t) || {}).short || t, S.studio.outTeam === t, 'studio-out-team')).join('')}${chip('img', '🖼 이미지만', S.studio.outImg, 'studio-out-img')}${S.studio.outProject ? chip('', '✕ 프로젝트 필터 해제', true, 'studio-out-project') : ''}</div>`;
+  if (!gs.length) return head + '<p class="st-empty">아직 모인 결과물이 없어요. 직원이 결재에 파일을 붙이면 여기에 모여요.</p>';
+  return head + gs.map(g => {
+    const imgs = g.latest.filter(f => studioFileKind(f.name) === 'img'), docs = S.studio.outImg ? [] : g.latest.filter(f => studioFileKind(f.name) !== 'img');
+    if (S.studio.outImg && !imgs.length) return '';
+    const key = studioRegFiles(imgs.length ? [...imgs, ...docs] : docs), more = !!S.studio.outMore[g.key], show = more ? imgs : imgs.slice(0, 9);
+    const date = g.at ? studioWhen(g.at) : '';
+    const olderImgs = g.older.filter(f => !S.studio.outImg || studioFileKind(f.name) === 'img');
+    return `<section class="st-out-group" id="stOut-${esc(g.key.replace(/[^a-zA-Z0-9_-]/g, '_'))}">
+      <div class="st-out-head"><b>${g.ptitle ? `📁 ${esc(g.ptitle)} · ` : ''}${esc(g.sub)}</b><span>${[...g.teams].map(t => `<span class="st-team">${esc((studioStaffById(t) || {}).short || t)}</span>`).join('')} <small>${esc(date)} · ${g.latest.length}개</small></span></div>
+      ${show.length ? `<div class="st-thumbs">${show.map(f => studioFileBtn(key, imgs.indexOf(f), f, `<img src="${esc(f.url)}" alt="${esc(f.name)}" loading="lazy">`, 'st-thumb')).join('')}</div>` : ''}
+      ${imgs.length > 9 ? `<button type="button" class="st-out-more" data-action="studio-out-more" data-id="${esc(g.key)}">${more ? '접기' : `이미지 ${imgs.length - 9}개 더 보기`}</button>` : ''}
+      ${docs.length ? `<div class="st-files">${docs.map(f => studioFileBtn(key, imgs.length + docs.indexOf(f), f, `${studioFileKind(f.name) === 'doc' ? '📄' : attIcon({ name: f.name })} ${esc(f.name)}`)).join('')}</div>` : ''}
+      ${olderImgs.length ? `<details class="st-orig"><summary>이전 판 ${olderImgs.length}개</summary>${studioFilesHtml(olderImgs)}</details>` : ''}
+    </section>`;
+  }).join('');
+}
+/* 프로젝트 상세의 '🏢 스튜디오 결과물' 줄(최대 8개) */
+function projStudioOutputsHtml(pid) {
+  if (GUEST_MODE) return '';
+  const items = studioOutputs().filter(g => g.pid === pid).flatMap(g => g.latest); if (!items.length) return '';
+  const imgs = items.filter(f => studioFileKind(f.name) === 'img'), docs = items.filter(f => studioFileKind(f.name) !== 'img'), key = studioRegFiles([...imgs, ...docs]);
+  return `<div class="pd-studio-out"><div class="pd-studio-out-head"><b>🏢 스튜디오 결과물</b><button type="button" data-action="studio-out-open-project" data-id="${esc(pid)}">전체 보기 ›</button></div>
+    ${imgs.length ? `<div class="st-thumbs">${imgs.slice(0, 8).map((f, i) => studioFileBtn(key, i, f, `<img src="${esc(f.url)}" alt="${esc(f.name)}" loading="lazy">`, 'st-thumb')).join('')}</div>` : ''}
+    ${docs.length ? `<div class="st-files">${docs.slice(0, 6).map((f, i) => studioFileBtn(key, imgs.length + i, f, `📄 ${esc(f.name)}`)).join('')}</div>` : ''}</div>`;
+}
 /* 뷰어 상태: S.studio.viewer = {list, i, kind, text, err} — 스튜디오 탭 맨 끝에 그려짐 */
 function studioViewerHtml() {
   const v = S.studio.viewer; if (!v) return '';
   const f = v.list[v.i] || {}, kind = studioFileKind(f.name), n = v.list.length;
   if (kind === 'img') {
     const imgs = v.list.map((x, i) => [x, i]).filter(([x]) => studioFileKind(x.name) === 'img'), pos = imgs.findIndex(([, i]) => i === v.i);
-    return `<div class="st-viewer st-viewer-img" data-action="studio-view-close"><div class="st-viewer-bar" data-stop="1"><span>${esc(f.name)} · ${pos + 1}/${imgs.length}</span><a href="${esc(f.url)}" target="_blank" rel="noopener" download>⬇ 원본</a><button type="button" data-action="studio-view-close">✕</button></div>
+    return `<div class="st-viewer st-viewer-img" data-action="studio-view-close"><div class="st-viewer-bar" data-stop="1"><span>${esc(f.name)} · ${pos + 1}/${imgs.length}${f.from ? `<small class="st-viewer-from">📨 ${esc(f.from)}</small>` : ''}</span>${f.aid ? `<button type="button" data-action="studio-goto-approval" data-id="${esc(f.aid)}">결재 보기</button>` : ''}<a href="${esc(f.url)}" target="_blank" rel="noopener" download>⬇ 원본</a><button type="button" data-action="studio-view-close">✕</button></div>
       <img src="${esc(f.url)}" alt="${esc(f.name)}" data-stop="1" id="stViewerImg">
       ${imgs.length > 1 ? `<button type="button" class="st-viewer-nav prev" data-action="studio-view-step" data-d="-1">‹</button><button type="button" class="st-viewer-nav next" data-action="studio-view-step" data-d="1">›</button>` : ''}</div>`;
   }
@@ -4851,12 +4921,13 @@ function renderStudioTab() {
           <button type="button" role="tab" aria-selected="${S.studio.box === 'done'}" data-action="studio-box" data-id="done">처리함</button>
           <button type="button" role="tab" aria-selected="${S.studio.box === 'staff'}" data-action="studio-box" data-id="staff">직원${sel ? ` · ${esc(sel.short)}` : ''}</button>
           ${STUDIO_HOME ? `<button type="button" role="tab" aria-selected="${S.studio.box === 'notif'}" data-action="studio-box" data-id="notif">🔔 알림${notifUnread() ? ` <span class="st-nbadge">${notifUnread() > 9 ? '9+' : notifUnread()}</span>` : ''}</button>` : ''}
+          <button type="button" role="tab" aria-selected="${S.studio.box === 'out'}" data-action="studio-box" data-id="out">🖼 결과물</button>
           <button type="button" role="tab" aria-selected="${S.studio.box === 'cfg'}" data-action="studio-box" data-id="cfg">⚙️ 설정</button>
           <button type="button" class="st-sheet-close" data-action="studio-box" data-id="wait" aria-label="닫기">✕</button>
         </div>
         <div class="st-panel-body${studioPanelKey() ? ' st-in' : ''}">
           ${STUDIO_HOME && (S.studio.box === 'wait' || S.studio.box === 'done') ? dashNotifHtml() : ''}
-          ${S.studio.box === 'notif' ? studioNotifHtml() : S.studio.box === 'staff' ? staffHtml : `<div class="st-ceo"><canvas id="studioCeoCv" width="16" height="20"></canvas><div><b>대표 ${esc(greetingName() || '김규빈')}</b><p>${waiting.length ? `결재할 보고가 ${waiting.length}건 있어요` : '오늘 결재를 다 했어요 🎉'}</p></div></div>
+          ${S.studio.box === 'out' ? studioOutputsHtml() : S.studio.box === 'notif' ? studioNotifHtml() : S.studio.box === 'staff' ? staffHtml : `<div class="st-ceo"><canvas id="studioCeoCv" width="16" height="20"></canvas><div><b>대표 ${esc(greetingName() || '김규빈')}</b><p>${waiting.length ? `결재할 보고가 ${waiting.length}건 있어요` : '오늘 결재를 다 했어요 🎉'}</p></div></div>
           ${S.studio.box === 'cfg' ? studioSettingsHtml(cfg, br) : cards}`}
         </div>
       </section>
@@ -4867,7 +4938,6 @@ function renderStudioTab() {
       <section class="st-box"><h2>오늘의 스튜디오 일지</h2>${logs.length ? `<ul class="st-log">${logs.map(l => { const s = l.staffId && studioStaffById(l.staffId); return `<li><time>${studioHm(l.at)}</time><span>${s ? `<b>${esc(s.short)}</b> ` : ''}${esc(l.text)}</span></li>`; }).join('')}</ul>` : '<p class="st-empty">오늘 기록이 아직 없어요.</p>'}</section>
     </div>
     ${S.studio.settle ? studioSettleHtml() : ''}
-    ${studioViewerHtml()}
   </div>`;
 }
 /* 스튜디오 애니메이션: 기본은 항상 켬(게임 화면이라). 이 Mac은 '동작 줄이기'가 켜져 있어서 기기 설정을 따르면 다 멈췄음 →
@@ -4957,6 +5027,12 @@ function handleStudioAction(action, el, e) {
     return true;
   }
   if (action === 'studio-motion') { try { localStorage.setItem(LS_STUDIO_MOTION, el.checked ? 'on' : 'system'); } catch (e) {} render(); return true; }
+  if (action === 'studio-out-team') { S.studio.outTeam = id || 'all'; render(); return true; }
+  if (action === 'studio-out-img') { S.studio.outImg = !S.studio.outImg; render(); return true; }
+  if (action === 'studio-out-project') { S.studio.outProject = ''; render(); return true; }
+  if (action === 'studio-out-more') { S.studio.outMore[id] = !S.studio.outMore[id]; render(); return true; }
+  if (action === 'studio-out-open-project') { S.proj.detailId = null; S.activeTab = 'studio'; S.studio.box = 'out'; S.studio.outProject = id; S.studio.outTeam = 'all'; S.studio.viewer = null; render(); window.scrollTo(0, 0); return true; }
+  if (action === 'studio-goto-approval') { const a = studioApprovals.find(x => x.id === id); if (a) { S.activeTab = 'studio'; S.studio.box = a.status === 'wait' ? 'wait' : 'done'; S.studio.open[a.id] = true; S.studio.viewer = null; S.proj.detailId = null; render(); setTimeout(() => { const el = document.querySelector('.st-note.open'); if (el) el.scrollIntoView({ block: 'center' }); }, 50); } return true; }
   if (action === 'studio-view') { const list = studioFileReg.get(el.dataset.key); if (!list) return true; S.studio.viewer = { list, i: +el.dataset.i || 0, text: null, err: '' }; studioViewerLoad(); render(); return true; }
   if (action === 'studio-view-step') { studioViewerStep(+el.dataset.d || 1); return true; }
   if (action === 'studio-view-close') { if (el.tagName !== 'BUTTON' && e && e.target !== el) return true; S.studio.viewer = null; render(); return true; } // ✕ 버튼이나 바깥 어두운 곳을 눌렀을 때만 닫힘
@@ -5199,7 +5275,7 @@ function renderTab() {
 function render() {
   if (STUDIO_HOME && !GUEST_MODE && S.activeTab === 'today') S.activeTab = 'studio'; // 예전 대시보드로 가는 링크·알림은 스튜디오로
   const studioKeep = S.activeTab === 'studio' ? studioCaptureInputs() : null;
-  document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderMobileTopBar()}${installBannerHtml()}${renderTab()}</main>${renderMobileTabBar()}</div>${schedModalHtml()}${settingsModalHtml()}${collabModalHtml()}${installGuideHtml()}${notifPanelHtml()}${noticeModalHtml()}${gcalModalHtml()}${gcalDetailModalHtml()}`;
+  document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderMobileTopBar()}${installBannerHtml()}${renderTab()}</main>${renderMobileTabBar()}</div>${schedModalHtml()}${settingsModalHtml()}${collabModalHtml()}${installGuideHtml()}${notifPanelHtml()}${noticeModalHtml()}${gcalModalHtml()}${gcalDetailModalHtml()}${GUEST_MODE ? '' : studioViewerHtml()}`;
   fitCalendar();
   positionNavIndicator();
   quoteAfterRender();
@@ -7633,6 +7709,15 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-talk.out { opacity:0; }
   .st-talk-dots b { display:inline-block; animation:stDot 0.6s steps(2) infinite; } .st-talk-dots b:nth-child(2) { animation-delay:.2s; } .st-talk-dots b:nth-child(3) { animation-delay:.4s; }
   @keyframes stBlink { 50% { opacity:0; } } @keyframes stDot { 50% { translate:0 -2px; } }
+  .st-out-filters { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:4px; }
+  .st-out-group { display:grid; gap:8px; padding:10px; border:1px solid var(--border); background:var(--row-bg); }
+  .st-out-head { display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px; align-items:center; } .st-out-head b { font-size:13.5px; color:var(--text); min-width:0; overflow-wrap:anywhere; }
+  .st-out-head > span { display:flex; gap:4px; align-items:center; flex-wrap:wrap; } .st-out-head small { color:var(--text-faint); font-size:11.5px; }
+  .st-out-more { justify-self:start; font:inherit; font-size:12px; background:none; border:1px dashed var(--border-strong); color:var(--text-dim); padding:3px 10px; cursor:pointer; }
+  .st-viewer-from { display:block; font-size:11.5px; color:#b5f2ea; opacity:.85; }
+  .pd-studio-out { display:grid; gap:8px; margin:0 0 14px; padding:10px; border:1px dashed var(--border-strong); }
+  .pd-studio-out-head { display:flex; justify-content:space-between; align-items:center; } .pd-studio-out-head button { font:inherit; font-size:12.5px; background:none; border:0; color:var(--accent); cursor:pointer; }
+  @media (max-width: 720px) { .st-thumbs { grid-template-columns:repeat(3, minmax(0,1fr)); } }
   .st-acts-list { display:grid; gap:5px; padding:8px 10px; border:1px dashed var(--border-strong); border-radius:10px; font-size:13px; }
   .st-acts-list > b { font-size:13px; color:var(--text); } .st-acts-list p { margin:0; color:var(--text); line-height:1.5; } .st-acts-list small { color:var(--text-faint); }
   .st-term .st-acts-list { border-color:var(--t-line); } .st-term .st-acts-list > b, .st-term .st-acts-list p { color:var(--t-hi); } .st-term .st-acts-list small { color:var(--t-dim); }
