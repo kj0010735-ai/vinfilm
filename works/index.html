@@ -4713,17 +4713,36 @@ const studioFileReg = new Map(); let studioFileSeq = 0;
 function studioFileList(files) {
   return (Array.isArray(files) ? files : []).map(f => { const url = typeof f === 'string' ? f : f && f.url, name = typeof f === 'string' ? decodeURIComponent(f.split('?')[0].split('%2F').pop().split('/').pop()) : (f && (f.name || '파일')); return { url, name: String(name || '파일') }; }).filter(f => /^https:\/\//.test(f.url || '') || (IS_LOCAL_DEV && /^http:\/\/(localhost|127\.0\.0\.1)[:/]/.test(f.url || '')));
 }
-function studioFileKind(name) { const n = String(name).toLowerCase(); return /\.(png|jpe?g|webp|gif)$/.test(n) ? 'img' : /\.(md|markdown|txt|csv)$/.test(n) ? 'doc' : /\.pdf$/.test(n) ? 'pdf' : 'link'; }
-function studioFileIcon(name) { const k = studioFileKind(name), n = String(name).toLowerCase(); return k === 'pdf' ? '📕' : /\.csv$/.test(n) ? '📊' : k === 'doc' ? '📄' : k === 'img' ? '🖼' : '🔗'; }
+function studioFileKind(name) { const n = String(name).toLowerCase(); return /\.(png|jpe?g|webp|gif|svg)$/.test(n) ? 'img' : /\.html?$/.test(n) ? 'html' : /\.(md|markdown|txt|csv)$/.test(n) ? 'doc' : /\.pdf$/.test(n) ? 'pdf' : /\.(py|js|mjs|ts|json|sh|css|jsx|swift)$/.test(n) ? 'code' : 'link'; }
+/* 시안(이미지·svg·html)은 전부 그림으로 보여 줌(2026-10-15 대표님). svg는 Storage 콘텐츠 형식과 상관없이 보이게 받아서 blob으로,
+   html 시안은 내용을 받아 격리된 iframe(srcdoc, sandbox allow-scripts — 앱에는 접근 못 함)으로 축소 미리보기. 코드 파일(.py 등)은 자료실 목록에서 뺌. */
+function studioIsVisual(name) { const k = studioFileKind(name); return k === 'img' || k === 'html'; }
+const studioBlob = {}, studioFetching = {}; let studioBlobRender = 0;
+function studioFetchText(url, then) {
+  if (studioFetching[url]) return; studioFetching[url] = 1;
+  fetch(url).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); }).then(t => then(t)).catch(() => {}).finally(() => { clearTimeout(studioBlobRender); studioBlobRender = setTimeout(() => render(), 120); });
+}
+function studioImgSrc(f) {
+  if (!/\.svg$/i.test(f.name)) return f.url;
+  if (studioBlob[f.url]) return studioBlob[f.url];
+  studioFetchText(f.url, t => { studioBlob[f.url] = URL.createObjectURL(new Blob([t], { type: 'image/svg+xml' })); });
+  return f.url;
+}
+function studioHtmlText(f) { if (S.lib.text[f.url] != null) return S.lib.text[f.url]; studioFetchText(f.url, t => { S.lib.text[f.url] = t; }); return null; }
+function studioThumbInner(f) { // 썸네일 속: 그림이면 img, html 시안이면 축소 iframe
+  if (studioFileKind(f.name) === 'html') { const t = studioHtmlText(f); return `<span class="st-htmlthumb">${t == null ? '<em>시안 불러오는 중…</em>' : `<iframe sandbox="allow-scripts" srcdoc="${esc(t)}" tabindex="-1" loading="lazy" title="${esc(f.name)}"></iframe>`}<b>🧩 ${esc(f.name)}</b></span>`; }
+  return `<img src="${esc(studioImgSrc(f))}" alt="${esc(f.name)}" loading="lazy">`;
+}
+function studioFileIcon(name) { const k = studioFileKind(name), n = String(name).toLowerCase(); return k === 'pdf' ? '📕' : /\.csv$/.test(n) ? '📊' : k === 'doc' ? '📄' : k === 'img' ? '🖼' : k === 'html' ? '🧩' : k === 'code' ? '⌨️' : '🔗'; }
 function studioRegFiles(list) { const key = 'f' + (++studioFileSeq); studioFileReg.set(key, list); if (studioFileReg.size > 400) studioFileReg.delete(studioFileReg.keys().next().value); return key; }
 function studioFileBtn(key, i, f, inner, cls) {
   const kind = studioFileKind(f.name);
-  return kind === 'link' ? `<a class="${cls || 'att-chip'}" href="${esc(f.url)}" target="_blank" rel="noopener">${inner}</a>` : `<button type="button" class="${cls || 'att-chip'}" data-action="studio-view" data-key="${key}" data-i="${i}">${inner}</button>`;
+  return kind === 'link' || kind === 'code' ? `<a class="${cls || 'att-chip'}" href="${esc(f.url)}" target="_blank" rel="noopener">${inner}</a>` : `<button type="button" class="${cls || 'att-chip'}" data-action="studio-view" data-key="${key}" data-i="${i}">${inner}</button>`;
 }
 function studioFilesHtml(files) {
   const list = studioFileList(files); if (!list.length) return '';
-  const key = studioRegFiles(list), imgs = list.map((f, i) => [f, i]).filter(([f]) => studioFileKind(f.name) === 'img'), rest = list.map((f, i) => [f, i]).filter(([f]) => studioFileKind(f.name) !== 'img');
-  return `${imgs.length ? `<div class="st-thumbs">${imgs.map(([f, i]) => studioFileBtn(key, i, f, `<img src="${esc(f.url)}" alt="${esc(f.name)}" loading="lazy">`, 'st-thumb')).join('')}</div>` : ''}${rest.length ? `<div class="st-files">${rest.map(([f, i]) => studioFileBtn(key, i, f, `${studioFileIcon(f.name)} ${esc(f.name)}`)).join('')}</div>` : ''}`;
+  const key = studioRegFiles(list), imgs = list.map((f, i) => [f, i]).filter(([f]) => studioIsVisual(f.name)), rest = list.map((f, i) => [f, i]).filter(([f]) => !studioIsVisual(f.name));
+  return `${imgs.length ? `<div class="st-thumbs">${imgs.map(([f, i]) => studioFileBtn(key, i, f, studioThumbInner(f), 'st-thumb')).join('')}</div>` : ''}${rest.length ? `<div class="st-files">${rest.map(([f, i]) => studioFileBtn(key, i, f, `${studioFileIcon(f.name)} ${esc(f.name)}`)).join('')}</div>` : ''}`;
 }
 /* 본문 속 첨부 파일 이름을 눌러서 바로 열 수 있게(이미 이스케이프된 줄에 적용) */
 function studioLinkFileNames(html, files) {
@@ -4810,14 +4829,14 @@ function studioOutputsHtml() {
   const head = viewSeg + `<div class="st-out-filters">${chip('all', '전체', S.studio.outTeam === 'all', 'studio-out-team')}${teams.map(t => chip(t, (studioStaffById(t) || {}).short || t, S.studio.outTeam === t, 'studio-out-team')).join('')}${chip('img', '🖼 이미지만', S.studio.outImg, 'studio-out-img')}${S.studio.outProject ? chip('', '✕ 프로젝트 필터 해제', true, 'studio-out-project') : ''}</div>`;
   if (!gs.length) return head + '<p class="st-empty">아직 모인 결과물이 없어요. 직원이 결재에 파일을 붙이면 여기에 모여요.</p>';
   return head + gs.map(g => {
-    const imgs = g.latest.filter(f => studioFileKind(f.name) === 'img'), docs = S.studio.outImg ? [] : g.latest.filter(f => studioFileKind(f.name) !== 'img');
+    const imgs = g.latest.filter(f => studioIsVisual(f.name)), docs = S.studio.outImg ? [] : g.latest.filter(f => !studioIsVisual(f.name));
     if (S.studio.outImg && !imgs.length) return '';
     const key = studioRegFiles(imgs.length ? [...imgs, ...docs] : docs), more = !!S.studio.outMore[g.key], show = more ? imgs : imgs.slice(0, 9);
     const date = g.at ? studioWhen(g.at) : '';
-    const olderImgs = g.older.filter(f => !S.studio.outImg || studioFileKind(f.name) === 'img');
+    const olderImgs = g.older.filter(f => !S.studio.outImg || studioIsVisual(f.name));
     return `<section class="st-out-group" id="stOut-${esc(g.key.replace(/[^a-zA-Z0-9_-]/g, '_'))}">
       <div class="st-out-head"><b>${g.ptitle ? `📁 ${esc(g.ptitle)} · ` : ''}${esc(g.sub)}</b><span>${[...g.teams].map(t => `<span class="st-team">${esc((studioStaffById(t) || {}).short || t)}</span>`).join('')} <small>${esc(date)} · ${g.latest.length}개</small></span></div>
-      ${show.length ? `<div class="st-thumbs">${show.map(f => studioFileBtn(key, imgs.indexOf(f), f, `<img src="${esc(f.url)}" alt="${esc(f.name)}" loading="lazy">`, 'st-thumb')).join('')}</div>` : ''}
+      ${show.length ? `<div class="st-thumbs">${show.map(f => studioFileBtn(key, imgs.indexOf(f), f, studioThumbInner(f), 'st-thumb')).join('')}</div>` : ''}
       ${imgs.length > 9 ? `<button type="button" class="st-out-more" data-action="studio-out-more" data-id="${esc(g.key)}">${more ? '접기' : `이미지 ${imgs.length - 9}개 더 보기`}</button>` : ''}
       ${docs.length ? `<div class="st-files">${docs.map(f => studioFileBtn(key, imgs.length + docs.indexOf(f), f, `${studioFileKind(f.name) === 'doc' ? '📄' : attIcon({ name: f.name })} ${esc(f.name)}`)).join('')}</div>` : ''}
       ${olderImgs.length ? `<details class="st-orig"><summary>이전 판 ${olderImgs.length}개</summary>${studioFilesHtml(olderImgs)}</details>` : ''}
@@ -4830,11 +4849,11 @@ function studioOutputsTeamHtml(gs, teams, chip) {
   const head = `<div class="st-out-filters">${chip('all', '전체 팀', S.studio.outTeam === 'all', 'studio-out-team')}${teams.map(t => chip(t, (studioStaffById(t) || {}).short || t, S.studio.outTeam === t, 'studio-out-team')).join('')}${chip('img', '🖼 이미지만', S.studio.outImg, 'studio-out-img')}</div>`;
   const list = (S.studio.outTeam === 'all' ? teams : [S.studio.outTeam]).map(t => {
     const mine = all.filter(f => f.staffId === t).sort((a, b) => b.at - a.at);
-    const imgs = mine.filter(f => studioFileKind(f.name) === 'img'), docs = S.studio.outImg ? [] : mine.filter(f => studioFileKind(f.name) !== 'img');
+    const imgs = mine.filter(f => studioIsVisual(f.name)), docs = S.studio.outImg ? [] : mine.filter(f => !studioIsVisual(f.name));
     if (!imgs.length && !docs.length) return '';
     const key = studioRegFiles([...imgs, ...docs]), mk = 'team:' + t, more = !!S.studio.outMore[mk], show = more ? imgs : imgs.slice(0, 9);
     return `<section class="st-out-group"><div class="st-out-head"><b>${esc((studioStaffById(t) || {}).name || t)}</b><span><small>이미지 ${imgs.length} · 문서 ${docs.length}</small></span></div>
-      ${show.length ? `<div class="st-thumbs">${show.map((f, i) => studioFileBtn(key, i, f, `<img src="${esc(f.url)}" alt="${esc(f.name)}" loading="lazy">`, 'st-thumb')).join('')}</div>` : ''}
+      ${show.length ? `<div class="st-thumbs">${show.map((f, i) => studioFileBtn(key, i, f, studioThumbInner(f), 'st-thumb')).join('')}</div>` : ''}
       ${imgs.length > 9 ? `<button type="button" class="st-out-more" data-action="studio-out-more" data-id="${esc(mk)}">${more ? '접기' : `이미지 ${imgs.length - 9}개 더 보기`}</button>` : ''}
       ${docs.length ? `<ul class="st-doc-list">${docs.slice(0, more ? 200 : 12).map((f, i) => `<li>${studioFileBtn(key, imgs.length + i, f, `<span class="ic">${studioFileIcon(f.name)}</span><span class="nm">${esc(f.name)}<small>${esc([f.gproj, f.gsub].filter(Boolean).join(' · '))}</small></span><span class="dt">${esc(studioWhen(f.at))}</span>`, 'st-doc-row')}</li>`).join('')}</ul>` : ''}
       ${docs.length > 12 && !more ? `<button type="button" class="st-out-more" data-action="studio-out-more" data-id="${esc(mk)}">문서 ${docs.length - 12}개 더 보기</button>` : ''}
@@ -4847,24 +4866,24 @@ function studioOutputsTeamHtml(gs, teams, chip) {
    PC: [팀 목록] [종류 칩·검색·정렬 + 이미지(원래 비율 격자)·문서 목록] [인라인 미리보기(PDF·md·csv)] / 폰: 팀 칩 → 목록 → 누르면 전체화면 뷰어. */
 function libItems() {
   const gs = studioOutputs();
-  return gs.flatMap(g => g.latest.map(f => ({ ...f, team: f.staffId && studioStaffById(f.staffId) ? f.staffId : 'etc', gsub: g.sub, gproj: g.ptitle, pid: g.pid })));
+  return gs.flatMap(g => g.latest.filter(f => studioFileKind(f.name) !== 'code').map(f => ({ ...f, team: f.staffId && studioStaffById(f.staffId) ? f.staffId : 'etc', gsub: g.sub, gproj: g.ptitle, pid: g.pid })));
 }
 function libTeamName(t) { return t === 'etc' ? '기타' : ((studioStaffById(t) || {}).short || t); }
 function libFiltered(all) {
   const L = S.lib, q = L.q.trim().toLowerCase();
   let list = all.filter(f => (L.team === 'all' || f.team === L.team) && (!L.project || f.pid === L.project));
-  if (L.kind !== 'all') list = list.filter(f => L.kind === 'doc' ? studioFileKind(f.name) === 'doc' : studioFileKind(f.name) === L.kind);
+  if (L.kind !== 'all') list = list.filter(f => L.kind === 'doc' ? studioFileKind(f.name) === 'doc' : (L.kind === 'img' ? studioIsVisual(f.name) : studioFileKind(f.name) === L.kind));
   if (q) list = list.filter(f => [f.name, f.from, f.gsub, f.gproj, L.text[f.url] && libDocTitle(f.url)].filter(Boolean).join(' ').toLowerCase().includes(q));
   return list.sort((a, b) => L.sort === 'name' ? a.name.localeCompare(b.name, 'ko') : b.at - a.at);
 }
 function libDocTitle(url) { const t = S.lib.text[url]; const m = t && /^\s*#{1,3}\s+(.+)$/m.exec(t); return m ? m[1].trim().slice(0, 60) : ''; }
 function libListHtml() {
   const all = libItems(), list = libFiltered(all);
-  const imgs = list.filter(f => studioFileKind(f.name) === 'img'), docs = list.filter(f => studioFileKind(f.name) !== 'img');
+  const imgs = list.filter(f => studioIsVisual(f.name)), docs = list.filter(f => !studioIsVisual(f.name));
   const key = studioRegFiles([...imgs, ...docs]);
   if (!list.length) return '<p class="st-empty">조건에 맞는 자료가 없어요.</p>';
   const sel = S.lib.sel;
-  return `${imgs.length ? `<h3 class="lib-sub">🖼 이미지 <small>${imgs.length}</small></h3><div class="lib-imgs">${imgs.slice(0, 60).map((f, i) => studioFileBtn(key, i, f, `<img src="${esc(f.url)}" alt="${esc(f.name)}" loading="lazy"><span>${esc(libTeamName(f.team))} · ${esc(f.name)}</span>`, 'lib-img')).join('')}</div>` : ''}
+  return `${imgs.length ? `<h3 class="lib-sub">🖼 이미지 <small>${imgs.length}</small></h3><div class="lib-imgs">${imgs.slice(0, 60).map((f, i) => studioFileBtn(key, i, f, `${studioThumbInner(f)}<span>${esc(libTeamName(f.team))} · ${esc(f.name)}</span>`, 'lib-img')).join('')}</div>` : ''}
     ${docs.length ? `<h3 class="lib-sub">📄 문서 <small>${docs.length}</small></h3><ul class="lib-docs">${docs.slice(0, 120).map((f, i) => { const idx = imgs.length + i, kind = studioFileKind(f.name), t = libDocTitle(f.url);
       const inner = `<span class="ic">${studioFileIcon(f.name)}</span><span class="nm"><b>${esc(t || f.name)}</b><small>${esc([libTeamName(f.team), f.gproj, f.gsub, t ? f.name : ''].filter(Boolean).join(' · '))}</small></span><span class="dt">${esc(studioWhen(f.at))}</span>`;
       return `<li>${kind === 'link' ? `<a class="lib-doc" href="${esc(f.url)}" target="_blank" rel="noopener">${inner}</a>` : `<button type="button" class="lib-doc${sel && sel.url === f.url ? ' on' : ''}" data-action="lib-sel" data-key="${key}" data-i="${idx}">${inner}</button>`}</li>`; }).join('')}</ul>` : ''}`;
@@ -4874,6 +4893,7 @@ function libPreviewHtml() {
   const kind = studioFileKind(f.name);
   const head = `<div class="lib-preview-head"><b>${studioFileIcon(f.name)} ${esc(f.name)}</b><span>${/\.(md|markdown|txt)$/i.test(f.name) && S.lib.text[f.url] != null ? `<button type="button" data-action="doc-print" data-url="${esc(f.url)}">🖨 PDF로 저장</button>` : ''}<a href="${esc(f.url)}" target="_blank" rel="noopener">↗ 새 탭</a><a href="${esc(f.url)}" target="_blank" rel="noopener" download>⬇</a>${f.aid ? `<button type="button" data-action="studio-goto-approval" data-id="${esc(f.aid)}">결재 보기</button>` : ''}</span></div>${f.from ? `<p class="lib-from">📨 ${esc(f.from)}</p>` : ''}`;
   if (kind === 'pdf') return head + `<iframe class="lib-pdf" src="${esc(f.url)}#view=FitH" title="${esc(f.name)}"></iframe>`;
+  if (kind === 'html') { const t = studioHtmlText(f); return head + (t == null ? '<p class="st-empty" style="padding:12px">시안 불러오는 중…</p>' : `<iframe class="lib-pdf" sandbox="allow-scripts" srcdoc="${esc(t)}" title="${esc(f.name)}"></iframe>`); }
   return head + `<div class="st-doc-body lib-doc-body">${studioDocBodyHtml(f, S.lib.text[f.url], S.lib.err[f.url])}</div>`;
 }
 function libLoad(f) {
@@ -4909,9 +4929,9 @@ document.addEventListener('change', e => { if (e.target && e.target.dataset.role
 function projStudioOutputsHtml(pid) {
   if (GUEST_MODE) return '';
   const items = studioOutputs().filter(g => g.pid === pid).flatMap(g => g.latest); if (!items.length) return '';
-  const imgs = items.filter(f => studioFileKind(f.name) === 'img'), docs = items.filter(f => studioFileKind(f.name) !== 'img'), key = studioRegFiles([...imgs, ...docs]);
+  const imgs = items.filter(f => studioIsVisual(f.name)), docs = items.filter(f => !studioIsVisual(f.name)), key = studioRegFiles([...imgs, ...docs]);
   return `<div class="pd-studio-out"><div class="pd-studio-out-head"><b>🏢 스튜디오 결과물</b><button type="button" data-action="studio-out-open-project" data-id="${esc(pid)}">전체 보기 ›</button></div>
-    ${imgs.length ? `<div class="st-thumbs">${imgs.slice(0, 8).map((f, i) => studioFileBtn(key, i, f, `<img src="${esc(f.url)}" alt="${esc(f.name)}" loading="lazy">`, 'st-thumb')).join('')}</div>` : ''}
+    ${imgs.length ? `<div class="st-thumbs">${imgs.slice(0, 8).map((f, i) => studioFileBtn(key, i, f, studioThumbInner(f), 'st-thumb')).join('')}</div>` : ''}
     ${docs.length ? `<div class="st-files">${docs.slice(0, 6).map((f, i) => studioFileBtn(key, imgs.length + i, f, `📄 ${esc(f.name)}`)).join('')}</div>` : ''}</div>`;
 }
 /* 뷰어 상태: S.studio.viewer = {list, i, kind, text, err} — 스튜디오 탭 맨 끝에 그려짐 */
@@ -4921,9 +4941,13 @@ function studioViewerHtml() {
   if (kind === 'img') {
     const imgs = v.list.map((x, i) => [x, i]).filter(([x]) => studioFileKind(x.name) === 'img'), pos = imgs.findIndex(([, i]) => i === v.i);
     return `<div class="st-viewer st-viewer-img" data-action="studio-view-close"><div class="st-viewer-bar" data-stop="1"><span>${esc(f.name)} · ${pos + 1}/${imgs.length}${f.from ? `<small class="st-viewer-from">📨 ${esc(f.from)}</small>` : ''}</span>${f.aid ? `<button type="button" data-action="studio-goto-approval" data-id="${esc(f.aid)}">결재 보기</button>` : ''}<a href="${esc(f.url)}" target="_blank" rel="noopener" download>⬇ 원본</a><button type="button" data-action="studio-view-close">✕</button></div>
-      <img src="${esc(f.url)}" alt="${esc(f.name)}" data-stop="1" id="stViewerImg">
+      <img src="${esc(studioImgSrc(f))}" alt="${esc(f.name)}" data-stop="1" id="stViewerImg">
       ${imgs.length > 1 ? `<button type="button" class="st-viewer-nav prev" data-action="studio-view-step" data-d="-1">‹</button><button type="button" class="st-viewer-nav next" data-action="studio-view-step" data-d="1">›</button>` : ''}</div>`;
   }
+  if (kind === 'html') { const t = studioHtmlText(f); return `<div class="eq-modal-overlay no-anim" data-action="studio-view-close"><div class="eq-modal st-doc st-pdf" data-stop="1">
+    <div class="eq-modal-head"><h2>🧩 ${esc(f.name)}</h2><button class="eq-modal-close" data-action="studio-view-close">✕</button></div>
+    ${t == null ? '<p class="st-empty">시안 불러오는 중…</p>' : `<iframe class="st-pdf-frame" sandbox="allow-scripts" srcdoc="${esc(t)}" title="${esc(f.name)}"></iframe>`}
+    <div class="st-doc-foot">${n > 1 ? `<button type="button" data-action="studio-view-step" data-d="-1">‹ 이전 파일</button><button type="button" data-action="studio-view-step" data-d="1">다음 파일 ›</button>` : ''}<a href="${esc(f.url)}" target="_blank" rel="noopener">↗ 새 탭</a><a href="${esc(f.url)}" target="_blank" rel="noopener" download>⬇ 다운로드</a></div></div></div>`; }
   if (kind === 'pdf') return `<div class="eq-modal-overlay no-anim" data-action="studio-view-close"><div class="eq-modal st-doc st-pdf" data-stop="1">
     <div class="eq-modal-head"><h2>📕 ${esc(f.name)}</h2><button class="eq-modal-close" data-action="studio-view-close">✕</button></div>
     <iframe class="st-pdf-frame" src="${esc(f.url)}#view=FitH" title="${esc(f.name)}"></iframe>
@@ -4960,7 +4984,7 @@ function studioViewerLoad() {
 }
 function studioViewerStep(d) {
   const v = S.studio.viewer; if (!v) return; const kind = studioFileKind(v.list[v.i].name);
-  const idx = v.list.map((x, i) => i).filter(i => kind === 'img' ? studioFileKind(v.list[i].name) === 'img' : /^(doc|pdf)$/.test(studioFileKind(v.list[i].name)));
+  const idx = v.list.map((x, i) => i).filter(i => kind === 'img' ? studioFileKind(v.list[i].name) === 'img' : /^(doc|pdf|html)$/.test(studioFileKind(v.list[i].name)));
   const p = idx.indexOf(v.i); if (p < 0 || idx.length < 2) return;
   v.i = idx[(p + d + idx.length) % idx.length]; studioViewerLoad(); render();
 }
@@ -7969,6 +7993,11 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-mode-line { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:12.5px; color:var(--text-dim); padding:8px 10px; border:1px dashed var(--border-strong); }
   .st-mode-badge { padding:1px 7px; border:1px solid var(--accent); color:var(--accent); font-size:12px; white-space:nowrap; }
   .st-mode-legend { margin-top:6px; } .st-mode-legend span { white-space:nowrap; }
+  .st-htmlthumb { position:relative; display:block; width:100%; aspect-ratio:4/3; overflow:hidden; background:#fff; }
+  .st-htmlthumb iframe { position:absolute; left:0; top:0; width:400%; height:400%; transform:scale(.25); transform-origin:0 0; border:0; pointer-events:none; }
+  .st-htmlthumb em { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-style:normal; font-size:12px; color:#666; }
+  .st-htmlthumb b { position:absolute; left:0; right:0; bottom:0; padding:3px 6px; font-size:11.5px; font-weight:400; background:rgba(6,9,11,.75); color:#e6fffb; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .st-thumb .st-htmlthumb { height:100%; aspect-ratio:auto; }
   .st-acts-list { display:grid; gap:5px; padding:8px 10px; border:1px dashed var(--border-strong); border-radius:10px; font-size:13px; }
   .st-acts-list > b { font-size:13px; color:var(--text); } .st-acts-list p { margin:0; color:var(--text); line-height:1.5; } .st-acts-list small { color:var(--text-faint); }
   .st-term .st-acts-list { border-color:var(--t-line); } .st-term .st-acts-list > b, .st-term .st-acts-list p { color:var(--t-hi); } .st-term .st-acts-list small { color:var(--t-dim); }
