@@ -4512,16 +4512,16 @@ function handleNotifAction(action, el, e) {
      studioBridge/status {heartbeat,version,todayCount,todayDate}(다리가 씀) · studioBridge/settings {dailyLimit,morningOn,morningAt}(대표님).
    - 다리 계정은 규칙상 studio* 일부와 projects·schedule 읽기만 가능(firestore.rules isBridge). */
 const STUDIO_STAFF = [
-  { id: 'sec', name: '비서실', short: '비서실', role: '실장 · 전체 조율', spr: 'worker1', x: 0.250, y: 0.590, hair: '#3b2a1e', shirt: '#ff9a3c', acc: 'tie', detail: '대표님 요청을 받아 각 팀에 나눠 주고, 결과를 모아 보고해요.' },
-  { id: 'dev', name: '개발 기획자', short: '개발 기획', role: '아이디어 → 개발 설계안', spr: 'Julia_PC', x: 0.417, y: 0.590, hair: '#1e1e1e', shirt: '#4f7cff', acc: 'glasses', detail: '아이디어를 받아 개발 설계안을 써요. 승인되면 앱 개발 채팅이 만들어요.' },
-  { id: 'biz', name: '사업기획팀', short: '사업기획', role: '운영·가격·서비스', spr: 'worker1', x: 0.583, y: 0.590, hair: '#6b3d22', shirt: '#7a5cff', acc: '', detail: '서비스 패키지, 가격표, 월 목표, 새 서비스를 검토해요.' },
-  { id: 'shoot', name: '촬영기획팀', short: '촬영기획', role: '콘티·일정·장비', spr: 'worker4', x: 0.750, y: 0.590, hair: '#2a2a2a', shirt: '#2fb3a3', acc: 'cap', detail: '촬영이 잡히면 기획안, 샷 리스트, 장비·준비물 목록을 만들어요.' },
-  { id: 'fin', name: '재무팀', short: '재무', role: '견적·세금·정산', spr: 'worker2', x: 0.333, y: 0.850, hair: '#4a2f1a', shirt: '#3aa76d', acc: 'glasses', detail: '견적 단가, 원천세·부가세, 월별 손익, 구독료를 챙겨요.' },
-  { id: 'design', name: '디자인팀', short: '디자인', role: '시안·아이콘·썸네일', spr: 'worker1', x: 0.500, y: 0.850, hair: '#c2623b', shirt: '#ff6fa3', acc: 'beret', detail: '썸네일, 포스터, 견적서, 앱 아이콘 시안을 만들어요.' },
+  { id: 'sec', mode: 'morning', name: '비서실', short: '비서실', role: '실장 · 전체 조율', spr: 'worker1', x: 0.250, y: 0.590, hair: '#3b2a1e', shirt: '#ff9a3c', acc: 'tie', detail: '대표님 요청을 받아 각 팀에 나눠 주고, 결과를 모아 보고해요.' },
+  { id: 'dev', mode: 'auto', name: '개발 기획자', short: '개발 기획', role: '아이디어 → 개발 설계안', spr: 'Julia_PC', x: 0.417, y: 0.590, hair: '#1e1e1e', shirt: '#4f7cff', acc: 'glasses', detail: '아이디어를 받아 개발 설계안을 써요. 승인되면 앱 개발 채팅이 만들어요.' },
+  { id: 'biz', mode: 'morning', name: '사업기획팀', short: '사업기획', role: '운영·가격·서비스', spr: 'worker1', x: 0.583, y: 0.590, hair: '#6b3d22', shirt: '#7a5cff', acc: '', detail: '서비스 패키지, 가격표, 월 목표, 새 서비스를 검토해요.' },
+  { id: 'shoot', mode: 'morning', name: '촬영기획팀', short: '촬영기획', role: '콘티·일정·장비', spr: 'worker4', x: 0.750, y: 0.590, hair: '#2a2a2a', shirt: '#2fb3a3', acc: 'cap', detail: '촬영이 잡히면 기획안, 샷 리스트, 장비·준비물 목록을 만들어요.' },
+  { id: 'fin', mode: 'morning', name: '재무팀', short: '재무', role: '견적·세금·정산', spr: 'worker2', x: 0.333, y: 0.850, hair: '#4a2f1a', shirt: '#3aa76d', acc: 'glasses', detail: '견적 단가, 원천세·부가세, 월별 손익, 구독료를 챙겨요.' },
+  { id: 'design', mode: 'morning', name: '디자인팀', short: '디자인', role: '시안·아이콘·썸네일', spr: 'worker1', x: 0.500, y: 0.850, hair: '#c2623b', shirt: '#ff6fa3', acc: 'beret', detail: '썸네일, 포스터, 견적서, 앱 아이콘 시안을 만들어요.' },
   // 🏯 히스플랜 지사(2026-10-14): 히스플랜 맥북(다른 Claude 계정)의 Claude. 통로 iCloud '히스플랜 전달함/지사', VINFILM 맥 다리가 중계(branchSend/branchPoll).
   // studioStaff/hisplan.online = 맥북 heartbeat(5분). 사무실 왼쪽 보라색 '지사' 방에 앉음.
-  { id: 'hisplan', name: '히스플랜 지사', short: '히스플랜 지사', role: '히스플랜 맥북의 Claude', spr: 'worker2', x: 0.092, y: 0.630, hair: '#2b1d14', shirt: '#8b5cf6', acc: '', detail: '히스플랜 맥북의 Claude — 히스플랜 운영툴·사역 일을 맡아요. 운영 반영은 대표님 승인 후에만.' },
-  { id: 'mkt', name: '마케팅팀', short: '마케팅', role: '인스타·유튜브·문구', spr: 'worker2', x: 0.667, y: 0.850, hair: '#2d1d14', shirt: '#ffcc33', acc: '', detail: '인스타·유튜브 콘텐츠, 홍보 문구, 문의 응대 문구를 맡아요.' },
+  { id: 'hisplan', mode: 'manual', name: '히스플랜 지사', short: '히스플랜 지사', role: '히스플랜 맥북의 Claude', spr: 'worker2', x: 0.092, y: 0.630, hair: '#2b1d14', shirt: '#8b5cf6', acc: '', detail: '히스플랜 맥북의 Claude — 히스플랜 운영툴·사역 일을 맡아요. 운영 반영은 대표님 승인 후에만.' },
+  { id: 'mkt', mode: 'morning', name: '마케팅팀', short: '마케팅', role: '인스타·유튜브·문구', spr: 'worker2', x: 0.667, y: 0.850, hair: '#2d1d14', shirt: '#ffcc33', acc: '', detail: '인스타·유튜브 콘텐츠, 홍보 문구, 문의 응대 문구를 맡아요.' },
 ];
 const STUDIO_W = 480, STUDIO_H = 330;
 /* 대표님(사장) 자리 — 위쪽 가운데 큰 책상(사장 캐릭터 + 결재 도장 책상 + 러그). 누르면 오른쪽 패널이 결재함으로 */
@@ -4533,6 +4533,13 @@ const STUDIO_STATE_ICON = { work: '⌨️', wait: '📮', off: '💤' };
 const STUDIO_TERMINAL = true;
 /* 사무실에서 뺀 직원(2026-10-15 Mac 관리) — 예전 결재·지시·결과물은 지우지 않고 '기타'로 보이게 */
 const STUDIO_RETIRED = { mac: { id: 'mac', name: '기타 (Mac 관리)', short: '기타', role: '사무실에서 뺀 자리', x: 0, y: 0, hair: '#555b63', shirt: '#9aa7b1', acc: '', detail: '예전 Mac 환경정리 자리 — 이제 맥 관련 요청은 비서실 채팅으로 받아요.' } };
+/* 일하는 방식(2026-10-15, 다리 실제 동작 기준): morning = 지시하면 바로 일함 + 매일 아침 9시 할 일 제안 / auto = 지시하면 바로 일함 / manual = 접수는 자동, 시작은 확인 후 */
+const STUDIO_MODE = {
+  morning: { icon: '☀️', badges: ['⚡ 자동', '☀️ 아침 출근'], line: '지시하면 바로 일해요 · 매일 아침 9시에 할 일을 제안해요' },
+  auto: { icon: '⚡', badges: ['⚡ 자동'], line: '지시하면 바로 일해요 · 아침 출근은 없어요' },
+  manual: { icon: '✋', badges: ['✋ 확인 후 시작'], line: "지시는 바로 접수돼요 · 히스플랜 맥북에서 'ㄱ'을 보내야 시작해요" },
+};
+function studioMode(s) { return STUDIO_MODE[s && s.mode] || null; }
 function studioStaffById(id) { return STUDIO_STAFF.find(s => s.id === id) || STUDIO_RETIRED[id] || null; }
 const STUDIO_AUTO_OFF = []; // 2026-10-15: dev는 다리가 자동 실행(개발 설계안 결재), mac은 사무실에서 뺌 // 다리가 자동 실행하지 않는 직원(설계 5절) — 지시는 쌓아만 둔다
 const STUDIO_TASK_LABEL = { queued: '대기', running: '진행 중', done: '완료', failed: '실패', canceled: '취소' };
@@ -4996,10 +5003,10 @@ function renderStudioTab() {
       <div class="st-bubble ${st}"><b>${esc(s.name)}</b><span>${STUDIO_STATE_ICON[st]} ${esc(task)}</span></div>
       ${studioBranchOff(s) && st !== 'wait' ? '<div class="st-badge">🔌</div>' : st === 'off' ? '' : `<div class="st-badge">${STUDIO_STATE_ICON[st]}</div>`}
       <button class="st-hit" type="button" data-action="studio-sel" data-id="${s.id}" aria-label="${esc(s.name)} 업무 보기"></button>
-      <div class="st-plate">${esc(s.short)}</div>
+      <div class="st-plate">${studioMode(s) ? `<i class="st-mode-ic" title="${esc(studioMode(s).badges.join(' · '))}">${studioMode(s).icon}</i>` : ''}${esc(s.short)}</div>
     </div>`;
   }).join('');
-  const roster = STUDIO_STAFF.map(s => { const st = studioState(s), q = studioTasks.filter(t => t.staffId === s.id && t.status === 'queued').length; return `<button type="button" class="${S.studio.sel === s.id ? 'on' : ''}" data-action="studio-sel" data-id="${s.id}" title="${esc(studioTask(s))}"><span class="st-dot ${st}"></span><b>${esc(s.short)}</b><small>${studioBranchOff(s) && st !== 'wait' ? '맥북 꺼짐' : STUDIO_STATE_LABEL[st]}${q ? ` · 대기 ${q}` : ''}</small></button>`; }).join('');
+  const roster = STUDIO_STAFF.map(s => { const st = studioState(s), q = studioTasks.filter(t => t.staffId === s.id && t.status === 'queued').length; return `<button type="button" class="${S.studio.sel === s.id ? 'on' : ''}" data-action="studio-sel" data-id="${s.id}" title="${esc(studioTask(s))}"><span class="st-dot ${st}"></span><b>${esc(s.short)}</b>${studioMode(s) ? `<i class="st-mode-ic">${studioMode(s).icon}</i>` : ''}<small>${studioBranchOff(s) && st !== 'wait' ? '맥북 꺼짐' : STUDIO_STATE_LABEL[st]}${q ? ` · 대기 ${q}` : ''}</small></button>`; }).join('');
   const isDigest = a => Array.isArray(a.items) && a.items.length > 0; // 비서실이 팀 보고를 모아 정리한 결재
   const items = studioApprovals.filter(a => S.studio.box === 'wait' ? a.status === 'wait' : a.status !== 'wait')
     .sort((a, b) => S.studio.box === 'wait' ? (isDigest(b) - isDigest(a)) || (a.createdAt || 0) - (b.createdAt || 0) : (b.decidedAt || 0) - (a.decidedAt || 0));
@@ -5034,7 +5041,7 @@ function renderStudioTab() {
         ${open ? `<div class="st-task-body${studioJustOpened === 't:' + t.id ? ' st-unfold' : ''}"><p class="st-task-full">${esc(t.text)}</p>${t.result ? studioBodyHtml(t.result, 'st-body small') : ''}${studioFilesHtml(t.files)}<small class="st-tmeta">${esc(studioWhen(t.createdAt))}${t.finishedAt ? ' → ' + esc(studioWhen(t.finishedAt)) : ''}</small></div>` : ''}</li>`;
     }).join('')}</ul>` : '<p class="st-empty">아직 지시한 일이 없어요.</p>';
     /* 오른쪽 패널 '직원' 탭: 지시하기(맨 위, 바로 입력) → 직원 상태 → 지시 목록 → 최근 결과 */
-    staffHtml = `<div class="st-order"><label for="stOrder">✍️ ${esc(sel.short)}에게 지시하기</label>
+    staffHtml = `${studioMode(sel) ? `<div class="st-mode-line">${studioMode(sel).badges.map(b => `<span class="st-mode-badge">${b}</span>`).join('')}<span>${esc(studioMode(sel).line)}</span></div>` : ''}<div class="st-order"><label for="stOrder">✍️ ${esc(sel.short)}에게 지시하기</label>
         <textarea id="stOrder" rows="3" placeholder="맡길 일을 적고 Enter (줄바꿈은 Shift+Enter). 예) ${sel.id === 'hisplan' ? '이번 주 예배 순서지 초안 만들어 줘' : sel.id === 'dev' ? '결재 오면 폰으로 알림 받고 싶어 — 설계안 써 줘' : sel.id === 'mac' ? '바탕화면 스크린샷 폴더 정리해 줘' : '다음 주 촬영 준비물 목록 만들어 줘'}"></textarea>
         <div class="st-order-row"><small>${sel.id === 'hisplan' ? (studioBranchOff(sel) ? '히스플랜 맥북이 꺼져 있어요. 지시는 쌓였다가 켜지면 처리돼요.' : '히스플랜 맥북으로 보내져서 그쪽 Claude가 처리해요.') : STUDIO_AUTO_OFF.includes(sel.id) ? `보내면 대표님 Mac에 알림이 가요. 작업은 '${sel.id === 'mac' ? 'Mac 환경정리' : '작업관리 앱 개발'}' 채팅방이나 비서실에 한마디 하면 시작돼요.` : br.on ? 'Mac이 켜져 있어서 순서대로 바로 처리돼요.' : '🔌 Mac이 꺼져 있어도 지시는 쌓였다가 켜지면 처리돼요.'}</small><button type="button" data-action="studio-order" data-id="${sel.id}">보내기</button></div>
         ${S.studio.taskMsg ? `<p class="st-warn">${esc(S.studio.taskMsg)}</p>` : ''}</div>
@@ -5056,6 +5063,7 @@ function renderStudioTab() {
         <div class="st-hud bot"><button type="button" data-action="studio-settle">📊 이번 달 결산</button><span>진행 중 프로젝트 <b>${doing}</b></span><span>이번 주 마감 <b>${dlText}</b></span><span>결재 대기 <b>${waiting.length}</b></span></div>
         ${br.on ? '' : '<p class="st-offline">🔌 Mac 꺼짐 — 지시는 쌓였다가 Mac이 켜지면 처리돼요.</p>'}
         <div class="st-roster">${roster}</div>
+        <div class="st-legend st-mode-legend"><span>☀️ 지시하면 바로 + 매일 아침 9시 할 일 제안</span><span>⚡ 지시하면 바로 일함</span><span>✋ 접수는 자동 · 확인 후 시작</span></div>
         <div class="st-legend"><span>● 초록 = 일하는 중 · ● 주황 = 결재 대기 · ○ 회색 = 쉬는 중</span><span>· 그림: Arlan_TR Free Office Pixel Art</span></div>
       </div>
       <section class="st-panel${S.studio.box === 'staff' ? ' is-staff' : ''}" aria-label="사장실">
@@ -7957,6 +7965,10 @@ document.addEventListener('DOMContentLoaded', () => {
   .lib-open { margin-bottom:8px; }
   @media (max-width: 1100px) { .lib-grid { grid-template-columns:minmax(0,1fr); } .lib-preview { display:none; } .lib-teams { position:static; display:flex; flex-wrap:wrap; } .lib-teams button { padding:6px 10px; } }
   @media (max-width: 720px) { .lib-imgs { columns:2 120px; } }
+  .st-mode-ic { font-style:normal; margin:0 3px 0 1px; font-size:.9em; }
+  .st-mode-line { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:12.5px; color:var(--text-dim); padding:8px 10px; border:1px dashed var(--border-strong); }
+  .st-mode-badge { padding:1px 7px; border:1px solid var(--accent); color:var(--accent); font-size:12px; white-space:nowrap; }
+  .st-mode-legend { margin-top:6px; } .st-mode-legend span { white-space:nowrap; }
   .st-acts-list { display:grid; gap:5px; padding:8px 10px; border:1px dashed var(--border-strong); border-radius:10px; font-size:13px; }
   .st-acts-list > b { font-size:13px; color:var(--text); } .st-acts-list p { margin:0; color:var(--text); line-height:1.5; } .st-acts-list small { color:var(--text-faint); }
   .st-term .st-acts-list { border-color:var(--t-line); } .st-term .st-acts-list > b, .st-term .st-acts-list p { color:var(--t-hi); } .st-term .st-acts-list small { color:var(--t-dim); }
