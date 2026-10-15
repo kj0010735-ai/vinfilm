@@ -268,8 +268,9 @@ const NAV_ITEMS_BASE = [
   { id: 'notes', icon: '📝', label: '메모장' },
   { id: 'songs', icon: '🎤', label: '노래연습' },
   { id: 'studio', icon: '🏢', label: '스튜디오' },
+  { id: 'library', icon: '🗂', label: '자료실' },
 ];
-const NAV_ITEMS = STUDIO_HOME ? [NAV_ITEMS_BASE.find(x => x.id === 'studio'), ...NAV_ITEMS_BASE.filter(x => x.id !== 'today' && x.id !== 'studio')] : NAV_ITEMS_BASE;
+const NAV_ITEMS = STUDIO_HOME ? [NAV_ITEMS_BASE.find(x => x.id === 'studio'), NAV_ITEMS_BASE.find(x => x.id === 'library'), ...NAV_ITEMS_BASE.filter(x => !['today', 'studio', 'library'].includes(x.id))] : NAV_ITEMS_BASE;
 const SHARED_STATUSES = [
   { id: 'todo', label: '준비중', color: '#e0a63c' },
   { id: 'doing', label: '진행중', color: '#4cae7d' },
@@ -381,6 +382,7 @@ const S = {
   song: { modalOpen: false, editingId: null, playId: null, search: '', msg: '', syncing: false, syncTimes: [], follow: true },
   shortcut: { modalOpen: false, editingId: null },
   quote: { view: 'quotes', draft: null, cdraft: null, bizOpen: false, bizSignCleared: false, msg: '' },
+  lib: { team: 'all', kind: 'all', q: '', sort: 'new', sel: null, project: '', text: {}, err: {} },
   studio: { box: 'wait', sel: null, settle: false, msg: '', taskMsg: '', answers: {}, open: {}, openTask: {}, outTeam: 'all', outImg: false, outMore: {}, outProject: '', outView: 'team' },
 };
 let currentEqPhoto = '';
@@ -432,9 +434,14 @@ function applyCloudUpdate(name, items) {
       const canceled = items.filter(x => x.canceled === true);
       if (canceled.length) {
         items = items.filter(x => x.canceled !== true);
+        if (!GUEST_MODE && !IS_LOCAL_DEV && typeof firebase !== 'undefined') canceled.forEach(x => { if (x.amount) schedAmountToLedger({ ...x, amount: 0 }); }); // 취소된 일정의 예정 매출도 장부에서 뺌
         if (!GUEST_MODE && !IS_LOCAL_DEV && typeof firebase !== 'undefined') canceled.forEach(x => firebase.firestore().collection('schedule').doc(String(x.id)).delete().catch(e => console.warn('canceled schedule delete failed', e)));
       }
+      // 금액 있는 일정의 날짜·제목·프로젝트가 다른 경로(프로젝트 창·스튜디오 다리)로 바뀌어도 장부 예정 매출을 맞춤
+      const amtSig = x => `${x.date}|${x.amountDate || ''}|${x.title}|${x.projectId || ''}|${x.amount}`, prevAmt = {}; schedItems.forEach(x => { if (x.amount) prevAmt[x.id] = amtSig(x); });
+      const amtChanged = items.filter(x => x.amount && prevAmt[x.id] && prevAmt[x.id] !== amtSig(x));
       schedItems = items; try { localStorage.setItem(LS_SCHEDULE, JSON.stringify(items)); } catch (e) {}
+      if (!GUEST_MODE) amtChanged.forEach(x => schedAmountToLedger(x));
       if ((studioChanged || canceled.length) && typeof gcalSchedulePush === 'function') gcalSchedulePush();
       break;
     }
@@ -1497,6 +1504,7 @@ function mobileMoreSheetHtml() {
       ${row('data-action="set-tab" data-id="shared"', MI.shared, '공유 프로젝트')}
       ${row('data-action="set-tab" data-id="notes"', MI.note, '메모장')}
       ${row('data-action="set-tab" data-id="songs"', MI.mic, '노래연습')}
+      ${row('data-action="set-tab" data-id="library"', '<span style="font-size:17px;line-height:1">🗂</span>', '자료실')}
       ${STUDIO_HOME ? '' : row('data-action="set-tab" data-id="studio"', '<span style="font-size:17px;line-height:1">🏢</span>', '스튜디오')}
       <a class="m-sheet-row" href="../ledger/"><span class="m-sheet-ic">${MI.money}</span><span>수입·지출 관리</span><i>${MI.chev}</i></a>
       ${row('data-action="open-settings"', MI.gear, '설정')}
@@ -1686,7 +1694,7 @@ function schedAmountToLedger(item) {
     if (!amt) { if (cur.exists && (cur.data().paymentStatus || 'scheduled') === 'scheduled') await ref.delete(); return; }
     const dup = await db.collection('ledgerEntries').where('project', '==', projTitle).get();
     if (!cur.exists && dup.docs.some(d => d.id.startsWith('ct-'))) { S.sched.amountMsg = `"${projTitle}"은 계약서 매출이 이미 장부에 있어서 예정 매출은 따로 넣지 않았어요.`; render(); return; }
-    const body = { date: item.date, totalAmount: amt, actualAmount: amt, partner: (proj && proj.client) || item.contact || item.title || '(캘린더)', project: projTitle, scheduleId: item.id, source: 'schedule', memo: `캘린더 일정 "${item.title}" 예상 금액`, updatedAt: Date.now() };
+    const body = { date: item.amountDate || item.date, totalAmount: amt, actualAmount: amt, partner: (proj && proj.client) || item.contact || item.title || '(캘린더)', project: projTitle, scheduleId: item.id, source: 'schedule', memo: `캘린더 일정 "${item.title}" 예상 금액`, updatedAt: Date.now() };
     if (cur.exists) await ref.set(body, { merge: true });
     else await ref.set({ id: 'sc-' + item.id, category: 'revenue', withholdingTax: 0, paymentStatus: 'scheduled', evidence: 'missing', filingStatus: 'before', taxPaymentStatus: 'before', docStatus: 'before', createdAt: Date.now(), ...body });
     studioLedger.at = 0; // 스튜디오 매출 숫자 새로 읽기
@@ -1697,8 +1705,8 @@ function schedModalHtml() {
   const editing = S.sched.editingId ? schedItems.find(it => it.id === S.sched.editingId) : null;
   const linkProject = (!editing && S.sched.linkProjectId) ? projItems.find(p => p.id === S.sched.linkProjectId) : null;
   const f = editing
-    ? { amount: editing.amount || '', title: editing.title, date: editing.date, endDate: editing.endDate || '', time: editing.time || '', allDay: !editing.time, location: editing.location || '', contact: editing.contact || '', category: editing.category === 'calendar' ? 'etc' : editing.category, memo: editing.memo || '' }
-    : { amount: '', title: linkProject ? linkProject.title : '', date: todayStr(), endDate: '', time: '', allDay: false, location: '', contact: '', category: 'shoot', memo: '' };
+    ? { amount: editing.amount || '', amountDate: editing.amountDate || '', title: editing.title, date: editing.date, endDate: editing.endDate || '', time: editing.time || '', allDay: !editing.time, location: editing.location || '', contact: editing.contact || '', category: editing.category === 'calendar' ? 'etc' : editing.category, memo: editing.memo || '' }
+    : { amount: '', amountDate: '', title: linkProject ? linkProject.title : '', date: todayStr(), endDate: '', time: '', allDay: false, location: '', contact: '', category: 'shoot', memo: '' };
   const multi = S.sched.multiDay != null ? S.sched.multiDay : !!(f.endDate && f.endDate > f.date);
   if (!editing && S.sched.prefillDate) f.date = S.sched.prefillDate;
   return `
@@ -1717,7 +1725,10 @@ function schedModalHtml() {
             ${SCHED_MEET_ON ? `<span style="width:14px"></span><input type="checkbox" name="meet" id="schedMeetCb" ${(editing ? editing.meet : false) || schedMeetWord(f.title + ' ' + (f.memo || '')) ? 'checked' : ''} /><label for="schedMeetCb" style="margin:0">🎥 구글미팅</label>` : ''}</div>
           ${editing && editing.meetUrl ? `<p class="eq-hint" style="margin:-4px 0 10px">회의 주소: ${esc(editing.meetUrl)}</p>` : ''}
           <div class="eq-field"><label>카테고리</label><select name="category">${SCHED_CATEGORIES.map(c => `<option value="${c.id}" ${f.category===c.id?'selected':''}>${c.label}</option>`).join('')}</select></div>
-          ${GUEST_MODE ? '' : `<div class="eq-field"><label>💰 예상 금액 <span class="eq-hint">(원 · 적으면 수입·지출에 '예정 매출'로 들어가요)</span></label><input name="amount" inputmode="numeric" value="${f.amount ? won(f.amount) : ''}" placeholder="예: 1,500,000 (비우면 매출 없음)" data-role="won-input" /></div>`}
+          ${GUEST_MODE ? '' : `<div class="eq-field-row">
+            <div class="eq-field"><label>💰 예상 금액 <span class="eq-hint">(원 · 수입·지출 '예정 매출'로)</span></label><input name="amount" inputmode="numeric" value="${f.amount ? won(f.amount) : ''}" placeholder="예: 1,500,000 (비우면 매출 없음)" data-role="won-input" /></div>
+            <div class="eq-field"><label>입금 예정일 <span class="eq-hint">(비우면 일정 날짜)</span></label><input type="date" name="amountDate" value="${esc(f.amountDate || '')}" /></div>
+          </div>`}
           ${!GUEST_MODE && collabs.length ? `<div class="eq-field"><label>👥 협업자에게 공유 <span class="eq-hint">(고르면 그 협업자 캘린더에도 보여요)</span></label><select name="collabId"><option value="">나만 보기</option>${collabs.map(x => `<option value="${x.id}" ${(editing ? editing.collabId : S.sched.prefillCollabId) === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>` : ''}
           <div class="eq-field-row">
             <div class="eq-field"><label>장소</label><input name="location" value="${esc(f.location)}" placeholder="예: OO 스튜디오" /></div>
@@ -1761,7 +1772,7 @@ function schedDetailModalHtml() {
         <div class="eq-detail-row"><span>시간</span><b>${item.time || '종일'}</b></div>
         <div class="eq-detail-row"><span>카테고리</span><b><span class="eq-status-dot" style="background:var(--sched-${item.category})"></span> ${esc(catLabel)}${item.source === 'calendar' ? ' <span class="sched-badge-cal">캘린더</span>' : ''}</b></div>
         ${item.location ? `<div class="eq-detail-row"><span>장소</span><b>${esc(item.location)}</b></div>` : ''}
-        ${!GUEST_MODE && item.amount ? `<div class="eq-detail-row"><span>예상 금액</span><b>₩${won(item.amount)} <small style="color:var(--text-faint)">(수입·지출 예정 매출)</small></b></div>` : ''}
+        ${!GUEST_MODE && item.amount ? `<div class="eq-detail-row"><span>예상 금액</span><b>₩${won(item.amount)} <small style="color:var(--text-faint)">(수입·지출 예정 매출${item.amountDate ? ` · 입금 예정 ${esc(item.amountDate)}` : ''})</small></b></div>` : ''}
         ${item.meet || item.meetUrl ? `<div class="eq-detail-row"><span>회의</span><b>${item.meetUrl ? `<a class="sched-meet-btn" href="${esc(item.meetUrl)}" target="_blank" rel="noopener">🎥 회의 참여</a> <button type="button" class="sched-meet-copy" data-action="sched-meet-copy" data-id="${esc(item.meetUrl)}">복사</button>` : '🎥 구글미팅 주소 만드는 중 <small style="color:var(--text-faint)">(캘린더 동기화가 10분 안에 만들어요)</small>'}</b></div>` : ''}
         ${item.contact ? `<div class="eq-detail-row"><span>담당자</span><b>${esc(item.contact)}</b></div>` : ''}
         ${item.memo ? `<div class="eq-detail-notes">${linkify(item.memo)}</div>` : ''}
@@ -4787,7 +4798,8 @@ function studioOutputsHtml() {
   if (S.studio.outTeam !== 'all') gs = gs.filter(g => g.teams.has(S.studio.outTeam));
   const chip = (id, label, on, act) => `<button type="button" class="st-opt${on ? ' on' : ''}" data-action="${act}" data-id="${id}">${esc(label)}</button>`;
   const viewSeg = `<div class="st-out-view"><button type="button" class="${S.studio.outView === 'team' ? 'on' : ''}" data-action="studio-out-view" data-id="team">팀별</button><button type="button" class="${S.studio.outView === 'project' ? 'on' : ''}" data-action="studio-out-view" data-id="project">프로젝트별</button></div>`;
-  if (S.studio.outView === 'team' && !S.studio.outProject) return viewSeg + studioOutputsTeamHtml(gs, teams, chip);
+  const openLib = `<button type="button" class="st-out-more lib-open" data-action="set-tab" data-id="library">🗂 자료실 크게 열기 ›</button>`;
+  if (S.studio.outView === 'team' && !S.studio.outProject) return openLib + viewSeg + studioOutputsTeamHtml(gs, teams, chip);
   const head = viewSeg + `<div class="st-out-filters">${chip('all', '전체', S.studio.outTeam === 'all', 'studio-out-team')}${teams.map(t => chip(t, (studioStaffById(t) || {}).short || t, S.studio.outTeam === t, 'studio-out-team')).join('')}${chip('img', '🖼 이미지만', S.studio.outImg, 'studio-out-img')}${S.studio.outProject ? chip('', '✕ 프로젝트 필터 해제', true, 'studio-out-project') : ''}</div>`;
   if (!gs.length) return head + '<p class="st-empty">아직 모인 결과물이 없어요. 직원이 결재에 파일을 붙이면 여기에 모여요.</p>';
   return head + gs.map(g => {
@@ -4823,6 +4835,69 @@ function studioOutputsTeamHtml(gs, teams, chip) {
   }).join('');
   return head + (list || '<p class="st-empty">아직 모인 자료가 없어요. 직원이 결재에 파일을 붙이면 팀별로 여기 모여요.</p>');
 }
+/* ================= 🗂 자료실 탭 (2026-10-15, 설계안 amv8vxgnsol6v) =================
+   사이드바 독립 탭. 데이터는 studioOutputs()(결재·지시 첨부의 최신 판) 재사용, 읽기 전용.
+   PC: [팀 목록] [종류 칩·검색·정렬 + 이미지(원래 비율 격자)·문서 목록] [인라인 미리보기(PDF·md·csv)] / 폰: 팀 칩 → 목록 → 누르면 전체화면 뷰어. */
+function libItems() {
+  const gs = studioOutputs();
+  return gs.flatMap(g => g.latest.map(f => ({ ...f, team: f.staffId && studioStaffById(f.staffId) ? f.staffId : 'etc', gsub: g.sub, gproj: g.ptitle, pid: g.pid })));
+}
+function libTeamName(t) { return t === 'etc' ? '기타' : ((studioStaffById(t) || {}).short || t); }
+function libFiltered(all) {
+  const L = S.lib, q = L.q.trim().toLowerCase();
+  let list = all.filter(f => (L.team === 'all' || f.team === L.team) && (!L.project || f.pid === L.project));
+  if (L.kind !== 'all') list = list.filter(f => L.kind === 'doc' ? studioFileKind(f.name) === 'doc' : studioFileKind(f.name) === L.kind);
+  if (q) list = list.filter(f => [f.name, f.from, f.gsub, f.gproj, L.text[f.url] && libDocTitle(f.url)].filter(Boolean).join(' ').toLowerCase().includes(q));
+  return list.sort((a, b) => L.sort === 'name' ? a.name.localeCompare(b.name, 'ko') : b.at - a.at);
+}
+function libDocTitle(url) { const t = S.lib.text[url]; const m = t && /^\s*#{1,3}\s+(.+)$/m.exec(t); return m ? m[1].trim().slice(0, 60) : ''; }
+function libListHtml() {
+  const all = libItems(), list = libFiltered(all);
+  const imgs = list.filter(f => studioFileKind(f.name) === 'img'), docs = list.filter(f => studioFileKind(f.name) !== 'img');
+  const key = studioRegFiles([...imgs, ...docs]);
+  if (!list.length) return '<p class="st-empty">조건에 맞는 자료가 없어요.</p>';
+  const sel = S.lib.sel;
+  return `${imgs.length ? `<h3 class="lib-sub">🖼 이미지 <small>${imgs.length}</small></h3><div class="lib-imgs">${imgs.slice(0, 60).map((f, i) => studioFileBtn(key, i, f, `<img src="${esc(f.url)}" alt="${esc(f.name)}" loading="lazy"><span>${esc(libTeamName(f.team))} · ${esc(f.name)}</span>`, 'lib-img')).join('')}</div>` : ''}
+    ${docs.length ? `<h3 class="lib-sub">📄 문서 <small>${docs.length}</small></h3><ul class="lib-docs">${docs.slice(0, 120).map((f, i) => { const idx = imgs.length + i, kind = studioFileKind(f.name), t = libDocTitle(f.url);
+      const inner = `<span class="ic">${studioFileIcon(f.name)}</span><span class="nm"><b>${esc(t || f.name)}</b><small>${esc([libTeamName(f.team), f.gproj, f.gsub, t ? f.name : ''].filter(Boolean).join(' · '))}</small></span><span class="dt">${esc(studioWhen(f.at))}</span>`;
+      return `<li>${kind === 'link' ? `<a class="lib-doc" href="${esc(f.url)}" target="_blank" rel="noopener">${inner}</a>` : `<button type="button" class="lib-doc${sel && sel.url === f.url ? ' on' : ''}" data-action="lib-sel" data-key="${key}" data-i="${idx}">${inner}</button>`}</li>`; }).join('')}</ul>` : ''}`;
+}
+function libPreviewHtml() {
+  const f = S.lib.sel; if (!f) return '<div class="lib-preview-empty">문서를 누르면 여기에 바로 보여요.<br><small>PDF · 문서(md) · 표(csv)</small></div>';
+  const kind = studioFileKind(f.name);
+  const head = `<div class="lib-preview-head"><b>${studioFileIcon(f.name)} ${esc(f.name)}</b><span>${/\.(md|markdown|txt)$/i.test(f.name) && S.lib.text[f.url] != null ? `<button type="button" data-action="doc-print" data-url="${esc(f.url)}">🖨 PDF로 저장</button>` : ''}<a href="${esc(f.url)}" target="_blank" rel="noopener">↗ 새 탭</a><a href="${esc(f.url)}" target="_blank" rel="noopener" download>⬇</a>${f.aid ? `<button type="button" data-action="studio-goto-approval" data-id="${esc(f.aid)}">결재 보기</button>` : ''}</span></div>${f.from ? `<p class="lib-from">📨 ${esc(f.from)}</p>` : ''}`;
+  if (kind === 'pdf') return head + `<iframe class="lib-pdf" src="${esc(f.url)}#view=FitH" title="${esc(f.name)}"></iframe>`;
+  return head + `<div class="st-doc-body lib-doc-body">${studioDocBodyHtml(f, S.lib.text[f.url], S.lib.err[f.url])}</div>`;
+}
+function libLoad(f) {
+  if (!f || studioFileKind(f.name) !== 'doc' || S.lib.text[f.url] != null) return;
+  fetch(f.url).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); }).then(t => { S.lib.text[f.url] = t; delete S.lib.err[f.url]; if (S.activeTab === 'library') render(); })
+    .catch(e => { S.lib.err[f.url] = e.message || String(e); if (S.activeTab === 'library') render(); });
+}
+function renderLibraryTab() {
+  const all = libItems(), L = S.lib, counts = {}; all.forEach(f => { counts[f.team] = (counts[f.team] || 0) + 1; });
+  const teams = Object.keys(counts).sort((a, b) => (a === 'etc') - (b === 'etc') || STUDIO_STAFF.findIndex(s => s.id === a) - STUDIO_STAFF.findIndex(s => s.id === b));
+  const kinds = [['all', '전체'], ['img', '🖼 이미지'], ['pdf', '📕 PDF'], ['doc', '📄 문서']];
+  const proj = L.project && projItems.find(p => p.id === L.project);
+  return `<div class="eq-wrap lib-wrap">
+    <div class="eq-header"><div class="eq-title-block"><h1 class="eq-title">자료실</h1><div class="eq-stat">전체 <b>${all.length}</b>개</div></div></div>
+    <div class="lib-grid">
+      <aside class="lib-teams"><button type="button" class="${L.team === 'all' ? 'on' : ''}" data-action="lib-team" data-id="all">전체 <small>${all.length}</small></button>${teams.map(t => `<button type="button" class="${L.team === t ? 'on' : ''}" data-action="lib-team" data-id="${esc(t)}">${esc(libTeamName(t))} <small>${counts[t]}</small></button>`).join('')}</aside>
+      <section class="lib-main">
+        <div class="lib-tools"><div class="lib-kinds">${kinds.map(([k, l]) => `<button type="button" class="${L.kind === k ? 'on' : ''}" data-action="lib-kind" data-id="${k}">${l}</button>`).join('')}</div>
+          <input id="libSearch" type="search" placeholder="파일·결재 제목·프로젝트 검색" value="${esc(L.q)}" data-role="lib-search" />
+          <select data-role="lib-sort"><option value="new" ${L.sort === 'new' ? 'selected' : ''}>최신순</option><option value="name" ${L.sort === 'name' ? 'selected' : ''}>이름순</option></select></div>
+        ${proj ? `<p class="lib-projchip">📁 ${esc(proj.title)} 자료만 보는 중 <button type="button" data-action="lib-project" data-id="">✕ 해제</button></p>` : ''}
+        <div id="libList">${libListHtml()}</div>
+      </section>
+      <aside class="lib-preview" id="libPreview">${libPreviewHtml()}</aside>
+    </div>
+  </div>`;
+}
+document.addEventListener('input', e => { // 검색: 입력칸은 그대로 두고 목록만 갱신(커서 유지)
+  if (!e.target || e.target.dataset.role !== 'lib-search') return; S.lib.q = e.target.value; const el = document.getElementById('libList'); if (el) el.innerHTML = libListHtml();
+});
+document.addEventListener('change', e => { if (e.target && e.target.dataset.role === 'lib-sort') { S.lib.sort = e.target.value; render(); } });
 /* 프로젝트 상세의 '🏢 스튜디오 결과물' 줄(최대 8개) */
 function projStudioOutputsHtml(pid) {
   if (GUEST_MODE) return '';
@@ -4846,17 +4921,34 @@ function studioViewerHtml() {
     <div class="eq-modal-head"><h2>📕 ${esc(f.name)}</h2><button class="eq-modal-close" data-action="studio-view-close">✕</button></div>
     <iframe class="st-pdf-frame" src="${esc(f.url)}#view=FitH" title="${esc(f.name)}"></iframe>
     <div class="st-doc-foot">${n > 1 ? `<button type="button" data-action="studio-view-step" data-d="-1">‹ 이전 파일</button><button type="button" data-action="studio-view-step" data-d="1">다음 파일 ›</button>` : ''}<a href="${esc(f.url)}" target="_blank" rel="noopener">↗ 새 탭에서 크게</a><a href="${esc(f.url)}" target="_blank" rel="noopener" download>⬇ 다운로드</a></div></div></div>`;
-  const body = v.err ? `<p class="st-warn">불러오지 못했어요: ${esc(v.err)}</p><p><a href="${esc(f.url)}" target="_blank" rel="noopener">새 탭에서 열기</a></p>` : v.text == null ? '<p class="st-empty">불러오는 중…</p>'
-    : /\.csv$/i.test(f.name) ? studioCsv(v.text) : /\.txt$/i.test(f.name) ? `<pre class="st-doc-pre">${esc(v.text)}</pre>` : studioMd(v.text);
+  const body = studioDocBodyHtml(f, v.text, v.err);
   return `<div class="eq-modal-overlay no-anim" data-action="studio-view-close"><div class="eq-modal st-doc" data-stop="1">
     <div class="eq-modal-head"><h2>📄 ${esc(f.name)}</h2><button class="eq-modal-close" data-action="studio-view-close">✕</button></div>
     <div class="st-doc-body">${body}</div>
-    <div class="st-doc-foot">${n > 1 ? `<button type="button" data-action="studio-view-step" data-d="-1">‹ 이전 파일</button><button type="button" data-action="studio-view-step" data-d="1">다음 파일 ›</button>` : ''}<a href="${esc(f.url)}" target="_blank" rel="noopener" download>⬇ 다운로드</a></div></div></div>`;
+    <div class="st-doc-foot">${n > 1 ? `<button type="button" data-action="studio-view-step" data-d="-1">‹ 이전 파일</button><button type="button" data-action="studio-view-step" data-d="1">다음 파일 ›</button>` : ''}${/\.(md|markdown|txt)$/i.test(f.name) && v.text != null ? `<button type="button" data-action="doc-print" data-url="${esc(f.url)}">🖨 PDF로 저장</button>` : ''}<a href="${esc(f.url)}" target="_blank" rel="noopener" download>⬇ 다운로드</a></div></div></div>`;
+}
+/* 문서 본문(md·csv·txt) — 모달 뷰어와 자료실 미리보기가 같이 씀 */
+function studioDocBodyHtml(f, text, err) {
+  if (err) return `<p class="st-warn">불러오지 못했어요: ${esc(err)}</p><p><a href="${esc(f.url)}" target="_blank" rel="noopener">새 탭에서 열기</a></p>`;
+  if (text == null) return '<p class="st-empty">불러오는 중…</p>';
+  return /\.csv$/i.test(f.name) ? studioCsv(text) : /\.txt$/i.test(f.name) ? `<pre class="st-doc-pre">${esc(text)}</pre>` : studioMd(text);
+}
+/* 🖨 PDF로 저장: 문서를 깔끔한 흰 종이 모양으로 새 창에 그려 인쇄 창을 띄움(인쇄 → 'PDF로 저장') */
+function docPrint(name, text) {
+  const html = /\.txt$/i.test(name) ? `<pre style="white-space:pre-wrap;font:inherit">${esc(text)}</pre>` : studioMd(text);
+  const w = window.open('', '_blank'); if (!w) { alert('팝업이 막혀 있어요. 팝업을 허용해 주세요.'); return; }
+  w.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(String(name).replace(/\.\w+$/, ''))}</title><style>
+    body{font-family:-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#111;max-width:760px;margin:32px auto;padding:0 24px;line-height:1.7;font-size:14px}
+    h2{font-size:22px;border-bottom:2px solid #111;padding-bottom:6px}h3{font-size:17px;margin-top:22px}h4{font-size:15px}
+    table{border-collapse:collapse;width:100%;font-size:13px;margin:10px 0}th,td{border:1px solid #bbb;padding:6px 8px;text-align:left;vertical-align:top}th{background:#f1f1f1}
+    blockquote{border-left:3px solid #999;margin:8px 0;padding:2px 12px;color:#444}code{background:#f3f3f3;padding:0 4px}a{color:#1a56c4}hr{border:0;border-top:1px dashed #aaa}
+    @page{margin:16mm}</style></head><body>${html}<script>setTimeout(()=>print(),300)<\/script></body></html>`);
+  w.document.close();
 }
 function studioViewerLoad() {
   const v = S.studio.viewer; if (!v) return; const f = v.list[v.i]; if (!f || studioFileKind(f.name) !== 'doc') return;
   v.text = null; v.err = ''; const want = f.url;
-  fetch(f.url).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); }).then(t => { if (S.studio.viewer && S.studio.viewer.list[S.studio.viewer.i].url === want) { S.studio.viewer.text = t; render(); } })
+  fetch(f.url).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); }).then(t => { S.lib.text[want] = t; if (S.studio.viewer && S.studio.viewer.list[S.studio.viewer.i].url === want) { S.studio.viewer.text = t; render(); } })
     .catch(e => { if (S.studio.viewer && S.studio.viewer.list[S.studio.viewer.i].url === want) { S.studio.viewer.err = e.message || String(e); render(); } });
 }
 function studioViewerStep(d) {
@@ -5078,12 +5170,22 @@ function handleStudioAction(action, el, e) {
     return true;
   }
   if (action === 'studio-motion') { try { localStorage.setItem(LS_STUDIO_MOTION, el.checked ? 'on' : 'system'); } catch (e) {} render(); return true; }
+  if (action === 'lib-team') { S.lib.team = id; render(); return true; }
+  if (action === 'lib-kind') { S.lib.kind = id; render(); return true; }
+  if (action === 'lib-project') { S.lib.project = id || ''; render(); return true; }
+  if (action === 'lib-sel') {
+    const list = studioFileReg.get(el.dataset.key), i = +el.dataset.i || 0, f = list && list[i]; if (!f) return true;
+    if (matchMedia('(max-width: 1100px)').matches) { S.studio.viewer = { list, i, text: null, err: '' }; studioViewerLoad(); render(); return true; } // 폰·좁은 화면: 전체화면 뷰어
+    S.lib.sel = f; libLoad(f); render(); return true;
+  }
+  if (action === 'doc-print') { const u = el.dataset.url, v = S.studio.viewer, f = (S.lib.sel && S.lib.sel.url === u && S.lib.sel) || (v && v.list[v.i]); const t = S.lib.text[u] != null ? S.lib.text[u] : v && v.text; if (f && t != null) docPrint(f.name, t); return true; }
   if (action === 'studio-out-view') { S.studio.outView = id === 'project' ? 'project' : 'team'; render(); return true; }
   if (action === 'studio-out-team') { S.studio.outTeam = id || 'all'; render(); return true; }
   if (action === 'studio-out-img') { S.studio.outImg = !S.studio.outImg; render(); return true; }
   if (action === 'studio-out-project') { S.studio.outProject = ''; render(); return true; }
   if (action === 'studio-out-more') { S.studio.outMore[id] = !S.studio.outMore[id]; render(); return true; }
-  if (action === 'studio-out-open-project') { S.proj.detailId = null; S.activeTab = 'studio'; S.studio.box = 'out'; S.studio.outView = 'project'; S.studio.outProject = id; S.studio.outTeam = 'all'; S.studio.viewer = null; render(); window.scrollTo(0, 0); return true; }
+  if (action === 'studio-out-open-project') { S.proj.detailId = null; S.activeTab = 'library'; S.lib.project = id; S.lib.team = 'all'; S.lib.kind = 'all'; S.studio.viewer = null; render(); window.scrollTo(0, 0); return true;
+    S.studio.box = 'out'; S.studio.outView = 'project'; S.studio.outProject = id; S.studio.outTeam = 'all'; S.studio.viewer = null; render(); window.scrollTo(0, 0); return true; }
   if (action === 'studio-goto-approval') { const a = studioApprovals.find(x => x.id === id); if (a) { S.activeTab = 'studio'; S.studio.box = a.status === 'wait' ? 'wait' : 'done'; S.studio.open[a.id] = true; S.studio.viewer = null; S.proj.detailId = null; render(); setTimeout(() => { const el = document.querySelector('.st-note.open'); if (el) el.scrollIntoView({ block: 'center' }); }, 50); } return true; }
   if (action === 'studio-view') { const list = studioFileReg.get(el.dataset.key); if (!list) return true; S.studio.viewer = { list, i: +el.dataset.i || 0, text: null, err: '' }; studioViewerLoad(); render(); return true; }
   if (action === 'studio-view-step') { studioViewerStep(+el.dataset.d || 1); return true; }
@@ -5327,6 +5429,7 @@ function renderTab() {
   if (S.activeTab === 'songs') return renderSongsTab();
   if (S.activeTab === 'quotes') return renderQuotesTab();
   if (S.activeTab === 'studio' && !GUEST_MODE) return renderStudioTab();
+  if (S.activeTab === 'library' && !GUEST_MODE) return renderLibraryTab();
   return '';
 }
 function render() {
@@ -5461,7 +5564,7 @@ function bootApp() {
     }
     if (/^(notif-|notice-)/.test(action) && handleNotifAction(action, el, e)) return;
 
-    if (/^studio-/.test(action) && !GUEST_MODE && handleStudioAction(action, el, e)) return;
+    if (/^(studio-|lib-|doc-print)/.test(action) && !GUEST_MODE && handleStudioAction(action, el, e)) return;
     switch (action) {
       case 'set-tab':
         if (GUEST_MODE && !GUEST_ALLOWED_TABS.includes(id)) return;
@@ -6206,7 +6309,7 @@ function bootApp() {
       const endRaw = (fd.get('endDate') || '').toString();
       const payload = { title, date: fd.get('date'), endDate: endRaw && endRaw > fd.get('date') ? endRaw : '', time: allDay ? null : (parseTimeInput(fd.get('time')) || null), location: fd.get('location') || '', contact: fd.get('contact') || '', category: fd.get('category') || 'shoot', memo: fd.get('memo') || '' };
       if (!GUEST_MODE && fd.has('collabId')) { const cid = (fd.get('collabId') || '').toString(); payload.collabId = cid; }
-      if (!GUEST_MODE && fd.has('amount')) { const n = parseInt(String(fd.get('amount') || '').replace(/[^0-9]/g, ''), 10); payload.amount = n > 0 ? n : 0; }
+      if (!GUEST_MODE && fd.has('amount')) { const n = parseInt(String(fd.get('amount') || '').replace(/[^0-9]/g, ''), 10); payload.amount = n > 0 ? n : 0; payload.amountDate = String(fd.get('amountDate') || ''); }
       if (SCHED_MEET_ON) payload.meet = fd.has('meet'); else if (S.sched.editingId) payload.meet = false; // 꺼 둔 동안엔 저장할 때 meet를 끔(개인 계정으로 Meet 생성 방지)
       if (S.sched.editingId) {
         saveSchedItems(schedItems.map(it => it.id === S.sched.editingId ? { ...it, ...payload } : it));
@@ -6237,7 +6340,7 @@ function bootApp() {
         // 일정 제목을 따로 바꿔둔 경우엔 그대로 두고, 프로젝트 이름과 같을 때만 따라 바꾼다
         const sTitle = linked.title === editingProj.title ? title : linked.title;
         if (linked.date !== sDate || (linked.time || null) !== sTime || linked.category !== sCat || linked.title !== sTitle)
-          saveSchedItems(schedItems.map(s => s.id === linked.id ? { ...s, title: sTitle, date: sDate, time: sTime, category: sCat } : s));
+          { saveSchedItems(schedItems.map(s => s.id === linked.id ? { ...s, title: sTitle, date: sDate, time: sTime, category: sCat } : s)); const ls2 = schedItems.find(s => s.id === linked.id); if (ls2 && ls2.amount) schedAmountToLedger(ls2); }
       } else if (sDate) {
         scheduleId = uid();
         saveSchedItems([{ id: scheduleId, createdAt: Date.now(), source: 'manual', projectId: projId, title, date: sDate, time: sTime, location: '', contact: '', category: sCat, memo: '' }, ...schedItems]);
@@ -7827,6 +7930,33 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-doc-row .nm { white-space:nowrap; text-overflow:ellipsis; } .st-doc-row .dt { flex:none; color:var(--text-faint); font-size:11.5px; }
   .st-pdf { max-width:980px !important; height:90vh; } .st-pdf-frame { flex:1; width:100%; min-height:60vh; border:1px solid var(--border); background:#fff; }
   .st-doc-body h2 { border-bottom:1px solid var(--border-strong); padding-bottom:4px; } .st-doc-body { font-size:14.5px; } .st-doc-body table { font-size:13.5px; }
+  /* ===== 🗂 자료실 ===== */
+  .lib-grid { display:grid; grid-template-columns:170px minmax(0,1fr) minmax(320px, 40%); gap:14px; margin-top:14px; align-items:start; }
+  .lib-teams { display:grid; gap:4px; position:sticky; top:16px; }
+  .lib-teams button, .lib-kinds button { font:inherit; font-size:13.5px; text-align:left; padding:8px 10px; border:1px solid var(--border); background:var(--surface); color:var(--text-dim); cursor:pointer; display:flex; justify-content:space-between; gap:6px; }
+  .lib-teams button.on, .lib-kinds button.on { background:var(--accent); color:#06090b; border-color:var(--accent); } .lib-teams small { opacity:.75; }
+  .lib-main { min-width:0; display:grid; gap:10px; }
+  .lib-tools { display:flex; flex-wrap:wrap; gap:8px; align-items:center; } .lib-kinds { display:flex; flex-wrap:wrap; gap:4px; } .lib-kinds button { padding:6px 10px; }
+  .lib-tools input[type=search] { flex:1 1 180px; min-width:0; font:inherit; font-size:14px; padding:7px 10px; border:1px solid var(--border); background:var(--surface); color:var(--text); }
+  .lib-tools select { font:inherit; font-size:13.5px; padding:7px 8px; border:1px solid var(--border); background:var(--surface); color:var(--text); }
+  .lib-projchip { margin:0; font-size:13px; color:var(--text-dim); } .lib-projchip button { font:inherit; font-size:12px; margin-left:6px; background:none; border:1px solid var(--border); color:var(--text-dim); cursor:pointer; }
+  .lib-sub { margin:4px 0 0; font-size:14px; color:var(--text); } .lib-sub small { color:var(--text-faint); font-weight:400; }
+  .lib-imgs { columns:3 170px; column-gap:8px; } /* 원래 비율 그대로(정사각으로 자르지 않음) */
+  .lib-img { display:block; width:100%; break-inside:avoid; margin:0 0 8px; padding:0; border:1px solid var(--border); background:var(--surface-hover); cursor:zoom-in; text-align:left; font:inherit; }
+  .lib-img img { display:block; width:100%; height:auto; } .lib-img span { display:block; padding:4px 6px; font-size:12px; color:var(--text-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .lib-docs { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:minmax(0,1fr); gap:4px; } .lib-docs li { min-width:0; }
+  .lib-doc { display:flex; align-items:center; gap:10px; width:100%; text-align:left; font:inherit; padding:9px 10px; border:1px solid var(--border); background:var(--surface); color:var(--text); cursor:pointer; text-decoration:none; box-sizing:border-box; }
+  .lib-doc:hover, .lib-doc.on { border-color:var(--accent); } .lib-doc.on { background:var(--accent-soft); }
+  .lib-doc .ic { font-size:18px; flex:none; } .lib-doc .nm { flex:1; min-width:0; } .lib-doc .nm b { display:block; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .lib-doc .nm small { display:block; font-size:12px; color:var(--text-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .lib-doc .dt { flex:none; font-size:12px; color:var(--text-faint); }
+  .lib-preview { position:sticky; top:16px; max-height:calc(100vh - 32px); display:flex; flex-direction:column; border:1px solid var(--border); background:var(--surface); min-height:320px; }
+  .lib-preview-empty { margin:auto; text-align:center; color:var(--text-faint); font-size:13.5px; padding:30px; }
+  .lib-preview-head { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; align-items:center; padding:10px 12px; border-bottom:1px solid var(--border); } .lib-preview-head b { font-size:14px; min-width:0; overflow-wrap:anywhere; }
+  .lib-preview-head span { display:flex; gap:6px; flex-wrap:wrap; } .lib-preview-head a, .lib-preview-head button { font:inherit; font-size:12.5px; padding:4px 9px; border:1px solid var(--border-strong); background:var(--surface-hover); color:var(--text); cursor:pointer; text-decoration:none; }
+  .lib-from { margin:0; padding:6px 12px; font-size:12.5px; color:var(--text-dim); border-bottom:1px dashed var(--border); }
+  .lib-pdf { flex:1; width:100%; min-height:70vh; border:0; background:#fff; } .lib-doc-body { overflow:auto; padding:12px 16px; }
+  .lib-open { margin-bottom:8px; }
+  @media (max-width: 1100px) { .lib-grid { grid-template-columns:minmax(0,1fr); } .lib-preview { display:none; } .lib-teams { position:static; display:flex; flex-wrap:wrap; } .lib-teams button { padding:6px 10px; } }
+  @media (max-width: 720px) { .lib-imgs { columns:2 120px; } }
   .st-acts-list { display:grid; gap:5px; padding:8px 10px; border:1px dashed var(--border-strong); border-radius:10px; font-size:13px; }
   .st-acts-list > b { font-size:13px; color:var(--text); } .st-acts-list p { margin:0; color:var(--text); line-height:1.5; } .st-acts-list small { color:var(--text-faint); }
   .st-term .st-acts-list { border-color:var(--t-line); } .st-term .st-acts-list > b, .st-term .st-acts-list p { color:var(--t-hi); } .st-term .st-acts-list small { color:var(--t-dim); }
