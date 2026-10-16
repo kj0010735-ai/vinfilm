@@ -108,6 +108,9 @@ input[type=range]{width:46%;accent-color:var(--accent)}
 .sw i::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:transform .2s}
 .sw input:checked+i{background:var(--accent)}
 .sw input:checked+i::after{transform:translateX(20px)}
+.seg{display:flex;background:var(--raise);border:1px solid var(--border);border-radius:11px;padding:3px;gap:2px;flex:none}
+.seg button{height:32px;padding:0 11px;border-radius:8px;font-size:13.5px;color:var(--dim)}
+.seg button.on{background:var(--accent);color:#0b1020;font-weight:600}
 .btn-line{width:100%;height:46px;border-radius:13px;border:1px solid var(--border-strong);font-size:15px;margin-top:12px}
 
 /* NEXUS Player 전용 리모트 */
@@ -312,6 +315,8 @@ document.addEventListener('gesturechange', e => e.preventDefault());
     <h2>설정 <button class="x" data-close-btn>닫기</button></h2>
     <div class="row"><div>포인터 속도</div><input type="range" id="sSpeed" min="0.4" max="3" step="0.1"></div>
     <div class="row"><div>스크롤 속도</div><input type="range" id="sScroll" min="0.3" max="3" step="0.1"></div>
+    <div class="row"><div>움직임<small>부드러울수록 아주 살짝 늦게 따라와요</small></div>
+      <div class="seg" id="sSmooth"><button data-v="15">빠르게</button><button data-v="50">보통</button><button data-v="110">부드럽게</button></div></div>
     <div class="row"><div>스크롤 방향 반대로<small>손가락과 반대로 움직이게</small></div><label class="sw"><input type="checkbox" id="sInvert"><i></i></label></div>
     <div class="row"><div>쓰는 동안 화면 켜두기<small>아이폰 화면이 꺼지지 않게</small></div><label class="sw"><input type="checkbox" id="sWake"><i></i></label></div>
     <div class="row"><div>연결된 맥<small id="sMac">-</small></div></div>
@@ -337,7 +342,7 @@ const store = { get(k){ try { return localStorage.getItem(k); } catch(e){ return
 let TOKEN = new URLSearchParams(location.search).get('k') || store.get(LS_K) || '';
 if (TOKEN) store.set(LS_K, TOKEN);
 
-const S = Object.assign({ speed:1.4, scroll:1, invert:false, wake:true }, JSON.parse(store.get(LS_SET) || '{}'));
+const S = Object.assign({ speed:1.4, scroll:1, invert:false, wake:true, smooth:50 }, JSON.parse(store.get(LS_SET) || '{}'));
 const saveSet = () => store.set(LS_SET, JSON.stringify(S));
 
 // ── 웹소켓
@@ -367,7 +372,7 @@ function connect(){
   ws.onopen = () => me.send(JSON.stringify({ t:'auth', k:TOKEN, dev:devName() }));
   ws.onmessage = e => {
     let m; try { m = JSON.parse(e.data); } catch(_){ return; }
-    if (m.t === 'hello'){ live = true; retry = 0; setConn('ok', m.name); $('#sMac').textContent = m.name + ' · ' + location.hostname; setAccess(m.access); }
+    if (m.t === 'hello'){ live = true; retry = 0; send({ t:'cfg', buf:S.smooth }); setConn('ok', m.name); $('#sMac').textContent = m.name + ' · ' + location.hostname; setAccess(m.access); }
     else if (m.t === 'pong'){ clearTimeout(pongT); setAccess(m.access); }
     else if (m.t === 'denied'){ denied = true; showGate('denied'); }
   };
@@ -399,9 +404,11 @@ function centroid(list){ let x = 0, y = 0; for (const t of list){ x += t.clientX
 function schedule(){ if (!raf) raf = requestAnimationFrame(flush); }
 function flush(){
   if (raf){ cancelAnimationFrame(raf); raf = 0; }
-  if (acc.mx || acc.my){ send({ t:'m', x:+acc.mx.toFixed(2), y:+acc.my.toFixed(2) }); acc.mx = acc.my = 0; }
+  // ts: 손가락이 움직인 시각 — 맥이 이 시각에 맞춰 고르게 다시 재생한다(와이파이가 늦게·몰아서 보내도 끊기지 않게)
+  const ts = Math.round(performance.now() * 10) / 10;
+  if (acc.mx || acc.my){ send({ t:'m', x:+acc.mx.toFixed(2), y:+acc.my.toFixed(2), ts }); acc.mx = acc.my = 0; }
   const sx = Math.trunc(acc.sx), sy = Math.trunc(acc.sy);
-  if (sx || sy){ send({ t:'s', x:sx, y:sy }); acc.sx -= sx; acc.sy -= sy; }
+  if (sx || sy){ send({ t:'s', x:sx, y:sy, ts }); acc.sx -= sx; acc.sy -= sy; }
 }
 function flash(x, y, right){
   const r = pad.getBoundingClientRect();
@@ -438,8 +445,10 @@ pad.addEventListener('touchmove', e => {
   tch.lx = cx; tch.ly = cy; tch.lt = now; tch.moved += Math.abs(dx) + Math.abs(dy);
   if (ts.length === 1){
     if (tch.dragArm && !dragging && tch.moved > 5){ dragging = true; send({ t:'b', b:'l', d:1, n:1 }); pad.classList.add('drag'); }
-    const sp = Math.hypot(dx, dy) / dt; // px/ms — 빨리 움직일수록 멀리(가속)
-    const f = S.speed * (0.8 + Math.min(sp * 1.3, 3.2));
+    // px/ms — 빨리 움직일수록 멀리(가속). 속도를 바로 쓰면 가속이 들쭉날쭉해서 직전 값과 섞어 부드럽게
+    const inst = Math.hypot(dx, dy) / dt;
+    tch.sp = tch.sp == null ? inst : tch.sp * 0.65 + inst * 0.35;
+    const f = S.speed * (0.8 + Math.min(tch.sp * 1.3, 3.2));
     acc.mx += dx * f; acc.my += dy * f;
   } else {
     const k = S.scroll * 1.6 * (S.invert ? -1 : 1);
@@ -559,6 +568,9 @@ function nxFlash(txt){ const f = $('#nxFlash'); f.textContent = txt; f.classList
 
 // ── 설정
 $('#sSpeed').value = S.speed; $('#sScroll').value = S.scroll; $('#sInvert').checked = S.invert; $('#sWake').checked = S.wake;
+function paintSmooth(){ $$('#sSmooth button').forEach(b => b.classList.toggle('on', +b.dataset.v === S.smooth)); }
+paintSmooth();
+$('#sSmooth').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.smooth = +b.dataset.v; saveSet(); paintSmooth(); send({ t:'cfg', buf:S.smooth }); });
 $('#sSpeed').addEventListener('input', e => { S.speed = +e.target.value; saveSet(); });
 $('#sScroll').addEventListener('input', e => { S.scroll = +e.target.value; saveSet(); });
 $('#sInvert').addEventListener('change', e => { S.invert = e.target.checked; saveSet(); });

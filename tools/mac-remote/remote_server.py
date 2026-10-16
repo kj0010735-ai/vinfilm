@@ -220,6 +220,7 @@ class MacInput:
             self.CGPreflightPostEventAccess = self.CGRequestPostEventAccess = lambda: True
 
         self.down = {"l": False, "r": False}
+        self.cur = None  # 소수점까지 기억하는 커서 위치 — 매번 정수 위치를 다시 읽으면 천천히 움직일 때 계단처럼 끊긴다
         self.last_click = (0.0, None, 0, (0.0, 0.0))  # 시각, 버튼, 연속 횟수, 위치 — 더블클릭 판단용
         self.disp_cache = (0.0, [])
         self.lock = threading.Lock()
@@ -295,8 +296,12 @@ class MacInput:
     # 동작
     def move(self, dx, dy):
         with self.lock:
-            x, y = self._pos()
-            x, y = self._clamp(x + dx, y + dy)
+            rx, ry = self._pos()
+            cx, cy = self.cur or (rx, ry)
+            if abs(rx - cx) > 2 or abs(ry - cy) > 2:  # 실제 마우스·트랙패드로 움직였으면 거기서부터
+                cx, cy = rx, ry
+            x, y = self._clamp(cx + dx, cy + dy)
+            self.cur = (x, y)
             if self.down["l"]:
                 t, b = 6, 0   # kCGEventLeftMouseDragged
             elif self.down["r"]:
@@ -408,6 +413,167 @@ else:
     INPUT_ERROR = ""
 
 
+# ───────────────────────── 부드럽게 ─────────────────────────
+
+class Glide:
+    """와이파이는 아이폰 신호를 고르게 보내지 않는다 — 몰려 오기도 하고 가끔 늦게 오기도 한다.
+    그래서 받은 움직임을 바로 쓰지 않고 '아이폰에서 손가락이 움직인 시각 + 버퍼(기본 50ms)'에 맞춰
+    다시 재생한다(영상 스트리밍의 버퍼와 같은 원리). 버퍼보다 덜 늦게 온 신호는 끊김 없이 이어진다.
+    시각(ts)이 없는 옛 화면에서 온 신호는 바로 짧게 흘려보낸다."""
+    TICK = 0.004
+
+    def __init__(self):
+        self.buf = 0.05            # 초 — 아이폰 설정의 '부드러움'으로 바뀜
+        self.segs = []             # [시작, 끝, dx, dy, 종류('m'|'s'), 이미 보낸 비율]
+        self.hist = []             # (받은 시각, 받은 시각 − 아이폰 시각) — 최근 3초 중 최솟값이 두 시계의 차이
+        self.last_ts = {"m": None, "s": None}
+        self.rx = self.ry = 0.0    # 스크롤은 정수(픽셀)로만 보낼 수 있어 남은 소수점
+        self.lock = threading.Lock()
+        self.wake = threading.Event()
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def set_buffer(self, ms):
+        self.buf = max(0.0, min(0.2, ms / 1000.0))
+
+    def add(self, kind, dx, dy, ts=None):
+        now = time.monotonic()
+        with self.lock:
+            if not isinstance(ts, (int, float)) or ts != ts:
+                start, end = now, now + 0.012
+            else:
+                t = ts / 1000.0
+                self.hist.append((now, now - t))
+                while self.hist and now - self.hist[0][0] > 3:
+                    self.hist.pop(0)
+                if len(self.hist) > 400:
+                    del self.hist[:200]
+                off = min(h[1] for h in self.hist)  # 가장 빨리 도착한 신호 기준
+                end = t + off + self.buf
+                prev = self.last_ts[kind]
+                span = (ts - prev) / 1000.0 if prev is not None and 0 < ts - prev < 100 else 0.016
+                start = end - min(max(span, 0.004), 0.05)
+                self.last_ts[kind] = ts
+                if end <= now:  # 버퍼보다 더 늦게 옴 — 밀린 만큼 짧게 따라잡는다
+                    start, end = now, now + 0.012
+            self.segs.append([start, end, dx, dy, kind, 0.0])
+            self.wake.set()
+
+    def flush(self):
+        """클릭 직전에 — 아직 안 보낸 움직임을 다 보내서 클릭이 커서가 도착할 자리에서 일어나게"""
+        mx = my = 0.0
+        with self.lock:
+            keep = []
+            for sg in self.segs:
+                if sg[4] == "m":
+                    rest = 1.0 - sg[5]
+                    mx += sg[2] * rest
+                    my += sg[3] * rest
+                else:
+                    keep.append(sg)
+            self.segs = keep
+        if mx or my:
+            INPUT.move(mx, my)
+
+    def _run(self):
+        while True:
+            self.wake.wait()
+            with self.lock:
+                if not self.segs:
+                    self.wake.clear()
+                    continue
+                now = time.monotonic()
+                mx = my = sx = sy = 0.0
+                keep = []
+                for sg in self.segs:
+                    st, en = sg[0], sg[1]
+                    if now <= st:
+                        keep.append(sg)
+                        continue
+                    f = 1.0 if now >= en else (now - st) / (en - st)
+                    part = f - sg[5]
+                    sg[5] = f
+                    if sg[4] == "m":
+                        mx += sg[2] * part
+                        my += sg[3] * part
+                    else:
+                        sx += sg[2] * part
+                        sy += sg[3] * part
+                    if f < 1.0:
+                        keep.append(sg)
+                self.segs = keep
+                self.rx += sx
+                self.ry += sy
+                ix, iy = int(self.rx), int(self.ry)
+                self.rx -= ix
+                self.ry -= iy
+            try:
+                if mx or my:
+                    INPUT.move(mx, my)
+                if ix or iy:
+                    INPUT.scroll(ix, iy)
+            except Exception:
+                stats["err"] = traceback.format_exc(limit=3)[-600:]
+            time.sleep(self.TICK)
+
+
+# ───────────────────────── App Nap 막기 ─────────────────────────
+# 리모트는 Dock에 안 보이는 앱이라 macOS가 '안 쓰는 앱'으로 보고 타이머를 느리게 돌린다(App Nap) → 커서가 가끔 끊김.
+# 아이폰이 연결된 동안만 NSProcessInfo에 "지연에 민감한 작업 중"이라고 알려 막는다.
+
+class LatencyActivity:
+    def __init__(self):
+        self.token = None
+        self.ok = False
+        if not IS_MAC:
+            return
+        try:
+            import ctypes
+            from ctypes import c_void_p, c_char_p, c_uint64
+            objc = ctypes.cdll.LoadLibrary("/usr/lib/libobjc.A.dylib")
+            ctypes.cdll.LoadLibrary("/System/Library/Frameworks/Foundation.framework/Foundation")
+            objc.objc_getClass.restype = c_void_p
+            objc.objc_getClass.argtypes = [c_char_p]
+            objc.sel_registerName.restype = c_void_p
+            objc.sel_registerName.argtypes = [c_char_p]
+            addr = ctypes.cast(objc.objc_msgSend, c_void_p).value
+            self._send0 = ctypes.CFUNCTYPE(c_void_p, c_void_p, c_void_p)(addr)
+            self._send_str = ctypes.CFUNCTYPE(c_void_p, c_void_p, c_void_p, c_char_p)(addr)
+            self._send_begin = ctypes.CFUNCTYPE(c_void_p, c_void_p, c_void_p, c_uint64, c_void_p)(addr)
+            self._send_obj = ctypes.CFUNCTYPE(None, c_void_p, c_void_p, c_void_p)(addr)
+            sel = objc.sel_registerName
+            self._pi = self._send0(objc.objc_getClass(b"NSProcessInfo"), sel(b"processInfo"))
+            self._reason = self._send0(self._send_str(objc.objc_getClass(b"NSString"), sel(b"stringWithUTF8String:"), "아이폰 리모트 입력".encode()), sel(b"retain"))
+            self._sel_begin = sel(b"beginActivityWithOptions:reason:")
+            self._sel_end = sel(b"endActivity:")
+            self._sel_retain = sel(b"retain")
+            self._sel_release = sel(b"release")
+            self.ok = bool(self._pi)
+        except Exception as e:
+            print("App Nap 막기 준비 실패:", e, flush=True)
+
+    def set(self, on):
+        if not self.ok:
+            return
+        with clients_lock:
+            self._set(on)
+
+    def _set(self, on):
+        try:
+            if on and self.token is None:
+                opts = 0x00FFFFFF | 0xFF00000000  # NSActivityUserInitiated | NSActivityLatencyCritical
+                tok = self._send_begin(self._pi, self._sel_begin, opts, self._reason)
+                self.token = self._send0(tok, self._sel_retain) if tok else None
+            elif not on and self.token is not None:
+                self._send_obj(self._pi, self._sel_end, self.token)
+                self._send0(self.token, self._sel_release)
+                self.token = None
+        except Exception as e:
+            print("App Nap 설정 실패:", e, flush=True)
+
+
+ACTIVITY = LatencyActivity()
+
+
 # ───────────────────────── 잠자기 방지 ─────────────────────────
 # 아이폰이 연결돼 있는 동안만 caffeinate로 맥이 잠들지 않게(잠들면 와이파이가 끊겨 다시 깨울 수 없음)
 
@@ -421,6 +587,7 @@ def update_caffeinate():
         return
     with clients_lock:
         want = bool(clients)
+    ACTIVITY.set(want)
     p = caff["proc"]
     if want and (p is None or p.poll() is not None):
         caff["proc"] = subprocess.Popen(["caffeinate", "-i", "-w", str(os.getpid())])
@@ -446,13 +613,24 @@ APPS = {"nexus": "NEXUS Player"}  # 리모트 전용 화면이 있는 앱
 stats = {"msgs": 0, "at": 0, "err": ""}  # 맥 화면에 보여줄 진단 정보 — 아이폰 입력이 맥까지 오는지, 오다가 어디서 실패하는지
 
 
+GLIDE = None  # 서버가 뜰 때 만든다(아래 main)
+
+
 def handle_msg(m):
     stats["msgs"] += 1
     stats["at"] = int(time.time() * 1000)
     t = m.get("t")
     if t == "m":
-        INPUT.move(num(m.get("x")), num(m.get("y")))
-    elif t == "b":
+        GLIDE.add("m", num(m.get("x")), num(m.get("y")), m.get("ts"))
+        return
+    if t == "s":
+        GLIDE.add("s", num(m.get("x"), 2000), num(m.get("y"), 2000), m.get("ts"))
+        return
+    if t == "cfg":
+        GLIDE.set_buffer(num(m.get("buf"), 200))
+        return
+    GLIDE.flush()
+    if t == "b":
         b = m.get("b")
         if b in ("l", "r"):
             n = m.get("n")
@@ -461,8 +639,6 @@ def handle_msg(m):
         b = m.get("b") if m.get("b") in ("l", "r") else "l"
         INPUT.button(b, True)
         INPUT.button(b, False)
-    elif t == "s":
-        INPUT.scroll(num(m.get("x"), 2000), num(m.get("y"), 2000))
     elif t == "k":
         name = m.get("c")
         mods = [x for x in (m.get("m") or []) if x in FLAGS]
@@ -769,7 +945,7 @@ def self_test():
 
 
 def main():
-    global PORT
+    global PORT, GLIDE
     if "--test" in sys.argv:
         return self_test()
     open_page = "--no-open" not in sys.argv
@@ -803,6 +979,7 @@ def main():
         cfg["port"] = PORT  # 번호가 바뀌면 아이폰 주소도 바뀌므로 다음부터 같은 번호를 쓴다
         save_config(cfg)
     state["server"] = srv
+    GLIDE = Glide()
     if IS_MAC and not INPUT.access():
         INPUT.request_access()  # 시스템이 "손쉬운 사용" 허용을 물어본다
     print("VINFILM 리모트: %s" % info()["url"].split("?")[0], flush=True)
