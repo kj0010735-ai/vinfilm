@@ -8,7 +8,11 @@
  * 대표님이 캘린더에 직접 넣은 일정은 건드리지 않는다.
  *
  * 처음 한 번: setup() 실행 → 권한 허용. 그 뒤로는 10분마다 syncNow()가 자동으로 돈다.
+ *
+ * 🎥 구글미팅(2026-10-14): WORKS 일정에 meet:true면 Google 캘린더 일정에 Meet 회의를 만들고(conferenceData),
+ * 받은 주소를 Firestore 일정의 meetUrl과 일정 설명·장소에 넣는다. 회의 30분 전 팝업 알림 + 시작 20~40분 전에 대표님 메일로 주소 1회 발송.
  */
+var MEET_MAIL_TO = 'kj0010735@gmail.com';
 var PROJECT_ID = 'vinfilm-studio-app';
 var CAL_SHARE = 'VINFILM STUDIO';
 var CAL_WORK = 'VINFILM 작업';
@@ -33,24 +37,38 @@ function syncNow() {
     if (!calShare || !calWork) throw new Error('VINFILM 캘린더를 찾지 못했어요 — 앱에서 휴대폰 캘린더 연결을 먼저 한 번 해 주세요.');
     var want = {}; // 캘린더id|이벤트id → body
     items.forEach(function (it) {
-      if (it.source === 'calendar' || !it.date) return;
+      if (it.source === 'calendar' || !it.date || it.canceled === true) return; // 스튜디오가 취소 표시한 일정은 캘린더에서 지움
       var cal = SHARE_CATS.indexOf(it.category) >= 0 ? calShare : calWork;
       var body = bodyFor_(it);
-      want[cal + '|' + body.id] = { cal: cal, body: body };
+      want[cal + '|' + body.id] = { cal: cal, body: body, it: it };
     });
     var existing = {};
     [calShare, calWork].forEach(function (cal) {
       listEvents_(cal).forEach(function (ev) { if (ev.id && ev.id.indexOf('vf') === 0) existing[cal + '|' + ev.id] = ev; });
     });
     var put = 0, del = 0;
+    var meetLinks = {}; // 일정 id → Meet 주소
     Object.keys(want).forEach(function (k) {
-      var w = want[k], ev = existing[k];
-      if (ev && same_(ev, w.body)) return;
-      var base = '/calendars/' + encodeURIComponent(w.cal) + '/events';
-      var r = api_('put', base + '/' + w.body.id, w.body, true);
-      if (r === 404) api_('post', base, w.body);
+      var w = want[k], ev = existing[k], meet = w.it.meet === true;
+      if (meet && ev && ev.hangoutLink) meetLinks[w.it.id] = ev.hangoutLink;
+      if (ev && same_(ev, w.body) && (!meet || ev.hangoutLink)) return;
+      var base = '/calendars/' + encodeURIComponent(w.cal) + '/events', q = '';
+      if (meet) {
+        q = '?conferenceDataVersion=1';
+        w.body.reminders = { useDefault: false, overrides: [{ method: 'popup', minutes: 30 }] };
+        w.body.conferenceData = ev && ev.conferenceData ? ev.conferenceData : { createRequest: { requestId: w.body.id + '-' + Date.now(), conferenceSolutionKey: { type: 'hangoutsMeet' } } };
+      }
+      var r = api_('put', base + '/' + w.body.id + q, w.body, true);
+      if (r === 404) r = api_('post', base + q, w.body);
+      if (meet && r && r.hangoutLink) meetLinks[w.it.id] = r.hangoutLink;
       put++;
     });
+    // 받은 Meet 주소를 WORKS 일정(meetUrl)에 적어 둠 → 앱 일정 상세의 '🎥 회의 참여' 버튼
+    items.forEach(function (it) {
+      var link = meetLinks[it.id];
+      if (link && it.meetUrl !== link) { writeMeetUrl_(it.__doc || it.id, link); it.meetUrl = link; }
+    });
+    mailMeets_(items);
     // 지울 일정: 앱에서 지웠거나 다른 캘린더로 옮겨간 vf… 일정. 데이터를 덜 읽어 온 경우 대량 삭제를 막는 안전장치.
     var gone = Object.keys(existing).filter(function (k) { return !want[k]; });
     if (gone.length > 10 && gone.length > Object.keys(existing).length / 2) {
@@ -73,8 +91,8 @@ function eventIdFor_(id) { var s = String(id), h = ''; for (var i = 0; i < s.len
 function addDays_(ymd, n) { var p = ymd.split('-').map(Number); var d = new Date(p[0], p[1] - 1, p[2] + n); return Utilities.formatDate(d, TZ, 'yyyy-MM-dd'); }
 function pad_(n) { return ('0' + n).slice(-2); }
 function bodyFor_(it) {
-  var desc = [it.memo || '', it.contact ? '연락처: ' + it.contact : '', CAT_LABEL[it.category] ? '분류: ' + CAT_LABEL[it.category] : ''].filter(String).join('\n');
-  var b = { id: eventIdFor_(it.id), summary: it.title || '', location: it.location || '', description: desc, status: 'confirmed', extendedProperties: { private: { vfId: String(it.id) } } };
+  var desc = [it.memo || '', it.contact ? '연락처: ' + it.contact : '', CAT_LABEL[it.category] ? '분류: ' + CAT_LABEL[it.category] : '', it.meetUrl ? '🎥 구글미팅: ' + it.meetUrl : ''].filter(String).join('\n');
+  var b = { id: eventIdFor_(it.id), summary: it.title || '', location: it.location || it.meetUrl || '', description: desc, status: 'confirmed', extendedProperties: { private: { vfId: String(it.id) } } };
   var multi = it.endDate && it.endDate > it.date;
   if (it.time) {
     var hm = it.time.split(':').map(Number), h = hm[0], m = hm[1];
@@ -105,7 +123,7 @@ function readSchedule_() {
     var res = UrlFetchApp.fetch(url, { headers: authHeaders_(), muteHttpExceptions: true });
     if (res.getResponseCode() !== 200) throw new Error('Firestore 읽기 실패 ' + res.getResponseCode() + ': ' + res.getContentText().slice(0, 300));
     var data = JSON.parse(res.getContentText());
-    (data.documents || []).forEach(function (d) { var o = fsObj_(d.fields || {}); if (o.id == null) o.id = d.name.split('/').pop(); out.push(o); });
+    (data.documents || []).forEach(function (d) { var o = fsObj_(d.fields || {}); o.__doc = d.name.split('/').pop(); if (o.id == null) o.id = o.__doc; out.push(o); });
     token = data.nextPageToken || '';
   } while (token);
   return out;
@@ -123,6 +141,30 @@ function fsVal_(v) {
   return null;
 }
 function fsObj_(f) { var o = {}; Object.keys(f).forEach(function (k) { o[k] = fsVal_(f[k]); }); return o; }
+
+function writeMeetUrl_(docId, link) {
+  var url = 'https://firestore.googleapis.com/v1/projects/' + PROJECT_ID + '/databases/(default)/documents/schedule/' + encodeURIComponent(docId) + '?updateMask.fieldPaths=meetUrl&currentDocument.exists=true';
+  var res = UrlFetchApp.fetch(url, { method: 'patch', headers: authHeaders_(), contentType: 'application/json', payload: JSON.stringify({ fields: { meetUrl: { stringValue: link } } }), muteHttpExceptions: true });
+  if (res.getResponseCode() >= 300) Logger.log('meetUrl 기록 실패 ' + res.getResponseCode() + ': ' + res.getContentText().slice(0, 200));
+}
+
+/* ---------- 🎥 회의 30분 전 메일(시작 20~40분 전에 한 번만, 보낸 기록은 스크립트 속성에) ---------- */
+function mailMeets_(items) {
+  var props = PropertiesService.getScriptProperties(), now = Date.now();
+  items.forEach(function (it) {
+    if (it.meet !== true || !it.time || !it.date || it.canceled === true || !it.meetUrl) return;
+    var start = new Date(it.date + 'T' + it.time + ':00+09:00').getTime(), left = (start - now) / 60000;
+    if (left < 20 || left > 40) return;
+    var key = 'meetmail_' + it.id + '_' + it.date + '_' + it.time;
+    if (props.getProperty(key)) return;
+    MailApp.sendEmail(MEET_MAIL_TO, '[회의 30분 전] ' + (it.title || '구글미팅') + ' · ' + it.time,
+      '곧 회의가 시작돼요.\n\n' + (it.title || '') + '\n' + it.date + ' ' + it.time + '\n\n🎥 구글미팅: ' + it.meetUrl + (it.memo ? '\n\n메모: ' + it.memo : '') + '\n\n— VINFILM 캘린더 자동 알림');
+    props.setProperty(key, String(now));
+  });
+  // 오래된 보낸 기록 정리(이틀 지난 것)
+  var all = props.getProperties();
+  Object.keys(all).forEach(function (k) { if (k.indexOf('meetmail_') === 0 && now - Number(all[k]) > 2 * 86400000) props.deleteProperty(k); });
+}
 
 /* ---------- Google 캘린더 API ---------- */
 function authHeaders_() { return { Authorization: 'Bearer ' + ScriptApp.getOAuthToken(), 'X-Goog-User-Project': PROJECT_ID }; }

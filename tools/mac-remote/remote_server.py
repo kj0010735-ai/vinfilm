@@ -608,6 +608,8 @@ def num(v, lim=4000.0):
     return max(-lim, min(lim, f))
 
 
+APPS = {"nexus": "NEXUS Player"}  # 리모트 전용 화면이 있는 앱
+
 stats = {"msgs": 0, "at": 0, "err": ""}  # 맥 화면에 보여줄 진단 정보 — 아이폰 입력이 맥까지 오는지, 오다가 어디서 실패하는지
 
 
@@ -652,6 +654,10 @@ def handle_msg(m):
             INPUT.text(s[:2000])
     elif t == "media":
         INPUT.media(m.get("k"))
+    elif t == "app":  # 정해 둔 앱만 앞으로 (아이폰에서 앱 이름을 마음대로 보내지 못하게)
+        name = APPS.get(m.get("a"))
+        if name and sys.platform == "darwin":
+            subprocess.Popen(["open", "-a", name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 # ───────────────────────── 웹소켓 (RFC 6455, 필요한 만큼만) ─────────────────────────
