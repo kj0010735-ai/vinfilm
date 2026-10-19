@@ -264,6 +264,7 @@ const NAV_ITEMS_BASE = [
   { id: 'schedule', icon: '🗓', label: '캘린더' },
   { id: 'projects', icon: '📋', label: '프로젝트' },
   { id: 'quotes', icon: '🧾', label: '견적·계약' },
+  { id: 'applicants', icon: '🙋', label: '지원자' },
   { id: 'shared', icon: '🤝', label: '공유 프로젝트' },
   { id: 'notes', icon: '📝', label: '메모장' },
   { id: 'songs', icon: '🎤', label: '노래연습' },
@@ -299,6 +300,8 @@ const LS_PRESETS = 'eq-manager-presets';
 const LS_TASKS = 'eq-manager-today-tasks';
 const LS_NOTES = 'eq-manager-notes';
 const LS_SONGS = 'eq-manager-songs';
+const LS_RECRUITS = 'eq-manager-recruits';
+const LS_APPLICANTS = 'eq-manager-applicants';
 const LS_SHORTCUTS = 'eq-manager-shortcuts';
 /* 대시보드 바로가기 기본값 — 처음 한 번만 쓰이고, 이후엔 사용자가 추가/수정/삭제한 목록이 클라우드(shortcuts)에 저장됨 */
 const DEFAULT_SHORTCUTS = [
@@ -330,6 +333,8 @@ let presets = GUEST_MODE ? [] : loadJSON(LS_PRESETS, []);
 let todayTasks = GUEST_MODE ? [] : loadJSON(LS_TASKS, []);
 let notes = GUEST_MODE ? [] : loadJSON(LS_NOTES, []);
 let songs = GUEST_MODE ? [] : loadJSON(LS_SONGS, []);
+let recruits = GUEST_MODE ? [] : loadJSON(LS_RECRUITS, []);       // 공모(모집 공고) {id,title,postedAt,role,channel,memo,closed}
+let applicants = GUEST_MODE ? [] : loadJSON(LS_APPLICANTS, []);   // 지원자 {id,recruitId,name,email,phone,links,receivedAt,status,memo,raw}
 let shortcuts = loadJSON(LS_SHORTCUTS, DEFAULT_SHORTCUTS);
 let sharedProjItems = loadJSON(LS_SHARED, []);
 /* 🏢 스튜디오 탭(owner 전용) — 직원(Claude 채팅방) 상태·결재함·일지. 게스트/협업자 화면에는 내려받지 않는다. */
@@ -369,6 +374,7 @@ const S = {
   installOpen: false,
   notif: { open: false, compose: false, viewId: null },
   moreOpen: false,
+  apl: { search: '', status: 'all', modal: null, editingId: null, recruitId: '', closed: {}, msg: '' },
   activeTab: COLLAB_MODE ? 'shared' : GUEST_MODE ? 'equipment' : STUDIO_HOME ? 'studio' : 'today',
   eq: { search: '', categoryFilter: 'all', statusFilter: 'all', sortBy: 'recent', sortOpen: false, modalOpen: false, editingId: null, confirmDeleteId: null, categoryModalOpen: false, detailId: null },
   sched: { view: 'month', cursor: todayStr(), prefillDate: null, search: '', categoryFilter: 'all', showPast: false, modalOpen: false, editingId: null, confirmDeleteId: null, importMsg: '', detailId: null, linkProjectId: null },
@@ -396,6 +402,8 @@ function saveShoots(next) { const prev = shoots; shoots = next; try { localStora
 function savePresets(next) { const prev = presets; presets = next; try { localStorage.setItem(LS_PRESETS, JSON.stringify(next)); } catch (e) {} pushToCloud('presets', prev, next); }
 function saveTodayTasks(next) { const prev = todayTasks; todayTasks = next; try { localStorage.setItem(LS_TASKS, JSON.stringify(next)); } catch (e) {} pushToCloud('todayTasks', prev, next); }
 function saveShortcuts(next) { const prev = shortcuts; shortcuts = next; try { localStorage.setItem(LS_SHORTCUTS, JSON.stringify(next)); } catch (e) {} pushToCloud('shortcuts', prev, next); }
+function saveRecruits(next) { const prev = recruits; recruits = next; try { localStorage.setItem(LS_RECRUITS, JSON.stringify(next)); } catch (e) {} pushToCloud('recruits', prev, next); }
+function saveApplicants(next) { const prev = applicants; applicants = next; try { localStorage.setItem(LS_APPLICANTS, JSON.stringify(next)); } catch (e) {} pushToCloud('applicants', prev, next); }
 function saveSongs(next) { const prev = songs; songs = next; try { localStorage.setItem(LS_SONGS, JSON.stringify(next)); } catch (e) {} pushToCloud('songs', prev, next); }
 function saveNotes(next) { const prev = notes; notes = next; try { localStorage.setItem(LS_NOTES, JSON.stringify(next)); } catch (e) {} pushToCloud('notes', prev, next); }
 function saveSharedProjItems(next) { if (COLLAB_MODE) next = next.map(x => x.collabId ? x : { ...x, collabId: COLLAB_ID }); const prev = sharedProjItems; sharedProjItems = next; try { localStorage.setItem(LS_SHARED, JSON.stringify(next)); } catch (e) {} pushToCloud('sharedProjects', prev, next); }
@@ -412,6 +420,8 @@ function getLocalArrayFor(name) {
     case 'todayTasks': return todayTasks;
     case 'notes': return notes;
     case 'songs': return songs;
+    case 'recruits': return recruits;
+    case 'applicants': return applicants;
     case 'shortcuts': return shortcuts;
     case 'sharedProjects': return sharedProjItems;
     case 'quotes': return quotes;
@@ -451,6 +461,8 @@ function applyCloudUpdate(name, items) {
     case 'todayTasks': todayTasks = items; try { localStorage.setItem(LS_TASKS, JSON.stringify(items)); } catch (e) {} break;
     case 'notes': notes = items; try { localStorage.setItem(LS_NOTES, JSON.stringify(items)); } catch (e) {} break;
     case 'songs': songs = items; try { localStorage.setItem(LS_SONGS, JSON.stringify(items)); } catch (e) {} break;
+    case 'recruits': recruits = items; try { localStorage.setItem(LS_RECRUITS, JSON.stringify(items)); } catch (e) {} break;
+    case 'applicants': applicants = items; try { localStorage.setItem(LS_APPLICANTS, JSON.stringify(items)); } catch (e) {} break;
     case 'shortcuts': shortcuts = items; try { localStorage.setItem(LS_SHORTCUTS, JSON.stringify(items)); } catch (e) {} break;
     case 'sharedProjects': sharedProjItems = items; try { localStorage.setItem(LS_SHARED, JSON.stringify(items)); } catch (e) {} break;
     case 'quotes': quotes = items; try { localStorage.setItem(LS_QUOTES, JSON.stringify(items)); } catch (e) {} break;
@@ -471,7 +483,7 @@ async function pushToCloud(name, prevArr, nextArr) {
   } catch (e) { console.warn('cloud sync push failed for', name, e); }
 }
 
-const CLOUD_COLLECTIONS = ['equipment', 'categories', 'schedule', 'projects', 'shoots', 'presets', 'todayTasks', 'notes', 'songs', 'shortcuts', 'sharedProjects', 'quotes', 'contracts', 'collabs', 'notices'];
+const CLOUD_COLLECTIONS = ['equipment', 'categories', 'schedule', 'projects', 'shoots', 'presets', 'todayTasks', 'notes', 'songs', 'recruits', 'applicants', 'shortcuts', 'sharedProjects', 'quotes', 'contracts', 'collabs', 'notices'];
 /* 공유 링크(?guest=1)로 접속했을 때는 이 목록만 동기화한다 — 스케줄/메모장 등 내부 데이터는 외부 브라우저로 아예 내려받지 않는다. */
 const GUEST_CLOUD_COLLECTIONS = ['equipment', 'categories', 'sharedProjects'];
 const FIREBASE_CONFIG = {
@@ -1504,6 +1516,7 @@ function mobileMoreSheetHtml() {
       ${row('data-action="set-tab" data-id="shared"', MI.shared, '공유 프로젝트')}
       ${row('data-action="set-tab" data-id="notes"', MI.note, '메모장')}
       ${row('data-action="set-tab" data-id="songs"', MI.mic, '노래연습')}
+      ${row('data-action="set-tab" data-id="applicants"', '<span style="font-size:17px;line-height:1">🙋</span>', '지원자')}
       ${row('data-action="set-tab" data-id="library"', '<span style="font-size:17px;line-height:1">🗂</span>', '자료실')}
       ${STUDIO_HOME ? '' : row('data-action="set-tab" data-id="studio"', '<span style="font-size:17px;line-height:1">🏢</span>', '스튜디오')}
       <a class="m-sheet-row" href="../ledger/"><span class="m-sheet-ic">${MI.money}</span><span>수입·지출 관리</span><i>${MI.chev}</i></a>
@@ -5448,6 +5461,201 @@ function studioTalkTick(still) {
 }
 setInterval(() => { if (S.activeTab === 'studio' && !document.hidden) studioDraw(); }, 120);
 
+/* ================= 🙋 지원자 탭 (공모별 지원자 보관) =================
+   공모(recruits: 모집 공고 하나 = 프로젝트 하나)마다 지원자(applicants)를 묶어 보관한다. 공모한 날짜 최신순.
+   지원자는 메일 내용을 통째로 붙여 넣으면 이메일·전화·링크를 자동으로 채운다(aplParseMail). owner 전용 컬렉션. */
+const APL_STATUSES = [
+  { id: 'new', label: '새 지원', color: '#2f6fee' },
+  { id: 'review', label: '검토중', color: '#e0a63c' },
+  { id: 'contacted', label: '연락함', color: '#4cae7d' },
+  { id: 'hold', label: '보류', color: '#8b90a0' },
+  { id: 'rejected', label: '불합격', color: '#c96a6a' },
+  { id: 'hired', label: '합격', color: '#7a5af5' },
+];
+function aplStatus(id) { return APL_STATUSES.find(x => x.id === id) || APL_STATUSES[0]; }
+function aplDate(v) { if (!v) return ''; const d = parseYmd(v); return `${d.getFullYear()}.${pad2(d.getMonth() + 1)}.${pad2(d.getDate())}`; }
+/* 메일 본문에서 이메일·전화번호·링크·이름 추측 */
+function aplParseMail(text) {
+  const t = String(text || '');
+  const emails = [...new Set((t.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) || []).filter(m => !/naver\.com$/i.test(m) || true))];
+  const phone = (t.match(/01[016789][-.\s]?\d{3,4}[-.\s]?\d{4}/) || [''])[0].replace(/[.\s]/g, '-').replace(/-+/g, '-');
+  const links = [...new Set((t.match(/https?:\/\/[^\s<>"')\]]+/g) || []).map(u => u.replace(/[.,]+$/, '')))];
+  let name = '';
+  const m = t.match(/(?:이름|성명|지원자)\s*[:：]\s*([가-힣]{2,4})/) || t.match(/([가-힣]{2,4})\s*(?:입니다|이라고 합니다|라고 합니다)/) || t.match(/^\s*보낸\s*사람\s*[:：]?\s*"?([가-힣]{2,4})/m);
+  if (m) name = m[1];
+  return { email: emails[0] || '', phone, links, name };
+}
+function aplCounts(list) { const c = {}; list.forEach(a => { c[a.status || 'new'] = (c[a.status || 'new'] || 0) + 1; }); return c; }
+function aplMatches(a) {
+  if (S.apl.status !== 'all' && (a.status || 'new') !== S.apl.status) return false;
+  const q = S.apl.search.trim().toLowerCase(); if (!q) return true;
+  return [a.name, a.email, a.phone, a.memo, (a.links || []).join(' ')].join(' ').toLowerCase().includes(q);
+}
+function aplRowHtml(a) {
+  const st = aplStatus(a.status);
+  const links = (a.links || []).slice(0, 3).map(u => `<a class="memo-link" href="${esc(u)}" target="_blank" rel="noopener">${esc(u.replace(/^https?:\/\/(www\.)?/, '').slice(0, 28))}</a>`).join(' ');
+  return `
+    <div class="apl-row" data-action="apl-open-edit" data-id="${a.id}">
+      <div class="apl-name"><b>${esc(a.name || '(이름 없음)')}</b><span>${aplDate(a.receivedAt)}</span></div>
+      <div class="apl-contact">${esc([a.email, a.phone].filter(Boolean).join(' · ')) || '<span class="apl-dim">연락처 없음</span>'}</div>
+      <div class="apl-links">${links || ''}</div>
+      <div class="apl-memo">${a.memo ? esc(a.memo.split('\n')[0].slice(0, 60)) : ''}</div>
+      <select class="apl-status" data-role="apl-status" data-id="${a.id}" style="--st:${st.color}">
+        ${APL_STATUSES.map(x => `<option value="${x.id}" ${x.id === (a.status || 'new') ? 'selected' : ''}>${x.label}</option>`).join('')}
+      </select>
+    </div>`;
+}
+function aplListHtml() {
+  const groups = [...recruits].sort((a, b) => (b.postedAt || '').localeCompare(a.postedAt || '') || (b.createdAt || 0) - (a.createdAt || 0)).map(r => ({ r, list: applicants.filter(a => a.recruitId === r.id) }));
+  const loose = applicants.filter(a => !a.recruitId || !recruits.some(r => r.id === a.recruitId));
+  if (loose.length) groups.push({ r: null, list: loose });
+  if (!groups.length) return `<div class="eq-empty"><p>아직 등록된 공모가 없어요.</p><p>오른쪽 위 <b>+ 공모 추가</b>로 모집 공고를 먼저 만들고, 지원자를 넣어 보세요.</p></div>`;
+  const filtering = S.apl.search.trim() || S.apl.status !== 'all';
+  return groups.map(({ r, list }) => {
+    const key = r ? r.id : '_loose';
+    const shown = list.filter(aplMatches).sort((a, b) => (b.receivedAt || '').localeCompare(a.receivedAt || '') || (b.createdAt || 0) - (a.createdAt || 0));
+    if (filtering && !shown.length) return '';
+    const c = aplCounts(list), closed = !!S.apl.closed[key] && !filtering;
+    return `
+      <section class="apl-group ${r && r.closed ? 'is-done' : ''}">
+        <div class="apl-group-head" data-action="apl-toggle-group" data-id="${key}">
+          <span class="apl-caret">${closed ? '▸' : '▾'}</span>
+          <div class="apl-group-title">
+            <h3>${r ? esc(r.title) : '공모 없음'}${r && r.closed ? ' <span class="apl-tag">마감</span>' : ''}</h3>
+            <div class="apl-group-meta">${r ? [r.postedAt ? '공모 ' + aplDate(r.postedAt) : '', r.role, r.channel].filter(Boolean).map(esc).join(' · ') : '공모를 고르지 않은 지원자'}</div>
+          </div>
+          <div class="apl-group-counts">${list.length}명${APL_STATUSES.filter(x => c[x.id]).map(x => `<span style="color:${x.color}">${x.label} ${c[x.id]}</span>`).join('')}</div>
+          ${r ? `<button class="eq-chip" data-action="apl-open-recruit" data-id="${r.id}">✎</button>
+          <button class="eq-chip" data-action="apl-open-add" data-id="${r.id}">+ 지원자</button>` : ''}
+        </div>
+        ${closed ? '' : shown.length ? `<div class="apl-rows">${shown.map(aplRowHtml).join('')}</div>` : `<div class="apl-empty-row">아직 지원자가 없어요.</div>`}
+      </section>`;
+  }).join('');
+}
+function aplModalHtml() {
+  if (S.apl.modal === 'recruit') {
+    const r = S.apl.editingId ? recruits.find(x => x.id === S.apl.editingId) : null;
+    const f = r || { title: '', postedAt: ymd(new Date()), role: '', channel: '', memo: '', closed: false };
+    return `
+      <div class="eq-modal-overlay is-drawer" data-action="apl-close-backdrop">
+        <div class="eq-modal" data-stop-close>
+          <div class="eq-modal-head"><h2>${r ? '공모 수정' : '공모 추가'}</h2><button class="eq-modal-close" data-action="apl-close">✕</button></div>
+          <form data-form-role="apl-recruit-form">
+            <div class="eq-field"><label>공모(프로젝트) 이름</label><input name="title" autofocus required value="${esc(f.title)}" placeholder="예: 10월 편집자 모집, 크리스마스 라이브클립 촬영 스태프" /></div>
+            <div class="eq-field"><label>공모한 날짜</label><input type="date" name="postedAt" value="${esc(f.postedAt || '')}" /></div>
+            <div class="eq-field"><label>모집 역할 <span class="eq-hint">(선택)</span></label><input name="role" value="${esc(f.role || '')}" placeholder="예: 영상 편집, 촬영 보조, 모델" /></div>
+            <div class="eq-field"><label>올린 곳 <span class="eq-hint">(선택)</span></label><input name="channel" value="${esc(f.channel || '')}" placeholder="예: 인스타, 사람인, 지인 소개" /></div>
+            <div class="eq-field"><label>메모 <span class="eq-hint">(선택)</span></label><textarea name="memo" class="sched-memo-textarea" placeholder="조건, 마감일 등">${esc(f.memo || '')}</textarea></div>
+            <label class="collab-check"><input type="checkbox" name="closed" ${f.closed ? 'checked' : ''} /> 마감된 공모</label>
+            <button type="submit" class="eq-modal-submit">${r ? '수정 완료' : '추가하기'}</button>
+            ${r ? `<button type="button" class="eq-detail-delete-btn" style="width:100%; margin-top:10px;" data-action="apl-delete-recruit" data-id="${r.id}">공모 삭제 (지원자는 '공모 없음'으로 남아요)</button>` : ''}
+          </form>
+        </div>
+      </div>`;
+  }
+  if (S.apl.modal === 'applicant') {
+    const a = S.apl.editingId ? applicants.find(x => x.id === S.apl.editingId) : null;
+    const f = a || { recruitId: S.apl.recruitId || '', name: '', email: '', phone: '', links: [], receivedAt: ymd(new Date()), status: 'new', memo: '', raw: '' };
+    const rs = [...recruits].sort((x, y) => (y.postedAt || '').localeCompare(x.postedAt || ''));
+    return `
+      <div class="eq-modal-overlay is-drawer" data-action="apl-close-backdrop">
+        <div class="eq-modal" data-stop-close>
+          <div class="eq-modal-head"><h2>${a ? '지원자 정보' : '지원자 추가'}</h2><button class="eq-modal-close" data-action="apl-close">✕</button></div>
+          <form data-form-role="apl-applicant-form">
+            <div class="eq-field"><label>지원 메일 붙여넣기 <span class="eq-hint">(선택 — 붙여넣고 '자동 채우기'를 누르면 이메일·전화·링크를 찾아 넣어요)</span></label>
+              <textarea name="raw" id="aplRaw" class="sched-memo-textarea" placeholder="네이버 메일에서 지원 메일 본문을 복사해 붙여넣으세요">${esc(f.raw || '')}</textarea>
+              <button type="button" class="eq-chip" style="margin-top:6px" data-action="apl-autofill">✨ 자동 채우기</button></div>
+            <div class="eq-field"><label>공모</label><select name="recruitId"><option value="">공모 없음</option>${rs.map(r => `<option value="${r.id}" ${r.id === f.recruitId ? 'selected' : ''}>${esc(r.title)}${r.postedAt ? ' (' + aplDate(r.postedAt) + ')' : ''}</option>`).join('')}</select></div>
+            <div class="eq-field"><label>이름</label><input name="name" value="${esc(f.name || '')}" placeholder="지원자 이름" /></div>
+            <div class="eq-field"><label>이메일</label><input name="email" value="${esc(f.email || '')}" inputmode="email" /></div>
+            <div class="eq-field"><label>전화번호</label><input name="phone" value="${esc(f.phone || '')}" inputmode="tel" /></div>
+            <div class="eq-field"><label>포트폴리오·링크 <span class="eq-hint">(한 줄에 하나)</span></label><textarea name="links" class="sched-memo-textarea" placeholder="https://...">${esc((f.links || []).join('\n'))}</textarea></div>
+            <div class="eq-field"><label>지원일</label><input type="date" name="receivedAt" value="${esc(f.receivedAt || '')}" /></div>
+            <div class="eq-field"><label>상태</label><select name="status">${APL_STATUSES.map(x => `<option value="${x.id}" ${x.id === (f.status || 'new') ? 'selected' : ''}>${x.label}</option>`).join('')}</select></div>
+            <div class="eq-field"><label>메모</label><textarea name="memo" class="sched-memo-textarea" placeholder="경력, 인상, 희망 조건 등">${esc(f.memo || '')}</textarea></div>
+            <button type="submit" class="eq-modal-submit">${a ? '저장' : '추가하기'}</button>
+            ${a ? `<button type="button" class="eq-detail-delete-btn" style="width:100%; margin-top:10px;" data-action="apl-delete" data-id="${a.id}">지원자 삭제</button>` : ''}
+          </form>
+        </div>
+      </div>`;
+  }
+  return '';
+}
+function renderApplicantsTab() {
+  const total = applicants.length, fresh = applicants.filter(a => (a.status || 'new') === 'new').length;
+  return `
+    <div class="eq-header">
+      <div class="eq-title-block"><h1 class="eq-title">지원자</h1><div class="eq-stat">공모 <b>${recruits.length}</b> · 지원자 <b>${total}</b>${fresh ? ` · 새 지원 <b>${fresh}</b>` : ''}</div></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap">
+        <button class="eq-chip" data-action="apl-open-recruit">+ 공모 추가</button>
+        <button class="eq-add-btn" data-action="apl-open-add">+ 지원자 추가</button>
+      </div>
+    </div>
+    <div class="eq-toolbar">
+      <div class="eq-search"><input id="aplSearchInput" placeholder="이름, 이메일, 메모로 찾기" value="${esc(S.apl.search)}" /></div>
+      <div class="apl-filter">${[{ id: 'all', label: '전체' }, ...APL_STATUSES].map(x => `<button class="eq-chip ${S.apl.status === x.id ? 'active' : ''}" data-action="apl-filter" data-id="${x.id}">${x.label}</button>`).join('')}</div>
+    </div>
+    ${S.apl.msg ? `<div class="q-hint" style="margin:8px 0">${esc(S.apl.msg)}</div>` : ''}
+    <div id="aplList">${aplListHtml()}</div>
+    ${aplModalHtml()}`;
+}
+function handleApplicantAction(action, el, e) {
+  const id = el.dataset.id;
+  const close = () => { S.apl.modal = null; S.apl.editingId = null; S.apl.recruitId = ''; };
+  switch (action) {
+    case 'apl-open-recruit': S.apl.modal = 'recruit'; S.apl.editingId = id || null; render(); return true;
+    case 'apl-open-add': S.apl.modal = 'applicant'; S.apl.editingId = null; S.apl.recruitId = id || ''; render(); return true;
+    case 'apl-open-edit':
+      if (e.target.closest('select, a')) return true; // 상태 바꾸기·링크 누르기는 창을 열지 않음
+      S.apl.modal = 'applicant'; S.apl.editingId = id; render(); return true;
+    case 'apl-close': close(); render(); return true;
+    case 'apl-close-backdrop': if (!e.target.closest('[data-stop-close]')) { close(); render(); } return true;
+    case 'apl-filter': S.apl.status = id; render(); return true;
+    case 'apl-toggle-group': S.apl.closed[id] = !S.apl.closed[id]; render(); return true;
+    case 'apl-autofill': {
+      const form = el.closest('form'); if (!form) return true;
+      const p = aplParseMail(form.elements.raw.value);
+      const set = (n, v) => { if (v && !form.elements[n].value.trim()) form.elements[n].value = v; };
+      set('name', p.name); set('email', p.email); set('phone', p.phone);
+      if (p.links.length) { const cur = form.elements.links.value.split('\n').map(x => x.trim()).filter(Boolean); form.elements.links.value = [...new Set([...cur, ...p.links])].join('\n'); }
+      el.textContent = (p.email || p.phone || p.links.length || p.name) ? '✓ 채웠어요' : '찾은 정보가 없어요';
+      return true;
+    }
+    case 'apl-delete': {
+      const a = applicants.find(x => x.id === id);
+      if (a && window.confirm(`"${a.name || '이 지원자'}"를 삭제할까요?`)) { saveApplicants(applicants.filter(x => x.id !== id)); close(); render(); }
+      return true;
+    }
+    case 'apl-delete-recruit': {
+      const r = recruits.find(x => x.id === id);
+      if (r && window.confirm(`공모 "${r.title}"를 삭제할까요? 지원자는 '공모 없음'으로 남아요.`)) {
+        saveRecruits(recruits.filter(x => x.id !== id));
+        if (applicants.some(a => a.recruitId === id)) saveApplicants(applicants.map(a => a.recruitId === id ? { ...a, recruitId: '' } : a));
+        close(); render();
+      }
+      return true;
+    }
+  }
+  return false;
+}
+function handleApplicantSubmit(form) {
+  const fd = new FormData(form), g = n => (fd.get(n) || '').toString().trim();
+  if (form.matches('[data-form-role="apl-recruit-form"]')) {
+    const title = g('title'); if (!title) return;
+    const payload = { title, postedAt: g('postedAt'), role: g('role'), channel: g('channel'), memo: g('memo'), closed: !!fd.get('closed'), updatedAt: Date.now() };
+    if (S.apl.editingId) saveRecruits(recruits.map(r => r.id === S.apl.editingId ? { ...r, ...payload } : r));
+    else saveRecruits([{ id: uid(), createdAt: Date.now(), ...payload }, ...recruits]);
+  } else {
+    const links = g('links').split('\n').map(x => x.trim()).filter(Boolean).map(normalizeUrl);
+    const payload = { recruitId: g('recruitId'), name: g('name'), email: g('email'), phone: g('phone'), links, receivedAt: g('receivedAt'), status: g('status') || 'new', memo: g('memo'), raw: g('raw').slice(0, 20000), updatedAt: Date.now() };
+    if (!payload.name && !payload.email && !payload.phone) { S.apl.msg = '이름, 이메일, 전화번호 중 하나는 넣어 주세요.'; render(); return; }
+    if (S.apl.editingId) saveApplicants(applicants.map(a => a.id === S.apl.editingId ? { ...a, ...payload } : a));
+    else saveApplicants([{ id: uid(), createdAt: Date.now(), ...payload }, ...applicants]);
+  }
+  S.apl.msg = ''; S.apl.modal = null; S.apl.editingId = null; S.apl.recruitId = '';
+  render();
+}
+
 /* ================= main render ================= */
 function renderTab() {
   if (GUEST_MODE && !GUEST_ALLOWED_TABS.includes(S.activeTab)) S.activeTab = GUEST_ALLOWED_TABS[0];
@@ -5459,6 +5667,7 @@ function renderTab() {
   if (S.activeTab === 'shootprep') return renderShootPrepTab();
   if (S.activeTab === 'notes') return renderNotesTab();
   if (S.activeTab === 'songs') return renderSongsTab();
+  if (S.activeTab === 'applicants' && !GUEST_MODE) return renderApplicantsTab();
   if (S.activeTab === 'quotes') return renderQuotesTab();
   if (S.activeTab === 'studio' && !GUEST_MODE) return renderStudioTab();
   if (S.activeTab === 'library' && !GUEST_MODE) return renderLibraryTab();
@@ -5597,6 +5806,7 @@ function bootApp() {
     if (/^(notif-|notice-)/.test(action) && handleNotifAction(action, el, e)) return;
 
     if (/^(studio-|lib-|doc-print)/.test(action) && !GUEST_MODE && handleStudioAction(action, el, e)) return;
+    if (/^apl-/.test(action) && !GUEST_MODE && handleApplicantAction(action, el, e)) return;
     switch (action) {
       case 'set-tab':
         if (GUEST_MODE && !GUEST_ALLOWED_TABS.includes(id)) return;
@@ -6188,6 +6398,7 @@ function bootApp() {
     if (S.quote.cdraft && handleContractInput(e)) return;
     if (e.target.id === 'eqSearchInput') { S.eq.search = e.target.value; refreshEqGrid(); }
     else if (e.target.id === 'schedSearchInput') { S.sched.search = e.target.value; refreshSchedList(); }
+    else if (e.target.id === 'aplSearchInput') { S.apl.search = e.target.value; const g = document.getElementById('aplList'); if (g) g.innerHTML = aplListHtml(); }
     else if (e.target.id === 'songSearchInput') { S.song.search = e.target.value; const g = document.getElementById('songGrid'); if (g) g.innerHTML = songGridHtml(); }
     else if (e.target.id === 'projSearchInput') { S.proj.search = e.target.value; refreshProjList(); }
     else if (e.target.id === 'sharedProjSearchInput') { S.shared.search = e.target.value; refreshSharedProjList(); }
@@ -6195,6 +6406,12 @@ function bootApp() {
 
   /* checkboxes: allDay, photo file, ics import, shoot confirm/pack toggles */
   root.addEventListener('change', (e) => {
+    if (e.target.dataset && e.target.dataset.role === 'apl-status') { // 목록에서 바로 상태 바꾸기
+      const id = e.target.dataset.id, st = e.target.value;
+      saveApplicants(applicants.map(a => a.id === id ? { ...a, status: st, updatedAt: Date.now() } : a));
+      render(); // 위쪽 '새 지원' 숫자도 같이
+      return;
+    }
     if (e.target.name === 'url' && e.target.form && e.target.form.matches('[data-form-role="song-form"]')) {
       const f = e.target.form;
       if (!f.elements.title.value.trim()) songLookup(normalizeUrl(e.target.value)).then(info => {
@@ -6318,6 +6535,7 @@ function bootApp() {
   root.addEventListener('submit', (e) => {
     e.preventDefault();
     const form = e.target;
+    if (form.matches('[data-form-role^="apl-"]')) { if (!GUEST_MODE) handleApplicantSubmit(form); return; }
     if (form.matches('[data-form-role="eq-form"]')) {
       if (GUEST_MODE) return;
       const fd = new FormData(form);
@@ -8195,6 +8413,31 @@ document.addEventListener('DOMContentLoaded', () => {
   .song-sec.tapped { animation:songTap .35s ease; }
   @keyframes songTap { 0% { transform:scale(.985); background:var(--accent-soft); } 100% { transform:none; } }
   .song-sync-hint { background:var(--accent-soft); border:1px solid var(--border); border-radius:12px; padding:10px 14px; font-size:13.5px; line-height:1.55; margin-bottom:16px; }
+  /* 🙋 지원자 탭 */
+  .apl-filter { display:flex; gap:6px; flex-wrap:wrap; }
+  .apl-group { background:var(--surface); border:1px solid var(--border); border-radius:14px; margin:14px 0; overflow:hidden; }
+  .apl-group.is-done { opacity:.72; }
+  .apl-group-head { display:flex; align-items:center; gap:10px; padding:14px 16px; cursor:pointer; flex-wrap:wrap; }
+  .apl-caret { color:var(--text-faint); width:12px; }
+  .apl-group-title { flex:1; min-width:180px; }
+  .apl-group-title h3 { margin:0; font-size:16px; }
+  .apl-group-meta { font-size:13px; color:var(--text-dim); margin-top:3px; }
+  .apl-group-counts { display:flex; gap:10px; font-size:13px; color:var(--text-dim); flex-wrap:wrap; }
+  .apl-tag { font-size:12px; padding:2px 8px; border-radius:999px; background:var(--border); color:var(--text-dim); vertical-align:middle; }
+  .apl-rows { border-top:1px solid var(--border); }
+  .apl-row { display:grid; grid-template-columns: 1.1fr 1.4fr 1.3fr 1.6fr auto; gap:12px; align-items:center; padding:11px 16px; border-bottom:1px solid var(--border); cursor:pointer; font-size:14px; }
+  .apl-row:last-child { border-bottom:none; }
+  .apl-row:hover { background:var(--row-bg, rgba(0,0,0,.03)); }
+  .apl-name b { display:block; }
+  .apl-name span, .apl-dim { font-size:13px; color:var(--text-faint); }
+  .apl-contact, .apl-memo { color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .apl-links { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:13px; }
+  .apl-status { font-family:var(--font-body); font-size:13px; padding:6px 10px; border-radius:999px; border:1px solid var(--st); color:var(--st); background:transparent; font-weight:600; }
+  .apl-empty-row { padding:14px 16px; color:var(--text-faint); font-size:14px; border-top:1px solid var(--border); }
+  @media (max-width:720px) {
+    .apl-row { grid-template-columns: 1fr auto; grid-template-areas: "name status" "contact contact" "links links" "memo memo"; gap:4px 10px; }
+    .apl-name { grid-area:name; } .apl-status { grid-area:status; } .apl-contact { grid-area:contact; } .apl-links { grid-area:links; } .apl-memo { grid-area:memo; }
+  }
 </style>
 </body>
 </html>
