@@ -23,10 +23,10 @@
 <button class="nav l" id="prev">‹</button><button class="nav r" id="next">›</button>
 <div class="dots" id="dots"></div>
 <script>
-const SETS={a:['a-1','a-2','a-3','a-4','a-5']};
+const SETS={a:['a-1','a-2','a-3','a-4']};
 const deck=document.getElementById('deck');let cur='a';
 function load(k){cur=k;document.querySelectorAll('[data-set]').forEach(b=>b.classList.toggle('on',b.dataset.set===k));
- deck.innerHTML=SETS[k].map(n=>`<div class="pg-wrap"><img src="angles/${n}.jpg?v=2" alt=""></div>`).join('');deck.scrollLeft=0;upd()}
+ deck.innerHTML=SETS[k].map(n=>`<div class="pg-wrap"><img src="angles/${n}.jpg?v=3" alt=""></div>`).join('');deck.scrollLeft=0;upd()}
 function idx(){return Math.round(deck.scrollLeft/deck.clientWidth)}
 function upd(){const n=SETS[cur].length,i=idx();document.getElementById('pg').textContent=`${i+1} / ${n}`;document.getElementById('dots').innerHTML=SETS[cur].map((_,j)=>`<i class="${j===i?'on':''}"></i>`).join('')}
 function go(d){deck.scrollTo({left:(idx()+d)*deck.clientWidth,behavior:'smooth'})}
