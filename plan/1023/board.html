@@ -60,12 +60,12 @@ td.x{width:6mm;text-align:center}td.x button{border:0;background:none;color:#bbb
 <button id="reset">처음으로</button><button class="p" onclick="window.print()">🖨 출력</button></div>
 <div class="sheet">
 <h1>촬영장비 배치판</h1>
-<div class="sub">「교회를 사랑하는 건」 · 2026. 10. 23. (금) 픽스스튜디오 · 카메라 5대 · 촬영 5명 · 연출 김규빈</div>
+<div class="sub">「교회를 사랑하는 건」 · 2026. 10. 23. (금) 픽스스튜디오 · 카메라 5대 · 촬영 5명 (박완준·문호준·최영민·김창훈·윤관) · 연출 김규빈</div>
 <div id="phases"></div>
 </div>
 <script>
 const PH=[['rail','PART 1 · 레일'],['base','PART 2 · 기본 앵글'],['crea','PART 2 · 창의 앵글']];
-const OPS=['박완준 감독','문호준 감독','최영민 감독','촬영자 A','촬영자 B','(무인)'];
+const OPS=['박완준 감독','문호준 감독','최영민 감독','김창훈','윤관','(무인)'];
 const DEF_POOL=[
  ['카메라','FX3','VINFILM'],['카메라','A7C2','VINFILM'],['카메라','박완준 감독 카메라','감독 지참'],['카메라','문호준 감독 카메라','감독 지참'],['카메라','최영민 감독 카메라','확인 필요'],
  ['렌즈','sigma 16-28','VINFILM'],['렌즈','sigma 28-70','VINFILM'],['렌즈','v-af 35mm','VINFILM'],['렌즈','v-af 75mm','VINFILM'],['렌즈','v-af 100mm','VINFILM'],['렌즈','박완준 감독 렌즈','감독 지참'],['렌즈','문호준 감독 망원','감독 지참'],
@@ -73,13 +73,14 @@ const DEF_POOL=[
 ];
 const cam=(n,op,body,lens,sup,role,x,y,a)=>({n,op,body,lens,sup,role,x,y,a,on:true});
 const DEF={
- rail:[cam(1,'(무인)','A7C2','sigma 16-28','YC Onion PINETA PEAK','정면 FULL',50,78,-90),cam(2,'박완준 감독','박완준 감독 카메라','박완준 감독 렌즈','감독 지참 삼각대','사이드 와이드',10,52,-30),cam(3,'문호준 감독','문호준 감독 카메라','문호준 감독 망원','맨프로토 509HD','보컬 타이트',68,72,-110),cam(4,'최영민 감독','최영민 감독 카메라','v-af 75mm','셔틀러 에이스','오케스트라 · 악기',90,40,200),cam(5,'촬영자 A','FX3','sigma 28-70','펀치달리 + 레일','레일 (밀기: 촬영자 B)',36,66,-90)],
- base:[cam(1,'촬영자 B','A7C2','sigma 16-28','YC Onion PINETA PEAK','정면 FULL → 오케스트라 FULL',50,80,-90),cam(2,'박완준 감독','박완준 감독 카메라','박완준 감독 렌즈','감독 지참 삼각대','남·여 보컬 MS / TWO',22,62,-60),cam(3,'문호준 감독','문호준 감독 카메라','문호준 감독 망원','맨프로토 509HD','보컬 CS',62,66,-110),cam(4,'최영민 감독','최영민 감독 카메라','v-af 100mm','셔틀러 에이스','악기 HAND',88,30,180),cam(5,'촬영자 A','FX3','v-af 35mm','펀치달리 + 레일','기타·건반·드럼 HAND',30,44,-20)],
- crea:[cam(1,'촬영자 B','A7C2','sigma 16-28','YC Onion PINETA PEAK','C3 로우 앵글 / C4 하이',40,58,-80),cam(2,'박완준 감독','박완준 감독 카메라','박완준 감독 렌즈','감독 지참 삼각대','C1 오케스트라 너머 보컬',30,22,80),cam(3,'문호준 감독','문호준 감독 카메라','문호준 감독 망원','맨프로토 509HD','C7 랙포커스 · C9 리액션',70,70,-115),cam(4,'최영민 감독','최영민 감독 카메라','v-af 75mm','셔틀러 에이스','C2 브라스 벨 너머',78,22,110),cam(5,'촬영자 A','FX3','sigma 28-70','펀치달리 + 레일','C5 역방향 · C6 실루엣',50,9,90)]
+ rail:[cam(1,'(무인)','A7C2','sigma 16-28','YC Onion PINETA PEAK','정면 FULL',50,78,-90),cam(2,'박완준 감독','박완준 감독 카메라','박완준 감독 렌즈','감독 지참 삼각대','사이드 와이드',10,52,-30),cam(3,'문호준 감독','문호준 감독 카메라','문호준 감독 망원','맨프로토 509HD','보컬 타이트',68,72,-110),cam(4,'최영민 감독','최영민 감독 카메라','v-af 75mm','셔틀러 에이스','오케스트라 · 악기',90,40,200),cam(5,'김창훈','FX3','sigma 28-70','펀치달리 + 레일','레일 (밀기: 윤관)',36,66,-90)],
+ base:[cam(1,'윤관','A7C2','sigma 16-28','YC Onion PINETA PEAK','정면 FULL → 오케스트라 FULL',50,80,-90),cam(2,'박완준 감독','박완준 감독 카메라','박완준 감독 렌즈','감독 지참 삼각대','남·여 보컬 MS / TWO',22,62,-60),cam(3,'문호준 감독','문호준 감독 카메라','문호준 감독 망원','맨프로토 509HD','보컬 CS',62,66,-110),cam(4,'최영민 감독','최영민 감독 카메라','v-af 100mm','셔틀러 에이스','악기 HAND',88,30,180),cam(5,'김창훈','FX3','v-af 35mm','펀치달리 + 레일','기타·건반·드럼 HAND',30,44,-20)],
+ crea:[cam(1,'윤관','A7C2','sigma 16-28','YC Onion PINETA PEAK','C3 로우 앵글 / C4 하이',40,58,-80),cam(2,'박완준 감독','박완준 감독 카메라','박완준 감독 렌즈','감독 지참 삼각대','C1 오케스트라 너머 보컬',30,22,80),cam(3,'문호준 감독','문호준 감독 카메라','문호준 감독 망원','맨프로토 509HD','C7 랙포커스 · C9 리액션',70,70,-115),cam(4,'최영민 감독','최영민 감독 카메라','v-af 75mm','셔틀러 에이스','C2 브라스 벨 너머',78,22,110),cam(5,'김창훈','FX3','sigma 28-70','펀치달리 + 레일','C5 역방향 · C6 실루엣',50,9,90)]
 };
 const KEY='vf-gear-board-1023';
 let S; try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!S) S={tab:'rail',ph:JSON.parse(JSON.stringify(DEF)),pool:DEF_POOL.map(p=>({c:p[0],n:p[1],o:p[2]})),rail:{x:24,y:66,w:28}};
+S.ph&&Object.values(S.ph).forEach(a=>a.forEach(c=>{if(c.op==='촬영자 A')c.op='김창훈';if(c.op==='촬영자 B')c.op='윤관';c.role=(c.role||'').replace('촬영자 B','윤관')}));
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const opt=(list,v)=>['',...list].map(x=>`<option${x===v?' selected':''}>${esc(x)}</option>`).join('');
