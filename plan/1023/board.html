@@ -160,8 +160,9 @@ const NB=[["보컬", "박준"], ["보컬", "이시몬"], ["피아노", "최찬�
 if(S&&S.perf&&!S.band2){const b=S.perf.filter(m=>m.g==='band');NB.forEach((v,i)=>{if(b[i]){b[i].r=v[0];b[i].n=v[1]}else S.perf.push({g:'band',r:v[0],n:v[1],x:20+i*10,y:39})});S.perf=S.perf.filter(m=>m.g!=='band'||NB.some(v=>v[1]===m.n));S.band2=1}
 if(S&&!S.mig11){if(!S.pool.some(p=>/28-135/.test(p.n))){const i=S.pool.findIndex(p=>p.n==='교회 70-200 GM');S.pool.splice(i+1,0,{c:'렌즈',n:'칠렌탈 소니 28-135 F4 G',o:'칠렌탈'})}S.mig11=1}
 if(S&&!S.mig12){Object.values(S.ph).forEach(a=>a.forEach(c=>{if(/펀치달리/.test(c.sup||'')){c.lens='칠렌탈 소니 28-135 F4 G';c.lensNote='레일 · 28-135 줌으로 사이즈 조절'}}));S.mig12=1}
-const POSE={"보컬": "s", "피아노": "c", "신스": "s", "일렉": "s", "베이스": "s", "드럼": "c", "Vn1": "s", "Vn2": "s", "Va": "s", "Vc": "c", "Hr": "s", "Sax": "s", "Tb": "s", "Tp": "s", "Sn": "s"};
+const POSE={"보컬": "s", "피아노": "s", "신스": "s", "일렉": "s", "베이스": "s", "드럼": "c", "Vn1": "s", "Vn2": "s", "Va": "s", "Vc": "c", "Hr": "s", "Sax": "s", "Tb": "s", "Tp": "s", "Sn": "s"};
 if(S&&S.perf&&!S.pose1){S.perf.forEach(m=>{if(!m.p)m.p=POSE[m.r]||'s'});S.pose1=1}
+if(S&&S.perf&&!S.pose2){S.perf.forEach(m=>{if(m.n==='최찬미')m.p='s'});S.pose2=1}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const cap=n=>{const m=/×\s*(\d+)/.exec(n||'');return m?+m[1]:1};
