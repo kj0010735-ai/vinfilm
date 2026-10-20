@@ -123,7 +123,7 @@ td select{font-size:13px}
 </style></head><body>
 <div class="bar" id="bar"><button id="hideBar" title="탭 숨기기">⌃</button>
 <div class="tabs" id="tabs"></div>
-<span class="zm"><button data-zoom="-1">−</button><b id="zmv">100%</b><button data-zoom="1">+</button></span><button id="reload" title="새로고침">↻</button></div>
+<span class="zm"><button data-undo title="실행 취소 (⌘Z)">↶</button><button data-redo title="다시 실행 (⇧⌘Z)">↷</button><button data-zoom="-1">−</button><b id="zmv">100%</b><button data-zoom="1">+</button></span><button id="reload" title="새로고침">↻</button></div>
 <button id="showBar">☰ 탭</button>
 <div class="sheet">
 
@@ -198,7 +198,11 @@ const ZM=()=>{try{return +(localStorage.getItem('vf-board-zoom')||1)}catch(e){re
 function setZoom(d){let z=ZM();z=Math.max(.6,Math.min(3,+(z+d*0.2).toFixed(1)));try{localStorage.setItem('vf-board-zoom',z)}catch(e){};applyZoom()}
 function applyZoom(){const z=ZM();document.querySelectorAll('.sheet,#chkWrap,#angWrap').forEach(el=>el.style.zoom=z);const b=document.getElementById('zmv');if(b)b.textContent=Math.round(z*100)+'%'}
 addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('[contenteditable],input,select,textarea'))return;if(e.key==='+'||e.key==='='){e.preventDefault();setZoom(1)}else if(e.key==='-'||e.key==='_'){e.preventDefault();setZoom(-1)}});
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+let UND=[],RED=[],LAST=null;
+const save=()=>{const now=JSON.stringify(S);if(LAST!==null&&now!==LAST){UND.push(LAST);if(UND.length>80)UND.shift();RED=[]}LAST=now;try{localStorage.setItem(KEY,now)}catch(e){}};
+function undo(){if(!UND.length)return;RED.push(JSON.stringify(S));S=JSON.parse(UND.pop());LAST=JSON.stringify(S);try{localStorage.setItem(KEY,LAST)}catch(e){};render();applyZoom()}
+function redo(){if(!RED.length)return;UND.push(JSON.stringify(S));S=JSON.parse(RED.pop());LAST=JSON.stringify(S);try{localStorage.setItem(KEY,LAST)}catch(e){};render();applyZoom()}
+addEventListener('keydown',e=>{if(!(e.metaKey||e.ctrlKey)||e.key.toLowerCase()!=='z')return;if(e.target.closest&&e.target.closest('[contenteditable],input,textarea'))return;e.preventDefault();e.shiftKey?redo():undo()});
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const cap=n=>{const m=/×\s*(\d+)/.exec(n||'');return m?+m[1]:1};
 const lbl=x=>/감독$/.test(x||'')?x:(x||'').replace(/^(VINFILM|교회|칠렌탈|박완준|문호준|최영민)\s+/,'').replace(/^소니\s+/,'');
@@ -255,6 +259,8 @@ document.addEventListener('input',e=>{const t=e.target;
  if(t.dataset.p){const [i,f]=at(t.dataset.p);S.pool[+i][f]=t.textContent;save()}});
 document.addEventListener('focusout',e=>{if(e.target.dataset.p)render()});
 document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;
+ if('undo' in t.dataset){undo();return}
+ if('redo' in t.dataset){redo();return}
  if(t.dataset.zoom){setZoom(+t.dataset.zoom);return}
  if('budget' in t.dataset){window.open('https://www.vinfilmstudio.com/works/?proj=1792499249308-7cai51y','_blank');return}
  if(t.dataset.tab){S.tab=t.dataset.tab;save();render()}
@@ -286,5 +292,5 @@ try{if(localStorage.getItem('vf-board-nobar')==='1')document.body.classList.add(
 document.getElementById('hideBar').onclick=()=>{document.body.classList.add('nobar');try{localStorage.setItem('vf-board-nobar','1')}catch(e){}};
 document.getElementById('showBar').onclick=()=>{document.body.classList.remove('nobar');try{localStorage.setItem('vf-board-nobar','0')}catch(e){}};
 document.getElementById('reload').onclick=async()=>{try{await Promise.all(['board.html','checklist.html','angles.html'].map(u=>fetch(u,{cache:'reload'})))}catch(e){}location.href=location.pathname+'?r='+Date.now()};
-render();applyZoom();
+render();applyZoom();LAST=JSON.stringify(S);
 </script></body></html>
