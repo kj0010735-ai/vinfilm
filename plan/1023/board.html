@@ -106,6 +106,7 @@ select.sup2{margin-top:3px;border-color:#d97706}
 @media (max-width:1100px){.pf{font-size:11px;padding:3px 6px}}
 .orch,.band{align-items:flex-start!important;justify-content:flex-start!important;padding:4px 6px;font-size:8pt!important;opacity:.85}
 .pf.drum{display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:46% 46% 40% 40%;background:repeating-radial-gradient(circle at 50% 60%,#be123c 0 6px,#e11d48 6px 12px);border:2px solid #881337;min-width:0}
+.pf .pose{display:block;font-style:normal;font-size:.85em;font-weight:800;margin-top:1px;background:rgba(255,255,255,.25);border-radius:4px;padding:0 3px;cursor:pointer}
 </style></head><body>
 <div class="bar" id="bar"><button id="hideBar" title="탭 숨기기">⌃</button>
 <div class="tabs" id="tabs"></div>
@@ -159,6 +160,8 @@ const NB=[["보컬", "박준"], ["보컬", "이시몬"], ["피아노", "최찬�
 if(S&&S.perf&&!S.band2){const b=S.perf.filter(m=>m.g==='band');NB.forEach((v,i)=>{if(b[i]){b[i].r=v[0];b[i].n=v[1]}else S.perf.push({g:'band',r:v[0],n:v[1],x:20+i*10,y:39})});S.perf=S.perf.filter(m=>m.g!=='band'||NB.some(v=>v[1]===m.n));S.band2=1}
 if(S&&!S.mig11){if(!S.pool.some(p=>/28-135/.test(p.n))){const i=S.pool.findIndex(p=>p.n==='교회 70-200 GM');S.pool.splice(i+1,0,{c:'렌즈',n:'칠렌탈 소니 28-135 F4 G',o:'칠렌탈'})}S.mig11=1}
 if(S&&!S.mig12){Object.values(S.ph).forEach(a=>a.forEach(c=>{if(/펀치달리/.test(c.sup||'')){c.lens='칠렌탈 소니 28-135 F4 G';c.lensNote='레일 · 28-135 줌으로 사이즈 조절'}}));S.mig12=1}
+const POSE={"보컬": "s", "피아노": "c", "신스": "s", "일렉": "s", "베이스": "s", "드럼": "c", "Vn1": "s", "Vn2": "s", "Va": "s", "Vc": "c", "Hr": "s", "Sax": "s", "Tb": "s", "Tp": "s", "Sn": "s"};
+if(S&&S.perf&&!S.pose1){S.perf.forEach(m=>{if(!m.p)m.p=POSE[m.r]||'s'});S.pose1=1}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const cap=n=>{const m=/×\s*(\d+)/.exec(n||'');return m?+m[1]:1};
@@ -179,7 +182,7 @@ function phaseHtml(k,label){
   <div class="zone orch">오케스트라</div>
   <div class="zone band">히스플랜 밴드</div>
   <div class="zone dir">연출석 · 레졸룸 · 모니터</div>
-  ${(S.perf||[]).map((m,j)=>`<div class="pf g-${m.g}${m.r==='드럼'?' drum':''}" data-pf="${j}" style="left:${m.x}%;top:${m.y}%${m.r==='드럼'?';width:11%;height:6.7%':''}"><b>${esc(m.r)}</b>${m.n?`<span>${esc(m.n)}</span>`:''}</div>`).join('')}
+  ${(S.perf||[]).map((m,j)=>`<div class="pf g-${m.g}${m.r==='드럼'?' drum':''}" data-pf="${j}" style="left:${m.x}%;top:${m.y}%${m.r==='드럼'?';width:11%;height:6.7%':''}"><b>${esc(m.r)}</b>${m.n?`<span>${esc(m.n)}</span>`:''}<i class="pose" data-pose="${j}">${m.p==='c'?'🪑 앉음':'🧍 섬'}</i></div>`).join('')}
   <div class="rail" data-rail style="left:${r.x}%;top:${r.y}%;width:${r.w}%;transform:rotate(${r.a}deg);opacity:${k==='rail'?1:.45}"><div class="tr"></div><div class="lb">레일 (펀치달리)</div><div class="hd hd0"></div><div class="hd" data-rhd></div></div>
   ${cams.map((c,i)=>`<div class="cam${c.on?'':' off'}" data-cam="${k},${i}" style="left:${c.x}%;top:${c.y}%"><span class="ar" style="transform:rotate(${c.a}deg)"></span>${c.n}<span class="nm">${esc(c.op)}<small>${esc(short(c.body))}${c.lens?' · '+esc(short(c.lens)):''}</small></span></div>`).join('')}
  </div>
@@ -223,10 +226,11 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)r
  else if('padd' in t.dataset){S.pool.push({c:'기타',n:'새 장비',o:''});save();render()}
  else if(t.dataset.pdel){S.pool.splice(+t.dataset.pdel,1);save();render()}
  else if(t.id==='reset'&&confirm('처음 배치로 되돌릴까요? 고친 내용이 지워져요.')){try{localStorage.removeItem(KEY)}catch(e){}location.reload()}});
+document.addEventListener('click',e=>{const t=e.target.closest('[data-pose]');if(!t)return;const m=S.perf[+t.dataset.pose];m.p=m.p==='c'?'s':'c';save();render()});
 document.addEventListener('dblclick',e=>{const pf=e.target.closest('[data-pf]');if(pf){const m=S.perf[+pf.dataset.pf];const v=prompt('이름 (비우면 이 사람 빼기)',m.n||m.r);if(v===null)return;if(v.trim()==='')S.perf.splice(+pf.dataset.pf,1);else m.n=v.trim();save();render();return}const c=e.target.closest('.cam');if(!c)return;const [k,i]=at(c.dataset.cam);S.ph[k][+i].on=!S.ph[k][+i].on;save();render()});
 document.addEventListener('wheel',e=>{const c=e.target.closest('.cam');if(!c)return;e.preventDefault();const [k,i]=at(c.dataset.cam);const o=S.ph[k][+i];o.a=(o.a+(e.deltaY>0?15:-15))%360;c.querySelector('.ar').style.transform=`rotate(${o.a}deg)`;save()},{passive:false});
 let drag=null;
-document.addEventListener('pointerdown',e=>{const c=e.target.closest('.cam,[data-rail],[data-pf]');if(!c)return;e.preventDefault();const map=c.closest('.map');drag={rh:!!e.target.closest('[data-rhd]'),el:c,map,rect:map.getBoundingClientRect(),rot:(e.shiftKey||!!e.target.closest('.ar'))&&c.classList.contains('cam'),sx:e.clientX};c.setPointerCapture(e.pointerId)});
+document.addEventListener('pointerdown',e=>{if(e.target.closest('[data-pose]'))return;const c=e.target.closest('.cam,[data-rail],[data-pf]');if(!c)return;e.preventDefault();const map=c.closest('.map');drag={rh:!!e.target.closest('[data-rhd]'),el:c,map,rect:map.getBoundingClientRect(),rot:(e.shiftKey||!!e.target.closest('.ar'))&&c.classList.contains('cam'),sx:e.clientX};c.setPointerCapture(e.pointerId)});
 document.addEventListener('pointermove',e=>{if(!drag)return;const {el,rect}=drag;
  let x=Math.max(0,Math.min(100,(e.clientX-rect.left)/rect.width*100)),y=Math.max(0,Math.min(100,(e.clientY-rect.top)/rect.height*100));
  if(el.hasAttribute('data-rail')){const R=S.rail;if(drag.rh){const ox=rect.left+R.x/100*rect.width,oy=rect.top+R.y/100*rect.height,dx=e.clientX-ox,dy=e.clientY-oy;R.w=Math.max(6,Math.min(90,Math.hypot(dx,dy)/rect.width*100));R.a=Math.round(Math.atan2(dy,dx)*180/Math.PI/5)*5;el.style.width=R.w+'%';el.style.transform=`rotate(${R.a}deg)`}else{if(drag.ox==null){drag.ox=x-R.x;drag.oy=y-R.y}R.x=+(x-drag.ox).toFixed(1);R.y=+(y-drag.oy).toFixed(1);el.style.left=R.x+'%';el.style.top=R.y+'%'}return}
