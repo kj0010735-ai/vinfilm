@@ -48,6 +48,10 @@ select{width:100%;font:inherit;font-size:8.5pt;border:1px solid #ccc;border-radi
 td.x{width:6mm;text-align:center}td.x button{border:0;background:none;color:#bbb;cursor:pointer}
 .phase{display:none}.phase.on{display:block}
 .chk{display:none}.chk.on{display:block}.chk iframe{width:100%;height:calc(100vh - 140px);min-height:900px;border:0;background:#eee}
+.pool tr.k-cam td:first-child{box-shadow:inset 5px 0 #2563eb}.pool tr.k-lens td:first-child{box-shadow:inset 5px 0 #16a34a}.pool tr.k-sup td:first-child{box-shadow:inset 5px 0 #d97706}.pool tr.k-ic td:first-child{box-shadow:inset 5px 0 #9333ea}.pool tr.k-etc td:first-child{box-shadow:inset 5px 0 #888}
+.pool tr.k-cam{background:#f2f6ff}.pool tr.k-lens{background:#f1faf4}.pool tr.k-sup{background:#fff7ec}.pool tr.k-ic{background:#f8f2ff}
+.pool td.kc{font-weight:900;padding-left:10px}.k-cam td.kc{color:#1d4ed8}.k-lens td.kc{color:#15803d}.k-sup td.kc{color:#b45309}.k-ic td.kc{color:#7e22ce}
+.src{display:inline-block;padding:1px 7px;border-radius:10px;font-size:.92em;font-weight:800;background:#eee;color:#444}.src.vf{background:#111;color:#fff}.src.ch{background:#fde68a;color:#7c4a03}.src.rt{background:#dbeafe;color:#1e40af}.src.dr{background:#e9d5ff;color:#6b21a8}
 .warn{margin-top:8px;font-size:8.5pt;color:var(--accent);font-weight:700;line-height:1.5}
 @media print{
  @page{size:A4 landscape;margin:8mm}
@@ -154,7 +158,7 @@ function phaseHtml(k,label){
  <td contenteditable data-e="${k},${i}">${esc(c.role)}</td></tr>`).join('')}</table>
  <h2 style="margin-top:10px">장비 목록 (이 단계 사용 현황)</h2>
  <table class="pool"><tr><th style="width:14mm">분류</th><th>장비</th><th style="width:20mm">출처</th><th style="width:20mm">사용</th><th class="x" style="width:6mm"></th></tr>
- ${S.pool.map((p,i)=>{const u=used[p.n]||0;return `<tr><td contenteditable data-p="${i},c">${esc(p.c)}</td><td contenteditable data-p="${i},n">${esc(p.n)}</td><td contenteditable data-p="${i},o">${esc(p.o)}</td><td class="st ${u>1&&p.n!=='감독 지참 삼각대'?'dup':u?'ok':'no'}">${u?(cams.filter(c=>c.on&&[c.body,c.lens,c.sup].includes(p.n)).map(c=>c.n+'번').join('·')):'남음'}</td><td class="x"><button data-pdel="${i}">✕</button></td></tr>`}).join('')}</table>
+ ${S.pool.map((p,i)=>{const u=used[p.n]||0;const kc={'카메라':'k-cam','렌즈':'k-lens','지지':'k-sup','인터컴':'k-ic'}[(p.c||'').trim()]||'k-etc';const o=p.o||'';const sc=/VINFILM/.test(o)?'vf':/교회/.test(o)?'ch':/칠렌탈/.test(o)?'rt':/감독/.test(o)?'dr':'';return `<tr class="${kc}"><td class="kc" contenteditable data-p="${i},c">${esc(p.c)}</td><td contenteditable data-p="${i},n">${esc(p.n)}</td><td data-p="${i},o" contenteditable><span class="src ${sc}">${esc(p.o)}</span></td><td class="st ${u>1&&p.n!=='감독 지참 삼각대'?'dup':u?'ok':'no'}">${u?(cams.filter(c=>c.on&&[c.body,c.lens,c.sup].includes(p.n)).map(c=>c.n+'번').join('·')):'남음'}</td><td class="x"><button data-pdel="${i}">✕</button></td></tr>`}).join('')}</table>
  <button class="add" data-padd>+ 장비 추가</button>
  </div></div></div>`;
 }
