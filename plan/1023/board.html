@@ -147,7 +147,7 @@ if(S&&!S.mig9){S.pool=S.pool.filter(p=>p.n!=='문호준 망원 렌즈');Object.v
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const cap=n=>{const m=/×\s*(\d+)/.exec(n||'');return m?+m[1]:1};
-const opt=(list,v,taken)=>['',...list].map(x=>{const off=x&&x!==v&&taken&&(taken[x]||0)>=cap(x);return `<option${x===v?' selected':''}${off?' disabled':''}>${esc(x)}${off?' (사용 중)':''}</option>`}).join('');
+const opt=(list,v,taken)=>`<option value=""${!v?' selected':''}>없음</option>`+list.map(x=>{const off=x&&x!==v&&taken&&(taken[x]||0)>=cap(x);return `<option value="${esc(x)}"${x===v?' selected':''}${off?' disabled':''}>${esc(x)}${off?' (사용 중)':''}</option>`}).join('');
 const poolBy=c=>S.pool.filter(p=>p.c===c).map(p=>p.n);
 function phaseHtml(k,label){
  const cams=S.ph[k];
