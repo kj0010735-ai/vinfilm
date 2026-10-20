@@ -202,8 +202,8 @@ if(S&&!S.w18){(S.perf||[]).forEach(m=>{m.x=+(50+(m.x-50)*20/18).toFixed(1)});Obj
 if(S&&S.rail&&!S.rl3){const c=S.rail.x+S.rail.w/2;S.rail.w=+(3/18*100).toFixed(1);S.rail.x=+(c-S.rail.w/2).toFixed(1);S.rl3=1}
 if(S&&!S.d33){const k=0.4848;(S.perf||[]).forEach(m=>{m.y=+(m.y*k).toFixed(1)});Object.values(S.ph).forEach(a=>a.forEach(c=>{c.y=+(c.y*k+8).toFixed(1)}));(S.perf||[]).forEach(m=>{m.y=+(m.y+8*0+0).toFixed(1)});if(S.rail)S.rail.y=+(S.rail.y*k+8).toFixed(1);S.dir={x:36,y:62};S.d33=1}
 if(S&&S.perf&&!S.grp1){const P={"한예진": [29.4, 9.7], "신유진": [25.0, 13.0], "권혁민": [21.1, 16.4], "조예윤": [70.6, 9.7], "장석호": [75.0, 13.0], "이예진": [78.9, 16.4], "스네어 1": [10.0, 24.2], "스네어 2": [15.0, 24.2], "박준": [43.9, 20.3], "이시몬": [56.1, 20.3]};S.perf.forEach(m=>{const v=P[m.n];if(v){m.x=v[0];m.y=v[1]}});S.grp1=1}
-const ZM=()=>{try{return +(localStorage.getItem('vf-board-zoom')||1)}catch(e){return 1}};
-function setZoom(d){let z=ZM();z=Math.max(.6,Math.min(3,+(z+d*0.2).toFixed(1)));try{localStorage.setItem('vf-board-zoom',z)}catch(e){};applyZoom()}
+const ZM=()=>{try{return +(localStorage.getItem('vf-board-zoom-'+S.tab)||localStorage.getItem('vf-board-zoom')||1)}catch(e){return 1}};
+function setZoom(d){let z=ZM();z=Math.max(.6,Math.min(3,+(z+d*0.2).toFixed(1)));try{localStorage.setItem('vf-board-zoom-'+S.tab,z)}catch(e){};applyZoom()}
 function applyZoom(){const z=ZM();document.querySelectorAll('.sheet,#chkWrap,#angWrap').forEach(el=>el.style.zoom=z);const b=document.getElementById('zmv');if(b)b.textContent=Math.round(z*100)+'%'}
 addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('[contenteditable],input,select,textarea'))return;if(e.key==='+'||e.key==='='){e.preventDefault();setZoom(1)}else if(e.key==='-'||e.key==='_'){e.preventDefault();setZoom(-1)}});
 let UND=[],RED=[],LAST=null;
@@ -279,7 +279,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)r
  if('redo' in t.dataset){redo();return}
  if(t.dataset.zoom){setZoom(+t.dataset.zoom);return}
  if('budget' in t.dataset){window.open('https://www.vinfilmstudio.com/works/?proj=1792499249308-7cai51y','_blank');return}
- if(t.dataset.tab){S.tab=t.dataset.tab;save();render()}
+ if(t.dataset.tab){S.tab=t.dataset.tab;save();render();applyZoom()}
  else if(t.dataset.padd2){S.perf.push({g:t.dataset.padd2,r:t.dataset.padd2==='band'?'멤버':'연주자',n:'',x:50,y:t.dataset.padd2==='band'?40:20});save();render()}
  else if(t.dataset.cadd){const a=S.ph[t.dataset.cadd];const n=Math.max(0,...a.map(c=>c.n))+1;a.push({n,op:'(무인)',body:'',lens:'',sup:'',role:'',x:50,y:88,a:-90,on:true});save();render()}
  else if(t.dataset.cdel){const [k,i]=at(t.dataset.cdel);if(confirm(S.ph[k][+i].n+'번 카메라를 뺄까요?')){S.ph[k].splice(+i,1);save();render()}}
