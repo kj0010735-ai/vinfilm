@@ -118,12 +118,12 @@ select.sup2{margin-top:3px;border-color:#d97706}
 .pf b,.pf span{white-space:nowrap;text-shadow:0 0 2px rgba(0,0,0,.5)}.pf b{font-size:1em}.pf span{font-size:.95em}.pf .pose{font-size:.9em!important;padding:0 2px!important}
 @media (max-width:1100px){.pf{font-size:9px!important}}
 td select{font-size:13px}
-.mapwrap{overflow:auto;max-height:calc(100vh - 120px);-webkit-overflow-scrolling:touch}.mapwrap .map{max-width:none}
-.zm{float:right;display:inline-flex;align-items:center;gap:4px;font-size:12px}.zm button{border:1px solid #111;background:#fff;border-radius:4px;width:28px;height:26px;font-size:16px;font-weight:900;cursor:pointer}.zm b{min-width:40px;text-align:center}
+
+.zm{flex:none;display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#fff}.zm button{border:0;background:#fff;color:#111;border-radius:4px;width:28px;height:26px;font-size:16px;font-weight:900;cursor:pointer}.zm b{min-width:40px;text-align:center}
 </style></head><body>
 <div class="bar" id="bar"><button id="hideBar" title="탭 숨기기">⌃</button>
 <div class="tabs" id="tabs"></div>
-<button id="reload" title="새로고침">↻</button></div>
+<span class="zm"><button data-zoom="-1">−</button><b id="zmv">100%</b><button data-zoom="1">+</button></span><button id="reload" title="새로고침">↻</button></div>
 <button id="showBar">☰ 탭</button>
 <div class="sheet">
 
@@ -195,7 +195,8 @@ if(S&&S.rail&&!S.rl3){const c=S.rail.x+S.rail.w/2;S.rail.w=+(3/18*100).toFixed(1
 if(S&&!S.d33){const k=0.4848;(S.perf||[]).forEach(m=>{m.y=+(m.y*k).toFixed(1)});Object.values(S.ph).forEach(a=>a.forEach(c=>{c.y=+(c.y*k+8).toFixed(1)}));(S.perf||[]).forEach(m=>{m.y=+(m.y+8*0+0).toFixed(1)});if(S.rail)S.rail.y=+(S.rail.y*k+8).toFixed(1);S.dir={x:36,y:62};S.d33=1}
 if(S&&S.perf&&!S.grp1){const P={"한예진": [29.4, 9.7], "신유진": [25.0, 13.0], "권혁민": [21.1, 16.4], "조예윤": [70.6, 9.7], "장석호": [75.0, 13.0], "이예진": [78.9, 16.4], "스네어 1": [10.0, 24.2], "스네어 2": [15.0, 24.2], "박준": [43.9, 20.3], "이시몬": [56.1, 20.3]};S.perf.forEach(m=>{const v=P[m.n];if(v){m.x=v[0];m.y=v[1]}});S.grp1=1}
 const ZM=()=>{try{return +(localStorage.getItem('vf-board-zoom')||1)}catch(e){return 1}};
-function setZoom(d){let z=ZM();z=Math.max(.6,Math.min(3,+(z+d*0.2).toFixed(1)));try{localStorage.setItem('vf-board-zoom',z)}catch(e){};render()}
+function setZoom(d){let z=ZM();z=Math.max(.6,Math.min(3,+(z+d*0.2).toFixed(1)));try{localStorage.setItem('vf-board-zoom',z)}catch(e){};applyZoom()}
+function applyZoom(){const z=ZM();document.querySelectorAll('.sheet,#chkWrap,#angWrap').forEach(el=>el.style.zoom=z);const b=document.getElementById('zmv');if(b)b.textContent=Math.round(z*100)+'%'}
 addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('[contenteditable],input,select,textarea'))return;if(e.key==='+'||e.key==='='){e.preventDefault();setZoom(1)}else if(e.key==='-'||e.key==='_'){e.preventDefault();setZoom(-1)}});
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -212,8 +213,8 @@ function phaseHtml(k,label){
  if(k==='rail'&&!cams.some(c=>/펀치달리/.test(c.sup||'')))warn.push('레일 테이크인데 펀치달리를 쓰는 카메라가 없어요');
  const r=S.rail;
  return `<div class="phase${S.tab===k?' on':''}" data-ph="${k}"><div class="grid"><div>
- <h2>${label} · 배치도 <span class="zm"><button data-zoom="-1">−</button><b>${Math.round(ZM()*100)}%</b><button data-zoom="1">+</button></span></h2>
- <div class="mapwrap"><div class="map" data-map="${k}" style="width:${ZM()*100}%">
+ <h2>${label} · 배치도</h2>
+ <div class="mapwrap"><div class="map" data-map="${k}">
   <div class="wall"></div><div class="zone screen" data-scr style="left:${50-(S.scr||11)/18*50}%;right:${50-(S.scr||11)/18*50}%">빔 화면 ${S.scr||11}m × ${((S.scr||11)*10/16).toFixed(1)}m (눌러서 변경)</div><div class="scale">1칸 = 1m · 호리존 폭 17m × 깊이 33m × 높이 7m (공식)</div>
   
   
@@ -285,5 +286,5 @@ try{if(localStorage.getItem('vf-board-nobar')==='1')document.body.classList.add(
 document.getElementById('hideBar').onclick=()=>{document.body.classList.add('nobar');try{localStorage.setItem('vf-board-nobar','1')}catch(e){}};
 document.getElementById('showBar').onclick=()=>{document.body.classList.remove('nobar');try{localStorage.setItem('vf-board-nobar','0')}catch(e){}};
 document.getElementById('reload').onclick=async()=>{try{await Promise.all(['board.html','checklist.html','angles.html'].map(u=>fetch(u,{cache:'reload'})))}catch(e){}location.href=location.pathname+'?r='+Date.now()};
-render();
+render();applyZoom();
 </script></body></html>
