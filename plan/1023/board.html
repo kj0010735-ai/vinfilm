@@ -163,6 +163,9 @@ if(S&&!S.mig12){Object.values(S.ph).forEach(a=>a.forEach(c=>{if(/펀치달리/.t
 const POSE={"보컬": "s", "피아노": "s", "신스": "s", "일렉": "s", "베이스": "s", "드럼": "c", "Vn1": "s", "Vn2": "s", "Va": "s", "Vc": "c", "Hr": "s", "Sax": "s", "Tb": "s", "Tp": "s", "Sn": "s"};
 if(S&&S.perf&&!S.pose1){S.perf.forEach(m=>{if(!m.p)m.p=POSE[m.r]||'s'});S.pose1=1}
 if(S&&S.perf&&!S.pose2){S.perf.forEach(m=>{if(m.n==='최찬미')m.p='s'});S.pose2=1}
+const FAN={"박준": [46, 47, "s"], "이시몬": [55, 47, "s"], "최찬미": [31, 40, "c"], "심택근": [40, 40, "c"], "김하일": [19, 44, "s"], "최선용": [81, 44, "s"], "한상희": [64, 38, "c"], "한예진": [24, 20, "s"], "신유진": [19, 26, "s"], "장석호": [15, 32, "s"], "권혁민": [76, 20, "s"], "조예윤": [81, 26, "s"], "이예진": [85, 32, "s"], "채송아": [9, 41, "c"], "손세인": [91, 41, "c"], "유주영": [34, 13, "s"], "박두호": [42, 13, "s"], "오현석": [50, 13, "s"], "이은수": [58, 13, "s"], "조민혁": [66, 13, "s"], "스네어 1": [26, 12, "s"], "스네어 2": [74, 12, "s"]};
+if(S&&S.perf&&!S.fan1){S.perf.forEach(m=>{const f=FAN[m.n];if(f){m.x=f[0];m.y=f[1];m.p=f[2]}});S.fan1=1}
+if(S&&!S.fan2){Object.values(S.ph).forEach(a=>a.forEach(c=>{(S.perf||[]).forEach(m=>{if(Math.abs(c.x-m.x)<6&&Math.abs(c.y-m.y)<5){c.y=Math.min(95,m.y+12)}})}));S.fan2=1}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const cap=n=>{const m=/×\s*(\d+)/.exec(n||'');return m?+m[1]:1};
@@ -180,8 +183,8 @@ function phaseHtml(k,label){
  <h2>${label} · 배치도</h2>
  <div class="map" data-map="${k}">
   <div class="zone screen">호리존 빔 화면</div>
-  <div class="zone orch">오케스트라</div>
-  <div class="zone band">히스플랜 밴드</div>
+  
+  
   <div class="zone dir">연출석 · 레졸룸 · 모니터</div>
   ${(S.perf||[]).map((m,j)=>`<div class="pf g-${m.g}${m.r==='드럼'?' drum':''}" data-pf="${j}" style="left:${m.x}%;top:${m.y}%${m.r==='드럼'?';width:11%;height:6.7%':''}"><b>${esc(m.r)}</b>${m.n?`<span>${esc(m.n)}</span>`:''}<i class="pose" data-pose="${j}">${m.p==='c'?'🪑 앉음':'🧍 섬'}</i></div>`).join('')}
   <div class="rail" data-rail style="left:${r.x}%;top:${r.y}%;width:${r.w}%;transform:rotate(${r.a}deg);opacity:${k==='rail'?1:.45}"><div class="tr"></div><div class="lb">레일 (펀치달리)</div><div class="hd hd0"></div><div class="hd" data-rhd></div></div>
