@@ -23,7 +23,7 @@
 <button class="nav l" id="prev">‹</button><button class="nav r" id="next">›</button>
 <div class="dots" id="dots"></div>
 <script>
-const Q=new URLSearchParams(location.search).get('d');const SETS={a:['angles/a-1','angles/a-2','angles/a-3','angles/a-4'],cue:['docs/cue-1'],light:['docs/light-1']};
+const Q=new URLSearchParams(location.search).get('d');const SETS={a:['angles/a-1','angles/a-2','angles/a-3','angles/a-4'],cue:['docs/cue-1'],light:['docs/light-1'],budget:['docs/budget-1']};
 const deck=document.getElementById('deck');let cur='a';
 function load(k){cur=k;document.querySelectorAll('[data-set]').forEach(b=>b.classList.toggle('on',b.dataset.set===k));
  deck.innerHTML=SETS[k].map(n=>`<div class="pg-wrap"><img src="${n}.jpg?v=5" alt=""></div>`).join('');deck.scrollLeft=0;upd()}
