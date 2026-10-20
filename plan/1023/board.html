@@ -227,7 +227,7 @@ document.addEventListener('input',e=>{const t=e.target;
  if(t.dataset.p){const [i,f]=at(t.dataset.p);S.pool[+i][f]=t.textContent;save()}});
 document.addEventListener('focusout',e=>{if(e.target.dataset.p)render()});
 document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;
- if('budget' in t.dataset){window.open('https://www.vinfilmstudio.com/works/','_blank');return}
+ if('budget' in t.dataset){window.open('https://www.vinfilmstudio.com/works/?proj=1792499249308-7cai51y','_blank');return}
  if(t.dataset.tab){S.tab=t.dataset.tab;save();render()}
  else if(t.dataset.padd2){S.perf.push({g:t.dataset.padd2,r:t.dataset.padd2==='band'?'멤버':'연주자',n:'',x:50,y:t.dataset.padd2==='band'?40:20});save();render()}
  else if(t.dataset.cadd){const a=S.ph[t.dataset.cadd];const n=Math.max(0,...a.map(c=>c.n))+1;a.push({n,op:'(무인)',body:'',lens:'',sup:'',role:'',x:50,y:88,a:-90,on:true});save();render()}

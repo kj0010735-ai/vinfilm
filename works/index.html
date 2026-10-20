@@ -5769,6 +5769,8 @@ async function handlePhotoFile(file) {
 }
 
 function bootApp() {
+  // ?proj={id} — 외부 페이지(촬영 배치판 등)에서 특정 프로젝트 상세로 바로 열기
+  { const pj = new URLSearchParams(location.search).get('proj'); if (pj && !GUEST_MODE) { S.activeTab = 'projects'; S.proj.detailId = pj; } }
   render();
   startAppUpdates();
   hisplanRefresh(false); hisplanLoadUrl();
