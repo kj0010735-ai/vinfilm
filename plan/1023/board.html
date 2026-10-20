@@ -98,7 +98,7 @@ body.nobar .ang iframe{height:100vh!important}body.nobar .chk iframe{height:100v
 </style></head><body>
 <div class="bar" id="bar"><button id="hideBar" title="탭 숨기기">⌃</button>
 <div class="tabs" id="tabs"></div>
-<button id="reset">처음으로</button></div>
+<button id="reload" title="새로고침">↻</button><button id="reset">처음으로</button></div>
 <button id="showBar">☰ 탭</button>
 <div class="sheet">
 
@@ -207,5 +207,6 @@ window.addEventListener('afterprint',render);
 try{if(localStorage.getItem('vf-board-nobar')==='1')document.body.classList.add('nobar')}catch(e){}
 document.getElementById('hideBar').onclick=()=>{document.body.classList.add('nobar');try{localStorage.setItem('vf-board-nobar','1')}catch(e){}};
 document.getElementById('showBar').onclick=()=>{document.body.classList.remove('nobar');try{localStorage.setItem('vf-board-nobar','0')}catch(e){}};
+document.getElementById('reload').onclick=async()=>{try{await Promise.all(['board.html','checklist.html','angles.html'].map(u=>fetch(u,{cache:'reload'})))}catch(e){}location.href=location.pathname+'?r='+Date.now()};
 render();
 </script></body></html>
