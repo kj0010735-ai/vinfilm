@@ -72,7 +72,7 @@ td.x button:hover{color:var(--accent)}
 <script>
 const DEFAULT=[
  ['카메라 BODY',[['FX3','1','5번 레일',''],['A7C2','1','1번 정면','']]],
- ['렌즈 LENS',[['sigma 16-28','1','1번 정면',''],['sigma 28-70','1','5번 레일',''],['v-af 35mm','1','',''],['v-af 75mm','1','4번',''],['v-af 100mm','1','4번','']]],
+ ['렌즈 LENS',[['sigma 16-28','1','1번 정면',''],['sigma 28-70','1','5번 레일',''],['v-af 35mm','1','',''],['v-af 75mm','1','4번',''],['v-af 100mm','1','4번',''],['소니 28-135mm F4 G (칠렌탈)','1','','렌탈 · 반납']]],
  ['삼각대 / 짐벌 / 레일',[['YC Onion PINETA PEAK + Cedar CB7','1','1번',''],['셔틀러 에이스 (칠렌탈)','1','','렌탈 · 반납'],['맨프로토 509HD (칠렌탈)','1','','렌탈 · 반납'],['펀치달리 (레일 5조·휠·쐐기박스·수평자)','1','5번','렌탈 · 반납'],['RONIN RS2','1','','예비 (전부 트라이)']]],
  ['모니터 · 무선 · 인터컴',[['OSEE Mega 15S','1','연출석',''],['Feelworld P6XL','1','레일',''],['DJI transmission combo','2','','송신기·수신기'],['교회 SYNCO Xtalk XM8 인터컴','8','','교회에서 받기 · 충전 확인 · 반납']]],
  ['전원 · 미디어',[['NP-FZ100','5','','전날 충전'],['V-Mount 4064B / VB99 / ATTO ONE','4','','모니터·무선용'],['메모리 카드 TOUGH 160GB','1','','포맷'],['메모리 카드 TOUGH 128GB','1','','포맷'],['메모리 카드 TOUGH 256GB','1','','포맷'],['충전기 · 멀티탭 · 릴선','','연출석','']]],
@@ -82,6 +82,7 @@ const KEY='vf-gear-checklist-1023-v4';
 let data; try{data=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!data) data={secs:DEFAULT.map(([n,r])=>({n,rows:r.map(x=>({v:x,a:false,b:false}))})),meta:{}};
 if(data&&!data.mig1){data.secs.forEach(s=>s.rows.forEach(r=>{if(/Hollyland/i.test(r.v[0]||'')){r.v=['교회 SYNCO Xtalk XM8 인터컴','8','','교회에서 받기 · 충전 확인 · 반납']}}));data.mig1=1}
+if(data&&!data.mig2){const L=data.secs.find(x=>/렌즈/.test(x.n));if(L&&!L.rows.some(r=>/28-135/.test(r.v[0])))L.rows.push({v:['소니 28-135mm F4 G (칠렌탈)','1','','렌탈 · 반납'],a:false,b:false});data.mig2=1}
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function save(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}}
 function render(){
