@@ -35,5 +35,6 @@ document.querySelectorAll('[data-set]').forEach(b=>b.onclick=()=>load(b.dataset.
 prev.onclick=()=>go(-1);next.onclick=()=>go(1);
 addEventListener('keydown',e=>{if(e.key==='ArrowRight')go(1);if(e.key==='ArrowLeft')go(-1)});
 addEventListener('resize',()=>{const i=idx();deck.scrollLeft=i*deck.clientWidth});
+if(self!==top){document.querySelector('.top a').style.display='none'}
 load('a');
 </script></body></html>

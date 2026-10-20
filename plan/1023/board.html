@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow"><title>촬영장비 배치판</title>
+<meta name="robots" content="noindex,nofollow"><title>10/23 촬영 준비</title>
 <style>
 :root{--ink:#111;--line:#dcdcdc;--soft:#f5f5f5;--accent:#d81f1f;--blue:#2f6fee}
 *{box-sizing:border-box}
@@ -47,7 +47,8 @@ select{width:100%;font:inherit;font-size:8.5pt;border:1px solid #ccc;border-radi
 .add{font-size:8.5pt;font-weight:700;border:1px solid #111;background:#fff;border-radius:4px;padding:2px 8px;cursor:pointer;margin-top:4px}
 td.x{width:6mm;text-align:center}td.x button{border:0;background:none;color:#bbb;cursor:pointer}
 .phase{display:none}.phase.on{display:block}
-.chk{display:none}.chk.on{display:block}.chk iframe{width:100%;height:calc(100vh - 140px);min-height:900px;border:0;background:#eee}
+.chk{display:none}.chk.on{display:block}.ang iframe{height:calc(100vh - 64px)!important;min-height:0!important;background:#111}
+.chk iframe{width:100%;height:calc(100vh - 140px);min-height:900px;border:0;background:#eee}
 .pool tr.k-cam td:first-child{box-shadow:inset 5px 0 #2563eb}.pool tr.k-lens td:first-child{box-shadow:inset 5px 0 #16a34a}.pool tr.k-sup td:first-child{box-shadow:inset 5px 0 #d97706}.pool tr.k-ic td:first-child{box-shadow:inset 5px 0 #9333ea}.pool tr.k-etc td:first-child{box-shadow:inset 5px 0 #888}
 .pool tr.k-cam{background:#f2f6ff}.pool tr.k-lens{background:#f1faf4}.pool tr.k-sup{background:#fff7ec}.pool tr.k-ic{background:#f8f2ff}
 .pool td.kc{font-weight:900;padding-left:10px}.k-cam td.kc{color:#1d4ed8}.k-lens td.kc{color:#15803d}.k-sup td.kc{color:#b45309}.k-ic td.kc{color:#7e22ce}
@@ -98,6 +99,7 @@ td.x{width:6mm;text-align:center}td.x button{border:0;background:none;color:#bbb
 <div id="phases"></div>
 </div>
 <div class="chk" id="chkWrap"></div>
+<div class="chk ang" id="angWrap"></div>
 <script>
 const PH=[['rail','PART 1 · 레일'],['base','PART 2 · 기본 앵글'],['crea','PART 2 · 창의 앵글']];
 const OPS=['박완준 감독','문호준 감독','최영민 감독','김창훈','윤관','(무인)'];
@@ -165,9 +167,11 @@ function phaseHtml(k,label){
  </div></div></div>`;
 }
 function render(){
- document.getElementById('tabs').innerHTML=PH.map(([k,l])=>`<button data-tab="${k}" class="${S.tab===k?'on':''}">${l.replace('PART ','')}</button>`).join('')+`<button data-tab="chk" class="${S.tab==='chk'?'on':''}">✅ 체크리스트</button>`;
- const ck=document.getElementById('chkWrap'); if(S.tab==='chk'){ck.classList.add('on'); if(!ck.firstChild) ck.innerHTML=`<iframe src="${location.protocol==='file:'?'10_%EC%B4%AC%EC%98%81%EC%9E%A5%EB%B9%84%20%EC%B2%B4%ED%81%AC%EB%A6%AC%EC%8A%A4%ED%8A%B8.html':'checklist.html'}"></iframe>`;} else ck.classList.remove('on');
- document.querySelector('.sheet').style.display=S.tab==='chk'?'none':'';
+ document.getElementById('tabs').innerHTML=PH.map(([k,l])=>`<button data-tab="${k}" class="${S.tab===k?'on':''}">${l.replace('PART ','')}</button>`).join('')+`<button data-tab="ang" class="${S.tab==='ang'?'on':''}">🎬 앵글표</button><button data-tab="chk" class="${S.tab==='chk'?'on':''}">✅ 체크리스트</button>`;
+ const local=location.protocol==='file:';
+ const ck=document.getElementById('chkWrap'); if(S.tab==='chk'){ck.classList.add('on'); if(!ck.firstChild) ck.innerHTML=`<iframe src="${local?'10_%EC%B4%AC%EC%98%81%EC%9E%A5%EB%B9%84%20%EC%B2%B4%ED%81%AC%EB%A6%AC%EC%8A%A4%ED%8A%B8.html':'checklist.html'}"></iframe>`;} else ck.classList.remove('on');
+ const ag=document.getElementById('angWrap'); if(S.tab==='ang'){ag.classList.add('on'); if(!ag.firstChild) ag.innerHTML=`<iframe src="${local?'https://www.vinfilmstudio.com/plan/1023/angles.html':'angles.html'}"></iframe>`;} else ag.classList.remove('on');
+ document.querySelector('.sheet').style.display=(S.tab==='chk'||S.tab==='ang')?'none':'';
  document.getElementById('phases').innerHTML=PH.map(([k,l])=>phaseHtml(k,l)).join('');
 }
 const at=s=>s.split(',');
