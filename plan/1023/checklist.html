@@ -62,7 +62,21 @@ td.x button:hover{color:var(--accent)}
  .foot{font-size:13px}
  th.w1{width:46px}th.w2{width:50px}th.w3{width:110px}
 }
+
+body.dk{background:#0e0f12;color:#e8e8e8}
+body.dk .sheet{background:#16181d;box-shadow:none}
+body.dk .sub{color:#9aa}body.dk .foot{color:#9aa}
+body.dk table{border-top-color:#e8e8e8}body.dk th{border-bottom-color:#e8e8e8}
+body.dk td{border-bottom-color:#2c2f36}
+body.dk .box{border-color:#e8e8e8}
+body.dk h2 .add{background:#16181d;color:#e8e8e8;border-color:#e8e8e8}
+body.dk tr.got td{background:#12301f}body.dk tr.got td:nth-child(2){color:#5ee08c}
+body.dk tr.back td{background:#152447}body.dk tr.back td:nth-child(2){color:#8fb0ff}
+body.dk td[contenteditable]:focus{background:#1d2740}
+.dkb{position:fixed;right:8px;bottom:10px;z-index:6;border:0;border-radius:20px;padding:8px 12px;font:inherit;font-size:13px;font-weight:800;background:rgba(40,40,40,.85);color:#fff}
+@media print{.dkb{display:none}}
 </style></head><body>
+<button class="dkb" id="dkb">🌙 어둡게</button>
 <div class="sheet">
 <h1>촬영장비 체크리스트</h1>
 <div class="sub">「교회를 사랑하는 건」 · <span contenteditable data-k="date">2026. 10. 23. (금) 픽스스튜디오</span> · 담당 <span contenteditable data-k="who">김규빈</span></div>
@@ -103,4 +117,7 @@ document.addEventListener('click',e=>{const t=e.target;
  else if(t.id==='reset'&&confirm('처음 목록으로 되돌릴까요? 고친 내용이 지워져요.')){try{localStorage.removeItem(KEY)}catch(e){}location.reload()}});
 for(const el of document.querySelectorAll('[data-k]')) if(data.meta[el.dataset.k]) el.textContent=data.meta[el.dataset.k];
 render();
+(function(){const K='vf-1023-dark';let on=false;try{on=localStorage.getItem(K)==='1'}catch(e){}
+const b=document.getElementById('dkb');const ap=()=>{document.body.classList.toggle('dk',on);b.textContent=on?'☀️ 밝게':'🌙 어둡게'};ap();
+b.onclick=()=>{on=!on;try{localStorage.setItem(K,on?'1':'0')}catch(e){}ap()}})();
 </script></body></html>
