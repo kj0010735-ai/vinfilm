@@ -188,6 +188,7 @@ if(S&&!S.w20){(S.perf||[]).forEach(m=>{m.x=+(50+(m.x-50)*18/20).toFixed(1)});Obj
 if(S&&!S.w18){(S.perf||[]).forEach(m=>{m.x=+(50+(m.x-50)*20/18).toFixed(1)});Object.values(S.ph).forEach(a=>a.forEach(c=>{c.x=+(50+(c.x-50)*20/18).toFixed(1)}));if(S.rail){S.rail.x=+(50+(S.rail.x-50)*20/18).toFixed(1);S.rail.w=+(S.rail.w*20/18).toFixed(1)}S.w18=1}
 if(S&&S.rail&&!S.rl3){const c=S.rail.x+S.rail.w/2;S.rail.w=+(3/18*100).toFixed(1);S.rail.x=+(c-S.rail.w/2).toFixed(1);S.rl3=1}
 if(S&&!S.d33){const k=0.4848;(S.perf||[]).forEach(m=>{m.y=+(m.y*k).toFixed(1)});Object.values(S.ph).forEach(a=>a.forEach(c=>{c.y=+(c.y*k+8).toFixed(1)}));(S.perf||[]).forEach(m=>{m.y=+(m.y+8*0+0).toFixed(1)});if(S.rail)S.rail.y=+(S.rail.y*k+8).toFixed(1);S.dir={x:36,y:62};S.d33=1}
+if(S&&S.perf&&!S.grp1){const P={"한예진": [29.4, 9.7], "신유진": [25.0, 13.0], "권혁민": [21.1, 16.4], "조예윤": [70.6, 9.7], "장석호": [75.0, 13.0], "이예진": [78.9, 16.4], "스네어 1": [10.0, 24.2], "스네어 2": [15.0, 24.2], "박준": [43.9, 20.3], "이시몬": [56.1, 20.3]};S.perf.forEach(m=>{const v=P[m.n];if(v){m.x=v[0];m.y=v[1]}});S.grp1=1}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const cap=n=>{const m=/×\s*(\d+)/.exec(n||'');return m?+m[1]:1};
