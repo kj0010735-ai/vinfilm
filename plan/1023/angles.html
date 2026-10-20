@@ -17,16 +17,19 @@
 .nav{position:fixed;top:50%;z-index:4;width:44px;height:80px;margin-top:-40px;border:0;background:rgba(255,255,255,.08);color:#fff;font-size:28px;border-radius:8px}
 .nav.l{left:4px}.nav.r{right:4px}
 @media (hover:none){.nav{display:none}}
+body.dk .pg-wrap img{filter:invert(.92) hue-rotate(180deg);background:#fff}
+.dkb{position:fixed;right:8px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:6;border:0;border-radius:20px;padding:8px 12px;font:inherit;font-size:13px;font-weight:800;background:rgba(40,40,40,.85);color:#fff}
 </style></head><body>
 <div class="top"><a href="./">‹ 목록</a><b style="color:#fff;font-size:15px">촬영 앵글표</b><span class="pg" id="pg"></span></div>
 <div class="deck" id="deck"></div>
 <button class="nav l" id="prev">‹</button><button class="nav r" id="next">›</button>
 <div class="dots" id="dots"></div>
+<button class="dkb" id="dkb">🌙 어둡게</button>
 <script>
 const Q=new URLSearchParams(location.search).get('d');const SETS={a:['angles/a-1','angles/a-2','angles/a-3','angles/a-4'],cue:['docs/cue-1'],light:['docs/light-1'],budget:['docs/budget-1']};
 const deck=document.getElementById('deck');let cur='a';
 function load(k){cur=k;document.querySelectorAll('[data-set]').forEach(b=>b.classList.toggle('on',b.dataset.set===k));
- deck.innerHTML=SETS[k].map(n=>`<div class="pg-wrap"><img src="${n}.jpg?v=5" alt=""></div>`).join('');deck.scrollLeft=0;upd()}
+ deck.innerHTML=SETS[k].map(n=>`<div class="pg-wrap"><img src="${n}.jpg?v=6" alt=""></div>`).join('');deck.scrollLeft=0;upd()}
 function idx(){return Math.round(deck.scrollLeft/deck.clientWidth)}
 function upd(){const n=SETS[cur].length,i=idx();document.getElementById('pg').textContent=`${i+1} / ${n}`;document.getElementById('dots').innerHTML=SETS[cur].map((_,j)=>`<i class="${j===i?'on':''}"></i>`).join('')}
 function go(d){deck.scrollTo({left:(idx()+d)*deck.clientWidth,behavior:'smooth'})}
@@ -37,5 +40,8 @@ addEventListener('keydown',e=>{if(e.key==='ArrowRight')go(1);if(e.key==='ArrowLe
 addEventListener('resize',()=>{const i=idx();deck.scrollLeft=i*deck.clientWidth});
 if(self!==top){document.querySelector('.top').style.display='none';document.getElementById('deck').style.top='0'}
 load(SETS[Q]?Q:'a');
+(function(){const K='vf-1023-dark';let on=false;try{on=localStorage.getItem(K)==='1'}catch(e){}
+const b=document.getElementById('dkb');const ap=()=>{document.body.classList.toggle('dk',on);b.textContent=on?'☀️ 밝게':'🌙 어둡게'};ap();
+b.onclick=()=>{on=!on;try{localStorage.setItem(K,on?'1':'0')}catch(e){}ap()}})();
 if(SETS[Q]&&SETS[Q].length===1){document.getElementById('dots').style.display='none';document.querySelectorAll('.nav').forEach(b=>b.style.display='none')}
 </script></body></html>
