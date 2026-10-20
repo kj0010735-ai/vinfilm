@@ -25,12 +25,16 @@ td.who{width:30mm}
 td[contenteditable]:focus{outline:2px solid #2f6fee;background:#f3f7ff}
 td[contenteditable]:empty:before{content:attr(data-ph);color:#bbb}
 .box{display:inline-block;width:4.2mm;height:4.2mm;border:1.4px solid var(--ink);border-radius:1px;cursor:pointer;vertical-align:middle;position:relative}
-.box.on:after{content:'✓';position:absolute;left:.3mm;top:-1.6mm;font-size:12pt;font-weight:900;color:var(--accent)}
+.box.on{background:#16a34a;border-color:#16a34a}.box.on:after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10pt;font-weight:900;color:#fff}
+.box.bk.on{background:#2563eb;border-color:#2563eb}
+tr.got td{background:#e8f7ee}tr.got td:nth-child(2){color:#0f6b34;font-weight:800}
+tr.back td{background:#e8effd}tr.back td:nth-child(2){color:#1d4ed8;text-decoration:line-through}
 td.x{width:7mm;text-align:center}
 td.x button{border:0;background:none;color:#bbb;cursor:pointer;font-size:12pt}
 td.x button:hover{color:var(--accent)}
 .foot{margin-top:14px;font-size:8.5pt;color:#666;line-height:1.6}
 @media print{
+  tr.got td,tr.back td{background:none!important;color:inherit!important;text-decoration:none!important}
   @page{size:A4;margin:10mm}
   body{background:#fff}
   .bar,h2 .add,td.x,th.x{display:none}
@@ -53,7 +57,7 @@ td.x button:hover{color:var(--accent)}
  h1{font-size:24px}.sub{font-size:14px}
  h2{font-size:17px;margin-top:20px}h2 .add{font-size:14px;padding:6px 12px}
  table{font-size:15px}th{font-size:12.5px;padding:7px 5px}td{padding:9px 6px}
- .box{width:24px;height:24px;border-width:2px}.box.on:after{left:2px;top:-6px;font-size:22px}
+ .box{width:28px;height:28px;border-width:2px;border-radius:4px}.box.on:after{font-size:20px}
  td.c{width:44px}td.q{width:48px}td.who{width:110px}td.x{width:36px}td.x button{font-size:18px}
  .foot{font-size:13px}
  th.w1{width:46px}th.w2{width:50px}th.w3{width:110px}
@@ -65,7 +69,7 @@ td.x button:hover{color:var(--accent)}
 <h1>촬영장비 체크리스트</h1>
 <div class="sub">「교회를 사랑하는 건」 · <span contenteditable data-k="date">2026. 10. 23. (금) 픽스스튜디오</span> · 담당 <span contenteditable data-k="who">김규빈</span></div>
 <div id="secs"></div>
-<div class="foot">☐ 챙김 = 출발 전 · ☐ 회수 = 철수 때 다시 확인 · 렌탈 장비는 10/23 15:00 칠렌탈 반납</div>
+<div class="foot"><b style="color:#16a34a">■ 초록</b> = 챙김(출발 전) · <b style="color:#2563eb">■ 파랑</b> = 회수(철수 때) · 렌탈 장비는 10/23 15:00 칠렌탈 반납</div>
 </div>
 <script>
 const DEFAULT=[
@@ -84,9 +88,9 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}}
 function render(){
  document.getElementById('secs').innerHTML=data.secs.map((s,si)=>`<section class="sec"><h2><span contenteditable data-s="${si}">${esc(s.n)}</span><button class="add" data-add="${si}">+ 줄 추가</button></h2>
  <table><tr><th class="w1">챙김</th><th style="width:38%">장비명 / 모델</th><th class="w2">수량</th><th class="w3">카메라·담당</th><th>메모</th><th class="w1">회수</th><th class="x" style="width:7mm"></th></tr>
- ${s.rows.map((r,ri)=>`<tr><td class="c"><span class="box${r.a?' on':''}" data-t="${si},${ri},a"></span></td>
+ ${s.rows.map((r,ri)=>`<tr class="${r.b?'back':r.a?'got':''}"><td class="c"><span class="box${r.a?' on':''}" data-t="${si},${ri},a"></span></td>
  ${[0,1,2,3].map(i=>`<td class="${['','q','who',''][i]}" contenteditable data-c="${si},${ri},${i}" data-ph="${['장비명','','',''][i]}">${esc(r.v[i])}</td>`).join('')}
- <td class="c"><span class="box${r.b?' on':''}" data-t="${si},${ri},b"></span></td><td class="x"><button data-del="${si},${ri}" title="줄 삭제">✕</button></td></tr>`).join('')}</table></section>`).join('');
+ <td class="c"><span class="box bk${r.b?' on':''}" data-t="${si},${ri},b"></span></td><td class="x"><button data-del="${si},${ri}" title="줄 삭제">✕</button></td></tr>`).join('')}</table></section>`).join('');
 }
 document.addEventListener('input',e=>{const t=e.target;
  if(t.dataset.c){const [s,r,i]=t.dataset.c.split(',').map(Number);data.secs[s].rows[r].v[i]=t.textContent;save()}
