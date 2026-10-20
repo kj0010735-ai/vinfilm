@@ -114,6 +114,7 @@ select.sup2{margin-top:3px;border-color:#d97706}
 .pf{padding:0!important;min-width:0!important;border-radius:3px!important;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:7.5px!important;line-height:1.05!important;overflow:visible}
 .pf b,.pf span{white-space:nowrap;text-shadow:0 0 2px rgba(0,0,0,.5)}.pf b{font-size:1em}.pf span{font-size:.95em}.pf .pose{font-size:.9em!important;padding:0 2px!important}
 @media (max-width:1100px){.pf{font-size:9px!important}}
+td select{font-size:13px}
 </style></head><body>
 <div class="bar" id="bar"><button id="hideBar" title="탭 숨기기">⌃</button>
 <div class="tabs" id="tabs"></div>
@@ -190,7 +191,8 @@ if(S&&!S.d33){const k=0.4848;(S.perf||[]).forEach(m=>{m.y=+(m.y*k).toFixed(1)});
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const cap=n=>{const m=/×\s*(\d+)/.exec(n||'');return m?+m[1]:1};
-const opt=(list,v,taken)=>`<option value=""${!v?' selected':''}>없음</option>`+list.map(x=>{const off=x&&x!==v&&taken&&(taken[x]||0)>=cap(x);return `<option value="${esc(x)}"${x===v?' selected':''}${off?' disabled':''}>${esc(x)}${off?' (사용 중)':''}</option>`}).join('');
+const lbl=x=>(x||'').replace(/^(VINFILM|교회|칠렌탈|박완준|문호준|최영민)\s+/,'').replace(/^소니\s+/,'');
+const opt=(list,v,taken)=>`<option value=""${!v?' selected':''}>없음</option>`+list.map(x=>{const off=x&&x!==v&&taken&&(taken[x]||0)>=cap(x);const own=(/^(VINFILM|교회|칠렌탈|박완준|문호준|최영민)/.exec(x)||[])[1];return `<option value="${esc(x)}"${x===v?' selected':''}${off?' disabled':''}>${esc(lbl(x))}${own?' · '+own:''}${off?' (사용 중)':''}</option>`}).join('');
 const poolBy=c=>S.pool.filter(p=>p.c===c).map(p=>p.n);
 function phaseHtml(k,label){
  const cams=S.ph[k];
