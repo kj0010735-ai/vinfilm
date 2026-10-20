@@ -126,7 +126,8 @@ if(S&&!S.mig4){S.pool.forEach(p=>{if(p.n==='문호준 카메라 (기종 확인)'
 if(S&&!S.mig5){S.pool.forEach(p=>{if(p.n==='교회 인터컴 (있으면)'){p.n='교회 SYNCO Xtalk XM8 ×8';p.o='교회'}});S.mig5=1}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const opt=(list,v)=>['',...list].map(x=>`<option${x===v?' selected':''}>${esc(x)}</option>`).join('');
+const cap=n=>{if(n==='감독 지참 삼각대')return 99;const m=/×\s*(\d+)/.exec(n||'');return m?+m[1]:1};
+const opt=(list,v,taken)=>['',...list].map(x=>{const off=x&&x!==v&&taken&&(taken[x]||0)>=cap(x);return `<option${x===v?' selected':''}${off?' disabled':''}>${esc(x)}${off?' (사용 중)':''}</option>`}).join('');
 const poolBy=c=>S.pool.filter(p=>p.c===c).map(p=>p.n);
 function phaseHtml(k,label){
  const cams=S.ph[k];
@@ -153,9 +154,9 @@ function phaseHtml(k,label){
  <table><tr><th style="width:7mm">#</th><th>담당</th><th>바디</th><th>렌즈</th><th>지지</th><th>역할 · 앵글</th></tr>
  ${cams.map((c,i)=>`<tr style="${c.on?'':'opacity:.4'}"><td><span class="num">${c.n}</span></td>
  <td><select data-f="${k},${i},op">${opt(OPS,c.op)}</select></td>
- <td><select data-f="${k},${i},body">${opt(poolBy('카메라'),c.body)}</select></td>
- <td><select data-f="${k},${i},lens">${opt(poolBy('렌즈'),c.lens)}</select></td>
- <td><select data-f="${k},${i},sup">${opt(poolBy('지지'),c.sup)}</select></td>
+ <td><select data-f="${k},${i},body">${opt(poolBy('카메라'),c.body,used)}</select></td>
+ <td><select data-f="${k},${i},lens">${opt(poolBy('렌즈'),c.lens,used)}</select></td>
+ <td><select data-f="${k},${i},sup">${opt(poolBy('지지'),c.sup,used)}</select></td>
  <td contenteditable data-e="${k},${i}">${esc(c.role)}</td></tr>`).join('')}</table>
  <h2 style="margin-top:10px">장비 목록 (이 단계 사용 현황)</h2>
  <table class="pool"><tr><th style="width:14mm">분류</th><th>장비</th><th style="width:20mm">출처</th><th style="width:20mm">사용</th><th class="x" style="width:6mm"></th></tr>
