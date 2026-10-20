@@ -128,6 +128,8 @@ td select{font-size:13px}
 .cc details.tr{margin-left:58px}
 body.panning,body.panning *{cursor:grab!important}body.panning-on,body.panning-on *{cursor:grabbing!important;user-select:none}
 .pf>.pose{background:rgba(255,255,255,.22)!important;color:#fff}
+.marq{position:absolute;z-index:20;border:1.5px dashed #2563eb;background:rgba(37,99,235,.08);pointer-events:none}
+.map .sel{outline:2px solid #2563eb;outline-offset:2px}
 </style></head><body>
 <div class="bar" id="bar"><button id="hideBar" title="탭 숨기기">⌃</button>
 <div class="tabs" id="tabs"></div>
@@ -213,6 +215,26 @@ addEventListener('keyup',e=>{if(e.code!=='Space')return;PAN=false;PANS=null;docu
 document.addEventListener('pointerdown',e=>{if(!PAN)return;e.preventDefault();e.stopImmediatePropagation();PANS={x:e.clientX,y:e.clientY,sx:scrollX,sy:scrollY};document.body.classList.add('panning-on')},true);
 document.addEventListener('pointermove',e=>{if(!PANS)return;e.stopImmediatePropagation();scrollTo(PANS.sx-(e.clientX-PANS.x),PANS.sy-(e.clientY-PANS.y))},true);
 document.addEventListener('pointerup',e=>{if(!PANS)return;PANS=null;document.body.classList.remove('panning-on')},true);
+
+// ── 여러 개 선택(마우스 드래그 사각형) + 함께 이동
+let SEL=new Set(),MQ=null,GD=null;
+const itKey=el=>el.dataset.pf!=null?'pf:'+el.dataset.pf:el.dataset.cam?'cam:'+el.dataset.cam:el.hasAttribute('data-dir')?'dir':el.hasAttribute('data-rail')?'rail':null;
+const itObj=key=>{if(key.startsWith('pf:'))return S.perf[+key.slice(3)];if(key.startsWith('cam:')){const [k,i]=key.slice(4).split(',');return S.ph[k][+i]}if(key==='dir'){S.dir=S.dir||{x:36,y:62};return S.dir}if(key==='rail')return S.rail};
+function markSel(){document.querySelectorAll('.map [data-pf],.map [data-cam],.map [data-dir],.map [data-rail]').forEach(el=>el.classList.toggle('sel',SEL.has(itKey(el))))}
+document.addEventListener('pointerdown',e=>{if(PAN||e.button!==0)return;const map=e.target.closest('.map');if(!map)return;
+ const it=e.target.closest('[data-pf],[data-cam],[data-dir],[data-rail]');
+ if(it&&!e.target.closest('[data-rot],[data-rhd],.ar,[data-pose]')&&SEL.size>1&&SEL.has(itKey(it))){e.preventDefault();e.stopImmediatePropagation();const r=map.getBoundingClientRect();GD={map,r,x:e.clientX,y:e.clientY,st:[...SEL].map(k=>{const o=itObj(k);return [k,o.x,o.y]})};return}
+ if(it)return;
+ if(e.pointerType!=='mouse')return;
+ e.preventDefault();e.stopImmediatePropagation();const r=map.getBoundingClientRect();const d=document.createElement('div');d.className='marq';map.appendChild(d);MQ={map,r,x0:e.clientX,y0:e.clientY,d,add:e.shiftKey||e.metaKey}},true);
+document.addEventListener('pointermove',e=>{
+ if(GD){e.stopImmediatePropagation();const dx=(e.clientX-GD.x)/GD.r.width*100,dy=(e.clientY-GD.y)/GD.r.height*100;GD.st.forEach(([k,x,y])=>{const o=itObj(k);o.x=+(x+dx).toFixed(1);o.y=+(y+dy).toFixed(1)});GD.map.querySelectorAll('[data-pf],[data-cam],[data-dir],[data-rail]').forEach(el=>{const k=itKey(el);if(SEL.has(k)){const o=itObj(k);el.style.left=o.x+'%';el.style.top=o.y+'%'}});return}
+ if(!MQ)return;e.stopImmediatePropagation();const {r,x0,y0,d}=MQ;const x1=Math.min(x0,e.clientX),y1=Math.min(y0,e.clientY),w=Math.abs(e.clientX-x0),h=Math.abs(e.clientY-y0);d.style.left=(x1-r.left)/r.width*100+'%';d.style.top=(y1-r.top)/r.height*100+'%';d.style.width=w/r.width*100+'%';d.style.height=h/r.height*100+'%'},true);
+document.addEventListener('pointerup',e=>{
+ if(GD){GD=null;save();return}
+ if(!MQ)return;const {map,x0,y0,d,add}=MQ;const bx=[Math.min(x0,e.clientX),Math.max(x0,e.clientX)],by=[Math.min(y0,e.clientY),Math.max(y0,e.clientY)];d.remove();MQ=null;
+ if(!add)SEL.clear();if(bx[1]-bx[0]>4||by[1]-by[0]>4){map.querySelectorAll('[data-pf],[data-cam],[data-dir],[data-rail]').forEach(el=>{const b=el.getBoundingClientRect(),cx=b.left+b.width/2,cy=b.top+b.height/2;if(cx>=bx[0]&&cx<=bx[1]&&cy>=by[0]&&cy<=by[1])SEL.add(itKey(el))})}markSel()},true);
+addEventListener('keydown',e=>{if(e.key==='Escape'&&SEL.size){SEL.clear();markSel()}});
 const save=()=>{const now=JSON.stringify(S);if(LAST!==null&&now!==LAST){UND.push(LAST);if(UND.length>80)UND.shift();RED=[]}LAST=now;try{localStorage.setItem(KEY,now)}catch(e){}};
 function undo(){if(!UND.length)return;RED.push(JSON.stringify(S));S=JSON.parse(UND.pop());LAST=JSON.stringify(S);try{localStorage.setItem(KEY,LAST)}catch(e){};render();applyZoom()}
 function redo(){if(!RED.length)return;UND.push(JSON.stringify(S));S=JSON.parse(RED.pop());LAST=JSON.stringify(S);try{localStorage.setItem(KEY,LAST)}catch(e){};render();applyZoom()}
@@ -309,4 +331,5 @@ document.getElementById('hideBar').onclick=()=>{document.body.classList.add('nob
 document.getElementById('showBar').onclick=()=>{document.body.classList.remove('nobar');try{localStorage.setItem('vf-board-nobar','0')}catch(e){}};
 document.getElementById('reload').onclick=async()=>{try{await Promise.all(['board.html','checklist.html','angles.html'].map(u=>fetch(u,{cache:'reload'})))}catch(e){}location.href=location.pathname+'?r='+Date.now()};
 render();applyZoom();LAST=JSON.stringify(S);
+const _rnd=render;render=function(){_rnd();markSel()};
 </script></body></html>
