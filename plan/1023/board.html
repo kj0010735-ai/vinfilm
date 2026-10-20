@@ -117,6 +117,8 @@ select.sup2{margin-top:3px;border-color:#d97706}
 .pf b,.pf span{white-space:nowrap;text-shadow:0 0 2px rgba(0,0,0,.5)}.pf b{font-size:1em}.pf span{font-size:.95em}.pf .pose{font-size:.9em!important;padding:0 2px!important}
 @media (max-width:1100px){.pf{font-size:9px!important}}
 td select{font-size:13px}
+.mapwrap{overflow:auto;max-height:calc(100vh - 120px);-webkit-overflow-scrolling:touch}.mapwrap .map{max-width:none}
+.zm{float:right;display:inline-flex;align-items:center;gap:4px;font-size:12px}.zm button{border:1px solid #111;background:#fff;border-radius:4px;width:28px;height:26px;font-size:16px;font-weight:900;cursor:pointer}.zm b{min-width:40px;text-align:center}
 </style></head><body>
 <div class="bar" id="bar"><button id="hideBar" title="탭 숨기기">⌃</button>
 <div class="tabs" id="tabs"></div>
@@ -191,11 +193,14 @@ if(S&&!S.w18){(S.perf||[]).forEach(m=>{m.x=+(50+(m.x-50)*20/18).toFixed(1)});Obj
 if(S&&S.rail&&!S.rl3){const c=S.rail.x+S.rail.w/2;S.rail.w=+(3/18*100).toFixed(1);S.rail.x=+(c-S.rail.w/2).toFixed(1);S.rl3=1}
 if(S&&!S.d33){const k=0.4848;(S.perf||[]).forEach(m=>{m.y=+(m.y*k).toFixed(1)});Object.values(S.ph).forEach(a=>a.forEach(c=>{c.y=+(c.y*k+8).toFixed(1)}));(S.perf||[]).forEach(m=>{m.y=+(m.y+8*0+0).toFixed(1)});if(S.rail)S.rail.y=+(S.rail.y*k+8).toFixed(1);S.dir={x:36,y:62};S.d33=1}
 if(S&&S.perf&&!S.grp1){const P={"한예진": [29.4, 9.7], "신유진": [25.0, 13.0], "권혁민": [21.1, 16.4], "조예윤": [70.6, 9.7], "장석호": [75.0, 13.0], "이예진": [78.9, 16.4], "스네어 1": [10.0, 24.2], "스네어 2": [15.0, 24.2], "박준": [43.9, 20.3], "이시몬": [56.1, 20.3]};S.perf.forEach(m=>{const v=P[m.n];if(v){m.x=v[0];m.y=v[1]}});S.grp1=1}
+const ZM=()=>{try{return +(localStorage.getItem('vf-board-zoom')||1)}catch(e){return 1}};
+function setZoom(d){let z=ZM();z=Math.max(.6,Math.min(3,+(z+d*0.2).toFixed(1)));try{localStorage.setItem('vf-board-zoom',z)}catch(e){};render()}
+addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('[contenteditable],input,select,textarea'))return;if(e.key==='+'||e.key==='='){e.preventDefault();setZoom(1)}else if(e.key==='-'||e.key==='_'){e.preventDefault();setZoom(-1)}});
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const cap=n=>{const m=/×\s*(\d+)/.exec(n||'');return m?+m[1]:1};
-const lbl=x=>(x||'').replace(/^(VINFILM|교회|칠렌탈|박완준|문호준|최영민)\s+/,'').replace(/^소니\s+/,'');
-const opt=(list,v,taken)=>`<option value=""${!v?' selected':''}>없음</option>`+list.map(x=>{const off=x&&x!==v&&taken&&(taken[x]||0)>=cap(x);const own=(/^(VINFILM|교회|칠렌탈|박완준|문호준|최영민)/.exec(x)||[])[1];return `<option value="${esc(x)}"${x===v?' selected':''}${off?' disabled':''}>${esc(lbl(x))}${own?' · '+own:''}${off?' (사용 중)':''}</option>`}).join('');
+const lbl=x=>/감독$/.test(x||'')?x:(x||'').replace(/^(VINFILM|교회|칠렌탈|박완준|문호준|최영민)\s+/,'').replace(/^소니\s+/,'');
+const opt=(list,v,taken)=>`<option value=""${!v?' selected':''}>없음</option>`+list.map(x=>{const off=x&&x!==v&&taken&&(taken[x]||0)>=cap(x);const own=/감독$/.test(x||'')?'':(/^(VINFILM|교회|칠렌탈|박완준|문호준|최영민)/.exec(x)||[])[1];return `<option value="${esc(x)}"${x===v?' selected':''}${off?' disabled':''}>${esc(lbl(x))}${own?' · '+own:''}${off?' (사용 중)':''}</option>`}).join('');
 const poolBy=c=>S.pool.filter(p=>p.c===c).map(p=>p.n);
 function phaseHtml(k,label){
  const cams=S.ph[k];
@@ -206,8 +211,8 @@ function phaseHtml(k,label){
  if(k==='rail'&&!cams.some(c=>/펀치달리/.test(c.sup||'')))warn.push('레일 테이크인데 펀치달리를 쓰는 카메라가 없어요');
  const r=S.rail;
  return `<div class="phase${S.tab===k?' on':''}" data-ph="${k}"><div class="grid"><div>
- <h2>${label} · 배치도</h2>
- <div class="map" data-map="${k}">
+ <h2>${label} · 배치도 <span class="zm"><button data-zoom="-1">−</button><b>${Math.round(ZM()*100)}%</b><button data-zoom="1">+</button></span></h2>
+ <div class="mapwrap"><div class="map" data-map="${k}" style="width:${ZM()*100}%">
   <div class="wall"></div><div class="zone screen" data-scr style="left:${50-(S.scr||11)/18*50}%;right:${50-(S.scr||11)/18*50}%">빔 화면 ${S.scr||11}m × ${((S.scr||11)*10/16).toFixed(1)}m (눌러서 변경)</div><div class="scale">1칸 = 1m · 호리존 폭 17m × 깊이 33m × 높이 7m (공식)</div>
   
   
@@ -215,7 +220,7 @@ function phaseHtml(k,label){
   ${(S.perf||[]).map((m,j)=>`<div class="pf g-${m.g}${m.r==='드럼'?' drum':''}" data-pf="${j}" style="left:${m.x}%;top:${m.y}%;width:${psz(m.r)[0]/18*100}%;height:${psz(m.r)[1]/33*100}%"><div class="fp" style="transform:rotate(${m.ang||0}deg)"></div><i class="rot" data-rot="${j}" title="돌리기">⟳</i><b>${esc(({'1st 바이올린':'바이올린1','2nd 바이올린':'바이올린2'})[m.r]||m.r)}</b>${m.n?`<span>${esc(m.n)}</span>`:''}<i class="pose" data-pose="${j}">${m.p==='c'?'🪑 앉음':'🧍 섬'}</i></div>`).join('')}
   <div class="rail" data-rail style="left:${r.x}%;top:${r.y}%;width:${r.w}%;transform:rotate(${r.a}deg);opacity:${k==='rail'?1:.45}"><div class="tr"></div><div class="lb">레일 ${(S.rail.w*18/100).toFixed(1)}m</div><div class="hd hd0"></div><div class="hd" data-rhd></div></div>
   ${cams.map((c,i)=>`<div class="cam${c.on?'':' off'}" data-cam="${k},${i}" style="left:${c.x}%;top:${c.y}%"><span class="ar" style="transform:rotate(${c.a}deg)"></span>${c.n}<span class="nm">${esc(c.op)}<small>${esc(short(c.body))}${c.lens?' · '+esc(short(c.lens)):''}</small></span></div>`).join('')}
- </div>
+ </div></div>
  ${warn.length?`<div class="warn">⚠ ${warn.join('<br>⚠ ')}</div>`:''}
  </div><div>
  <h2>카메라별 구성</h2>
@@ -248,6 +253,7 @@ document.addEventListener('input',e=>{const t=e.target;
  if(t.dataset.p){const [i,f]=at(t.dataset.p);S.pool[+i][f]=t.textContent;save()}});
 document.addEventListener('focusout',e=>{if(e.target.dataset.p)render()});
 document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;
+ if(t.dataset.zoom){setZoom(+t.dataset.zoom);return}
  if('budget' in t.dataset){window.open('https://www.vinfilmstudio.com/works/?proj=1792499249308-7cai51y','_blank');return}
  if(t.dataset.tab){S.tab=t.dataset.tab;save();render()}
  else if(t.dataset.padd2){S.perf.push({g:t.dataset.padd2,r:t.dataset.padd2==='band'?'멤버':'연주자',n:'',x:50,y:t.dataset.padd2==='band'?40:20});save();render()}
