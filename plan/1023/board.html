@@ -89,10 +89,17 @@ td.x{width:6mm;text-align:center}td.x button{border:0;background:none;color:#bbb
  td.x button{font-size:18px;padding:4px}
  .pool td.st{font-size:13px}
 }
+
+#hideBar{background:#333;color:#fff;font-size:15px;padding:8px 11px}
+#showBar{display:none;position:fixed;top:calc(6px + env(safe-area-inset-top));right:8px;z-index:20;border:0;border-radius:8px;background:rgba(17,17,17,.75);color:#fff;font-size:15px;font-weight:800;padding:8px 12px}
+body.nobar .bar{display:none}body.nobar #showBar{display:block}
+body.nobar .ang iframe{height:100vh!important}body.nobar .chk iframe{height:100vh}
+.bar{flex-wrap:nowrap}.tabs{flex:1;overflow-x:auto}
 </style></head><body>
-<div class="bar"><b>지도에서 카메라를 끌어 옮기고, 빨간 화살표를 끌어 방향을 돌려요. 표의 칸·선택은 바로 저장돼요.</b>
+<div class="bar" id="bar"><button id="hideBar" title="탭 숨기기">⌃</button>
 <div class="tabs" id="tabs"></div>
 <button id="reset">처음으로</button></div>
+<button id="showBar">☰ 탭</button>
 <div class="sheet">
 <h1>촬영장비 배치판</h1>
 <div class="sub">「교회를 사랑하는 건」 · 2026. 10. 23. (금) 픽스스튜디오 · 카메라 5대 · 촬영 5명 (박완준·문호준·최영민·김창훈·윤관) · 연출 김규빈</div>
@@ -149,7 +156,6 @@ function phaseHtml(k,label){
   <div class="rail" data-rail style="left:${r.x}%;top:${r.y}%;width:${r.w}%;transform:rotate(${r.a}deg);opacity:${k==='rail'?1:.45}"><div class="tr"></div><div class="lb">레일 (펀치달리)</div><div class="hd hd0"></div><div class="hd" data-rhd></div></div>
   ${cams.map((c,i)=>`<div class="cam${c.on?'':' off'}" data-cam="${k},${i}" style="left:${c.x}%;top:${c.y}%"><span class="ar" style="transform:rotate(${c.a}deg)"></span>${c.n}<span class="nm">${esc(c.op)}</span></div>`).join('')}
  </div>
- <div class="hint">카메라 끌기 = 위치 · 화살표를 끌기(또는 휠·⇧+끌기) = 방향 · 카메라 더블클릭 = 이 단계에서 끄기/켜기${k==='rail'?' · 노란 레일 = 끌어서 이동 · 오른쪽 끝 흰 동그라미 = 길이·방향':''}</div>
  ${warn.length?`<div class="warn">⚠ ${warn.join('<br>⚠ ')}</div>`:''}
  </div><div>
  <h2>카메라별 구성</h2>
@@ -199,5 +205,8 @@ document.addEventListener('pointerup',()=>{if(drag){drag=null;save()}});
 document.addEventListener('pointercancel',()=>{if(drag){drag=null;save()}});
 window.addEventListener('beforeprint',()=>{if(S.tab==='chk'){const f=document.querySelector('#chkWrap iframe');return}document.querySelectorAll('.phase').forEach(p=>p.classList.add('on'))});
 window.addEventListener('afterprint',render);
+try{if(localStorage.getItem('vf-board-nobar')==='1')document.body.classList.add('nobar')}catch(e){}
+document.getElementById('hideBar').onclick=()=>{document.body.classList.add('nobar');try{localStorage.setItem('vf-board-nobar','1')}catch(e){}};
+document.getElementById('showBar').onclick=()=>{document.body.classList.remove('nobar');try{localStorage.setItem('vf-board-nobar','0')}catch(e){}};
 render();
 </script></body></html>
