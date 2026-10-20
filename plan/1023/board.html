@@ -43,6 +43,7 @@ select{width:100%;font:inherit;font-size:8.5pt;border:1px solid #ccc;border-radi
 .add{font-size:8.5pt;font-weight:700;border:1px solid #111;background:#fff;border-radius:4px;padding:2px 8px;cursor:pointer;margin-top:4px}
 td.x{width:6mm;text-align:center}td.x button{border:0;background:none;color:#bbb;cursor:pointer}
 .phase{display:none}.phase.on{display:block}
+.chk{display:none}.chk.on{display:block}.chk iframe{width:100%;height:calc(100vh - 140px);min-height:900px;border:0;background:#eee}
 .warn{margin-top:8px;font-size:8.5pt;color:var(--accent);font-weight:700;line-height:1.5}
 @media print{
  @page{size:A4 landscape;margin:8mm}
@@ -52,6 +53,7 @@ td.x{width:6mm;text-align:center}td.x button{border:0;background:none;color:#bbb
  .map{height:165mm;width:auto}
  .pool td,.pool th{padding:1.6px 4px}
  select{border:0;appearance:none;-webkit-appearance:none;padding:0}
+ .chk{display:none!important}
  .phase{display:block;break-before:page}.phase:first-of-type{break-before:auto}
 }
 </style></head><body>
@@ -63,6 +65,7 @@ td.x{width:6mm;text-align:center}td.x button{border:0;background:none;color:#bbb
 <div class="sub">「교회를 사랑하는 건」 · 2026. 10. 23. (금) 픽스스튜디오 · 카메라 5대 · 촬영 5명 (박완준·문호준·최영민·김창훈·윤관) · 연출 김규빈</div>
 <div id="phases"></div>
 </div>
+<div class="chk" id="chkWrap"></div>
 <script>
 const PH=[['rail','PART 1 · 레일'],['base','PART 2 · 기본 앵글'],['crea','PART 2 · 창의 앵글']];
 const OPS=['박완준 감독','문호준 감독','최영민 감독','김창훈','윤관','(무인)'];
@@ -122,7 +125,9 @@ function phaseHtml(k,label){
  </div></div></div>`;
 }
 function render(){
- document.getElementById('tabs').innerHTML=PH.map(([k,l])=>`<button data-tab="${k}" class="${S.tab===k?'on':''}">${l.replace('PART ','')}</button>`).join('');
+ document.getElementById('tabs').innerHTML=PH.map(([k,l])=>`<button data-tab="${k}" class="${S.tab===k?'on':''}">${l.replace('PART ','')}</button>`).join('')+`<button data-tab="chk" class="${S.tab==='chk'?'on':''}">✅ 체크리스트</button>`;
+ const ck=document.getElementById('chkWrap'); if(S.tab==='chk'){ck.classList.add('on'); if(!ck.firstChild) ck.innerHTML=`<iframe src="${location.protocol==='file:'?'10_%EC%B4%AC%EC%98%81%EC%9E%A5%EB%B9%84%20%EC%B2%B4%ED%81%AC%EB%A6%AC%EC%8A%A4%ED%8A%B8.html':'checklist.html'}"></iframe>`;} else ck.classList.remove('on');
+ document.querySelector('.sheet').style.display=S.tab==='chk'?'none':'';
  document.getElementById('phases').innerHTML=PH.map(([k,l])=>phaseHtml(k,l)).join('');
 }
 const at=s=>s.split(',');
@@ -147,7 +152,7 @@ document.addEventListener('pointermove',e=>{if(!drag)return;const {el,rect}=drag
  if(drag.rot){const cx=rect.left+o.x/100*rect.width,cy=rect.top+o.y/100*rect.height;o.a=Math.round(Math.atan2(e.clientY-cy,e.clientX-cx)*180/Math.PI);el.querySelector('.ar').style.transform=`rotate(${o.a}deg)`}
  else{o.x=+x.toFixed(1);o.y=+y.toFixed(1);el.style.left=o.x+'%';el.style.top=o.y+'%'}});
 document.addEventListener('pointerup',()=>{if(drag){drag=null;save()}});
-window.addEventListener('beforeprint',()=>document.querySelectorAll('.phase').forEach(p=>p.classList.add('on')));
+window.addEventListener('beforeprint',()=>{if(S.tab==='chk'){const f=document.querySelector('#chkWrap iframe');return}document.querySelectorAll('.phase').forEach(p=>p.classList.add('on'))});
 window.addEventListener('afterprint',render);
 render();
 </script></body></html>
