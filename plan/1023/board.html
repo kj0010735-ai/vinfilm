@@ -59,7 +59,7 @@ td.x{width:6mm;text-align:center}td.x button{border:0;background:none;color:#bbb
 </style></head><body>
 <div class="bar"><b>지도에서 카메라를 끌어 옮기고, 빨간 화살표를 끌어 방향을 돌려요. 표의 칸·선택은 바로 저장돼요.</b>
 <div class="tabs" id="tabs"></div>
-<button id="reset">처음으로</button><button class="p" onclick="window.print()">🖨 출력</button></div>
+<button id="reset">처음으로</button><button class="p" onclick="const f=document.querySelector('#chkWrap.on iframe');f?f.contentWindow.print():window.print()">🖨 출력</button></div>
 <div class="sheet">
 <h1>촬영장비 배치판</h1>
 <div class="sub">「교회를 사랑하는 건」 · 2026. 10. 23. (금) 픽스스튜디오 · 카메라 5대 · 촬영 5명 (박완준·문호준·최영민·김창훈·윤관) · 연출 김규빈</div>
