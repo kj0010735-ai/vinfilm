@@ -105,6 +105,7 @@ select.sup2{margin-top:3px;border-color:#d97706}
 .g-band{background:#e11d48;color:#fff}.g-str{background:#2563eb;color:#fff}.g-brs{background:#d97706;color:#fff}.g-sn{background:#475569;color:#fff}
 @media (max-width:1100px){.pf{font-size:11px;padding:3px 6px}}
 .orch,.band{align-items:flex-start!important;justify-content:flex-start!important;padding:4px 6px;font-size:8pt!important;opacity:.85}
+.pf.drum{display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:46% 46% 40% 40%;background:repeating-radial-gradient(circle at 50% 60%,#be123c 0 6px,#e11d48 6px 12px);border:2px solid #881337;min-width:0}
 </style></head><body>
 <div class="bar" id="bar"><button id="hideBar" title="탭 숨기기">⌃</button>
 <div class="tabs" id="tabs"></div>
@@ -177,7 +178,7 @@ function phaseHtml(k,label){
   <div class="zone orch">오케스트라</div>
   <div class="zone band">히스플랜 밴드</div>
   <div class="zone dir">연출석 · 레졸룸 · 모니터</div>
-  ${(S.perf||[]).map((m,j)=>`<div class="pf g-${m.g}" data-pf="${j}" style="left:${m.x}%;top:${m.y}%"><b>${esc(m.r)}</b>${m.n?`<span>${esc(m.n)}</span>`:''}</div>`).join('')}
+  ${(S.perf||[]).map((m,j)=>`<div class="pf g-${m.g}${m.r==='드럼'?' drum':''}" data-pf="${j}" style="left:${m.x}%;top:${m.y}%${m.r==='드럼'?';width:11%;height:6.7%':''}"><b>${esc(m.r)}</b>${m.n?`<span>${esc(m.n)}</span>`:''}</div>`).join('')}
   <div class="rail" data-rail style="left:${r.x}%;top:${r.y}%;width:${r.w}%;transform:rotate(${r.a}deg);opacity:${k==='rail'?1:.45}"><div class="tr"></div><div class="lb">레일 (펀치달리)</div><div class="hd hd0"></div><div class="hd" data-rhd></div></div>
   ${cams.map((c,i)=>`<div class="cam${c.on?'':' off'}" data-cam="${k},${i}" style="left:${c.x}%;top:${c.y}%"><span class="ar" style="transform:rotate(${c.a}deg)"></span>${c.n}<span class="nm">${esc(c.op)}<small>${esc(short(c.body))}${c.lens?' · '+esc(short(c.lens)):''}</small></span></div>`).join('')}
  </div>
