@@ -99,6 +99,7 @@ body.nobar .ang iframe{height:100vh!important}body.nobar .chk iframe{height:100v
 .cam .nm small{display:block;font-size:.95em;font-weight:800;color:#1d4ed8;text-align:center;margin-top:1px}
 details.tr{margin-top:3px;font-size:.82em;color:#444}details.tr summary{cursor:pointer;color:#2563eb;font-weight:800;list-style:none}details.tr div{padding:1px 0;border-top:1px dashed #e5e5e5;line-height:1.3}
 .cdel{border:0;background:none;color:#bbb;font-size:13px;cursor:pointer;padding:0 0 0 3px}.cdel:hover{color:#d81f1f}
+select.sup2{margin-top:3px;border-color:#d97706}
 </style></head><body>
 <div class="bar" id="bar"><button id="hideBar" title="탭 숨기기">⌃</button>
 <div class="tabs" id="tabs"></div>
@@ -145,6 +146,7 @@ const short=x=>(x||'').replace(/^(VINFILM|교회|칠렌탈)\s+/,'').replace(/^(�
 const LP2={"rail": {"2": ["교회 28-70", "사이드 와이드 · 실루엣"], "4": ["VINFILM v-af 35mm", "OTS → 오케스트라 FULL (단렌즈)"]}, "base": {"2": ["교회 28-70", "멤버 MS · TWO"]}, "crea": {"2": ["VINFILM v-af 75mm", "C1 오케스트라 너머 보컬 (배경 흐림)"]}};
 if(S&&!S.mig8){S.pool=S.pool.filter(p=>p.n!=='박완준 렌즈');Object.entries(LP2).forEach(([k,d])=>(S.ph[k]||[]).forEach(c=>{const x=d[c.n];if(x){c.lens=x[0];c.lensNote=x[1]}}));Object.values(S.ph).forEach(a=>a.forEach(c=>{if(c.lens==='박완준 렌즈')c.lens=''}));S.mig8=1}
 if(S&&!S.mig9){S.pool=S.pool.filter(p=>p.n!=='문호준 망원 렌즈');Object.values(S.ph).forEach(a=>a.forEach(c=>{if(c.lens==='문호준 망원 렌즈')c.lens='교회 70-200 GM'}));S.mig9=1}
+if(S&&!S.mig10){const a=S.ph.rail;const c1=a.find(c=>c.n===1),c5=a.find(c=>c.n===5),c2=a.find(c=>c.n===2);if(c1){const old1=c1.sup;if(c5&&/펀치달리/.test(c5.sup||'')){c5.sup=old1||''}a.forEach(c=>{if(c!==c1&&c.sup==='칠렌탈 맨프로토 509HD')c.sup='교회 YC Onion 트라이'});c1.sup='칠렌탈 펀치달리 + 레일';c1.sup2='칠렌탈 맨프로토 509HD'}S.mig10=1}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const cap=n=>{const m=/×\s*(\d+)/.exec(n||'');return m?+m[1]:1};
@@ -152,7 +154,7 @@ const opt=(list,v,taken)=>`<option value=""${!v?' selected':''}>없음</option>`
 const poolBy=c=>S.pool.filter(p=>p.c===c).map(p=>p.n);
 function phaseHtml(k,label){
  const cams=S.ph[k];
- const used={};cams.forEach(c=>{if(!c.on)return;[c.body,c.lens,c.sup].forEach(v=>{if(v)used[v]=(used[v]||0)+1})});
+ const used={};cams.forEach(c=>{if(!c.on)return;[c.body,c.lens,c.sup,c.sup2].forEach(v=>{if(v)used[v]=(used[v]||0)+1})});
  const ops={};cams.forEach(c=>{if(c.on&&c.op&&c.op!=='(무인)')ops[c.op]=(ops[c.op]||0)+1});
  const warn=[];Object.entries(used).forEach(([n,v])=>{if(v>1&&n!=='감독 지참 삼각대')warn.push(`「${n}」를 카메라 ${v}대에 같이 넣었어요`)});
  Object.entries(ops).forEach(([n,v])=>{if(v>1)warn.push(`${n}님이 카메라 ${v}대에 배정돼 있어요`)});
@@ -176,12 +178,12 @@ function phaseHtml(k,label){
  <td><select data-f="${k},${i},op">${opt(OPS,c.op)}</select></td>
  <td><select data-f="${k},${i},body">${opt(poolBy('카메라'),c.body,used)}</select></td>
  <td><select data-f="${k},${i},lens">${opt(poolBy('렌즈'),c.lens,used)}</select>${(()=>{const pk=PH[PH.findIndex(x=>x[0]===k)-1];if(!pk)return '';const pc=(S.ph[pk[0]]||[]).find(x=>x.n===c.n);return pc&&pc.lens&&c.lens&&pc.lens!==c.lens?`<div class="swap">🔁 렌즈 교체</div>`:'<div class="keep">유지</div>'})()}${c.lensNote?`<div class="lnote">${esc(c.lensNote)}</div>`:''}</td>
- <td><select data-f="${k},${i},sup">${opt(poolBy('지지'),c.sup,used)}</select></td>
+ <td><select data-f="${k},${i},sup">${opt(poolBy('지지'),c.sup,used)}</select>${(c.sup2||/펀치달리/.test(c.sup||''))?`<select class="sup2" data-f="${k},${i},sup2">${opt(poolBy('지지').filter(x=>!/펀치달리/.test(x)),c.sup2,used)}</select><div class="lnote">↑ 달리 위에 올릴 삼각대·헤드</div>`:''}</td>
  <td><div contenteditable data-e="${k},${i}">${esc(c.role)}</div>${(TAKE_ROLES[k]||{})[c.n]?`<details class="tr"><summary>테이크별 ▾</summary>${TAKE_ROLES[k][c.n].map(x=>`<div>${esc(x)}</div>`).join('')}</details>`:''}</td></tr>`).join('')}</table>
  <button class="add" data-cadd="${k}">+ 카메라 추가</button>
  <h2 style="margin-top:10px">장비 목록 (이 단계 사용 현황)</h2>
  <table class="pool"><tr><th style="width:14mm">분류</th><th>장비</th><th style="width:20mm">출처</th><th style="width:20mm">사용</th><th class="x" style="width:6mm"></th></tr>
- ${S.pool.map((p,i)=>{const u=used[p.n]||0;const kc={'카메라':'k-cam','렌즈':'k-lens','지지':'k-sup','인터컴':'k-ic'}[(p.c||'').trim()]||'k-etc';const o=p.o||'';const sc=/VINFILM/.test(o)?'vf':/교회/.test(o)?'ch':/칠렌탈/.test(o)?'rt':/감독/.test(o)?'dr':'';return `<tr class="${kc}"><td class="kc" contenteditable data-p="${i},c">${esc(p.c)}</td><td contenteditable data-p="${i},n">${esc(p.n)}</td><td data-p="${i},o" contenteditable><span class="src ${sc}">${esc(p.o)}</span></td><td class="st ${u>1&&p.n!=='감독 지참 삼각대'?'dup':u?'ok':'no'}">${u?(cams.filter(c=>c.on&&[c.body,c.lens,c.sup].includes(p.n)).map(c=>c.n+'번').join('·')):'남음'}</td><td class="x"><button data-pdel="${i}">✕</button></td></tr>`}).join('')}</table>
+ ${S.pool.map((p,i)=>{const u=used[p.n]||0;const kc={'카메라':'k-cam','렌즈':'k-lens','지지':'k-sup','인터컴':'k-ic'}[(p.c||'').trim()]||'k-etc';const o=p.o||'';const sc=/VINFILM/.test(o)?'vf':/교회/.test(o)?'ch':/칠렌탈/.test(o)?'rt':/감독/.test(o)?'dr':'';return `<tr class="${kc}"><td class="kc" contenteditable data-p="${i},c">${esc(p.c)}</td><td contenteditable data-p="${i},n">${esc(p.n)}</td><td data-p="${i},o" contenteditable><span class="src ${sc}">${esc(p.o)}</span></td><td class="st ${u>1&&p.n!=='감독 지참 삼각대'?'dup':u?'ok':'no'}">${u?(cams.filter(c=>c.on&&[c.body,c.lens,c.sup,c.sup2].includes(p.n)).map(c=>c.n+'번').join('·')):'남음'}</td><td class="x"><button data-pdel="${i}">✕</button></td></tr>`}).join('')}</table>
  <button class="add" data-padd>+ 장비 추가</button>
  </div></div></div>`;
 }
