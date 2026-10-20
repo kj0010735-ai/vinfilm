@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>촬영장비 체크리스트</title>
+<style>
+:root{--ink:#111;--line:#d9d9d9;--soft:#f4f4f4;--accent:#d81f1f}
+*{box-sizing:border-box}
+body{margin:0;background:#eee;font-family:'Apple SD Gothic Neo',-apple-system,sans-serif;color:var(--ink)}
+.bar{position:sticky;top:0;z-index:5;background:#111;color:#fff;display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 16px}
+.bar b{margin-right:auto;font-size:14px}
+.bar button{border:0;border-radius:6px;padding:8px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;background:#fff;color:#111}
+.bar button.p{background:var(--accent);color:#fff}
+.sheet{width:210mm;max-width:100%;margin:16px auto;background:#fff;padding:14mm 12mm;box-shadow:0 2px 12px rgba(0,0,0,.12)}
+h1{font-size:20pt;margin:0;font-weight:900}
+.sub{color:#666;font-size:9.5pt;margin:4px 0 14px}
+.sub [contenteditable]{border-bottom:1px dashed #bbb}
+h2{font-size:11.5pt;margin:16px 0 4px;font-weight:900;display:flex;align-items:center;gap:8px}
+h2 .add{margin-left:auto;font-size:9pt;font-weight:700;border:1px solid #111;background:#fff;border-radius:4px;padding:2px 8px;cursor:pointer}
+table{width:100%;table-layout:fixed;border-collapse:collapse;border-top:2px solid var(--ink);font-size:9.5pt}
+th{font-size:8.5pt;text-align:left;border-bottom:1px solid var(--ink);padding:4px 5px;white-space:nowrap}
+td{border-bottom:1px solid var(--line);padding:5px;vertical-align:middle}
+td.c{width:9mm;text-align:center}
+td.q{width:12mm;text-align:center}
+td.who{width:30mm}
+td[contenteditable]:focus{outline:2px solid #2f6fee;background:#f3f7ff}
+td[contenteditable]:empty:before{content:attr(data-ph);color:#bbb}
+.box{display:inline-block;width:4.2mm;height:4.2mm;border:1.4px solid var(--ink);border-radius:1px;cursor:pointer;vertical-align:middle;position:relative}
+.box.on:after{content:'✓';position:absolute;left:.3mm;top:-1.6mm;font-size:12pt;font-weight:900;color:var(--accent)}
+td.x{width:7mm;text-align:center}
+td.x button{border:0;background:none;color:#bbb;cursor:pointer;font-size:12pt}
+td.x button:hover{color:var(--accent)}
+.foot{margin-top:14px;font-size:8.5pt;color:#666;line-height:1.6}
+@media print{
+  @page{size:A4;margin:10mm}
+  body{background:#fff}
+  .bar,h2 .add,td.x,th.x{display:none}
+  .sheet{margin:0;padding:0;box-shadow:none;width:auto}
+  td[contenteditable]:empty:before{content:''}
+  tr{break-inside:avoid}
+  .sec{break-inside:avoid;page-break-inside:avoid}
+  td{padding:2.6px 5px}
+  table{font-size:9pt}
+  h1{font-size:18pt}
+  h2{margin:9px 0 3px}
+  .sub{margin-bottom:6px}
+  h2{break-after:avoid}
+}
+@media (max-width:720px){.sheet{padding:16px}}
+</style></head><body>
+<div class="bar"><b>칸을 눌러 바로 고치고, 섹션마다 "+ 줄 추가"로 늘릴 수 있어요. 이 기기에 자동 저장돼요.</b>
+<button id="reset">처음 목록으로</button><button class="p" onclick="window.print()">🖨 출력</button></div>
+<div class="sheet">
+<h1>촬영장비 체크리스트</h1>
+<div class="sub">「교회를 사랑하는 건」 · <span contenteditable data-k="date">2026. 10. 23. (금) 픽스스튜디오</span> · 담당 <span contenteditable data-k="who">김규빈</span></div>
+<div id="secs"></div>
+<div class="foot">☐ 챙김 = 출발 전 · ☐ 회수 = 철수 때 다시 확인 · 렌탈 장비는 10/23 15:00 칠렌탈 반납</div>
+</div>
+<script>
+const DEFAULT=[
+ ['카메라 BODY',[['FX3','1','5번 레일',''],['A7C2','1','1번 정면','']]],
+ ['렌즈 LENS',[['sigma 16-28','1','1번 정면',''],['sigma 28-70','1','5번 레일',''],['v-af 35mm','1','',''],['v-af 75mm','1','4번',''],['v-af 100mm','1','4번','']]],
+ ['삼각대 / 짐벌 / 레일',[['YC Onion PINETA PEAK + Cedar CB7','1','1번',''],['셔틀러 에이스 (칠렌탈)','1','','렌탈 · 반납'],['맨프로토 509HD (칠렌탈)','1','','렌탈 · 반납'],['펀치달리 (레일 5조·휠·쐐기박스·수평자)','1','5번','렌탈 · 반납'],['RONIN RS2','1','','예비 (전부 트라이)']]],
+ ['모니터 · 무선 · 인터컴',[['OSEE Mega 15S','1','연출석',''],['Feelworld P6XL','1','레일',''],['DJI transmission combo','2','','송신기·수신기'],['Hollyland Solidcom SE','5','','충전 · 페어링 확인']]],
+ ['전원 · 미디어',[['NP-FZ100','5','','전날 충전'],['V-Mount 4064B / VB99 / ATTO ONE','4','','모니터·무선용'],['메모리 카드 TOUGH 160GB','1','','포맷'],['메모리 카드 TOUGH 128GB','1','','포맷'],['메모리 카드 TOUGH 256GB','1','','포맷'],['충전기 · 멀티탭 · 릴선','','연출석','']]],
+ ['오디오 · 기타',[['DJI Mic2','1','연출석','싱크용 녹음'],['슬레이트','1','',''],['레졸룸 노트북 + 충전기 + HDMI','1','연출석','그리드 DXV 3종'],['백업 USB / SSD','1','',''],['Motion9 M1 카트','1','','22kg · 접으면 190×440×1200mm, 장비 운반']]]
+];
+const KEY='vf-gear-checklist-1023-v4';
+let data; try{data=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!data) data={secs:DEFAULT.map(([n,r])=>({n,rows:r.map(x=>({v:x,a:false,b:false}))})),meta:{}};
+const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function save(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}}
+function render(){
+ document.getElementById('secs').innerHTML=data.secs.map((s,si)=>`<section class="sec"><h2><span contenteditable data-s="${si}">${esc(s.n)}</span><button class="add" data-add="${si}">+ 줄 추가</button></h2>
+ <table><tr><th style="width:11mm">챙김</th><th style="width:38%">장비명 / 모델</th><th style="width:12mm">수량</th><th style="width:26mm">카메라·담당</th><th>메모</th><th style="width:11mm">회수</th><th class="x" style="width:7mm"></th></tr>
+ ${s.rows.map((r,ri)=>`<tr><td class="c"><span class="box${r.a?' on':''}" data-t="${si},${ri},a"></span></td>
+ ${[0,1,2,3].map(i=>`<td class="${['','q','who',''][i]}" contenteditable data-c="${si},${ri},${i}" data-ph="${['장비명','','',''][i]}">${esc(r.v[i])}</td>`).join('')}
+ <td class="c"><span class="box${r.b?' on':''}" data-t="${si},${ri},b"></span></td><td class="x"><button data-del="${si},${ri}" title="줄 삭제">✕</button></td></tr>`).join('')}</table></section>`).join('');
+}
+document.addEventListener('input',e=>{const t=e.target;
+ if(t.dataset.c){const [s,r,i]=t.dataset.c.split(',').map(Number);data.secs[s].rows[r].v[i]=t.textContent;save()}
+ else if(t.dataset.s){data.secs[+t.dataset.s].n=t.textContent;save()}
+ else if(t.dataset.k){data.meta[t.dataset.k]=t.textContent;save()}});
+document.addEventListener('click',e=>{const t=e.target;
+ if(t.dataset.t){const [s,r,k]=t.dataset.t.split(',');const row=data.secs[+s].rows[+r];row[k]=!row[k];save();render()}
+ else if(t.dataset.add){data.secs[+t.dataset.add].rows.push({v:['','','',''],a:false,b:false});save();render();const tds=document.querySelectorAll(`[data-c^="${t.dataset.add},"]`);const last=[...tds].filter(x=>x.dataset.c.endsWith(',0')).pop();last&&last.focus()}
+ else if(t.dataset.del){const [s,r]=t.dataset.del.split(',').map(Number);data.secs[s].rows.splice(r,1);save();render()}
+ else if(t.id==='reset'&&confirm('처음 목록으로 되돌릴까요? 고친 내용이 지워져요.')){try{localStorage.removeItem(KEY)}catch(e){}location.reload()}});
+for(const el of document.querySelectorAll('[data-k]')) if(data.meta[el.dataset.k]) el.textContent=data.meta[el.dataset.k];
+render();
+</script></body></html>

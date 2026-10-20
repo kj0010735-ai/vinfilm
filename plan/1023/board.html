@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>촬영장비 배치판</title>
+<style>
+:root{--ink:#111;--line:#dcdcdc;--soft:#f5f5f5;--accent:#d81f1f;--blue:#2f6fee}
+*{box-sizing:border-box}
+body{margin:0;background:#eee;font-family:'Apple SD Gothic Neo',-apple-system,sans-serif;color:var(--ink)}
+.bar{position:sticky;top:0;z-index:10;background:#111;color:#fff;display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 16px}
+.bar b{margin-right:auto;font-size:13.5px}
+.bar button{border:0;border-radius:6px;padding:8px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;background:#fff;color:#111}
+.bar button.p{background:var(--accent);color:#fff}
+.tabs{display:flex;gap:4px}
+.tabs button{background:#333;color:#ddd}.tabs button.on{background:#fff;color:#111}
+.sheet{width:297mm;max-width:100%;margin:16px auto;background:#fff;padding:12mm;box-shadow:0 2px 12px rgba(0,0,0,.12)}
+h1{font-size:19pt;margin:0;font-weight:900}
+.sub{color:#666;font-size:9.5pt;margin:3px 0 10px}
+.grid{display:grid;grid-template-columns:1.15fr 1fr;gap:12px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+h2{font-size:11pt;margin:0 0 5px;font-weight:900}
+/* map */
+.map{position:relative;width:100%;aspect-ratio:18/24;background:#f7f7f7;border:2px solid var(--ink);overflow:hidden;user-select:none;touch-action:none}
+.zone{position:absolute;display:flex;align-items:center;justify-content:center;font-size:8.5pt;font-weight:800;text-align:center;border-radius:3px}
+.screen{left:6%;right:6%;top:1.5%;height:3.5%;background:#1f4fa0;color:#fff}
+.orch{left:10%;right:10%;top:9%;height:17%;background:#e9eef7;color:#41557a;border:1px dashed #9fb0cc}
+.band{left:14%;right:14%;top:31%;height:15%;background:#fbe9e9;color:#a33;border:1px dashed #e0a5a5}
+.dir{left:34%;width:32%;bottom:2.5%;height:6%;background:#222;color:#fff}
+.rail{position:absolute;height:6px;background:repeating-linear-gradient(90deg,#777 0 10px,#bbb 10px 14px);border-radius:3px;cursor:move}
+.cam{position:absolute;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:var(--accent);color:#fff;font-weight:900;font-size:13pt;display:flex;align-items:center;justify-content:center;cursor:grab;box-shadow:0 2px 6px rgba(0,0,0,.3);z-index:3}
+.cam.off{background:#999}
+.cam .ar{position:absolute;left:50%;top:50%;width:52px;height:22px;margin-top:-11px;transform-origin:0 50%;z-index:-1;cursor:alias;touch-action:none}.cam .ar:before{content:'';position:absolute;left:0;right:0;top:10px;height:2px;background:var(--accent)}
+.cam .ar:after{content:'';position:absolute;right:-2px;top:5px;border-left:9px solid var(--accent);border-top:6px solid transparent;border-bottom:6px solid transparent}
+.cam .nm{position:absolute;top:36px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:7.5pt;color:#111;font-weight:800;background:rgba(255,255,255,.85);padding:0 3px;border-radius:2px}
+.hint{font-size:8pt;color:#777;margin-top:4px}
+/* tables */
+table{width:100%;table-layout:fixed;border-collapse:collapse;border-top:2px solid var(--ink);font-size:9pt}
+th{font-size:8pt;text-align:left;border-bottom:1px solid var(--ink);padding:4px;white-space:nowrap}
+td{border-bottom:1px solid var(--line);padding:3px 4px;vertical-align:middle;overflow-wrap:anywhere}
+td[contenteditable]:focus{outline:2px solid var(--blue);background:#f3f7ff}
+select{width:100%;font:inherit;font-size:8.5pt;border:1px solid #ccc;border-radius:3px;padding:2px;background:#fff}
+.num{display:inline-flex;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;align-items:center;justify-content:center;font-weight:900;font-size:9pt}
+.pool td.st{width:20mm;font-weight:800;font-size:8pt}
+.st.ok{color:#178a3c}.st.no{color:#999}.st.dup{color:var(--accent)}
+.add{font-size:8.5pt;font-weight:700;border:1px solid #111;background:#fff;border-radius:4px;padding:2px 8px;cursor:pointer;margin-top:4px}
+td.x{width:6mm;text-align:center}td.x button{border:0;background:none;color:#bbb;cursor:pointer}
+.phase{display:none}.phase.on{display:block}
+.warn{margin-top:8px;font-size:8.5pt;color:var(--accent);font-weight:700;line-height:1.5}
+@media print{
+ @page{size:A4 landscape;margin:8mm}
+ body{background:#fff}.bar,.add,td.x,th.x,.hint{display:none}
+ .sheet{margin:0;padding:0;box-shadow:none;width:auto}
+ .grid{grid-template-columns:auto 1fr}
+ .map{height:165mm;width:auto}
+ .pool td,.pool th{padding:1.6px 4px}
+ select{border:0;appearance:none;-webkit-appearance:none;padding:0}
+ .phase{display:block;break-before:page}.phase:first-of-type{break-before:auto}
+}
+</style></head><body>
+<div class="bar"><b>지도에서 카메라를 끌어 옮기고, 빨간 화살표를 끌어 방향을 돌려요. 표의 칸·선택은 바로 저장돼요.</b>
+<div class="tabs" id="tabs"></div>
+<button id="reset">처음으로</button><button class="p" onclick="window.print()">🖨 출력</button></div>
+<div class="sheet">
+<h1>촬영장비 배치판</h1>
+<div class="sub">「교회를 사랑하는 건」 · 2026. 10. 23. (금) 픽스스튜디오 · 카메라 5대 · 촬영 5명 · 연출 김규빈</div>
+<div id="phases"></div>
+</div>
+<script>
+const PH=[['rail','PART 1 · 레일'],['base','PART 2 · 기본 앵글'],['crea','PART 2 · 창의 앵글']];
+const OPS=['박완준 감독','문호준 감독','최영민 감독','촬영자 A','촬영자 B','(무인)'];
+const DEF_POOL=[
+ ['카메라','FX3','VINFILM'],['카메라','A7C2','VINFILM'],['카메라','박완준 감독 카메라','감독 지참'],['카메라','문호준 감독 카메라','감독 지참'],['카메라','최영민 감독 카메라','확인 필요'],
+ ['렌즈','sigma 16-28','VINFILM'],['렌즈','sigma 28-70','VINFILM'],['렌즈','v-af 35mm','VINFILM'],['렌즈','v-af 75mm','VINFILM'],['렌즈','v-af 100mm','VINFILM'],['렌즈','박완준 감독 렌즈','감독 지참'],['렌즈','문호준 감독 망원','감독 지참'],
+ ['지지','YC Onion PINETA PEAK','VINFILM'],['지지','셔틀러 에이스','칠렌탈'],['지지','맨프로토 509HD','칠렌탈'],['지지','펀치달리 + 레일','칠렌탈'],['지지','감독 지참 삼각대','감독 지참'],['지지','RONIN RS2','VINFILM 예비']
+];
+const cam=(n,op,body,lens,sup,role,x,y,a)=>({n,op,body,lens,sup,role,x,y,a,on:true});
+const DEF={
+ rail:[cam(1,'(무인)','A7C2','sigma 16-28','YC Onion PINETA PEAK','정면 FULL',50,78,-90),cam(2,'박완준 감독','박완준 감독 카메라','박완준 감독 렌즈','감독 지참 삼각대','사이드 와이드',10,52,-30),cam(3,'문호준 감독','문호준 감독 카메라','문호준 감독 망원','맨프로토 509HD','보컬 타이트',68,72,-110),cam(4,'최영민 감독','최영민 감독 카메라','v-af 75mm','셔틀러 에이스','오케스트라 · 악기',90,40,200),cam(5,'촬영자 A','FX3','sigma 28-70','펀치달리 + 레일','레일 (밀기: 촬영자 B)',36,66,-90)],
+ base:[cam(1,'촬영자 B','A7C2','sigma 16-28','YC Onion PINETA PEAK','정면 FULL → 오케스트라 FULL',50,80,-90),cam(2,'박완준 감독','박완준 감독 카메라','박완준 감독 렌즈','감독 지참 삼각대','남·여 보컬 MS / TWO',22,62,-60),cam(3,'문호준 감독','문호준 감독 카메라','문호준 감독 망원','맨프로토 509HD','보컬 CS',62,66,-110),cam(4,'최영민 감독','최영민 감독 카메라','v-af 100mm','셔틀러 에이스','악기 HAND',88,30,180),cam(5,'촬영자 A','FX3','v-af 35mm','펀치달리 + 레일','기타·건반·드럼 HAND',30,44,-20)],
+ crea:[cam(1,'촬영자 B','A7C2','sigma 16-28','YC Onion PINETA PEAK','C3 로우 앵글 / C4 하이',40,58,-80),cam(2,'박완준 감독','박완준 감독 카메라','박완준 감독 렌즈','감독 지참 삼각대','C1 오케스트라 너머 보컬',30,22,80),cam(3,'문호준 감독','문호준 감독 카메라','문호준 감독 망원','맨프로토 509HD','C7 랙포커스 · C9 리액션',70,70,-115),cam(4,'최영민 감독','최영민 감독 카메라','v-af 75mm','셔틀러 에이스','C2 브라스 벨 너머',78,22,110),cam(5,'촬영자 A','FX3','sigma 28-70','펀치달리 + 레일','C5 역방향 · C6 실루엣',50,9,90)]
+};
+const KEY='vf-gear-board-1023';
+let S; try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S) S={tab:'rail',ph:JSON.parse(JSON.stringify(DEF)),pool:DEF_POOL.map(p=>({c:p[0],n:p[1],o:p[2]})),rail:{x:24,y:66,w:28}};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const opt=(list,v)=>['',...list].map(x=>`<option${x===v?' selected':''}>${esc(x)}</option>`).join('');
+const poolBy=c=>S.pool.filter(p=>p.c===c).map(p=>p.n);
+function phaseHtml(k,label){
+ const cams=S.ph[k];
+ const used={};cams.forEach(c=>{if(!c.on)return;[c.body,c.lens,c.sup].forEach(v=>{if(v)used[v]=(used[v]||0)+1})});
+ const ops={};cams.forEach(c=>{if(c.on&&c.op&&c.op!=='(무인)')ops[c.op]=(ops[c.op]||0)+1});
+ const warn=[];Object.entries(used).forEach(([n,v])=>{if(v>1&&n!=='감독 지참 삼각대')warn.push(`「${n}」를 카메라 ${v}대에 같이 넣었어요`)});
+ Object.entries(ops).forEach(([n,v])=>{if(v>1)warn.push(`${n}님이 카메라 ${v}대에 배정돼 있어요`)});
+ if(k==='rail'&&!cams.some(c=>c.sup==='펀치달리 + 레일'))warn.push('레일 테이크인데 펀치달리를 쓰는 카메라가 없어요');
+ const r=S.rail;
+ return `<div class="phase${S.tab===k?' on':''}" data-ph="${k}"><div class="grid"><div>
+ <h2>${label} · 배치도</h2>
+ <div class="map" data-map="${k}">
+  <div class="zone screen">호리존 빔 화면</div>
+  <div class="zone orch">오케스트라 15명 (스트링 8 · 관악 5 · 스네어 2)</div>
+  <div class="zone band">히스플랜 밴드 · 보컬</div>
+  <div class="zone dir">연출석 · 레졸룸 · 모니터</div>
+  ${k==='rail'?`<div class="rail" data-rail style="left:${r.x}%;top:${r.y}%;width:${r.w}%"></div>`:''}
+  ${cams.map((c,i)=>`<div class="cam${c.on?'':' off'}" data-cam="${k},${i}" style="left:${c.x}%;top:${c.y}%"><span class="ar" style="transform:rotate(${c.a}deg)"></span>${c.n}<span class="nm">${esc(c.op)}</span></div>`).join('')}
+ </div>
+ <div class="hint">카메라 끌기 = 위치 · 화살표를 끌기(또는 휠·⇧+끌기) = 방향 · 카메라 더블클릭 = 이 단계에서 끄기/켜기${k==='rail'?' · 레일도 끌어서 옮길 수 있어요':''}</div>
+ ${warn.length?`<div class="warn">⚠ ${warn.join('<br>⚠ ')}</div>`:''}
+ </div><div>
+ <h2>카메라별 구성</h2>
+ <table><tr><th style="width:7mm">#</th><th>담당</th><th>바디</th><th>렌즈</th><th>지지</th><th>역할 · 앵글</th></tr>
+ ${cams.map((c,i)=>`<tr style="${c.on?'':'opacity:.4'}"><td><span class="num">${c.n}</span></td>
+ <td><select data-f="${k},${i},op">${opt(OPS,c.op)}</select></td>
+ <td><select data-f="${k},${i},body">${opt(poolBy('카메라'),c.body)}</select></td>
+ <td><select data-f="${k},${i},lens">${opt(poolBy('렌즈'),c.lens)}</select></td>
+ <td><select data-f="${k},${i},sup">${opt(poolBy('지지'),c.sup)}</select></td>
+ <td contenteditable data-e="${k},${i}">${esc(c.role)}</td></tr>`).join('')}</table>
+ <h2 style="margin-top:10px">장비 목록 (이 단계 사용 현황)</h2>
+ <table class="pool"><tr><th style="width:14mm">분류</th><th>장비</th><th style="width:20mm">출처</th><th style="width:20mm">사용</th><th class="x" style="width:6mm"></th></tr>
+ ${S.pool.map((p,i)=>{const u=used[p.n]||0;return `<tr><td contenteditable data-p="${i},c">${esc(p.c)}</td><td contenteditable data-p="${i},n">${esc(p.n)}</td><td contenteditable data-p="${i},o">${esc(p.o)}</td><td class="st ${u>1&&p.n!=='감독 지참 삼각대'?'dup':u?'ok':'no'}">${u?(cams.filter(c=>c.on&&[c.body,c.lens,c.sup].includes(p.n)).map(c=>c.n+'번').join('·')):'남음'}</td><td class="x"><button data-pdel="${i}">✕</button></td></tr>`}).join('')}</table>
+ <button class="add" data-padd>+ 장비 추가</button>
+ </div></div></div>`;
+}
+function render(){
+ document.getElementById('tabs').innerHTML=PH.map(([k,l])=>`<button data-tab="${k}" class="${S.tab===k?'on':''}">${l.replace('PART ','')}</button>`).join('');
+ document.getElementById('phases').innerHTML=PH.map(([k,l])=>phaseHtml(k,l)).join('');
+}
+const at=s=>s.split(',');
+document.addEventListener('change',e=>{const t=e.target;if(t.dataset.f){const [k,i,f]=at(t.dataset.f);S.ph[k][+i][f]=t.value;save();render()}});
+document.addEventListener('input',e=>{const t=e.target;
+ if(t.dataset.e){const [k,i]=at(t.dataset.e);S.ph[k][+i].role=t.textContent;save()}
+ if(t.dataset.p){const [i,f]=at(t.dataset.p);S.pool[+i][f]=t.textContent;save()}});
+document.addEventListener('focusout',e=>{if(e.target.dataset.p)render()});
+document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;
+ if(t.dataset.tab){S.tab=t.dataset.tab;save();render()}
+ else if('padd' in t.dataset){S.pool.push({c:'기타',n:'새 장비',o:''});save();render()}
+ else if(t.dataset.pdel){S.pool.splice(+t.dataset.pdel,1);save();render()}
+ else if(t.id==='reset'&&confirm('처음 배치로 되돌릴까요? 고친 내용이 지워져요.')){try{localStorage.removeItem(KEY)}catch(e){}location.reload()}});
+document.addEventListener('dblclick',e=>{const c=e.target.closest('.cam');if(!c)return;const [k,i]=at(c.dataset.cam);S.ph[k][+i].on=!S.ph[k][+i].on;save();render()});
+document.addEventListener('wheel',e=>{const c=e.target.closest('.cam');if(!c)return;e.preventDefault();const [k,i]=at(c.dataset.cam);const o=S.ph[k][+i];o.a=(o.a+(e.deltaY>0?15:-15))%360;c.querySelector('.ar').style.transform=`rotate(${o.a}deg)`;save()},{passive:false});
+let drag=null;
+document.addEventListener('pointerdown',e=>{const c=e.target.closest('.cam,[data-rail]');if(!c)return;const map=c.closest('.map');drag={el:c,map,rect:map.getBoundingClientRect(),rot:(e.shiftKey||!!e.target.closest('.ar'))&&c.classList.contains('cam'),sx:e.clientX};c.setPointerCapture(e.pointerId)});
+document.addEventListener('pointermove',e=>{if(!drag)return;const {el,rect}=drag;
+ let x=Math.max(0,Math.min(100,(e.clientX-rect.left)/rect.width*100)),y=Math.max(0,Math.min(100,(e.clientY-rect.top)/rect.height*100));
+ if(el.dataset.rail){S.rail.x=Math.min(x,100-S.rail.w);S.rail.y=y;el.style.left=S.rail.x+'%';el.style.top=y+'%';return}
+ const [k,i]=at(el.dataset.cam);const o=S.ph[k][+i];
+ if(drag.rot){const cx=rect.left+o.x/100*rect.width,cy=rect.top+o.y/100*rect.height;o.a=Math.round(Math.atan2(e.clientY-cy,e.clientX-cx)*180/Math.PI);el.querySelector('.ar').style.transform=`rotate(${o.a}deg)`}
+ else{o.x=+x.toFixed(1);o.y=+y.toFixed(1);el.style.left=o.x+'%';el.style.top=o.y+'%'}});
+document.addEventListener('pointerup',()=>{if(drag){drag=null;save()}});
+window.addEventListener('beforeprint',()=>document.querySelectorAll('.phase').forEach(p=>p.classList.add('on')));
+window.addEventListener('afterprint',render);
+render();
+</script></body></html>
