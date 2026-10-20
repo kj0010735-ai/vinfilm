@@ -56,10 +56,33 @@ td.x{width:6mm;text-align:center}td.x button{border:0;background:none;color:#bbb
  .chk{display:none!important}
  .phase{display:block;break-before:page}.phase:first-of-type{break-before:auto}
 }
+
+/* iPad mini 최적화 */
+@media (max-width:1100px){
+ .bar b{display:none}
+ .tabs{width:100%}.tabs button{flex:1;font-size:15px;padding:12px 6px}
+ .bar #reset{font-size:13px;padding:10px}
+ .sheet{width:auto;margin:0;padding:16px;box-shadow:none}
+ h1{font-size:24px}.sub{font-size:14px}
+ .grid{grid-template-columns:1fr;gap:18px}
+ h2{font-size:17px;margin-bottom:8px}
+ .map{aspect-ratio:18/22}
+ .zone{font-size:13px}
+ .cam{width:46px;height:46px;margin:-23px 0 0 -23px;font-size:20px}
+ .cam .ar{width:66px;height:30px;margin-top:-15px}.cam .ar:before{top:14px;height:3px}.cam .ar:after{top:8px;border-left-width:12px;border-top-width:7px;border-bottom-width:7px}
+ .cam .nm{top:48px;font-size:12px}
+ .hint{font-size:13px}.warn{font-size:14px}
+ table{font-size:14px}th{font-size:12.5px;padding:7px 5px}td{padding:7px 5px}
+ select{font-size:14px;padding:6px 4px;min-height:36px}
+ .num{width:28px;height:28px;font-size:14px}
+ .add{font-size:14px;padding:8px 14px}
+ td.x button{font-size:18px;padding:4px}
+ .pool td.st{font-size:13px}
+}
 </style></head><body>
 <div class="bar"><b>지도에서 카메라를 끌어 옮기고, 빨간 화살표를 끌어 방향을 돌려요. 표의 칸·선택은 바로 저장돼요.</b>
 <div class="tabs" id="tabs"></div>
-<button id="reset">처음으로</button><button class="p" onclick="const f=document.querySelector('#chkWrap.on iframe');f?f.contentWindow.print():window.print()">🖨 출력</button></div>
+<button id="reset">처음으로</button></div>
 <div class="sheet">
 <h1>촬영장비 배치판</h1>
 <div class="sub">「교회를 사랑하는 건」 · 2026. 10. 23. (금) 픽스스튜디오 · 카메라 5대 · 촬영 5명 (박완준·문호준·최영민·김창훈·윤관) · 연출 김규빈</div>
