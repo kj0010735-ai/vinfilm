@@ -98,22 +98,25 @@ td.x{width:6mm;text-align:center}td.x button{border:0;background:none;color:#bbb
 const PH=[['rail','PART 1 · 레일'],['base','PART 2 · 기본 앵글'],['crea','PART 2 · 창의 앵글']];
 const OPS=['박완준 감독','문호준 감독','최영민 감독','김창훈','윤관','(무인)'];
 const DEF_POOL=[
- ['카메라','FX3','VINFILM'],['카메라','A7C2','VINFILM'],['카메라','박완준 감독 카메라','감독 지참'],['카메라','문호준 감독 카메라','감독 지참'],['카메라','최영민 감독 카메라','확인 필요'],
- ['렌즈','sigma 16-28','VINFILM'],['렌즈','sigma 28-70','VINFILM'],['렌즈','v-af 35mm','VINFILM'],['렌즈','v-af 75mm','VINFILM'],['렌즈','v-af 100mm','VINFILM'],['렌즈','박완준 감독 렌즈','감독 지참'],['렌즈','문호준 감독 망원','감독 지참'],
- ['지지','YC Onion PINETA PEAK','VINFILM'],['지지','셔틀러 에이스','칠렌탈'],['지지','맨프로토 509HD','칠렌탈'],['지지','펀치달리 + 레일','칠렌탈'],['지지','감독 지참 삼각대','감독 지참'],['지지','RONIN RS2','VINFILM 예비']
+ ['카메라','VINFILM FX3','VINFILM'],['카메라','VINFILM A7C2','VINFILM'],['카메라','교회 A7M4 ①','교회'],['카메라','교회 A7M4 ②','교회'],['카메라','박완준 카메라 (기종 확인)','감독 지참'],['카메라','문호준 카메라 (기종 확인)','감독 지참'],['카메라','최영민 카메라 (지참 시)','확인 필요'],
+ ['렌즈','VINFILM sigma 16-28','VINFILM'],['렌즈','VINFILM sigma 28-70','VINFILM'],['렌즈','VINFILM v-af 35mm','VINFILM'],['렌즈','VINFILM v-af 75mm','VINFILM'],['렌즈','VINFILM v-af 100mm','VINFILM'],['렌즈','교회 28-70','교회'],['렌즈','교회 70-200 GM','교회'],['렌즈','박완준 렌즈','감독 지참'],['렌즈','문호준 망원 렌즈','감독 지참'],
+ ['지지','VINFILM YC Onion 트라이','VINFILM'],['지지','교회 YC Onion 트라이','교회'],['지지','칠렌탈 셔틀러 에이스','칠렌탈'],['지지','칠렌탈 맨프로토 509HD','칠렌탈'],['지지','칠렌탈 펀치달리 + 레일','칠렌탈'],['지지','감독 지참 삼각대','감독 지참'],['지지','VINFILM RONIN RS2','VINFILM 예비'],
+ ['인터컴','VINFILM Solidcom SE ×5','VINFILM'],['인터컴','교회 인터컴 (있으면)','교회 확인']
 ];
 const cam=(n,op,body,lens,sup,role,x,y,a)=>({n,op,body,lens,sup,role,x,y,a,on:true});
 const DEF={
- rail:[cam(1,'(무인)','A7C2','sigma 16-28','YC Onion PINETA PEAK','정면 FULL',50,78,-90),cam(2,'박완준 감독','박완준 감독 카메라','박완준 감독 렌즈','감독 지참 삼각대','사이드 와이드',10,52,-30),cam(3,'문호준 감독','문호준 감독 카메라','문호준 감독 망원','맨프로토 509HD','보컬 타이트',68,72,-110),cam(4,'최영민 감독','최영민 감독 카메라','v-af 75mm','셔틀러 에이스','오케스트라 · 악기',90,40,200),cam(5,'윤관','FX3','sigma 28-70','펀치달리 + 레일','레일 (밀기: 김창훈)',36,66,-90)],
- base:[cam(1,'김창훈','A7C2','sigma 16-28','YC Onion PINETA PEAK','정면 FULL → 오케스트라 FULL',50,80,-90),cam(2,'박완준 감독','박완준 감독 카메라','박완준 감독 렌즈','감독 지참 삼각대','남·여 보컬 MS / TWO',22,62,-60),cam(3,'문호준 감독','문호준 감독 카메라','문호준 감독 망원','맨프로토 509HD','보컬 CS',62,66,-110),cam(4,'최영민 감독','최영민 감독 카메라','v-af 100mm','셔틀러 에이스','악기 HAND',88,30,180),cam(5,'윤관','FX3','v-af 35mm','펀치달리 + 레일','기타·건반·드럼 HAND',30,44,-20)],
- crea:[cam(1,'김창훈','A7C2','sigma 16-28','YC Onion PINETA PEAK','C3 로우 앵글 / C4 하이',40,58,-80),cam(2,'박완준 감독','박완준 감독 카메라','박완준 감독 렌즈','감독 지참 삼각대','C1 오케스트라 너머 보컬',30,22,80),cam(3,'문호준 감독','문호준 감독 카메라','문호준 감독 망원','맨프로토 509HD','C7 랙포커스 · C9 리액션',70,70,-115),cam(4,'최영민 감독','최영민 감독 카메라','v-af 75mm','셔틀러 에이스','C2 브라스 벨 너머',78,22,110),cam(5,'윤관','FX3','sigma 28-70','펀치달리 + 레일','C5 역방향 · C6 실루엣',50,9,90)]
+ rail:[cam(1,'(무인)','VINFILM A7C2','VINFILM sigma 16-28','VINFILM YC Onion 트라이','정면 FULL',50,78,-90),cam(2,'박완준 감독','박완준 카메라 (기종 확인)','박완준 렌즈','감독 지참 삼각대','사이드 와이드',10,52,-30),cam(3,'문호준 감독','문호준 카메라 (기종 확인)','문호준 망원 렌즈','칠렌탈 맨프로토 509HD','보컬 타이트',68,72,-110),cam(4,'최영민 감독','교회 A7M4 ①','VINFILM v-af 75mm','칠렌탈 셔틀러 에이스','오케스트라 · 악기',90,40,200),cam(5,'윤관','VINFILM FX3','VINFILM sigma 28-70','칠렌탈 펀치달리 + 레일','레일 (밀기: 김창훈)',36,66,-90)],
+ base:[cam(1,'김창훈','VINFILM A7C2','VINFILM sigma 16-28','VINFILM YC Onion 트라이','정면 FULL → 오케스트라 FULL',50,80,-90),cam(2,'박완준 감독','박완준 카메라 (기종 확인)','박완준 렌즈','감독 지참 삼각대','남·여 보컬 MS / TWO',22,62,-60),cam(3,'문호준 감독','문호준 카메라 (기종 확인)','문호준 망원 렌즈','칠렌탈 맨프로토 509HD','보컬 CS',62,66,-110),cam(4,'최영민 감독','교회 A7M4 ①','VINFILM v-af 100mm','칠렌탈 셔틀러 에이스','악기 HAND',88,30,180),cam(5,'윤관','VINFILM FX3','VINFILM v-af 35mm','칠렌탈 펀치달리 + 레일','기타·건반·드럼 HAND',30,44,-20)],
+ crea:[cam(1,'김창훈','VINFILM A7C2','VINFILM sigma 16-28','VINFILM YC Onion 트라이','C3 로우 앵글 / C4 하이',40,58,-80),cam(2,'박완준 감독','박완준 카메라 (기종 확인)','박완준 렌즈','감독 지참 삼각대','C1 오케스트라 너머 보컬',30,22,80),cam(3,'문호준 감독','문호준 카메라 (기종 확인)','문호준 망원 렌즈','칠렌탈 맨프로토 509HD','C7 랙포커스 · C9 리액션',70,70,-115),cam(4,'최영민 감독','교회 A7M4 ①','VINFILM v-af 75mm','칠렌탈 셔틀러 에이스','C2 브라스 벨 너머',78,22,110),cam(5,'윤관','VINFILM FX3','VINFILM sigma 28-70','칠렌탈 펀치달리 + 레일','C5 역방향 · C6 실루엣',50,9,90)]
 };
 const KEY='vf-gear-board-1023';
 let S; try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
-if(!S) S={tab:'rail',ph:JSON.parse(JSON.stringify(DEF)),pool:DEF_POOL.map(p=>({c:p[0],n:p[1],o:p[2]})),rail:{x:24,y:66,w:28,a:0}};
+if(!S) S={tab:'rail',ph:JSON.parse(JSON.stringify(DEF)),pool:DEF_POOL.map(p=>({c:p[0],n:p[1],o:p[2]})),rail:{x:24,y:66,w:28,a:0},swapKY:1,mig2:1};
 if(S.rail&&S.rail.a==null)S.rail.a=0;
 S.ph&&Object.values(S.ph).forEach(a=>a.forEach(c=>{if(c.op==='촬영자 A')c.op='김창훈';if(c.op==='촬영자 B')c.op='윤관';c.role=(c.role||'').replace('촬영자 B','윤관')}));
 if(S&&!S.swapKY){Object.values(S.ph).forEach(a=>a.forEach(c=>{if(c.op==='김창훈')c.op='윤관';else if(c.op==='윤관')c.op='김창훈';c.role=(c.role||'').replace('밀기: 윤관','밀기: 김창훈')}));S.swapKY=1}
+const MIG={"FX3": "VINFILM FX3", "A7C2": "VINFILM A7C2", "박완준 감독 카메라": "박완준 카메라 (기종 확인)", "문호준 감독 카메라": "문호준 카메라 (기종 확인)", "최영민 감독 카메라": "최영민 카메라 (지참 시)", "sigma 16-28": "VINFILM sigma 16-28", "sigma 28-70": "VINFILM sigma 28-70", "v-af 35mm": "VINFILM v-af 35mm", "v-af 75mm": "VINFILM v-af 75mm", "v-af 100mm": "VINFILM v-af 100mm", "박완준 감독 렌즈": "박완준 렌즈", "문호준 감독 망원": "문호준 망원 렌즈", "YC Onion PINETA PEAK": "VINFILM YC Onion 트라이", "셔틀러 에이스": "칠렌탈 셔틀러 에이스", "맨프로토 509HD": "칠렌탈 맨프로토 509HD", "펀치달리 + 레일": "칠렌탈 펀치달리 + 레일", "감독 지참 삼각대": "감독 지참 삼각대", "RONIN RS2": "VINFILM RONIN RS2"};
+if(S&&!S.mig2){S.pool=DEF_POOL.map(p=>({c:p[0],n:p[1],o:p[2]}));Object.values(S.ph).forEach(a=>a.forEach(c=>{['body','lens','sup'].forEach(f=>{if(MIG[c[f]])c[f]=MIG[c[f]]});if(c.op==='최영민 감독'&&c.body==='최영민 카메라 (지참 시)')c.body='교회 A7M4 ①'}));S.mig2=1}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const opt=(list,v)=>['',...list].map(x=>`<option${x===v?' selected':''}>${esc(x)}</option>`).join('');
@@ -124,7 +127,7 @@ function phaseHtml(k,label){
  const ops={};cams.forEach(c=>{if(c.on&&c.op&&c.op!=='(무인)')ops[c.op]=(ops[c.op]||0)+1});
  const warn=[];Object.entries(used).forEach(([n,v])=>{if(v>1&&n!=='감독 지참 삼각대')warn.push(`「${n}」를 카메라 ${v}대에 같이 넣었어요`)});
  Object.entries(ops).forEach(([n,v])=>{if(v>1)warn.push(`${n}님이 카메라 ${v}대에 배정돼 있어요`)});
- if(k==='rail'&&!cams.some(c=>c.sup==='펀치달리 + 레일'))warn.push('레일 테이크인데 펀치달리를 쓰는 카메라가 없어요');
+ if(k==='rail'&&!cams.some(c=>/펀치달리/.test(c.sup||'')))warn.push('레일 테이크인데 펀치달리를 쓰는 카메라가 없어요');
  const r=S.rail;
  return `<div class="phase${S.tab===k?' on':''}" data-ph="${k}"><div class="grid"><div>
  <h2>${label} · 배치도</h2>
