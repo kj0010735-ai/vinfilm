@@ -69,7 +69,7 @@ td.x{width:6mm;text-align:center}td.x button{border:0;background:none;color:#bbb
 /* iPad mini 최적화 */
 @media (max-width:1100px){
  .bar b{display:none}
- .tabs{width:100%}.tabs button{flex:1;font-size:15px;padding:12px 6px}
+ .tabs button{font-size:15px;padding:11px 12px}
  .bar #reset{font-size:13px;padding:10px}
  .sheet{width:auto;margin:0;padding:16px;box-shadow:none}
  h1{font-size:24px}.sub{font-size:14px}
@@ -94,12 +94,12 @@ td.x{width:6mm;text-align:center}td.x button{border:0;background:none;color:#bbb
 #showBar{display:none;position:fixed;top:calc(6px + env(safe-area-inset-top));right:8px;z-index:20;border:0;border-radius:8px;background:rgba(17,17,17,.75);color:#fff;font-size:15px;font-weight:800;padding:8px 12px}
 body.nobar .bar{display:none}body.nobar #showBar{display:block}
 body.nobar .ang iframe{height:100vh!important}body.nobar .chk iframe{height:100vh}
-.bar{flex-wrap:nowrap}.tabs{flex:1;overflow-x:auto}
+.bar{flex-wrap:nowrap}.tabs{flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.tabs::-webkit-scrollbar{display:none}.tabs button{flex:none;white-space:nowrap}.bar>button{flex:none;white-space:nowrap}
 .swap{font-size:.8em;font-weight:900;color:#d81f1f;margin-top:2px}.keep{font-size:.8em;color:#16a34a;font-weight:800;margin-top:2px}.lnote{font-size:.78em;color:#666;margin-top:1px;line-height:1.25}
 </style></head><body>
 <div class="bar" id="bar"><button id="hideBar" title="탭 숨기기">⌃</button>
 <div class="tabs" id="tabs"></div>
-<button id="reload" title="새로고침">↻</button><button id="reset">처음으로</button></div>
+<button id="reload" title="새로고침">↻</button><button id="reset">초기화</button></div>
 <button id="showBar">☰ 탭</button>
 <div class="sheet">
 
