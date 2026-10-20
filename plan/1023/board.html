@@ -160,7 +160,7 @@ const NB=[["보컬", "박준"], ["보컬", "이시몬"], ["피아노", "최찬�
 if(S&&S.perf&&!S.band2){const b=S.perf.filter(m=>m.g==='band');NB.forEach((v,i)=>{if(b[i]){b[i].r=v[0];b[i].n=v[1]}else S.perf.push({g:'band',r:v[0],n:v[1],x:20+i*10,y:39})});S.perf=S.perf.filter(m=>m.g!=='band'||NB.some(v=>v[1]===m.n));S.band2=1}
 if(S&&!S.mig11){if(!S.pool.some(p=>/28-135/.test(p.n))){const i=S.pool.findIndex(p=>p.n==='교회 70-200 GM');S.pool.splice(i+1,0,{c:'렌즈',n:'칠렌탈 소니 28-135 F4 G',o:'칠렌탈'})}S.mig11=1}
 if(S&&!S.mig12){Object.values(S.ph).forEach(a=>a.forEach(c=>{if(/펀치달리/.test(c.sup||'')){c.lens='칠렌탈 소니 28-135 F4 G';c.lensNote='레일 · 28-135 줌으로 사이즈 조절'}}));S.mig12=1}
-const POSE={"보컬": "s", "피아노": "s", "신스": "s", "일렉": "s", "베이스": "s", "드럼": "c", "Vn1": "s", "Vn2": "s", "Va": "s", "Vc": "c", "Hr": "s", "Sax": "s", "Tb": "s", "Tp": "s", "Sn": "s"};
+const POSE={"보컬": "s", "피아노": "s", "신스": "s", "일렉": "s", "베이스": "s", "드럼": "c", "1st 바이올린": "s", "2nd 바이올린": "s", "비올라": "s", "첼로": "c", "호른": "s", "색소폰": "s", "트롬본": "s", "트럼펫": "s", "스네어": "s"};
 if(S&&S.perf&&!S.pose1){S.perf.forEach(m=>{if(!m.p)m.p=POSE[m.r]||'s'});S.pose1=1}
 if(S&&S.perf&&!S.pose2){S.perf.forEach(m=>{if(m.n==='최찬미')m.p='s'});S.pose2=1}
 const FAN={"박준": [46, 47, "s"], "이시몬": [55, 47, "s"], "최찬미": [31, 40, "c"], "심택근": [40, 40, "c"], "김하일": [19, 44, "s"], "최선용": [81, 44, "s"], "한상희": [64, 38, "c"], "한예진": [24, 20, "s"], "신유진": [19, 26, "s"], "장석호": [15, 32, "s"], "권혁민": [76, 20, "s"], "조예윤": [81, 26, "s"], "이예진": [85, 32, "s"], "채송아": [9, 41, "c"], "손세인": [91, 41, "c"], "유주영": [34, 13, "s"], "박두호": [42, 13, "s"], "오현석": [50, 13, "s"], "이은수": [58, 13, "s"], "조민혁": [66, 13, "s"], "스네어 1": [26, 12, "s"], "스네어 2": [74, 12, "s"]};
@@ -169,6 +169,8 @@ if(S&&!S.fan2){Object.values(S.ph).forEach(a=>a.forEach(c=>{(S.perf||[]).forEach
 const CAMPOS={"rail": {"1": [45, 66, -90], "2": [7, 58, -40], "3": [30, 80, -72], "4": [50, 29, 90], "5": [72, 72, -125]}, "base": {"1": [50, 83, -90], "2": [10, 62, -45], "3": [34, 78, -75], "4": [90, 58, -150], "5": [45, 66, -90]}, "crea": {"1": [48, 57, -90], "2": [10, 20, 35], "3": [36, 71, -80], "4": [50, 6, 90], "5": [72, 8, 115]}};
 if(S&&!S.fan3){Object.entries(CAMPOS).forEach(([k,d])=>(S.ph[k]||[]).forEach(c=>{const v=d[c.n];if(v){c.x=v[0];c.y=v[1];c.a=v[2]}}));S.rail={x:30,y:66,w:30,a:0};S.fan3=1}
 if(S&&!S.fan4){const a=S.ph.rail;const c1=a.find(c=>c.n===1),c5=a.find(c=>c.n===5);if(c1&&/펀치달리/.test(c1.sup||'')){c1.op='윤관';c1.role='레일 (밀기: 김창훈)';if(c5){c5.op='(무인)';c5.role='대각선 와이드 (고정 녹화)'}}S.fan4=1}
+const KR={"1st 바이올린": "1st 바이올린", "2nd 바이올린": "2nd 바이올린", "비올라": "비올라", "첼로": "첼로", "호른": "호른", "색소폰": "색소폰", "트롬본": "트롬본", "트럼펫": "트럼펫", "스네어": "스네어"};
+if(S&&S.perf&&!S.kr1){S.perf.forEach(m=>{if(KR[m.r])m.r=KR[m.r]});S.kr1=1}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const cap=n=>{const m=/×\s*(\d+)/.exec(n||'');return m?+m[1]:1};
