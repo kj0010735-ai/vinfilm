@@ -126,6 +126,7 @@ td select{font-size:13px}
 .ccr{display:grid;grid-template-columns:52px 1fr;align-items:center;gap:6px;margin:4px 0}.ccr label{font-size:12px;font-weight:800;color:#666;line-height:1.2}.ccr label .swap,.ccr label .keep{display:block;font-size:10px;margin:0}
 .ccr select{width:100%;min-width:0}.ccr.role [contenteditable]{font-size:13px;line-height:1.35;border-bottom:1px dashed #ccc;padding:2px 0}
 .cc details.tr{margin-left:58px}
+body.panning,body.panning *{cursor:grab!important}body.panning-on,body.panning-on *{cursor:grabbing!important;user-select:none}
 </style></head><body>
 <div class="bar" id="bar"><button id="hideBar" title="탭 숨기기">⌃</button>
 <div class="tabs" id="tabs"></div>
@@ -205,6 +206,12 @@ function setZoom(d){let z=ZM();z=Math.max(.6,Math.min(3,+(z+d*0.2).toFixed(1)));
 function applyZoom(){const z=ZM();document.querySelectorAll('.sheet,#chkWrap,#angWrap').forEach(el=>el.style.zoom=z);const b=document.getElementById('zmv');if(b)b.textContent=Math.round(z*100)+'%'}
 addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('[contenteditable],input,select,textarea'))return;if(e.key==='+'||e.key==='='){e.preventDefault();setZoom(1)}else if(e.key==='-'||e.key==='_'){e.preventDefault();setZoom(-1)}});
 let UND=[],RED=[],LAST=null;
+let PAN=false,PANS=null;const typing=e=>e.target.closest&&e.target.closest('[contenteditable],input,select,textarea');
+addEventListener('keydown',e=>{if(e.code!=='Space'||typing(e))return;e.preventDefault();if(!PAN){PAN=true;document.body.classList.add('panning')}});
+addEventListener('keyup',e=>{if(e.code!=='Space')return;PAN=false;PANS=null;document.body.classList.remove('panning','panning-on')});
+document.addEventListener('pointerdown',e=>{if(!PAN)return;e.preventDefault();e.stopImmediatePropagation();PANS={x:e.clientX,y:e.clientY,sx:scrollX,sy:scrollY};document.body.classList.add('panning-on')},true);
+document.addEventListener('pointermove',e=>{if(!PANS)return;e.stopImmediatePropagation();scrollTo(PANS.sx-(e.clientX-PANS.x),PANS.sy-(e.clientY-PANS.y))},true);
+document.addEventListener('pointerup',e=>{if(!PANS)return;PANS=null;document.body.classList.remove('panning-on')},true);
 const save=()=>{const now=JSON.stringify(S);if(LAST!==null&&now!==LAST){UND.push(LAST);if(UND.length>80)UND.shift();RED=[]}LAST=now;try{localStorage.setItem(KEY,now)}catch(e){}};
 function undo(){if(!UND.length)return;RED.push(JSON.stringify(S));S=JSON.parse(UND.pop());LAST=JSON.stringify(S);try{localStorage.setItem(KEY,LAST)}catch(e){};render();applyZoom()}
 function redo(){if(!RED.length)return;UND.push(JSON.stringify(S));S=JSON.parse(RED.pop());LAST=JSON.stringify(S);try{localStorage.setItem(KEY,LAST)}catch(e){};render();applyZoom()}
