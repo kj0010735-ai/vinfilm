@@ -39,10 +39,11 @@ h1{font-size:18px;margin:4px 0 10px}.sub{color:#8d95a1;font-size:13px;margin-bot
 <div id="app"><div class="none">불러오는 중…</div></div>
 <div class="flash" id="flash"></div>
 <script>
-const SW=98; // 1:38
+const SW=98; // 곡 1:38 (넥서스·QLab 시간으로는 1:42.8)
+const COUNTIN=4.83; // 촬영용 mp3 앞 카운트인 — 화면 시계는 넥서스 뮤직과 같은 mp3 시간으로 보여줌
 const MANUAL=new URLSearchParams(location.search).has('manual'); // 연동이 안 될 때만 ?manual 로 직접 조작
 const PEOPLE=[['윤관','레일 카메라 · T 5번'],['김창훈','레일 밀기 · T 1번 정면'],['박완준','2번 측면'],['문호준','3번 망원'],['최영민','4번 오케스트라'],['전체','모든 카메라 보기']];
-let TAKES=[],me=localStorage.getItem('vf-cam-me')||'',cur=+localStorage.getItem('vf-cam-take')||0,t0=null,timer=null,offset=0,flashed=false;
+let TAKES=[],me=localStorage.getItem('vf-cam-me')||'',cur=+localStorage.getItem('vf-cam-take')||0,t0=null,timer=null,offset=-4.83,flashed=false;
 const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function load(){
  const h=await (await fetch('angles-web.html?v='+Date.now(),{cache:'no-store'})).text();
@@ -72,12 +73,12 @@ function render(){
   ${c.red||c.blue?`<div class="ph r ${phase==='r'?'now':''}"><div class="t">🔴 처음 ~ 1:38 · 남자 보컬 혼자</div><div class="d">${hlab(c.red)||'—'}</div></div>
   <div class="ph b ${phase==='b'?'now':''}"><div class="t">🔵 1:38 ~ 끝 · 다 같이</div><div class="d">${hlab(c.blue)||'—'}</div></div>`:`<div class="ph solo"><div class="d">${hlab(c.other)}</div></div>`}
  </div></div>`).join(''):'<div class="none">이 테이크에는 내 카메라 지시가 없어요 (대기 또는 다른 테이크 준비)</div>'}
- <div class="clock"><div class="tm" id="tm">${fmt(t)}</div><div class="left" id="left">${t<SW?'1:38까지 '+fmt(SW-t):'다 같이 부르는 구간'}</div></div>
+ <div class="clock"><div class="tm" id="tm">${fmt(t+COUNTIN)}</div><div class="left" id="left">${t<SW?'🔵까지 '+fmt(SW-t):'🔵 다 같이 부르는 구간'}</div></div>
  ${MANUAL?`<button class="go ${t0?'stop':''}" data-act="go">${t0?'■ 멈춤':'▶ 시작 (음악 시작할 때)'}</button>
  <div class="row2"><button data-act="back">−5초</button><button data-act="fwd">+5초</button><button data-act="reset">처음으로</button></div>`:''}
  <div class="row2"><button data-act="next">다음 테이크 ›</button></div>
- <div class="note">· 시간은 연출석 음악에 맞춰 자동으로 흘러요 (초록 🔗 표시)<br>· 1:38이 되면 화면이 한 번 반짝이고 🔵로 바뀌어요</div>`}
-function tick(){const t=now();const e=$('#tm');if(e)e.textContent=fmt(t);const l=$('#left');if(l)l.textContent=t<SW?'1:38까지 '+fmt(SW-t):'다 같이 부르는 구간';
+ <div class="note">· 시계는 연출석 넥서스 뮤직과 같은 시간이에요 (초록 🔗 표시)<br>· 곡의 1:38(넥서스 1:42.8)이 되면 화면이 한 번 반짝이고 🔵로 바뀌어요</div>`}
+function tick(){const t=now();const e=$('#tm');if(e)e.textContent=fmt(t+COUNTIN);const l=$('#left');if(l)l.textContent=t<SW?'🔵까지 '+fmt(SW-t):'🔵 다 같이 부르는 구간';
  const r=document.querySelector('.ph.r'),b=document.querySelector('.ph.b');if(r){r.classList.toggle('now',t<SW);b.classList.toggle('now',t>=SW)}
  if(t>=SW&&!flashed){flashed=true;const f=$('#flash');f.classList.add('on');setTimeout(()=>f.classList.remove('on'),450);try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}}
  if(t<SW)flashed=false}
@@ -91,16 +92,15 @@ document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
  if(a==='reset'){stop(true);render()}
  if(a==='next'){cur=Math.min(TAKES.length-1,cur+1);localStorage.setItem('vf-cam-take',cur);if(!LIVE.playing)stop(true);render();scrollTo(0,0)}});
 function shift(d){if(t0){t0-=d*1000}else offset=Math.max(0,offset+d);tick()}
-function stop(reset){if(t0){offset=now();t0=null}clearInterval(timer);timer=null;if(reset){offset=0;flashed=false}}
+function stop(reset){if(t0){offset=now();t0=null}clearInterval(timer);timer=null;if(reset){offset=-COUNTIN;flashed=false}}
 let wl=null;async function requestWake(){try{wl=await navigator.wakeLock?.request('screen')}catch(e){}}
-const COUNTIN=4.83; // 촬영용 mp3 앞 카운트인 (곡 0:00 = mp3 0:04.83)
 const LIVE={ok:false,playing:false};
 function liveBadge(){const b=document.getElementById('liveB');if(!b)return;b.className='live'+(LIVE.ok?' on':'');b.textContent=LIVE.ok?(LIVE.playing?'🔗 음악 연동 · 재생 중':'🔗 음악 연동 · 멈춤'):'🔗 연동 대기'}
 try{firebase.initializeApp({apiKey:"AIzaSyAVJ6ZZ6L-3RtgoYe2dDSn_lCHXv3CeBGc",projectId:"vinfilm-studio-app"});
  firebase.firestore().doc('live/mv1023').onSnapshot(sn=>{const d=sn.data();if(!d)return;LIVE.ok=true;LIVE.playing=!!d.playing;
   const song=d.t-COUNTIN;
   if(d.playing){t0=d.at-song*1000;offset=0;if(!timer)timer=setInterval(tick,200);requestWake()}
-  else{clearInterval(timer);timer=null;t0=null;offset=Math.max(0,song)}
+  else{clearInterval(timer);timer=null;t0=null;offset=song}
   flashed=now()>=SW;const g=document.querySelector('[data-act=go]');if(g){g.textContent=t0?'■ 멈춤':'▶ 시작 (음악 시작할 때)';g.classList.toggle('stop',!!t0)}
   liveBadge();tick()},()=>{})}catch(e){}
 load().catch(()=>{$('#app').innerHTML='<div class="none">앵글표를 못 불러왔어요. 인터넷 연결을 확인해 주세요.</div>'});
