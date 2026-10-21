@@ -1,7 +1,7 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow"><title>ON SET · 10/23 교회를 사랑하는 건</title>
-<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-onset.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="ON SET"><meta name="theme-color" content="#111111">
+<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-onset.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="ON SET"><meta name="theme-color" content="#111111">
 <style>
 :root{--ink:#111;--line:#dcdcdc;--soft:#f5f5f5;--accent:#d81f1f;--blue:#2f6fee}
 *{box-sizing:border-box}
@@ -167,6 +167,10 @@ body.dk .pf .rot{color:#fff}body.dk .chk iframe{background:#0b0c0f}
 .ctl b{min-width:48px;text-align:center;font:600 13px 'SF Mono',ui-monospace,Menlo,monospace;color:#fff;font-variant-numeric:tabular-nums}
 #hideBar{background:#1b1b1b!important;border:1px solid #2e2e2e!important;border-radius:9px!important;color:#d6d6d6!important}
 @media (max-width:1100px){.ctl button{width:40px;height:38px}.ctl b{min-width:52px;font-size:14px}}
+
+/* 홈 화면 앱: 상태 표시줄(시계·배터리) 자리까지 상단 막대 색으로 채움 */
+html{background:#111}
+.bar{padding-top:calc(10px + env(safe-area-inset-top))!important;padding-left:calc(16px + env(safe-area-inset-left))!important;padding-right:calc(16px + env(safe-area-inset-right))!important}
 </style></head><body>
 <div class="bar" id="bar"><button id="hideBar" title="탭 숨기기">⌃</button>
 <div class="tabs" id="tabs"></div>
