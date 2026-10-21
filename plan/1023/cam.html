@@ -25,7 +25,8 @@ h1{font:700 15px var(--m);letter-spacing:3px;margin:6px 0 4px;color:#fff}.sub{co
 .pg{height:6px;background:#1c1c1c;margin-top:10px}.pg i{display:block;height:100%;background:var(--red);transition:width .2s linear}.pg.b i{background:var(--blue)}
 .seg{display:flex;gap:2px;margin-top:6px}.seg span{flex:1;height:18px;background:#141414;font:600 10px var(--m);letter-spacing:.5px;color:#555;display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden}
 .seg span.r.on{background:var(--red);color:#000}.seg span.b.on{background:var(--blue);color:#000}.seg span.b.nx{background:#0a84ff26;color:var(--blue)}.seg span.r.dn{background:#2a1110;color:#7a3a36}
-@media (max-width:760px){.clock{grid-template-columns:1fr 1fr;gap:6px 10px;padding:8px 12px 10px}.clock .mid{grid-column:1/-1;order:3}.ck .tm{font-size:40px}}
+@media (max-width:760px){.clock{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 10px;padding:8px 10px 10px}.clock .mid{grid-column:1/-1;order:3}.ck .tm{font-size:44px;letter-spacing:0}.ck .hh{display:none}.seg span{font-size:9px}.ck .lb{letter-spacing:1px}}
+html,body{overflow-x:hidden}.clock>*,.cards>*{min-width:0}
 .tk{display:flex;gap:2px;overflow-x:auto;margin:0 0 6px;scrollbar-width:none}.tk::-webkit-scrollbar{display:none}
 .tk button{flex:none;border:1px solid var(--line);background:#0d0d0d;color:#888;border-radius:0;padding:9px 13px;font:600 13px var(--m)}.tk button.on{background:#fff;color:#000;border-color:#fff}
 .ttl{font:600 11px var(--m);letter-spacing:1.5px;color:#777;margin:4px 2px 8px;text-transform:uppercase}
@@ -100,7 +101,7 @@ function cardHtml(c,ph){const [n,who]=camTag(c.cam);
  <div class="oth">${b?`<b>DONE</b>${hlab(c.red)||'—'}`:`<b>NEXT 1:38 ▸</b>${hlab(c.blue)||'—'}`}</div></div></div>`}
 function clockHtml(t){const red=t<SW,end=t>=END,a=red?0:SW,b=red?SW:END,rem=Math.max(0,b-t),pct=end?100:Math.min(100,Math.max(0,(t-a)/(b-a)*100));
  const tk=TAKES[cur]||{};
- return `<div class="ck"><div class="lb">Elapsed · TC</div><div class="tm">${tc(t+COUNTIN)}</div></div>
+ return `<div class="ck"><div class="lb">Elapsed · TC</div><div class="tm"><span class="hh">${tc(t+COUNTIN).slice(0,3)}</span>${tc(t+COUNTIN).slice(3)}</div></div>
  <div class="mid"><div class="tl"><span class="lb" style="color:#aaa">${esc(tk.id||'')} · ${esc(tk.desc||'')}</span></div><div class="pg ${red?'':'b'}"><i style="width:${pct}%"></i></div>
  <div class="seg"><span class="r ${red?'on':'dn'}">● SOLO 0:00–1:38</span><span class="b ${end?'':(red?'nx':'on')}">● ALL 1:38–4:17</span></div></div>
  <div class="ck rt ${end?'e':(red?'':'b')}"><div class="lb">${end?'Song end':(red?'Next change in':'Song end in')}</div><div class="tm">${mmss(end?0:rem)}</div></div>`}
