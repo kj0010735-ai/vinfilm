@@ -38,6 +38,7 @@ body{padding:calc(8px + env(safe-area-inset-top)) 12px calc(30px + env(safe-area
 .btns button{border:1px solid #333;background:#111;color:#ddd;border-radius:0;padding:9px 12px;font:700 13px var(--m);letter-spacing:.5px}
 .btns button.go{background:var(--red);border-color:var(--red);color:#000}.btns button.ok{background:var(--grn);border-color:var(--grn);color:#000}
 .stt{display:flex;align-items:center;font:700 13px var(--m);letter-spacing:1px;color:var(--red);padding:0 10px 0 2px;animation:blink 1.4s infinite}.stt.dn{color:var(--grn);animation:none}@keyframes blink{50%{opacity:.35}}
+.ov{display:block;color:var(--red);font-weight:800;animation:blink 1s infinite}.it.over{border-color:var(--red);background:#2a0b0b}
 .tkc{font:600 12px var(--m);color:#aaa;margin-left:6px}.tkc b{color:var(--ylw)}
 .it{position:relative}.pen{position:absolute;top:8px;right:8px;width:30px;height:30px;border:1px solid #333;background:#141414;color:#aaa;font-size:14px;border-radius:0;z-index:1}.pen:hover{color:#fff;border-color:#666}
 .it .act{padding-right:38px}
@@ -95,7 +96,7 @@ function render(){
   const rem=endAt-now,pct=cur&&c.started?Math.min(100,(now-p.s)/(cur.d*60000)*100):0;
   const [sc,st]=status(c.delay);
   const nx=cur?MAIN[MAIN.indexOf(cur)+1]:null;
-  let h=`<div class="hd"><b>${MEM?'오늘 일정':'RUNDOWN'} · 10/23</b><span class="live ${OK?'on':''}"><i></i>${OK?'LIVE':'연결 중'}</span><span class="role">${DIR?'연출석 조작':(MEM?'멤버·오케스트라':'보기 전용')}</span></div>
+  let h=`<div class="hd"><b>${MEM?'오늘 일정':'RUNDOWN'} · 10/23</b><span class="live ${OK?'on':''}"><i></i>${OK?'LIVE':'연결 중'}</span><span class="role">${DIR?'연출석 · 시간 되면 자동 시작':(MEM?'멤버·오케스트라':'보기 전용')}</span></div>
   <div class="top"><div><div class="lb">Now</div><div class="big">${clks(now)}</div></div>
   <div class="cur"><div class="lb">${c.started?'지금':'다음'} · ${cur?esc(cur.t):''}</div><div class="ttl">${cur?esc(MEM?cur.m:cur.title):'모든 일정 끝'}</div><div class="who">${cur&&!MEM?esc(cur.who):(nx?'다음 '+esc(nx.t)+' · '+esc(MEM?nx.m:nx.title):'')}</div><div class="pg"><i style="width:${pct}%"></i></div></div>
   <div class="rt"><div class="lb">${c.started?'이 단계 남은 시간':'시작까지'}</div><div class="big">${cur?dur(c.started?rem:(cur.ps+Math.max(0,c.delay)-now)):'00:00'}</div></div>
@@ -105,12 +106,12 @@ function render(){
   for(const x of IT){
     if(x.g==='shoot'&&!sg){sg=true;const sh=IT.filter(y=>y.g==='shoot');h+=`<div class="gh">▼ 본 촬영 ${esc(sh[0].t)} – ${clk(sh[sh.length-1].pe)}</div>`}
     if(x.late)h+=`<div class="gh">▼ 철수 후</div>`;
-    const q=ST.ph[x.id]||{},isNow=cur&&cur.id===x.id&&c.started,done=!!q.e;
+    const q=ST.ph[x.id]||{},isNow=!!(q.s&&!q.e),done=!!q.e;
     const sh=q.s?mins(q.s-x.ps):null;
     if(DIR&&RE===x.id){h+=rowEditor(x);continue}
-    h+=`<div class="it ${x.g?'sub':''} ${isNow?'now':''} ${done?'done':''}">${DIR?`<button class="pen" data-ie="open" data-id="${x.id}" title="이 단계 고치기">✎</button>`:''}<div class="tm">${esc(x.t)}<small>${x.d}분</small>${sh!=null&&!MEM?`<small class="${sh>=2?'lt':(sh<=-2?'er':'')}">시작 ${clk(q.s)}</small>`:''}</div>
+    h+=`<div class="it ${x.g?'sub':''} ${isNow?'now':''} ${isNow&&now-q.s>x.d*60000?'over':''} ${done?'done':''}">${DIR?`<button class="pen" data-ie="open" data-id="${x.id}" title="이 단계 고치기">✎</button>`:''}<div class="tm">${esc(x.t)}<small>${x.d}분</small>${sh!=null&&!MEM?`<small class="${sh>=2?'lt':(sh<=-2?'er':'')}">시작 ${clk(q.s)}</small>`:''}</div>
     <div><div class="nm">${esc(MEM?x.m:x.title)}${x.takes&&!MEM?`<span class="tkc">${x.takes.map(t=>ST.rt[t]?`${t} <b>×${ST.rt[t]+1}</b>`:'').filter(Boolean).join(' ')}</span>`:''}</div><div class="wh">${esc(MEM?x.title:x.who)}</div></div>
-    <div class="act">${done?`완료<b>${dur(q.e-q.s)}</b>`:(isNow?`진행<b>${dur(now-q.s)}</b>`:'')}</div>
+    <div class="act">${done?`완료<b>${dur(q.e-q.s)}</b>`:(q.s&&!q.e?(now-q.s>x.d*60000?`<span class="ov">+${mins(now-q.s-x.d*60000)}분 초과</span><b>${dur(now-q.s)}</b>`:`진행<b>${dur(now-q.s)}</b>`):'')}</div>
     ${(x.ck&&x.ck.length||DIR)&&!MEM?`<div class="cks">${(x.ck||[]).map((k,i)=>`<span class="ck ${ST.ck[x.id+'_'+i]?'on':''}" data-ck="${x.id}_${i}">${esc(k)}</span>`).join('')}${DIR?(QA===x.id?`<input class="qa" data-qa="${x.id}" placeholder="체크 항목 입력 후 Enter">`:`<span class="ck plus" data-ie="qa" data-id="${x.id}">＋ 체크</span>`):''}</div>`:''}
     ${DIR?`<div class="btns">${isNow?`<span class="stt">● 진행 중</span><button class="ok" data-done="${x.id}">■ 끝내기</button>${x.takes?x.takes.map(t=>`<button data-rt="${t}">↻ ${t} 재촬영</button>`).join(''):''}`:(done?`<span class="stt dn">✓ 완료</span><button data-undo="${x.id}">되돌리기</button>`:`<button class="go" data-go="${x.id}">▶ 시작</button>`)}</div>`:''}
     </div>`}
@@ -173,4 +174,5 @@ try{firebase.initializeApp({apiKey:"AIzaSyAVJ6ZZ6L-3RtgoYe2dDSn_lCHXv3CeBGc",pro
  planRef().onSnapshot(sn=>{const d=sn.data();if(d&&Array.isArray(d.items)&&d.items.length){SAVED_IDS=new Set(d.items.map(x=>x.id));if(!RE){setItems(d.items);render()}}},()=>{});
  ref().onSnapshot(sn=>{const d=sn.data()||{};ST={ph:d.ph||{},ck:d.ck||{},rt:d.rt||{}};OK=true;render()},()=>{OK=false;render()})}catch(e){}
 render();setInterval(render,1000);
+if(DIR){const sc=document.createElement('script');sc.src='rundown-auto.js?v=1';document.body.appendChild(sc)}
 </script></body></html>
