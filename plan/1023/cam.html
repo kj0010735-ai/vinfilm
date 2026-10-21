@@ -46,6 +46,8 @@ html,body{overflow-x:hidden}.clock>*,.cards>*{min-width:0}
 .row2{display:flex;gap:2px;margin-top:6px}.row2 button{flex:1;border:1px solid var(--line);border-radius:0;padding:12px;font:600 14px var(--m);background:#0d0d0d;color:#ccc}
 .flash{position:fixed;inset:0;background:var(--blue);opacity:0;pointer-events:none;transition:opacity .25s}.flash.on{opacity:.5}
 .note{color:#666;font-size:12px;line-height:1.6;margin-top:12px}
+.dir{display:flex;align-items:center;gap:10px;background:#1a1300;border:1px solid #6b5a1a;color:var(--ylw);padding:10px 12px;margin:0 0 8px;font:700 13px var(--m);letter-spacing:1px}.dir button{margin-left:auto;border:0;background:var(--ylw);color:#000;font:800 13px var(--m);padding:8px 12px;border-radius:0}
+.tk button.dt{box-shadow:inset 0 -3px 0 var(--ylw)}.tk button.on.dt{box-shadow:inset 0 -3px 0 #000}
 .none{color:#777;padding:20px 4px;font-size:14px}
 </style></head><body>
 <div id="app"><div class="none">불러오는 중…</div></div>
@@ -55,6 +57,8 @@ const END=257; // 곡 끝 4:17
 const SW=98; // 곡 1:38 (넥서스·QLab 시간으로는 1:42.8)
 const COUNTIN=4.83; // 촬영용 mp3 앞 카운트인 — 화면 시계는 넥서스 뮤직과 같은 mp3 시간으로 보여줌
 const ALL=new URLSearchParams(location.search).has('all'); // 배치판 탭: 모든 카메라 한 화면
+const DIRECTOR=ALL||new URLSearchParams(location.search).has('director'); // 연출석: 테이크를 고르면 모든 촬영자 폰이 따라감
+let DTAKE=null; // 연출석이 고른 테이크 id
 const MANUAL=new URLSearchParams(location.search).has('manual'); // 연동이 안 될 때만 ?manual 로 직접 조작
 const PEOPLE=[['윤관','레일 카메라 · T 5번'],['김창훈','레일 밀기 · T 1번 정면'],['박완준','2번 측면'],['문호준','3번 망원'],['최영민','4번 오케스트라'],['전체','모든 카메라 보기']];
 let TAKES=[],me=ALL?'전체':(localStorage.getItem('vf-cam-me')||''),cur=+localStorage.getItem('vf-cam-take')||0,t0=null,timer=null,offset=-4.83,flashed=false;
@@ -70,7 +74,7 @@ async function load(){
    return {cam:cn?[...cn.childNodes].map(n=>n.textContent).join(' ').replace(/\s+/g,' ').trim():'',img:c.querySelector('img')?.getAttribute('src'),red,blue,other}});
   if(!id){const ks=cells.map(c=>c.cam.split(' ')[0]);id=ks[0]+'–'+ks[ks.length-1];desc='창의 앵글 · 인서트 (해당 구간만 · 감독 지시로 나눠 찍기)'}
   TAKES.push({id,desc,cells,shared:!tk.querySelector('b')})});
- if(cur>=TAKES.length)cur=0;render()}
+ if(cur>=TAKES.length)cur=0;if(DTAKE&&!DIRECTOR){const i=TAKES.findIndex(x=>x.id===DTAKE);if(i>=0)cur=i}render()}
 function mine(c){if(me==='전체')return true;const s=c.cam;if(me==='윤관')return /윤관|레일/.test(s)&&!/밀기/.test(s);if(me==='김창훈')return /김창훈|레일/.test(s);return s.includes(me)}
 function hlab(t){const s=esc(t);return s.replace(/(^|[^A-Za-z0-9])([A-Z][A-Z0-9\-\/]{1,7}|[1-3]S|OTS|POV)(?![A-Za-z0-9])/g,(m,a,k)=>a+'<span class="sh">'+k+'</span>')}
 function tc(s){s=Math.max(0,s);const h=Math.floor(s/3600),m=Math.floor(s/60)%60,x=Math.floor(s%60);return [h,m,x].map(v=>String(v).padStart(2,'0')).join(':')}
@@ -85,7 +89,9 @@ function render(){
  const ph=t>=END?'e':(t<SW?'r':'b');LASTPH=ph;
  A.innerHTML=`<div class="bar"><b>CAM · ${esc(me==='전체'?'ALL':me)}<span class="live" id="liveB"></span></b>${ALL?'':'<button data-act="who">사람 바꾸기</button>'}</div>
  <div class="clock" id="clock">${clockHtml(t)}</div>
- <div class="tk">${TAKES.map((x,i)=>`<button class="${i===cur?'on':''}" data-tk="${i}">${esc(x.id)}</button>`).join('')}</div>
+ <div class="tk">${TAKES.map((x,i)=>`<button class="${i===cur?'on':''} ${x.id===DTAKE?'dt':''}" data-tk="${i}">${esc(x.id)}</button>`).join('')}</div>
+ ${!DIRECTOR&&DTAKE&&TAKES[cur]&&TAKES[cur].id!==DTAKE?`<div class="dir">📡 지금 촬영: ${esc(DTAKE)}<button data-act="dtake">${esc(DTAKE)}로 돌아가기</button></div>`:''}
+ ${DIRECTOR?`<div class="dir" style="background:#0a0a0a;border-color:#232323;color:#aaa">📡 연출석 · 테이크를 누르면 모든 촬영자 폰이 따라와요</div>`:''}
  <div class="ttl">${esc(tk.id)} · ${esc(tk.desc)}</div>
  <div class="cards">${cs.length?cs.map(c=>cardHtml(c,ph)).join(''):'<div class="none">이 테이크에는 내 카메라 지시가 없어요 (대기 또는 다른 테이크 준비)</div>'}</div>
  ${MANUAL?`<button class="go ${t0?'stop':''}" data-act="go">${t0?'■ STOP':'▶ START (음악 시작할 때)'}</button>
@@ -110,13 +116,14 @@ function tick(){const t=now();const ph=t>=END?'e':(t<SW?'r':'b');if(LASTPH&&ph!=
  if(t<SW)flashed=false}
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
  if(b.dataset.me){me=b.dataset.me;localStorage.setItem('vf-cam-me',me);render();return}
- if(b.dataset.tk){cur=+b.dataset.tk;localStorage.setItem('vf-cam-take',cur);if(!LIVE.playing)stop(true);render();scrollTo(0,0);return}
+ if(b.dataset.tk){cur=+b.dataset.tk;if(DIRECTOR)pushTake(TAKES[cur].id);localStorage.setItem('vf-cam-take',cur);if(!LIVE.playing)stop(true);render();scrollTo(0,0);return}
  const a=b.dataset.act;
  if(a==='who'){me='';localStorage.removeItem('vf-cam-me');stop(true);render()}
  if(a==='go'){if(t0)stop(false);else{t0=Date.now();timer=setInterval(tick,200);requestWake()}render()}
  if(a==='back'){shift(-5)}if(a==='fwd'){shift(5)}
  if(a==='reset'){stop(true);render()}
- if(a==='next'){cur=Math.min(TAKES.length-1,cur+1);localStorage.setItem('vf-cam-take',cur);if(!LIVE.playing)stop(true);render();scrollTo(0,0)}});
+ if(a==='dtake'){goDTake();return}
+ if(a==='next'){cur=Math.min(TAKES.length-1,cur+1);if(DIRECTOR)pushTake(TAKES[cur].id);localStorage.setItem('vf-cam-take',cur);if(!LIVE.playing)stop(true);render();scrollTo(0,0)}});
 function shift(d){if(t0){t0-=d*1000}else offset=Math.max(0,offset+d);tick()}
 function stop(reset){if(t0){offset=now();t0=null}clearInterval(timer);timer=null;if(reset){offset=-COUNTIN;flashed=false}}
 let wl=null;async function requestWake(){try{wl=await navigator.wakeLock?.request('screen')}catch(e){}}
@@ -129,5 +136,9 @@ try{firebase.initializeApp({apiKey:"AIzaSyAVJ6ZZ6L-3RtgoYe2dDSn_lCHXv3CeBGc",pro
   else{clearInterval(timer);timer=null;t0=null;offset=song}
   flashed=now()>=SW;const g=document.querySelector('[data-act=go]');if(g){g.textContent=t0?'■ STOP':'▶ START (음악 시작할 때)';g.classList.toggle('stop',!!t0)}
   liveBadge();tick()},()=>{})}catch(e){}
+function goDTake(){const i=TAKES.findIndex(x=>x.id===DTAKE);if(i>=0){cur=i;localStorage.setItem('vf-cam-take',cur);render();scrollTo(0,0)}}
+function pushTake(id){DTAKE=id;try{firebase.firestore().doc('live/mv1023take').set({take:id,at:Date.now()})}catch(e){}}
+try{firebase.firestore().doc('live/mv1023take').onSnapshot(sn=>{const d=sn.data();if(!d)return;const ch=d.take!==DTAKE;DTAKE=d.take;if(ch&&TAKES.length)goDTake();else if(TAKES.length)render()},()=>{})}catch(e){}
+let wasPlaying=false;setInterval(()=>{if(LIVE.playing&&!wasPlaying&&DTAKE&&!DIRECTOR&&TAKES[cur]&&TAKES[cur].id!==DTAKE)goDTake();wasPlaying=LIVE.playing},500);
 load().catch(()=>{$('#app').innerHTML='<div class="none">앵글표를 못 불러왔어요. 인터넷 연결을 확인해 주세요.</div>'});
 </script></body></html>

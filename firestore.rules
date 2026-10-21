@@ -200,5 +200,13 @@ service cloud.firestore {
         && request.resource.data.at is int
         && request.resource.data.file is string && request.resource.data.file.size() < 120;
     }
+    // 연출석이 고른 테이크 → 촬영자 폰이 따라감
+    match /live/{id} {
+      allow read: if id == 'mv1023take';
+      allow write: if id == 'mv1023take'
+        && request.resource.data.keys().hasOnly(['take', 'at'])
+        && request.resource.data.take is string && request.resource.data.take.size() < 20
+        && request.resource.data.at is int;
+    }
   }
 }
