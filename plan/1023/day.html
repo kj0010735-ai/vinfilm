@@ -106,7 +106,7 @@ function render(){
     <div><div class="nm">${esc(MEM?x.m:x.title)}${x.takes&&!MEM?`<span class="tkc">${x.takes.map(t=>ST.rt[t]?`${t} <b>×${ST.rt[t]+1}</b>`:'').filter(Boolean).join(' ')}</span>`:''}</div><div class="wh">${esc(MEM?x.title:x.who)}</div></div>
     <div class="act">${done?`완료<b>${dur(q.e-q.s)}</b>`:(isNow?`진행<b>${dur(now-q.s)}</b>`:'')}</div>
     ${x.ck&&!MEM?`<div class="cks">${x.ck.map((k,i)=>`<span class="ck ${ST.ck[x.id+'_'+i]?'on':''}" data-ck="${x.id}_${i}">${esc(k)}</span>`).join('')}</div>`:''}
-    ${DIR?`<div class="btns">${isNow?`<span class="stt">● 진행 중</span><button class="ok" data-done="${x.id}">■ 이 단계 끝내기</button>${x.takes?x.takes.map(t=>`<button data-rt="${t}">↻ ${t} 재촬영</button>`).join(''):''}`:(done?`<span class="stt dn">✓ 완료</span><button data-undo="${x.id}">되돌리기</button>`:`<button class="go" data-go="${x.id}">▶ 이 단계 시작</button>`)}</div>`:''}
+    ${DIR?`<div class="btns">${isNow?`<span class="stt">● 진행 중</span><button class="ok" data-done="${x.id}">■ 끝내기</button>${x.takes?x.takes.map(t=>`<button data-rt="${t}">↻ ${t} 재촬영</button>`).join(''):''}`:(done?`<span class="stt dn">✓ 완료</span><button data-undo="${x.id}">되돌리기</button>`:`<button class="go" data-go="${x.id}">▶ 시작</button>`)}</div>`:''}
     </div>`}
   h+=`</div>${DIR?`<div class="foot"><button data-act="edit" style="color:var(--ylw);border-color:#6b5a1a">✎ 런다운 편집</button><button data-act="reset">진행 기록 초기화</button></div>`:''}`;
   $('#app').innerHTML=h;$('#app').classList.toggle('M',MEM);
