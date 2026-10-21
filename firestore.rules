@@ -189,5 +189,16 @@ service cloud.firestore {
       allow create: if isOwner() || (isBridge() && request.resource.data.status in ['wait', 'auto']);
       allow update, delete: if isOwner();
     }
+
+    // 10/23 촬영: 넥서스 뮤직 재생 위치 → 촬영자 폰 (plan/1023/cam.html). 문서 1개, 정해진 필드만
+    match /live/{id} {
+      allow read: if id == 'mv1023';
+      allow write: if id == 'mv1023'
+        && request.resource.data.keys().hasOnly(['playing', 't', 'at', 'file'])
+        && request.resource.data.playing is bool
+        && request.resource.data.t is number && request.resource.data.t >= 0 && request.resource.data.t < 3600
+        && request.resource.data.at is int
+        && request.resource.data.file is string && request.resource.data.file.size() < 120;
+    }
   }
 }
