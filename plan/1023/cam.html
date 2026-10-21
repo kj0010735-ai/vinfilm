@@ -1,44 +1,50 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow"><meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0b0c0f">
+<meta name="theme-color" content="#000000">
 <title>촬영자 화면</title>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <style>
-*{box-sizing:border-box}html,body{margin:0;background:#0b0c0f;color:#eee;font-family:-apple-system,'Apple SD Gothic Neo',sans-serif;-webkit-text-size-adjust:100%}
-body{padding:calc(10px + env(safe-area-inset-top)) 14px calc(24px + env(safe-area-inset-bottom))}
-h1{font-size:18px;margin:4px 0 10px}.sub{color:#8d95a1;font-size:13px;margin-bottom:14px}
-.who{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-.who button,.tk button{border:1px solid #2c2f36;background:#16181d;color:#eee;border-radius:12px;padding:16px 12px;font:inherit;font-size:17px;font-weight:800;text-align:left}
-.who button small{display:block;color:#8d95a1;font-weight:600;font-size:12px;margin-top:3px}
-.bar{display:flex;gap:8px;align-items:center;margin-bottom:10px}.bar button{border:0;background:#22252c;color:#eee;border-radius:8px;padding:8px 12px;font:inherit;font-size:14px;font-weight:700}
-.bar b{margin-right:auto;font-size:16px}
-.tk{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px;scrollbar-width:none}.tk::-webkit-scrollbar{display:none}
-.tk button{flex:none;padding:9px 13px;font-size:15px;border-radius:999px}.tk button.on{background:#f2c200;color:#111;border-color:#f2c200}
-.card{background:#16181d;border:1px solid #2c2f36;border-radius:14px;overflow:hidden}
-.card img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}
-.cin{padding:12px 14px}.ttl{font-size:13px;color:#8d95a1}.cam{font-size:20px;font-weight:900;margin:2px 0 10px}
-.ph{border-radius:10px;padding:12px;margin-top:8px;border:2px solid transparent;background:#1c1f26;opacity:.55;transition:.2s}
-.ph .t{font-weight:900;font-size:15px}.ph .d{font-size:24px;font-weight:800;margin-top:4px;line-height:1.3}
-.ph.r .t{color:#ff6b6b}.ph.b .t{color:#7fa8ff}
-.ph.now{opacity:1}.ph.r.now{border-color:#ff6b6b;background:#2a1618}.ph.b.now{border-color:#7fa8ff;background:#141c2e}
-.ph.solo{opacity:1}
-.sh{display:inline-block;font-size:.8em;font-weight:800;padding:0 6px;border-radius:5px;background:#3a3110;color:#f2c200;border:1px solid #6b5a1a;vertical-align:2px}
-.clock{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;margin:0 -14px 10px;padding:6px 14px 8px;position:sticky;top:0;z-index:5;background:#0b0c0f;border-bottom:1px solid #22252c}
-.ck .lab{font-size:12px;color:#8d95a1;font-weight:700}.ck .tm{font-variant-numeric:tabular-nums;font-size:40px;font-weight:900;letter-spacing:-1px;line-height:1.05}
-.ck.rt{text-align:right}.ck.rt.r .tm{color:#ff6b6b}.ck.rt.b .tm{color:#7fa8ff}
-.pg{grid-column:1/-1;height:8px;border-radius:4px;background:#22252c;overflow:hidden}.pg i{display:block;height:100%;transition:width .2s linear}.pg.r i{background:#ff6b6b}.pg.b i{background:#7fa8ff}
-.clock .tm{font-variant-numeric:tabular-nums;font-size:42px;font-weight:900;letter-spacing:-1px}
-.clock .left{color:#7fa8ff;font-size:30px;font-weight:900;margin-left:auto;text-align:right;font-variant-numeric:tabular-nums;line-height:1.1}
-.go{width:100%;border:0;border-radius:12px;padding:15px;font:inherit;font-size:18px;font-weight:900;background:#16a34a;color:#fff;margin-top:6px}
-.go.stop{background:#3a3f47}
-.row2{display:flex;gap:8px;margin-top:8px}.row2 button{flex:1;border:0;border-radius:10px;padding:11px;font:inherit;font-size:15px;font-weight:800;background:#22252c;color:#eee}
-.flash{position:fixed;inset:0;background:#7fa8ff;opacity:0;pointer-events:none;transition:opacity .25s}.flash.on{opacity:.55}
-.note{color:#8d95a1;font-size:12.5px;line-height:1.6;margin-top:14px}
-.none{color:#8d95a1;padding:20px 4px}
-@media (min-width:900px){.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}.cards .card{margin-bottom:0!important}.ph .d{font-size:20px}}
-.live{display:inline-block;font-size:12px;font-weight:800;padding:3px 8px;border-radius:999px;background:#22252c;color:#8d95a1;margin-left:6px}.live.on{background:#12301f;color:#5ee08c}
+:root{--m:'SF Mono',ui-monospace,Menlo,monospace;--red:#ff3b30;--blue:#0a84ff;--grn:#30d158;--ylw:#ffd60a;--line:#232323}
+*{box-sizing:border-box}html,body{margin:0;background:#000;color:#e6e6e6;font-family:-apple-system,'Apple SD Gothic Neo',sans-serif;-webkit-text-size-adjust:100%}
+body{padding:calc(8px + env(safe-area-inset-top)) 12px calc(24px + env(safe-area-inset-bottom))}
+.lb{font:600 10.5px var(--m);letter-spacing:2px;color:#777;text-transform:uppercase}
+h1{font:700 15px var(--m);letter-spacing:3px;margin:6px 0 4px;color:#fff}.sub{color:#777;font-size:13px;margin-bottom:14px}
+.who{display:grid;grid-template-columns:repeat(2,1fr);gap:4px}
+.who button{border:1px solid var(--line);background:#0a0a0a;color:#fff;padding:16px 12px;font:inherit;font-size:17px;font-weight:800;text-align:left;border-radius:0}
+.who button small{display:block;font:500 11px var(--m);color:#777;margin-top:4px;letter-spacing:.5px}
+.bar{display:flex;gap:8px;align-items:center;margin-bottom:8px}.bar b{margin-right:auto;font:700 13px var(--m);letter-spacing:2px;color:#fff}
+.bar button{border:1px solid #333;background:#0a0a0a;color:#bbb;border-radius:0;padding:6px 10px;font:600 12px var(--m);letter-spacing:1px}
+.live{display:inline-flex;align-items:center;gap:6px;font:600 11px var(--m);letter-spacing:1px;color:#777;margin-left:10px}.live i{width:8px;height:8px;border-radius:50%;background:#444}
+.live.on{color:var(--grn)}.live.on i{background:var(--grn);box-shadow:0 0 10px var(--grn)}.live.on.pause{color:var(--ylw)}.live.on.pause i{background:var(--ylw);box-shadow:none}
+.clock{position:sticky;top:0;z-index:5;display:grid;grid-template-columns:auto 1fr auto;gap:8px 22px;align-items:end;background:#0a0a0a;border:1px solid var(--line);padding:10px 14px 12px;margin:0 0 10px}
+.ck .tm{font:600 52px var(--m);letter-spacing:1px;color:#fff;line-height:1;font-variant-numeric:tabular-nums;margin-top:4px}
+.ck.rt{text-align:right}.ck.rt .tm{color:var(--red)}.ck.rt.b .tm{color:var(--blue)}.ck.rt.e .tm{color:#555}
+.mid{align-self:center;min-width:0}.mid .tl{display:flex;justify-content:space-between;gap:10px}.mid .tl span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pg{height:6px;background:#1c1c1c;margin-top:10px}.pg i{display:block;height:100%;background:var(--red);transition:width .2s linear}.pg.b i{background:var(--blue)}
+.seg{display:flex;gap:2px;margin-top:6px}.seg span{flex:1;height:18px;background:#141414;font:600 10px var(--m);letter-spacing:.5px;color:#555;display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden}
+.seg span.r.on{background:var(--red);color:#000}.seg span.b.on{background:var(--blue);color:#000}.seg span.b.nx{background:#0a84ff26;color:var(--blue)}.seg span.r.dn{background:#2a1110;color:#7a3a36}
+@media (max-width:760px){.clock{grid-template-columns:1fr 1fr;gap:6px 10px;padding:8px 12px 10px}.clock .mid{grid-column:1/-1;order:3}.ck .tm{font-size:40px}}
+.tk{display:flex;gap:2px;overflow-x:auto;margin:0 0 6px;scrollbar-width:none}.tk::-webkit-scrollbar{display:none}
+.tk button{flex:none;border:1px solid var(--line);background:#0d0d0d;color:#888;border-radius:0;padding:9px 13px;font:600 13px var(--m)}.tk button.on{background:#fff;color:#000;border-color:#fff}
+.ttl{font:600 11px var(--m);letter-spacing:1.5px;color:#777;margin:4px 2px 8px;text-transform:uppercase}
+.cards{display:grid;grid-template-columns:1fr;gap:6px}
+@media (min-width:900px){.cards{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:4px}}
+.card{background:#0a0a0a;border:2px solid #222;position:relative}.card.r{border-color:var(--red)}.card.b{border-color:var(--blue)}
+.card .im{position:relative}.card img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}
+.tag{position:absolute;top:8px;left:8px;font:700 12px var(--m);letter-spacing:.5px;background:var(--red);color:#000;padding:3px 7px}.card.b .tag{background:var(--blue)}.card.s .tag{background:#fff}
+.nm{position:absolute;top:8px;right:8px;font:600 12px var(--m);background:#000c;color:#fff;padding:3px 7px}
+.cin{padding:12px 12px 14px}
+.cur .k2{font:700 10.5px var(--m);letter-spacing:1.5px;color:var(--red)}.card.b .cur .k2{color:var(--blue)}
+.cur .d{font-size:23px;font-weight:800;line-height:1.3;margin-top:3px;color:#fff}
+.oth{margin-top:10px;padding-top:9px;border-top:1px solid #1e1e1e;font-size:14px;color:#777;line-height:1.35}.oth b{font:700 11px var(--m);letter-spacing:1px;color:var(--blue);margin-right:6px}.card.b .oth b{color:#555}
+.sh{display:inline-block;font:700 .74em var(--m);border:1px solid #6b5a1a;color:var(--ylw);padding:0 4px;margin:0 2px;vertical-align:2px}
+.go{width:100%;border:0;border-radius:0;padding:14px;font:700 16px var(--m);letter-spacing:1px;background:var(--grn);color:#000;margin-top:8px}.go.stop{background:#333;color:#fff}
+.row2{display:flex;gap:2px;margin-top:6px}.row2 button{flex:1;border:1px solid var(--line);border-radius:0;padding:12px;font:600 14px var(--m);background:#0d0d0d;color:#ccc}
+.flash{position:fixed;inset:0;background:var(--blue);opacity:0;pointer-events:none;transition:opacity .25s}.flash.on{opacity:.5}
+.note{color:#666;font-size:12px;line-height:1.6;margin-top:12px}
+.none{color:#777;padding:20px 4px;font-size:14px}
 </style></head><body>
 <div id="app"><div class="none">불러오는 중…</div></div>
 <div class="flash" id="flash"></div>
@@ -65,31 +71,40 @@ async function load(){
  if(cur>=TAKES.length)cur=0;render()}
 function mine(c){if(me==='전체')return true;const s=c.cam;if(me==='윤관')return /윤관|레일/.test(s)&&!/밀기/.test(s);if(me==='김창훈')return /김창훈|레일/.test(s);return s.includes(me)}
 function hlab(t){const s=esc(t);return s.replace(/(^|[^A-Za-z0-9])([A-Z][A-Z0-9\-\/]{1,7}|[1-3]S|OTS|POV)(?![A-Za-z0-9])/g,(m,a,k)=>a+'<span class="sh">'+k+'</span>')}
+function tc(s){s=Math.max(0,s);const h=Math.floor(s/3600),m=Math.floor(s/60)%60,x=Math.floor(s%60);return [h,m,x].map(v=>String(v).padStart(2,'0')).join(':')}
+function mmss(s){s=Math.max(0,s);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(Math.floor(s%60)).padStart(2,'0')}
 function fmt(s){s=Math.max(0,s);const m=Math.floor(s/60),x=Math.floor(s%60);return m+':'+String(x).padStart(2,'0')}
 function now(){return t0?(Date.now()-t0)/1000+offset:offset}
 function render(){
  const A=$('#app');
- if(!me){A.innerHTML='<h1>🎥 촬영자 화면</h1><div class="sub">「교회를 사랑하는 건」 10/23 · 내 이름을 고르세요</div><div class="who">'+PEOPLE.map(([n,r])=>`<button data-me="${n}">${n}<small>${r}</small></button>`).join('')+'</div><div class="note">· 앵글표 최신 내용을 그대로 불러와요 (바뀌면 새로고침)<br>· 음악이 시작될 때 ▶ 시작을 누르면 1:38에 화면이 파랗게 바뀌어요</div>';return}
+ if(!me){A.innerHTML='<h1>CAMERA CUE</h1><div class="sub">「교회를 사랑하는 건」 10/23 · 내 이름을 고르세요</div><div class="who">'+PEOPLE.map(([n,r])=>`<button data-me="${n}">${n}<small>${r}</small></button>`).join('')+'</div><div class="note">· 앵글표 최신 내용을 그대로 불러와요 (바뀌면 새로고침)<br>· 음악이 시작될 때 ▶ 시작을 누르면 1:38에 화면이 파랗게 바뀌어요</div>';return}
  const tk=TAKES[cur];if(!tk){A.innerHTML='<div class="none">앵글표를 못 불러왔어요</div>';return}
  const cs=tk.shared?tk.cells:tk.cells.filter(mine);const t=now();const phase=t<SW?'r':'b';
- A.innerHTML=`<div class="bar"><b>🎥 ${esc(me)}<span class="live ${LIVE.ok?'on':''}" id="liveB">${LIVE.ok?(LIVE.playing?'🔗 음악 연동 · 재생 중':'🔗 음악 연동 · 멈춤'):'🔗 연동 대기'}</span></b>${ALL?'':'<button data-act="who">사람 바꾸기</button>'}</div>
+ const ph=t>=END?'e':(t<SW?'r':'b');LASTPH=ph;
+ A.innerHTML=`<div class="bar"><b>CAM · ${esc(me==='전체'?'ALL':me)}<span class="live" id="liveB"></span></b>${ALL?'':'<button data-act="who">사람 바꾸기</button>'}</div>
  <div class="clock" id="clock">${clockHtml(t)}</div>
  <div class="tk">${TAKES.map((x,i)=>`<button class="${i===cur?'on':''}" data-tk="${i}">${esc(x.id)}</button>`).join('')}</div>
- <div class="ttl" style="margin:0 2px 8px">${esc(tk.id)} · ${esc(tk.desc)}</div>
- <div class="cards">${cs.length?cs.map(c=>`<div class="card" style="margin-bottom:12px">${c.img?`<img src="${esc(c.img)}" alt="">`:''}<div class="cin"><div class="cam">${hlab(c.cam)}</div>
-  ${c.red||c.blue?`<div class="ph r ${phase==='r'?'now':''}"><div class="t">🔴 처음 ~ 1:38 · 남자 보컬 혼자</div><div class="d">${hlab(c.red)||'—'}</div></div>
-  <div class="ph b ${phase==='b'?'now':''}"><div class="t">🔵 1:38 ~ 끝 · 다 같이</div><div class="d">${hlab(c.blue)||'—'}</div></div>`:`<div class="ph solo"><div class="d">${hlab(c.other)}</div></div>`}
- </div></div>`).join(''):'<div class="none">이 테이크에는 내 카메라 지시가 없어요 (대기 또는 다른 테이크 준비)</div>'}</div>
- ${MANUAL?`<button class="go ${t0?'stop':''}" data-act="go">${t0?'■ 멈춤':'▶ 시작 (음악 시작할 때)'}</button>
- <div class="row2"><button data-act="back">−5초</button><button data-act="fwd">+5초</button><button data-act="reset">처음으로</button></div>`:''}
- <div class="row2"><button data-act="next">다음 테이크 ›</button></div>
- <div class="note">· 시계는 연출석 넥서스 뮤직과 같은 시간이에요 (초록 🔗 표시)<br>· 곡의 1:38(넥서스 1:42.8)이 되면 화면이 한 번 반짝이고 🔵로 바뀌어요</div>`}
-function clockHtml(t){const red=t<SW,a=red?0:SW,b=red?SW:END,rem=Math.max(0,b-t),pct=Math.min(100,Math.max(0,(t-a)/(b-a)*100));
- const end=t>=END;return `<div class="ck"><div class="lab">흘러간 시간</div><div class="tm">${fmt(t+COUNTIN)}</div></div>
- <div class="ck rt ${red?'r':'b'}"><div class="lab">${end?'곡 끝':(red?'🔴 지금 앵글':'🔵 지금 앵글')} 남은 시간</div><div class="tm">${end?'0:00':fmt(rem)}</div></div>
- <div class="pg ${red?'r':'b'}"><i style="width:${end?100:pct}%"></i></div>`}
-function tick(){const t=now();const c=$('#clock');if(c)c.innerHTML=clockHtml(t);
- document.querySelectorAll('.ph.r').forEach(x=>x.classList.toggle('now',t<SW));document.querySelectorAll('.ph.b').forEach(x=>x.classList.toggle('now',t>=SW));
+ <div class="ttl">${esc(tk.id)} · ${esc(tk.desc)}</div>
+ <div class="cards">${cs.length?cs.map(c=>cardHtml(c,ph)).join(''):'<div class="none">이 테이크에는 내 카메라 지시가 없어요 (대기 또는 다른 테이크 준비)</div>'}</div>
+ ${MANUAL?`<button class="go ${t0?'stop':''}" data-act="go">${t0?'■ STOP':'▶ START (음악 시작할 때)'}</button>
+ <div class="row2"><button data-act="back">−5s</button><button data-act="fwd">+5s</button><button data-act="reset">RESET</button></div>`:''}
+ <div class="row2"><button data-act="next">NEXT TAKE ›</button></div>
+ <div class="note">· 시계는 연출석 넥서스 뮤직과 같은 시간이에요 (초록 LINKED 표시)<br>· 곡의 1:38(넥서스 1:42.8)이 되면 화면이 한 번 반짝이고 파란 앵글로 바뀌어요</div>`;liveBadge()}
+let LASTPH='';
+function camTag(s){const m=s.match(/^(\S+)\s*(.*)$/)||['',s,''];const n=m[1].replace('🛤','').trim()||'RAIL';return [/레일/.test(s)?'RAIL':n,(/레일/.test(s)?s.replace(/🛤|레일/g,'').trim():m[2])]}
+function cardHtml(c,ph){const [n,who]=camTag(c.cam);
+ if(!(c.red||c.blue))return `<div class="card s"><div class="im">${c.img?`<img src="${esc(c.img)}" alt="">`:''}<span class="tag">${esc(n)}</span><span class="nm">${esc(who)}</span></div><div class="cin"><div class="cur"><div class="d">${hlab(c.other)}</div></div></div></div>`;
+ const b=ph!=='r';
+ return `<div class="card ${b?'b':'r'}"><div class="im">${c.img?`<img src="${esc(c.img)}" alt="">`:''}<span class="tag">CAM ${esc(n)}</span><span class="nm">${esc(who)}</span></div><div class="cin">
+ <div class="cur"><div class="k2">${b?'● ALL · 1:38 ~ END':'● SOLO · 0:00 ~ 1:38'}</div><div class="d">${hlab(b?c.blue:c.red)||'—'}</div></div>
+ <div class="oth">${b?`<b>DONE</b>${hlab(c.red)||'—'}`:`<b>NEXT 1:38 ▸</b>${hlab(c.blue)||'—'}`}</div></div></div>`}
+function clockHtml(t){const red=t<SW,end=t>=END,a=red?0:SW,b=red?SW:END,rem=Math.max(0,b-t),pct=end?100:Math.min(100,Math.max(0,(t-a)/(b-a)*100));
+ const tk=TAKES[cur]||{};
+ return `<div class="ck"><div class="lb">Elapsed · TC</div><div class="tm">${tc(t+COUNTIN)}</div></div>
+ <div class="mid"><div class="tl"><span class="lb" style="color:#aaa">${esc(tk.id||'')} · ${esc(tk.desc||'')}</span></div><div class="pg ${red?'':'b'}"><i style="width:${pct}%"></i></div>
+ <div class="seg"><span class="r ${red?'on':'dn'}">● SOLO 0:00–1:38</span><span class="b ${end?'':(red?'nx':'on')}">● ALL 1:38–4:17</span></div></div>
+ <div class="ck rt ${end?'e':(red?'':'b')}"><div class="lb">${end?'Song end':(red?'Next change in':'Song end in')}</div><div class="tm">${mmss(end?0:rem)}</div></div>`}
+function tick(){const t=now();const ph=t>=END?'e':(t<SW?'r':'b');if(LASTPH&&ph!==LASTPH&&me&&TAKES.length)render();else{const c=$('#clock');if(c)c.innerHTML=clockHtml(t)}
  if(t>=SW&&!flashed){flashed=true;const f=$('#flash');f.classList.add('on');setTimeout(()=>f.classList.remove('on'),450);try{navigator.userActivation?.hasBeenActive&&navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}}
  if(t<SW)flashed=false}
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
@@ -105,13 +120,13 @@ function shift(d){if(t0){t0-=d*1000}else offset=Math.max(0,offset+d);tick()}
 function stop(reset){if(t0){offset=now();t0=null}clearInterval(timer);timer=null;if(reset){offset=-COUNTIN;flashed=false}}
 let wl=null;async function requestWake(){try{wl=await navigator.wakeLock?.request('screen')}catch(e){}}
 const LIVE={ok:false,playing:false};
-function liveBadge(){const b=document.getElementById('liveB');if(!b)return;b.className='live'+(LIVE.ok?' on':'');b.textContent=LIVE.ok?(LIVE.playing?'🔗 음악 연동 · 재생 중':'🔗 음악 연동 · 멈춤'):'🔗 연동 대기'}
+function liveBadge(){const b=document.getElementById('liveB');if(!b)return;b.className='live'+(LIVE.ok?' on':'')+(LIVE.ok&&!LIVE.playing?' pause':'');b.innerHTML='<i></i>'+(LIVE.ok?(LIVE.playing?'LINKED · PLAYING':'LINKED · PAUSED'):'WAITING LINK')}
 try{firebase.initializeApp({apiKey:"AIzaSyAVJ6ZZ6L-3RtgoYe2dDSn_lCHXv3CeBGc",projectId:"vinfilm-studio-app"});
  firebase.firestore().doc('live/mv1023').onSnapshot(sn=>{const d=sn.data();if(!d)return;LIVE.ok=true;LIVE.playing=!!d.playing;
   const song=d.t-COUNTIN;
   if(d.playing){t0=d.at-song*1000;offset=0;if(!timer)timer=setInterval(tick,200);requestWake()}
   else{clearInterval(timer);timer=null;t0=null;offset=song}
-  flashed=now()>=SW;const g=document.querySelector('[data-act=go]');if(g){g.textContent=t0?'■ 멈춤':'▶ 시작 (음악 시작할 때)';g.classList.toggle('stop',!!t0)}
+  flashed=now()>=SW;const g=document.querySelector('[data-act=go]');if(g){g.textContent=t0?'■ STOP':'▶ START (음악 시작할 때)';g.classList.toggle('stop',!!t0)}
   liveBadge();tick()},()=>{})}catch(e){}
 load().catch(()=>{$('#app').innerHTML='<div class="none">앵글표를 못 불러왔어요. 인터넷 연결을 확인해 주세요.</div>'});
 </script></body></html>
