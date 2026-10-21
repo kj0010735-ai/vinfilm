@@ -5,6 +5,7 @@
 <title>촬영자 화면</title>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&display=swap" rel="stylesheet">
 <style>
 :root{--m:'SF Mono',ui-monospace,Menlo,monospace;--red:#ff3b30;--blue:#0a84ff;--grn:#30d158;--ylw:#ffd60a;--line:#232323}
 *{box-sizing:border-box}html,body{margin:0;background:#000;color:#e6e6e6;font-family:-apple-system,'Apple SD Gothic Neo',sans-serif;-webkit-text-size-adjust:100%}
@@ -19,13 +20,13 @@ h1{font:700 15px var(--m);letter-spacing:3px;margin:6px 0 4px;color:#fff}.sub{co
 .live{display:inline-flex;align-items:center;gap:6px;font:600 11px var(--m);letter-spacing:1px;color:#777;margin-left:10px}.live i{width:8px;height:8px;border-radius:50%;background:#444}
 .live.on{color:var(--grn)}.live.on i{background:var(--grn);box-shadow:0 0 10px var(--grn)}.live.on.pause{color:var(--ylw)}.live.on.pause i{background:var(--ylw);box-shadow:none}
 .clock{position:sticky;top:0;z-index:5;display:grid;grid-template-columns:auto 1fr auto;gap:8px 22px;align-items:end;background:#0a0a0a;border:1px solid var(--line);padding:10px 14px 12px;margin:0 0 10px}
-.ck .tm{font:600 52px var(--m);letter-spacing:1px;color:#fff;line-height:1;font-variant-numeric:tabular-nums;margin-top:4px}
+.ck .tm{font:500 64px Oswald,var(--m);letter-spacing:0;color:#fff;line-height:1;font-variant-numeric:tabular-nums;margin-top:4px}
 .ck.rt{text-align:right}.ck.rt .tm{color:var(--red)}.ck.rt.b .tm{color:var(--blue)}.ck.rt.e .tm{color:#555}
 .mid{align-self:center;min-width:0}.mid .tl{display:flex;justify-content:space-between;gap:10px}.mid .tl span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pg{height:22px;background:#1c1c1c;margin-top:10px}.pg i{display:block;height:100%;background:var(--red);transition:width .2s linear}.pg.b i{background:var(--blue)}
 .seg{display:flex;gap:2px;margin-top:6px}.seg span{flex:1;height:24px;font-size:11px!important;background:#141414;font:600 10px var(--m);letter-spacing:.5px;color:#555;display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden}
 .seg span.r.on{background:var(--red);color:#000}.seg span.b.on{background:var(--blue);color:#000}.seg span.b.nx{background:#0a84ff26;color:var(--blue)}.seg span.r.dn{background:#2a1110;color:#7a3a36}
-@media (max-width:760px){.clock{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 10px;padding:8px 10px 10px}.clock .mid{grid-column:1/-1;order:3}.ck .tm{font-size:44px;letter-spacing:0}.ck .hh{display:none}.seg span{font-size:9px}.ck .lb{letter-spacing:1px}}
+@media (max-width:760px){.clock{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 10px;padding:8px 10px 10px}.clock .mid{grid-column:1/-1;order:3}.ck .tm{font-size:54px;letter-spacing:0}.ck .hh{display:none}.seg span{font-size:9px}.ck .lb{letter-spacing:1px}}
 html,body{overflow-x:hidden}.clock>*,.cards>*{min-width:0}
 .tk{display:flex;gap:2px;overflow-x:auto;margin:0 0 6px;scrollbar-width:none}.tk::-webkit-scrollbar{display:none}
 .tk button{flex:none;border:1px solid var(--line);background:#0d0d0d;color:#888;border-radius:0;padding:9px 13px;font:600 13px var(--m)}.tk button.on{background:#fff;color:#000;border-color:#fff}
