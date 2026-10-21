@@ -5731,7 +5731,21 @@ function chatFeed() {
   return out.sort((x, y) => x.at - y.at).slice(-150);
 }
 function chatName(id) { const s = studioStaffById(id); return s ? s.short : (id || '직원'); }
-function chatAvatar(id) { const s = studioStaffById(id); return `<span class="ch-ava" style="--c:${(s && s.shirt) || '#8b90a0'}">${esc((s ? s.short : '?').slice(0, 2))}</span>`; }
+/* 프로필 사진: 사무실 미니미(studioMinimi)를 직원 색 배경 위에 그린 도트 그림 — 한 번 그려 dataURL로 캐시 */
+const chatAvaCache = {};
+function chatAvatarSrc(id) {
+  if (chatAvaCache[id]) return chatAvaCache[id];
+  const s = id === 'ceo' ? { id: 'ceo', hair: '#2b1d14', shirt: '#2b3640', acc: 'tie' } : studioStaffById(id);
+  const c = s && s.hair ? s : { hair: '#555', shirt: '#8b90a0', acc: '' };
+  // 얼굴·어깨만 크게(16×16): 머리카락·안경·모자·베레·넥타이·옷 색으로 직원마다 확실히 구분
+  const cv = document.createElement('canvas'); cv.width = 16; cv.height = 16;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#e8eef3'; ctx.fillRect(0, 0, 16, 16);
+  ctx.fillStyle = c.shirt; ctx.globalAlpha = .35; ctx.fillRect(0, 0, 16, 16); ctx.globalAlpha = 1;
+  ctx.translate(0, 1); studioMinimi(ctx, c);
+  return (chatAvaCache[id] = cv.toDataURL());
+}
+function chatAvatar(id) { const s = studioStaffById(id); return `<img class="ch-ava" src="${chatAvatarSrc(id)}" alt="${esc(s ? s.short : '')}" style="--c:${(s && s.shirt) || '#8b90a0'}">`; }
 function chatTaskStatus(t) { return { queued: '대기', running: '진행 중', done: '완료', failed: '실패', canceled: '취소' }[t.status] || ''; }
 function chatApprHtml(a) {
   const ack = chatIsAck(a);
@@ -5765,7 +5779,7 @@ function chatMeHtml(t) {
   const long = !follow && shown.length > 400 && !S.chat.open['t' + t.id];
   return `<div class="ch-row ch-me"><div class="ch-col"><div class="ch-who"><span>${studioWhen(t.createdAt)}</span> <span class="ch-st ${t.status}">${esc(chatTaskStatus(t))}</span></div>
     <div class="ch-bub me"><span class="ch-to">@${esc(chatName(t.staffId))}</span> ${esc(long ? shown.slice(0, 400) + '…' : shown).replace(/\n/g, '<br>')}${long ? ` <button type="button" class="ch-more" data-action="chat-toggle" data-id="t${esc(t.id)}">더 보기</button>` : ''}
-    ${t.status === 'queued' && !t.parentApprovalId ? `<button type="button" class="ch-more" data-action="studio-task-cancel" data-id="${esc(t.id)}">취소</button>` : ''}</div></div></div>`;
+    ${t.status === 'queued' && !t.parentApprovalId ? `<button type="button" class="ch-more" data-action="studio-task-cancel" data-id="${esc(t.id)}">취소</button>` : ''}</div></div><img class="ch-ava" src="${chatAvatarSrc('ceo')}" alt="대표님" style="--c:#2b3640"></div>`;
 }
 function chatSysHtml(it) {
   const t = it.t;
@@ -8636,7 +8650,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .ch-me { justify-content:flex-end; }
   .ch-col { max-width:min(640px, 82%); min-width:0; display:flex; flex-direction:column; gap:4px; }
   .ch-me .ch-col { align-items:flex-end; }
-  .ch-ava { flex:none; width:34px; height:34px; border-radius:50%; background:var(--c); color:#fff; font-size:11.5px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .ch-ava { flex:none; width:44px; height:44px; image-rendering:pixelated; image-rendering:crisp-edges; border:2px solid var(--c); background:#e8eef3; }
   .ch-who { font-size:13px; color:var(--text-dim); display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
   .ch-who b { color:var(--text); }
   .ch-who span { color:var(--text-faint); }
@@ -8671,7 +8685,7 @@ document.addEventListener('DOMContentLoaded', () => {
   @media (max-width:720px) {
     .ch-wrap { height:calc(100dvh - 140px); }
     .ch-col { max-width:88%; }
-    .ch-ava { width:28px; height:28px; font-size:10px; }
+    .ch-ava { width:36px; height:36px; }
     .ch-input textarea { font-size:16px; }
   }
 
