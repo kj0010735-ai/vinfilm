@@ -43,13 +43,14 @@ const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&'
 async function load(){
  const h=await (await fetch('angles-web.html?v='+Date.now(),{cache:'no-store'})).text();
  const d=new DOMParser().parseFromString(h,'text/html');
- d.querySelectorAll('.row').forEach(r=>{const tk=r.querySelector('.tk');if(!tk)return;const id=tk.querySelector('b')?.textContent.trim(),desc=tk.querySelector('span')?.textContent.trim()||'';
+ d.querySelectorAll('.row').forEach(r=>{const tk=r.querySelector('.tk');if(!tk)return;let id=tk.querySelector('b')?.textContent.trim(),desc=tk.querySelector('span')?.textContent.trim()||'';
   const cells=[...r.querySelectorAll('.c')].map(c=>{const cn=c.querySelector('.cn'),ln=c.querySelector('.ln');
    const lines=ln?ln.innerHTML.split(/<br\s*\/?>/i).map(x=>{const t=document.createElement('div');t.innerHTML=x;return t.textContent.trim()}):[];
    const red=(lines.find(l=>/^~?1:38/.test(l)&&l.startsWith('~'))||'').replace(/^~1:38\s*/,''),blue=(lines.find(l=>/^1:38~/.test(l))||'').replace(/^1:38~\s*/,'');
    const other=!red&&!blue?(ln?ln.textContent.trim():''):'';
-   return {cam:cn?cn.textContent.replace(/\s+/g,' ').trim():'',img:c.querySelector('img')?.getAttribute('src'),red,blue,other}});
-  TAKES.push({id,desc,cells})});
+   return {cam:cn?[...cn.childNodes].map(n=>n.textContent).join(' ').replace(/\s+/g,' ').trim():'',img:c.querySelector('img')?.getAttribute('src'),red,blue,other}});
+  if(!id){const ks=cells.map(c=>c.cam.split(' ')[0]);id=ks[0]+'–'+ks[ks.length-1];desc='창의 앵글 · 인서트 (해당 구간만 · 감독 지시로 나눠 찍기)'}
+  TAKES.push({id,desc,cells,shared:!tk.querySelector('b')})});
  if(cur>=TAKES.length)cur=0;render()}
 function mine(c){if(me==='전체')return true;const s=c.cam;if(me==='윤관')return /윤관|레일/.test(s)&&!/밀기/.test(s);if(me==='김창훈')return /김창훈|레일/.test(s);return s.includes(me)}
 function hlab(t){const s=esc(t);return s.replace(/(^|[^A-Za-z0-9])([A-Z][A-Z0-9\-\/]{1,7}|[1-3]S|OTS|POV)(?![A-Za-z0-9])/g,(m,a,k)=>a+'<span class="sh">'+k+'</span>')}
@@ -59,7 +60,7 @@ function render(){
  const A=$('#app');
  if(!me){A.innerHTML='<h1>🎥 촬영자 화면</h1><div class="sub">「교회를 사랑하는 건」 10/23 · 내 이름을 고르세요</div><div class="who">'+PEOPLE.map(([n,r])=>`<button data-me="${n}">${n}<small>${r}</small></button>`).join('')+'</div><div class="note">· 앵글표 최신 내용을 그대로 불러와요 (바뀌면 새로고침)<br>· 음악이 시작될 때 ▶ 시작을 누르면 1:38에 화면이 파랗게 바뀌어요</div>';return}
  const tk=TAKES[cur];if(!tk){A.innerHTML='<div class="none">앵글표를 못 불러왔어요</div>';return}
- const cs=tk.cells.filter(mine);const t=now();const phase=t<SW?'r':'b';
+ const cs=tk.shared?tk.cells:tk.cells.filter(mine);const t=now();const phase=t<SW?'r':'b';
  A.innerHTML=`<div class="bar"><b>🎥 ${esc(me)}</b><button data-act="who">사람 바꾸기</button></div>
  <div class="tk">${TAKES.map((x,i)=>`<button class="${i===cur?'on':''}" data-tk="${i}">${esc(x.id)}</button>`).join('')}</div>
  <div class="ttl" style="margin:0 2px 8px">${esc(tk.id)} · ${esc(tk.desc)}</div>
