@@ -130,10 +130,31 @@ body.panning,body.panning *{cursor:grab!important}body.panning-on,body.panning-o
 .pf>.pose{background:rgba(255,255,255,.22)!important;color:#fff}
 .marq{position:absolute;z-index:20;border:1.5px dashed #2563eb;background:rgba(37,99,235,.08);pointer-events:none}
 .map .sel{outline:2px solid #2563eb;outline-offset:2px}
+
+/* 🌙 어둡게 */
+body.dk{background:#0b0c0f;color:#e6e6e6;--ink:#e6e6e6;--line:#2c2f36}
+body.dk .sheet{background:#14161b;box-shadow:none}
+body.dk .sub,body.dk .hint,body.dk .lnote,body.dk .scale{color:#8d95a1}
+body.dk .map{background-color:#101216;background-image:linear-gradient(#22262d 1px,transparent 1px),linear-gradient(90deg,#22262d 1px,transparent 1px);border-color:#555}
+body.dk .sidew{background:linear-gradient(90deg,#3a3f47,#1a1d22)}body.dk .wall{background:#4a515a}
+body.dk .cam .nm{background:rgba(20,22,27,.85);color:#e6e6e6}body.dk .cam .nm small{color:#7fa8ff}
+body.dk .orch{background:#16202f;color:#8fa6cc;border-color:#33476a}body.dk .band{background:#2a1618;color:#e39a9a;border-color:#5e2b2f}
+body.dk .dir{background:#e6e6e6;color:#111}
+body.dk .cc{background:#191c22;border-color:#2c2f36}body.dk .ccr label{color:#9aa1ad}
+body.dk .ccr.role [contenteditable]{border-bottom-color:#3a3f47}
+body.dk select{background:#101216;color:#e6e6e6;border-color:#3a3f47}
+body.dk .add{background:#14161b;color:#e6e6e6;border-color:#e6e6e6}
+body.dk td[contenteditable]:focus{background:#1d2740}
+body.dk details.tr{color:#bbb}body.dk details.tr div{border-top-color:#2c2f36}details.tr summary{}
+body.dk .pool tr.k-cam{background:#141c2e}body.dk .pool tr.k-lens{background:#122219}body.dk .pool tr.k-sup{background:#241b0f}body.dk .pool tr.k-ic{background:#1e1528}
+body.dk .k-cam td.kc{color:#7fa8ff}body.dk .k-lens td.kc{color:#5ee08c}body.dk .k-sup td.kc{color:#f0a94a}body.dk .k-ic td.kc{color:#c08cf5}
+body.dk .src{background:#2c2f36;color:#ccc}body.dk .src.vf{background:#e6e6e6;color:#111}
+body.dk .pf .rot{color:#fff}body.dk .chk iframe{background:#0b0c0f}
+#dkBoard{background:#333;color:#fff}
 </style></head><body>
 <div class="bar" id="bar"><button id="hideBar" title="탭 숨기기">⌃</button>
 <div class="tabs" id="tabs"></div>
-<span class="zm"><button data-undo title="실행 취소 (⌘Z)">↶</button><button data-redo title="다시 실행 (⇧⌘Z)">↷</button><button data-zoom="-1">−</button><b id="zmv">100%</b><button data-zoom="1">+</button></span><button id="reload" title="새로고침">↻</button></div>
+<span class="zm"><button data-undo title="실행 취소 (⌘Z)">↶</button><button data-redo title="다시 실행 (⇧⌘Z)">↷</button><button data-zoom="-1">−</button><b id="zmv">100%</b><button data-zoom="1">+</button></span><button id="dkBoard" title="어둡게/밝게">🌙</button><button id="reload" title="새로고침">↻</button></div>
 <button id="showBar">☰ 탭</button>
 <div class="sheet">
 
@@ -332,4 +353,11 @@ document.getElementById('showBar').onclick=()=>{document.body.classList.remove('
 document.getElementById('reload').onclick=async()=>{try{await Promise.all(['board.html','checklist.html','angles.html'].map(u=>fetch(u,{cache:'reload'})))}catch(e){}location.href=location.pathname+'?r='+Date.now()};
 render();applyZoom();LAST=JSON.stringify(S);
 const _rnd=render;render=function(){_rnd();markSel()};
-</script></body></html>
+</script><script>
+(function(){const K='vf-1023-dark';let on=false;try{on=localStorage.getItem(K)==='1'}catch(e){}
+const b=document.getElementById('dkBoard');
+const ap=()=>{document.body.classList.toggle('dk',on);b.textContent=on?'☀️':'🌙';document.querySelectorAll('iframe').forEach(f=>{try{const d=f.contentDocument;if(d&&d.body){d.body.classList.toggle('dk',on);const x=d.getElementById('dkb');if(x)x.textContent=on?'☀️ 밝게':'🌙 어둡게'}}catch(e){}})};ap();
+b.onclick=()=>{on=!on;try{localStorage.setItem(K,on?'1':'0')}catch(e){}ap()};
+addEventListener('storage',e=>{if(e.key===K){on=e.newValue==='1';ap()}});
+document.addEventListener('click',e=>{if(e.target.id!=='dkBoard')setTimeout(()=>{try{on=localStorage.getItem(K)==='1'}catch(e){};ap()},300)},true);
+})();</script></body></html>
