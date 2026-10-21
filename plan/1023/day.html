@@ -1,0 +1,115 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow"><meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
+<title>10/23 진행표</title>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="day-data.js?v=1"></script>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{--m:'SF Mono',ui-monospace,Menlo,monospace;--n:Oswald,var(--m);--red:#ff3b30;--blue:#0a84ff;--grn:#30d158;--ylw:#ffd60a;--line:#232323}
+*{box-sizing:border-box}html,body{margin:0;background:#000;color:#e6e6e6;font-family:-apple-system,'Apple SD Gothic Neo',sans-serif;-webkit-text-size-adjust:100%;overflow-x:hidden}
+body{padding:calc(8px + env(safe-area-inset-top)) 12px calc(30px + env(safe-area-inset-bottom))}
+.lb{font:600 10.5px var(--m);letter-spacing:2px;color:#777;text-transform:uppercase}
+.hd{display:flex;align-items:center;gap:10px;margin-bottom:8px}.hd b{font:700 13px var(--m);letter-spacing:2px;color:#fff}.hd .role{margin-left:auto;font:600 11px var(--m);letter-spacing:1px;color:#777}
+.live{display:inline-flex;align-items:center;gap:6px;font:600 11px var(--m);letter-spacing:1px;color:#777}.live i{width:8px;height:8px;border-radius:50%;background:#444}.live.on{color:var(--grn)}.live.on i{background:var(--grn);box-shadow:0 0 10px var(--grn)}
+.top{position:sticky;top:0;z-index:5;background:#0a0a0a;border:1px solid var(--line);padding:10px 14px 12px;display:grid;grid-template-columns:auto 1fr auto;gap:8px 22px;align-items:end;margin-bottom:10px}
+.top>*{min-width:0}.big{font:500 64px var(--n);line-height:1;color:#fff;margin-top:4px;font-variant-numeric:tabular-nums}
+.rt{text-align:right}.rt .big{color:var(--red)}
+.cur .ttl{font-size:20px;font-weight:800;color:#fff;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cur .who{font-size:13px;color:#888;margin-top:2px}
+.pg{height:14px;background:#1c1c1c;margin-top:8px}.pg i{display:block;height:100%;background:var(--red)}
+.chips{grid-column:1/-1;display:flex;gap:4px;flex-wrap:wrap}
+.chip{font:700 12px var(--m);letter-spacing:1px;padding:6px 10px;border:1px solid var(--line);background:#111;color:#bbb}
+.chip.ok{background:#0f2a17;border-color:#1f5a32;color:var(--grn)}.chip.late{background:#2a1110;border-color:#6b2a26;color:var(--red)}.chip.early{background:#0b1d33;border-color:#1d4a80;color:var(--blue)}.chip.warn{background:#2a2200;border-color:#6b5a1a;color:var(--ylw)}
+@media (max-width:760px){.top{grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:8px 10px 10px}.top .cur{grid-column:1/-1;order:3}.big{font-size:50px}}
+.list{display:flex;flex-direction:column;gap:3px}
+.gh{font:700 11px var(--m);letter-spacing:2px;color:var(--ylw);margin:14px 2px 4px}
+.it{display:grid;grid-template-columns:96px 1fr auto;gap:12px;align-items:center;background:#0a0a0a;border:1px solid var(--line);border-left:4px solid #222;padding:10px 12px}
+.it.now{border-color:var(--red);border-left-color:var(--red);background:#140808}.it.done{opacity:.55;border-left-color:var(--grn)}.it.sub{margin-left:18px}
+.it .tm{font:500 26px var(--n);line-height:1;color:#fff}.it .tm small{display:block;font:600 11px var(--m);color:#777;margin-top:4px;letter-spacing:.5px}.it .tm small.lt{color:var(--red)}.it .tm small.er{color:var(--blue)}
+.it .nm{font-size:17px;font-weight:800;color:#fff}.it .wh{font-size:13px;color:#888;margin-top:2px}
+.it .act{font:600 12px var(--m);color:#777;text-align:right;white-space:nowrap}.it .act b{display:block;font:500 22px var(--n);color:#ddd}
+.cks{grid-column:2/-1;display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.ck{font-size:13px;padding:5px 9px;border:1px solid #2a2a2a;background:#111;color:#999}.ck.on{border-color:#1f5a32;background:#0f2a17;color:var(--grn)}.ck.on:before{content:'✓ '}
+.dir .ck{cursor:pointer}
+.btns{grid-column:1/-1;display:flex;gap:4px;margin-top:4px}
+.btns button{border:1px solid #333;background:#111;color:#ddd;border-radius:0;padding:9px 12px;font:700 13px var(--m);letter-spacing:.5px}
+.btns button.go{background:var(--red);border-color:var(--red);color:#000}.btns button.ok{background:var(--grn);border-color:var(--grn);color:#000}
+.tkc{font:600 12px var(--m);color:#aaa;margin-left:6px}.tkc b{color:var(--ylw)}
+.foot{margin-top:14px;display:flex;gap:6px;flex-wrap:wrap}.foot button{border:1px solid #333;background:#0d0d0d;color:#888;border-radius:0;padding:8px 12px;font:600 12px var(--m)}
+/* 멤버 화면 */
+.M .it{grid-template-columns:86px 1fr}.M .it .act,.M .cks,.M .btns{display:none}.M .it .nm{font-size:18px}.M .it .wh{font-size:15px;color:#bbb}
+</style></head><body>
+<div id="app"></div>
+<script>
+const Q=new URLSearchParams(location.search),DIR=Q.has('director'),MEM=Q.has('m');
+const D=window.DAY,IT=D.items;
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const base=new Date(D.date+'T00:00:00+09:00').getTime();
+const at=hm=>{const [h,m]=hm.split(':').map(Number);return base+(h*60+m)*60000};
+IT.forEach(x=>{x.ps=at(x.t);x.pe=x.ps+x.d*60000});
+let ST={ph:{},ck:{},rt:{}},OK=false;
+const pad=n=>String(n).padStart(2,'0');
+const clk=ms=>{const d=new Date(ms);return pad(d.getHours())+':'+pad(d.getMinutes())};
+const clks=ms=>{const d=new Date(ms);return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds())};
+const dur=ms=>{ms=Math.max(0,ms);const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s/60)%60,x=s%60;return h?h+':'+pad(m)+':'+pad(x):pad(m)+':'+pad(x)};
+const mins=ms=>Math.round(ms/60000);
+const MAIN=IT.filter(x=>!x.late);
+// 지금 단계 · 늦음 계산
+function calc(now){
+  let cur=null,last=null;
+  for(const x of MAIN){const p=ST.ph[x.id]||{};if(p.s&&!p.e)cur=x;if(p.e)last=x}
+  let delay=0;
+  if(cur){const p=ST.ph[cur.id];delay=(p.s-cur.ps)+Math.max(0,(now-p.s)-cur.d*60000)}
+  else if(last){const i=MAIN.indexOf(last),nx=MAIN[i+1];delay=ST.ph[last.id].e-last.pe;if(nx&&now>nx.ps)delay=Math.max(delay,now-nx.ps)}
+  else if(now>MAIN[0].ps)delay=now-MAIN[0].ps;
+  if(!cur){const i=last?MAIN.indexOf(last)+1:0;cur=MAIN[i]||null}
+  const started=!!(cur&&ST.ph[cur.id]&&ST.ph[cur.id].s);
+  const used=IT.filter(x=>x.g==='shoot'&&!x.buffer).reduce((a,x)=>{const p=ST.ph[x.id]||{};return a+(p.s?((p.e||now)-p.s)-x.d*60000:0)},0);
+  const buf=IT.find(x=>x.buffer);
+  return {cur,started,delay,bufLeft:buf.d*60000-Math.max(0,used),wrapAt:at(D.wrap)+Math.max(0,delay)};
+}
+function status(dl){const m=mins(dl);if(m>=2)return ['late','+'+m+'분 늦음'];if(m<=-2)return ['early',(-m)+'분 빠름'];return ['ok','계획대로']}
+function render(){
+  const now=Date.now(),c=calc(now),cur=c.cur;
+  const p=cur?(ST.ph[cur.id]||{}):{};
+  const endAt=cur?(c.started?p.s+cur.d*60000:cur.ps+Math.max(0,c.delay)+cur.d*60000):now;
+  const rem=endAt-now,pct=cur&&c.started?Math.min(100,(now-p.s)/(cur.d*60000)*100):0;
+  const [sc,st]=status(c.delay);
+  const nx=cur?MAIN[MAIN.indexOf(cur)+1]:null;
+  let h=`<div class="hd"><b>${MEM?'오늘 일정':'TIMEKEEPER'} · 10/23</b><span class="live ${OK?'on':''}"><i></i>${OK?'LIVE':'연결 중'}</span><span class="role">${DIR?'연출석 조작':(MEM?'멤버·오케스트라':'보기 전용')}</span></div>
+  <div class="top"><div><div class="lb">Now</div><div class="big">${clks(now)}</div></div>
+  <div class="cur"><div class="lb">${c.started?'지금':'다음'} · ${cur?esc(cur.t):''}</div><div class="ttl">${cur?esc(MEM?cur.m:cur.title):'모든 일정 끝'}</div><div class="who">${cur&&!MEM?esc(cur.who):(nx?'다음 '+esc(nx.t)+' · '+esc(MEM?nx.m:nx.title):'')}</div><div class="pg"><i style="width:${pct}%"></i></div></div>
+  <div class="rt"><div class="lb">${c.started?'이 단계 남은 시간':'시작까지'}</div><div class="big">${cur?dur(c.started?rem:(cur.ps+Math.max(0,c.delay)-now)):'00:00'}</div></div>
+  <div class="chips"><span class="chip ${sc}">${st}</span><span class="chip ${c.wrapAt>at(D.wrap)+60000?'late':''}">철수 완료 예상 ${clk(c.wrapAt)}</span>${MEM?'':`<span class="chip ${c.bufLeft<5*60000?'warn':''}">촬영 여유 ${Math.max(0,mins(c.bufLeft))}분 남음</span>`}${!MEM&&nx?`<span class="chip">다음 ${esc(nx.t)} ${esc(nx.title)}</span>`:''}</div></div>
+  <div class="list ${DIR?'dir':''}">`;
+  let sg=false;
+  for(const x of IT){
+    if(x.g==='shoot'&&!sg){sg=true;h+=`<div class="gh">▼ 본 촬영 09:30 – 12:00</div>`}
+    if(x.late)h+=`<div class="gh">▼ 철수 후</div>`;
+    const q=ST.ph[x.id]||{},isNow=cur&&cur.id===x.id&&c.started,done=!!q.e;
+    const sh=q.s?mins(q.s-x.ps):null;
+    h+=`<div class="it ${x.g?'sub':''} ${isNow?'now':''} ${done?'done':''}"><div class="tm">${esc(x.t)}<small>${x.d}분</small>${sh!=null&&!MEM?`<small class="${sh>=2?'lt':(sh<=-2?'er':'')}">시작 ${clk(q.s)}</small>`:''}</div>
+    <div><div class="nm">${esc(MEM?x.m:x.title)}${x.takes&&!MEM?`<span class="tkc">${x.takes.map(t=>ST.rt[t]?`${t} <b>×${ST.rt[t]+1}</b>`:'').filter(Boolean).join(' ')}</span>`:''}</div><div class="wh">${esc(MEM?x.title:x.who)}</div></div>
+    <div class="act">${done?`완료<b>${dur(q.e-q.s)}</b>`:(isNow?`진행<b>${dur(now-q.s)}</b>`:'')}</div>
+    ${x.ck&&!MEM?`<div class="cks">${x.ck.map((k,i)=>`<span class="ck ${ST.ck[x.id+'_'+i]?'on':''}" data-ck="${x.id}_${i}">${esc(k)}</span>`).join('')}</div>`:''}
+    ${DIR?`<div class="btns">${isNow?`<button class="ok" data-done="${x.id}">✓ 완료</button>${x.takes?x.takes.map(t=>`<button data-rt="${t}">↻ ${t} 재촬영</button>`).join(''):''}`:(done?`<button data-undo="${x.id}">되돌리기</button>`:`<button class="go" data-go="${x.id}">▶ 시작</button>`)}</div>`:''}
+    </div>`}
+  h+=`</div>${DIR?`<div class="foot"><button data-act="reset">전체 초기화</button></div>`:''}`;
+  $('#app').innerHTML=h;$('#app').classList.toggle('M',MEM);
+}
+const ref=()=>firebase.firestore().doc('live/mv1023day');
+function save(patch){patch.at=Date.now();ref().set(patch,{merge:true}).catch(e=>alert('저장 실패: '+e.message))}
+document.addEventListener('click',e=>{if(!DIR)return;const t=e.target.closest('[data-go],[data-done],[data-undo],[data-ck],[data-rt],[data-act]');if(!t)return;const now=Date.now();
+  if(t.dataset.go){const id=t.dataset.go,ph={};for(const x of MAIN){const q=ST.ph[x.id];if(q&&q.s&&!q.e&&x.id!==id)ph[x.id]={s:q.s,e:now}}ph[id]={s:now};save({ph})}
+  if(t.dataset.done){save({ph:{[t.dataset.done]:{s:ST.ph[t.dataset.done].s,e:now}}})}
+  if(t.dataset.undo){if(confirm('이 단계를 진행 전으로 되돌릴까요?')){const ph={...ST.ph};delete ph[t.dataset.undo];ref().set({ph,ck:ST.ck,rt:ST.rt,at:now})}}
+  if(t.dataset.ck){save({ck:{[t.dataset.ck]:!ST.ck[t.dataset.ck]}})}
+  if(t.dataset.rt){save({rt:{[t.dataset.rt]:(ST.rt[t.dataset.rt]||0)+1}})}
+  if(t.dataset.act==='reset'&&confirm('진행 기록을 모두 지울까요? (시작·완료·체크·재촬영 횟수)')){ref().set({ph:{},ck:{},rt:{},at:now})}
+});
+try{firebase.initializeApp({apiKey:"AIzaSyAVJ6ZZ6L-3RtgoYe2dDSn_lCHXv3CeBGc",projectId:"vinfilm-studio-app"});
+ ref().onSnapshot(sn=>{const d=sn.data()||{};ST={ph:d.ph||{},ck:d.ck||{},rt:d.rt||{}};OK=true;render()},()=>{OK=false;render()})}catch(e){}
+render();setInterval(render,1000);
+</script></body></html>

@@ -200,6 +200,16 @@ service cloud.firestore {
         && request.resource.data.at is int
         && request.resource.data.file is string && request.resource.data.file.size() < 120;
     }
+    // 당일 진행표 (plan/1023/day.html): 단계 시작·완료 시각, 체크, 재촬영 횟수
+    match /live/{id} {
+      allow read: if id == 'mv1023day';
+      allow write: if id == 'mv1023day'
+        && request.resource.data.keys().hasOnly(['ph', 'ck', 'rt', 'at'])
+        && request.resource.data.ph is map && request.resource.data.ph.size() < 40
+        && request.resource.data.ck is map && request.resource.data.ck.size() < 80
+        && request.resource.data.rt is map && request.resource.data.rt.size() < 40
+        && request.resource.data.at is int;
+    }
     // 연출석이 고른 테이크 → 촬영자 폰이 따라감
     match /live/{id} {
       allow read: if id == 'mv1023take';
