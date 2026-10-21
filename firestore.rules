@@ -51,7 +51,7 @@ service cloud.firestore {
     // 스튜디오 다리: 대표님이 '승인'한 결재(studioApprovals status ok)에 딸린 일정만 추가·수정. 삭제·협업자 공간·연결 필드(프로젝트·답사·출처) 변경은 불가.
     function studioApprovedBy(aid) {
       return aid is string && exists(/databases/$(database)/documents/studioApprovals/$(aid))
-        && get(/databases/$(database)/documents/studioApprovals/$(aid)).data.status == 'ok';
+        && get(/databases/$(database)/documents/studioApprovals/$(aid)).data.status in ['ok', 'auto']; // auto = 대표님 결재 없이 진행하는 보고(2026-10-21: 캘린더·프로젝트는 알아서)
     }
     function bridgeSchedEditable() { return ['date', 'endDate', 'time', 'title', 'location', 'memo', 'category', 'updatedAt', 'studioApprovalId', 'meet']; } // meetUrl은 캘린더 동기화(대표님 계정)만
     function bridgeSchedValid(d) {
@@ -182,10 +182,11 @@ service cloud.firestore {
         && request.resource.data.text is string);
       allow delete: if isOwner();
     }
-    // 결재: 다리는 '결재 대기'로 새로 올리기만. 승인·반려·수정·삭제는 대표님만.
+    // 결재: 다리는 '결재 대기'·'보고'로 새로 올리기만. 승인·반려·수정·삭제는 대표님만.
     match /studioApprovals/{id} {
       allow read: if isOwner() || isBridge();
-      allow create: if isOwner() || (isBridge() && request.resource.data.status == 'wait');
+      // 'auto' = 보고(돈·계약·결제·외부 발송이 아닌 일은 결재 없이 진행, 2026-10-21 대표님)
+      allow create: if isOwner() || (isBridge() && request.resource.data.status in ['wait', 'auto']);
       allow update, delete: if isOwner();
     }
   }
