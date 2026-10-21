@@ -89,7 +89,7 @@ function clockHtml(t){const red=t<SW,a=red?0:SW,b=red?SW:END,rem=Math.max(0,b-t)
  <div class="ck rt ${red?'r':'b'}"><div class="lab">${end?'곡 끝':(red?'🔴 지금 앵글':'🔵 지금 앵글')} 남은 시간</div><div class="tm">${end?'0:00':fmt(rem)}</div></div>
  <div class="pg ${red?'r':'b'}"><i style="width:${end?100:pct}%"></i></div>`}
 function tick(){const t=now();const c=$('#clock');if(c)c.innerHTML=clockHtml(t);
- const r=document.querySelector('.ph.r'),b=document.querySelector('.ph.b');if(r){r.classList.toggle('now',t<SW);b.classList.toggle('now',t>=SW)}
+ document.querySelectorAll('.ph.r').forEach(x=>x.classList.toggle('now',t<SW));document.querySelectorAll('.ph.b').forEach(x=>x.classList.toggle('now',t>=SW));
  if(t>=SW&&!flashed){flashed=true;const f=$('#flash');f.classList.add('on');setTimeout(()=>f.classList.remove('on'),450);try{navigator.userActivation?.hasBeenActive&&navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}}
  if(t<SW)flashed=false}
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
