@@ -2,7 +2,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow"><meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#000000">
-<title>10/23 타임키퍼</title>
+<title>ON SET · 런다운</title>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="day-data.js?v=1"></script>
@@ -79,7 +79,7 @@ function render(){
   const rem=endAt-now,pct=cur&&c.started?Math.min(100,(now-p.s)/(cur.d*60000)*100):0;
   const [sc,st]=status(c.delay);
   const nx=cur?MAIN[MAIN.indexOf(cur)+1]:null;
-  let h=`<div class="hd"><b>${MEM?'오늘 일정':'TIMEKEEPER'} · 10/23</b><span class="live ${OK?'on':''}"><i></i>${OK?'LIVE':'연결 중'}</span><span class="role">${DIR?'연출석 조작':(MEM?'멤버·오케스트라':'보기 전용')}</span></div>
+  let h=`<div class="hd"><b>${MEM?'오늘 일정':'RUNDOWN'} · 10/23</b><span class="live ${OK?'on':''}"><i></i>${OK?'LIVE':'연결 중'}</span><span class="role">${DIR?'연출석 조작':(MEM?'멤버·오케스트라':'보기 전용')}</span></div>
   <div class="top"><div><div class="lb">Now</div><div class="big">${clks(now)}</div></div>
   <div class="cur"><div class="lb">${c.started?'지금':'다음'} · ${cur?esc(cur.t):''}</div><div class="ttl">${cur?esc(MEM?cur.m:cur.title):'모든 일정 끝'}</div><div class="who">${cur&&!MEM?esc(cur.who):(nx?'다음 '+esc(nx.t)+' · '+esc(MEM?nx.m:nx.title):'')}</div><div class="pg"><i style="width:${pct}%"></i></div></div>
   <div class="rt"><div class="lb">${c.started?'이 단계 남은 시간':'시작까지'}</div><div class="big">${cur?dur(c.started?rem:(cur.ps+Math.max(0,c.delay)-now)):'00:00'}</div></div>
