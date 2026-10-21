@@ -350,7 +350,7 @@ window.addEventListener('afterprint',render);
 try{if(localStorage.getItem('vf-board-nobar')==='1')document.body.classList.add('nobar')}catch(e){}
 document.getElementById('hideBar').onclick=()=>{document.body.classList.add('nobar');try{localStorage.setItem('vf-board-nobar','1')}catch(e){}};
 document.getElementById('showBar').onclick=()=>{document.body.classList.remove('nobar');try{localStorage.setItem('vf-board-nobar','0')}catch(e){}};
-document.getElementById('reload').onclick=async()=>{try{await Promise.all(['board.html','checklist.html','angles.html'].map(u=>fetch(u,{cache:'reload'})))}catch(e){}location.href=location.pathname+'?r='+Date.now()};
+document.getElementById('reload').onclick=async()=>{try{await Promise.all(['board.html','checklist.html?v=7','angles-web.html?v=7','cam.html?all=1&v=9','cam.html','cue-web.html?v=7','light-web.html?v=7','budget-web.html?v=7'].map(u=>fetch(u,{cache:'reload'})))}catch(e){}location.href=location.pathname+'?r='+Date.now()};
 render();applyZoom();LAST=JSON.stringify(S);
 const _rnd=render;render=function(){_rnd();markSel()};
 </script><script>
