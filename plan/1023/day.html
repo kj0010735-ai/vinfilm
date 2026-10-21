@@ -39,10 +39,15 @@ body{padding:calc(8px + env(safe-area-inset-top)) 12px calc(30px + env(safe-area
 .btns button.go{background:var(--red);border-color:var(--red);color:#000}.btns button.ok{background:var(--grn);border-color:var(--grn);color:#000}
 .stt{display:flex;align-items:center;font:700 13px var(--m);letter-spacing:1px;color:var(--red);padding:0 10px 0 2px;animation:blink 1.4s infinite}.stt.dn{color:var(--grn);animation:none}@keyframes blink{50%{opacity:.35}}
 .tkc{font:600 12px var(--m);color:#aaa;margin-left:6px}.tkc b{color:var(--ylw)}
-.ed{background:#0a0a0a;border:1px solid #2e2e2e;padding:12px;display:flex;flex-direction:column;gap:8px}
+.it{position:relative}.pen{position:absolute;top:8px;right:8px;width:30px;height:30px;border:1px solid #333;background:#141414;color:#aaa;font-size:14px;border-radius:0;z-index:1}.pen:hover{color:#fff;border-color:#666}
+.it .act{padding-right:38px}
+.ck.plus{border-style:dashed;color:#888;cursor:pointer}.ck.plus:hover{color:#fff}
+.qa{background:#141414;border:1px solid var(--ylw);color:#fff;padding:5px 9px;font:500 14px -apple-system,sans-serif;border-radius:0;min-width:220px}
+.ed{background:#0d0c06;border:1px solid #6b5a1a;border-left:4px solid var(--ylw);padding:12px;display:flex;flex-direction:column;gap:10px}
+.ed .grow{flex:1;min-width:180px}.ed .eb{display:flex;gap:6px;flex-wrap:wrap}.ed .eb .sv{background:var(--grn);border-color:var(--grn);color:#000}
 .ed .er{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
 .ed label{display:flex;flex-direction:column;gap:3px;font:600 11px var(--m);letter-spacing:1px;color:#888}.ed label.w,.ed div.w{width:100%}
-.ed input,.ed select{background:#141414;border:1px solid #333;color:#fff;padding:9px 10px;font:500 15px -apple-system,sans-serif;border-radius:0;width:100%}.ed .er input{width:96px}.ed .er select{width:110px}
+.ed input,.ed select{background:#141414;border:1px solid #333;color:#fff;padding:9px 10px;font:500 15px -apple-system,sans-serif;border-radius:0;width:100%}.ed .er label:not(.grow) input{width:90px}.ed .er select{width:110px}
 .ed .lbs{display:block;font:600 11px var(--m);letter-spacing:1px;color:#888;margin-bottom:4px}
 .ed .cr{display:flex;gap:4px;margin-bottom:4px}
 .ed button{border:1px solid #333;background:#111;color:#ccc;border-radius:0;padding:8px 10px;font:600 12px var(--m)}.ed button.x{color:var(--red);margin-left:auto}.ed .cr button.x{margin-left:0}
@@ -54,7 +59,7 @@ body{padding:calc(8px + env(safe-area-inset-top)) 12px calc(30px + env(safe-area
 <div id="app"></div>
 <script>
 const Q=new URLSearchParams(location.search),DIR=Q.has('director'),MEM=Q.has('m');
-const D=window.DAY;let IT=[],MAIN=[],EDIT=null;
+const D=window.DAY;let IT=[],MAIN=[];
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const base=new Date(D.date+'T00:00:00+09:00').getTime();
 const at=hm=>{const [h,m]=hm.split(':').map(Number);return base+(h*60+m)*60000};
@@ -82,8 +87,8 @@ function calc(now){
 }
 function status(dl){const m=mins(dl);if(m>=2)return ['late','+'+m+'분 늦음'];if(m<=-2)return ['early',(-m)+'분 빠름'];return ['ok','계획대로']}
 function render(){
-  if(EDIT)return renderEdit();
-  if(!MAIN.length){$('#app').innerHTML='<div class="hd"><b>RUNDOWN</b></div>'+(DIR?'<div class="foot"><button data-act="edit">✎ 런다운 편집</button></div>':'');return}
+  const ae=document.activeElement;if(ae&&ae.closest&&ae.closest('#app')&&ae.matches('input,select'))return; // 입력 중엔 다시 그리지 않음
+  if(!MAIN.length){$('#app').innerHTML='<div class="hd"><b>RUNDOWN</b></div>'+(DIR?'<div class="foot"><button data-ie="addend">＋ 단계 추가</button></div>':'');return}
   const now=Date.now(),c=calc(now),cur=c.cur;
   const p=cur?(ST.ph[cur.id]||{}):{};
   const endAt=cur?(c.started?p.s+cur.d*60000:cur.ps+Math.max(0,c.delay)+cur.d*60000):now;
@@ -102,54 +107,61 @@ function render(){
     if(x.late)h+=`<div class="gh">▼ 철수 후</div>`;
     const q=ST.ph[x.id]||{},isNow=cur&&cur.id===x.id&&c.started,done=!!q.e;
     const sh=q.s?mins(q.s-x.ps):null;
-    h+=`<div class="it ${x.g?'sub':''} ${isNow?'now':''} ${done?'done':''}"><div class="tm">${esc(x.t)}<small>${x.d}분</small>${sh!=null&&!MEM?`<small class="${sh>=2?'lt':(sh<=-2?'er':'')}">시작 ${clk(q.s)}</small>`:''}</div>
+    if(DIR&&RE===x.id){h+=rowEditor(x);continue}
+    h+=`<div class="it ${x.g?'sub':''} ${isNow?'now':''} ${done?'done':''}">${DIR?`<button class="pen" data-ie="open" data-id="${x.id}" title="이 단계 고치기">✎</button>`:''}<div class="tm">${esc(x.t)}<small>${x.d}분</small>${sh!=null&&!MEM?`<small class="${sh>=2?'lt':(sh<=-2?'er':'')}">시작 ${clk(q.s)}</small>`:''}</div>
     <div><div class="nm">${esc(MEM?x.m:x.title)}${x.takes&&!MEM?`<span class="tkc">${x.takes.map(t=>ST.rt[t]?`${t} <b>×${ST.rt[t]+1}</b>`:'').filter(Boolean).join(' ')}</span>`:''}</div><div class="wh">${esc(MEM?x.title:x.who)}</div></div>
     <div class="act">${done?`완료<b>${dur(q.e-q.s)}</b>`:(isNow?`진행<b>${dur(now-q.s)}</b>`:'')}</div>
-    ${x.ck&&!MEM?`<div class="cks">${x.ck.map((k,i)=>`<span class="ck ${ST.ck[x.id+'_'+i]?'on':''}" data-ck="${x.id}_${i}">${esc(k)}</span>`).join('')}</div>`:''}
+    ${(x.ck&&x.ck.length||DIR)&&!MEM?`<div class="cks">${(x.ck||[]).map((k,i)=>`<span class="ck ${ST.ck[x.id+'_'+i]?'on':''}" data-ck="${x.id}_${i}">${esc(k)}</span>`).join('')}${DIR?(QA===x.id?`<input class="qa" data-qa="${x.id}" placeholder="체크 항목 입력 후 Enter">`:`<span class="ck plus" data-ie="qa" data-id="${x.id}">＋ 체크</span>`):''}</div>`:''}
     ${DIR?`<div class="btns">${isNow?`<span class="stt">● 진행 중</span><button class="ok" data-done="${x.id}">■ 끝내기</button>${x.takes?x.takes.map(t=>`<button data-rt="${t}">↻ ${t} 재촬영</button>`).join(''):''}`:(done?`<span class="stt dn">✓ 완료</span><button data-undo="${x.id}">되돌리기</button>`:`<button class="go" data-go="${x.id}">▶ 시작</button>`)}</div>`:''}
     </div>`}
-  h+=`</div>${DIR?`<div class="foot"><button data-act="edit" style="color:var(--ylw);border-color:#6b5a1a">✎ 런다운 편집</button><button data-act="reset">진행 기록 초기화</button></div>`:''}`;
+  h+=`</div>${DIR?`<div class="foot"><button data-ie="addend" style="color:var(--ylw);border-color:#6b5a1a">＋ 단계 추가</button><button data-ie="default">처음 런다운으로</button><button data-act="reset">진행 기록 초기화</button></div>`:''}`;
   $('#app').innerHTML=h;$('#app').classList.toggle('M',MEM);
 }
-// ---------- 편집 ----------
-const GL={'':'일반',shoot:'본 촬영',late:'철수 후'};
-function renderEdit(){
-  const ae=document.activeElement;if(ae&&ae.closest&&ae.closest('#app')&&ae.matches('input,select'))return; // 입력 중엔 다시 그리지 않음
-  let h=`<div class="hd"><b>RUNDOWN 편집</b><span class="role">시간 순서로 자동 정렬돼요</span></div>
-  <div class="foot" style="margin:0 0 10px"><button data-ed="save" style="background:var(--grn);color:#000;border-color:var(--grn)">✓ 저장 (모든 기기에 반영)</button><button data-ed="cancel">취소</button><button data-ed="default">기본값으로</button></div><div class="list">`;
-  EDIT.forEach((x,i)=>{h+=`<div class="ed"><div class="er">
-   <label>시작<input data-f="t" data-i="${i}" value="${esc(x.t)}" placeholder="07:30" inputmode="numeric"></label>
-   <label>분<input data-f="d" data-i="${i}" value="${x.d}" type="number" min="1" style="width:70px"></label>
-   <label>묶음<select data-f="g" data-i="${i}">${Object.entries(GL).map(([k,l])=>`<option value="${k}" ${((x.late?'late':x.g)||'')===k?'selected':''}>${l}</option>`).join('')}</select></label>
-   <button data-ed="del" data-i="${i}" class="x">삭제</button></div>
-   <label class="w">단계 이름<input data-f="title" data-i="${i}" value="${esc(x.title)}"></label>
-   <label class="w">담당<input data-f="who" data-i="${i}" value="${esc(x.who||'')}"></label>
-   <label class="w">멤버·오케스트라에게 보일 문구<input data-f="m" data-i="${i}" value="${esc(x.m||'')}"></label>
-   <div class="w"><span class="lbs">체크리스트</span>${(x.ck||[]).map((k,j)=>`<div class="cr"><input data-ckf="${i}_${j}" value="${esc(k)}"><button data-ed="ckdel" data-i="${i}" data-j="${j}" class="x">✕</button></div>`).join('')}<button data-ed="ckadd" data-i="${i}">+ 체크 추가</button></div>
-  </div><button class="add" data-ed="add" data-i="${i}">+ 여기 아래에 단계 추가</button>`});
-  h+=`</div>`;$('#app').innerHTML=h;$('#app').classList.remove('M');
-}
-document.addEventListener('input',e=>{if(!EDIT)return;const t=e.target;
-  if(t.dataset.f){const x=EDIT[+t.dataset.i],f=t.dataset.f;if(f==='d')x.d=Math.max(1,parseInt(t.value)||1);else if(f==='g'){x.late=t.value==='late';x.g=t.value==='shoot'?'shoot':undefined}else x[f]=t.value}
-  if(t.dataset.ckf){const [i,j]=t.dataset.ckf.split('_').map(Number);EDIT[i].ck[j]=t.value}});
-document.addEventListener('change',e=>{if(EDIT&&e.target.dataset.f==='g'){const x=EDIT[+e.target.dataset.i];x.late=e.target.value==='late';x.g=e.target.value==='shoot'?'shoot':undefined}});
-function normT(v){const m=String(v).replace(/[^0-9:]/g,'').match(/^(\d{1,2}):?(\d{2})$/);if(!m)return null;const h=+m[1],mi=+m[2];return h<24&&mi<60?pad(h)+':'+pad(mi):null}
+// ---------- 바로 고치기 (연출석) ----------
+let RE=null,RD=null,QA=null; // RE=고치는 단계 id, RD=고치는 중인 값, QA=체크 빠른 추가 중인 단계 id
 const planRef=()=>firebase.firestore().doc('live/mv1023plan');
-document.addEventListener('click',e=>{const b=e.target.closest('[data-ed]');if(!b||!EDIT)return;const i=+b.dataset.i,k=b.dataset.ed;document.activeElement&&document.activeElement.blur&&document.activeElement.blur();
-  if(k==='del'&&confirm(`"${EDIT[i].title}" 단계를 지울까요?`))EDIT.splice(i,1);
-  if(k==='add'){const x=EDIT[i],t=new Date(at(normT(x.t)||x.t)+x.d*60000);EDIT.splice(i+1,0,{id:'x'+Date.now().toString(36),t:pad(t.getHours())+':'+pad(t.getMinutes()),d:15,title:'새 단계',who:'',m:'',ck:[],g:x.g,late:x.late})}
-  if(k==='ckadd'){(EDIT[i].ck=EDIT[i].ck||[]).push('')}
-  if(k==='ckdel'){EDIT[i].ck.splice(+b.dataset.j,1)}
-  if(k==='cancel'){EDIT=null}
-  if(k==='default'&&confirm('처음 만든 런다운으로 되돌릴까요? (저장을 눌러야 반영돼요)')){EDIT=D.items.map(x=>({...x,ck:x.ck?[...x.ck]:[]}))}
-  if(k==='save'){for(const x of EDIT){const t=normT(x.t);if(!t){alert(`"${x.title}" 시작 시간이 이상해요 (예: 07:30)`);return}x.t=t}
-    const items=EDIT.map(x=>{const o={id:x.id,t:x.t,d:x.d,title:x.title||'단계',who:x.who||'',m:x.m||''};if(x.ck&&x.ck.filter(Boolean).length)o.ck=x.ck.filter(Boolean);if(x.g==='shoot')o.g='shoot';if(x.late)o.late=true;if(x.takes)o.takes=x.takes;if(x.buffer)o.buffer=true;return o}).sort((a,b)=>a.t<b.t?-1:a.t>b.t?1:0);
-    planRef().set({items,at:Date.now()}).then(()=>{EDIT=null;setItems(items);render()}).catch(er=>alert('저장 실패: '+er.message));return}
-  EDIT&&renderEdit();if(!EDIT)render()});
+function normT(v){const m=String(v).replace(/[^0-9:]/g,'').match(/^(\d{1,2}):?(\d{2})$/);if(!m)return null;const h=+m[1],mi=+m[2];return h<24&&mi<60?pad(h)+':'+pad(mi):null}
+const clean=x=>{const o={id:x.id,t:x.t,d:x.d,title:x.title||'단계',who:x.who||'',m:x.m||''};const ck=(x.ck||[]).filter(k=>String(k).trim());if(ck.length)o.ck=ck;if(x.g==='shoot')o.g='shoot';if(x.late)o.late=true;if(x.takes)o.takes=x.takes;if(x.buffer)o.buffer=true;return o};
+function savePlan(arr){const items=arr.map(clean).sort((a,b)=>a.t<b.t?-1:a.t>b.t?1:0);setItems(items);render();return planRef().set({items,at:Date.now()}).catch(er=>alert('저장 실패: '+er.message))}
+function rowEditor(x){const g=x.late?'late':(x.g||'');
+ return `<div class="ed" id="ed"><div class="er">
+  <label>시작<input data-rf="t" value="${esc(RD.t)}" inputmode="numeric" placeholder="07:30"></label>
+  <label>분<input data-rf="d" value="${RD.d}" type="number" min="1"></label>
+  <label class="grow">단계 이름<input data-rf="title" value="${esc(RD.title)}"></label></div>
+  <div class="er"><label class="grow">담당<input data-rf="who" value="${esc(RD.who||'')}"></label>
+  <label class="grow">멤버에게 보일 문구<input data-rf="m" value="${esc(RD.m||'')}"></label>
+  <label>묶음<select data-rf="g"><option value="" ${g===''?'selected':''}>일반</option><option value="shoot" ${g==='shoot'?'selected':''}>본 촬영</option><option value="late" ${g==='late'?'selected':''}>철수 후</option></select></label></div>
+  <div><span class="lbs">체크리스트</span>${RD.ck.map((k,j)=>`<div class="cr"><input data-rck="${j}" value="${esc(k)}"><button data-ie="ckdel" data-j="${j}" class="x">✕</button></div>`).join('')}<button data-ie="ckadd">＋ 체크 추가</button></div>
+  <div class="eb"><button data-ie="save" class="sv">저장</button><button data-ie="cancel">취소</button><button data-ie="below">아래에 단계 추가</button><button data-ie="del" class="x">이 단계 삭제</button></div></div>`}
+document.addEventListener('input',e=>{if(!RD)return;const t=e.target;
+ if(t.dataset.rf){const f=t.dataset.rf;if(f==='d')RD.d=Math.max(1,parseInt(t.value)||1);else if(f==='g'){RD.late=t.value==='late';RD.g=t.value==='shoot'?'shoot':undefined}else RD[f]=t.value}
+ if(t.dataset.rck!=null)RD.ck[+t.dataset.rck]=t.value});
+document.addEventListener('change',e=>{if(RD&&e.target.dataset.rf==='g'){RD.late=e.target.value==='late';RD.g=e.target.value==='shoot'?'shoot':undefined}});
+document.addEventListener('keydown',e=>{const t=e.target;
+ if(t.dataset&&t.dataset.qa&&e.key==='Enter'&&!e.isComposing){const v=t.value.trim(),id=t.dataset.qa;QA=null;t.blur();if(v){savePlan(IT.map(x=>x.id===id?{...x,ck:[...(x.ck||[]),v]}:x))}else render()}
+ if(t.dataset&&t.dataset.qa&&e.key==='Escape'){QA=null;t.blur();render()}
+ if(RD&&e.key==='Enter'&&!e.isComposing&&t.matches('#ed input')){e.preventDefault();document.querySelector('[data-ie=save]').click()}
+ if(RD&&e.key==='Escape'){RE=RD=null;document.activeElement.blur();render()}});
+document.addEventListener('focusout',e=>{if(e.target.dataset&&e.target.dataset.qa)setTimeout(()=>{if(QA&&!document.querySelector('.qa:focus')){QA=null;render()}},150)});
+document.addEventListener('click',e=>{if(!DIR)return;const b=e.target.closest('[data-ie]');if(!b)return;const k=b.dataset.ie;
+ const blur=()=>{const a=document.activeElement;a&&a.blur&&a.blur()};
+ if(k==='open'){const x=IT.find(y=>y.id===b.dataset.id);RE=x.id;RD={...x,ck:[...(x.ck||[])]};QA=null;blur();render();setTimeout(()=>document.querySelector('#ed [data-rf=title]')?.focus(),30);return}
+ if(k==='qa'){QA=b.dataset.id;RE=RD=null;blur();render();setTimeout(()=>document.querySelector('.qa')?.focus(),30);return}
+ if(k==='addend'){const l=IT[IT.length-1]||{t:'12:00',d:0};const t=new Date(at(l.t)+l.d*60000);const nx={id:'x'+Date.now().toString(36),t:pad(t.getHours())+':'+pad(t.getMinutes()),d:15,title:'새 단계',who:'',m:'',ck:[]};IT.push({...nx,ps:at(nx.t),pe:at(nx.t)+15*60000});RE=nx.id;RD={...nx};blur();render();setTimeout(()=>{const el=document.querySelector('#ed');el&&el.scrollIntoView({block:'center'});el?.querySelector('[data-rf=title]')?.select()},30);return}
+ if(k==='default'){if(confirm('처음 만든 런다운으로 되돌릴까요? (고친 단계·체크리스트가 사라져요)')){RE=RD=null;savePlan(D.items)}return}
+ if(!RD)return;
+ if(k==='ckadd'){RD.ck.push('');blur();render();setTimeout(()=>{const l=[...document.querySelectorAll('[data-rck]')].pop();l&&l.focus()},30);return}
+ if(k==='ckdel'){RD.ck.splice(+b.dataset.j,1);blur();render();return}
+ if(k==='cancel'){RE=RD=null;setItems(IT.filter(x=>planHas(x.id)));blur();render();return}
+ if(k==='del'){if(confirm(`"${RD.title}" 단계를 지울까요?`)){const id=RE;RE=RD=null;savePlan(IT.filter(x=>x.id!==id))}return}
+ if(k==='save'||k==='below'){const t=normT(RD.t);if(!t){alert('시작 시간을 07:30처럼 넣어 주세요');return}RD.t=t;const id=RE;let arr=IT.map(x=>x.id===id?{...RD}:x);
+   if(k==='below'){const e2=new Date(at(t)+RD.d*60000);const nx={id:'x'+Date.now().toString(36),t:pad(e2.getHours())+':'+pad(e2.getMinutes()),d:15,title:'새 단계',who:'',m:'',ck:[],g:RD.g,late:RD.late};arr.push(nx);RE=nx.id;RD={...nx}}else{RE=RD=null}
+   blur();savePlan(arr);return}
+});
+let SAVED_IDS=null;function planHas(id){return !SAVED_IDS||SAVED_IDS.has(id)}
 const ref=()=>firebase.firestore().doc('live/mv1023day');
 function save(patch){patch.at=Date.now();ref().set(patch,{merge:true}).catch(e=>alert('저장 실패: '+e.message))}
-document.addEventListener('click',e=>{if(!DIR||EDIT)return;const t=e.target.closest('[data-go],[data-done],[data-undo],[data-ck],[data-rt],[data-act]');if(!t)return;const now=Date.now();
-  if(t.dataset.act==='edit'){EDIT=IT.map(x=>({id:x.id,t:x.t,d:x.d,title:x.title,who:x.who,m:x.m,ck:x.ck?[...x.ck]:[],g:x.g,late:x.late,takes:x.takes,buffer:x.buffer}));renderEdit();scrollTo(0,0);return}
+document.addEventListener('click',e=>{if(!DIR||RE)return;const t=e.target.closest('[data-go],[data-done],[data-undo],[data-ck],[data-rt],[data-act]');if(!t)return;const now=Date.now();
   if(t.dataset.go){const id=t.dataset.go,ph={};for(const x of MAIN){const q=ST.ph[x.id];if(q&&q.s&&!q.e&&x.id!==id)ph[x.id]={s:q.s,e:now}}ph[id]={s:now};save({ph})}
   if(t.dataset.done){save({ph:{[t.dataset.done]:{s:ST.ph[t.dataset.done].s,e:now}}})}
   if(t.dataset.undo){if(confirm('이 단계를 진행 전으로 되돌릴까요?')){const ph={...ST.ph};delete ph[t.dataset.undo];ref().set({ph,ck:ST.ck,rt:ST.rt,at:now})}}
@@ -158,7 +170,7 @@ document.addEventListener('click',e=>{if(!DIR||EDIT)return;const t=e.target.clos
   if(t.dataset.act==='reset'&&confirm('진행 기록을 모두 지울까요? (시작·완료·체크·재촬영 횟수)')){ref().set({ph:{},ck:{},rt:{},at:now})}
 });
 try{firebase.initializeApp({apiKey:"AIzaSyAVJ6ZZ6L-3RtgoYe2dDSn_lCHXv3CeBGc",projectId:"vinfilm-studio-app"});
- planRef().onSnapshot(sn=>{const d=sn.data();if(d&&Array.isArray(d.items)&&d.items.length){setItems(d.items);if(!EDIT)render()}},()=>{});
+ planRef().onSnapshot(sn=>{const d=sn.data();if(d&&Array.isArray(d.items)&&d.items.length){SAVED_IDS=new Set(d.items.map(x=>x.id));if(!RE){setItems(d.items);render()}}},()=>{});
  ref().onSnapshot(sn=>{const d=sn.data()||{};ST={ph:d.ph||{},ck:d.ck||{},rt:d.rt||{}};OK=true;render()},()=>{OK=false;render()})}catch(e){}
 render();setInterval(render,1000);
 </script></body></html>
