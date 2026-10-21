@@ -25,7 +25,7 @@ h1{font-size:18px;margin:4px 0 10px}.sub{color:#8d95a1;font-size:13px;margin-bot
 .ph.now{opacity:1}.ph.r.now{border-color:#ff6b6b;background:#2a1618}.ph.b.now{border-color:#7fa8ff;background:#141c2e}
 .ph.solo{opacity:1}
 .sh{display:inline-block;font-size:.8em;font-weight:800;padding:0 6px;border-radius:5px;background:#3a3110;color:#f2c200;border:1px solid #6b5a1a;vertical-align:2px}
-.clock{display:flex;align-items:center;gap:10px;margin:12px 0 4px}
+.clock{display:flex;align-items:center;gap:10px;margin:0 -14px 10px;padding:6px 14px;position:sticky;top:0;z-index:5;background:#0b0c0f;border-bottom:1px solid #22252c}
 .clock .tm{font-variant-numeric:tabular-nums;font-size:42px;font-weight:900;letter-spacing:-1px}
 .clock .left{color:#7fa8ff;font-size:30px;font-weight:900;margin-left:auto;text-align:right;font-variant-numeric:tabular-nums;line-height:1.1}
 .go{width:100%;border:0;border-radius:12px;padding:15px;font:inherit;font-size:18px;font-weight:900;background:#16a34a;color:#fff;margin-top:6px}
@@ -67,18 +67,18 @@ function render(){
  const tk=TAKES[cur];if(!tk){A.innerHTML='<div class="none">앵글표를 못 불러왔어요</div>';return}
  const cs=tk.shared?tk.cells:tk.cells.filter(mine);const t=now();const phase=t<SW?'r':'b';
  A.innerHTML=`<div class="bar"><b>🎥 ${esc(me)}<span class="live ${LIVE.ok?'on':''}" id="liveB">${LIVE.ok?(LIVE.playing?'🔗 음악 연동 · 재생 중':'🔗 음악 연동 · 멈춤'):'🔗 연동 대기'}</span></b><button data-act="who">사람 바꾸기</button></div>
+ <div class="clock"><div class="tm" id="tm">${fmt(t+COUNTIN)}</div><div class="left" id="left">${t<SW?'🔵까지 '+fmt(SW-t):'🔵 다 같이'}</div></div>
  <div class="tk">${TAKES.map((x,i)=>`<button class="${i===cur?'on':''}" data-tk="${i}">${esc(x.id)}</button>`).join('')}</div>
  <div class="ttl" style="margin:0 2px 8px">${esc(tk.id)} · ${esc(tk.desc)}</div>
  ${cs.length?cs.map(c=>`<div class="card" style="margin-bottom:12px">${c.img?`<img src="${esc(c.img)}" alt="">`:''}<div class="cin"><div class="cam">${hlab(c.cam)}</div>
   ${c.red||c.blue?`<div class="ph r ${phase==='r'?'now':''}"><div class="t">🔴 처음 ~ 1:38 · 남자 보컬 혼자</div><div class="d">${hlab(c.red)||'—'}</div></div>
   <div class="ph b ${phase==='b'?'now':''}"><div class="t">🔵 1:38 ~ 끝 · 다 같이</div><div class="d">${hlab(c.blue)||'—'}</div></div>`:`<div class="ph solo"><div class="d">${hlab(c.other)}</div></div>`}
  </div></div>`).join(''):'<div class="none">이 테이크에는 내 카메라 지시가 없어요 (대기 또는 다른 테이크 준비)</div>'}
- <div class="clock"><div class="tm" id="tm">${fmt(t+COUNTIN)}</div><div class="left" id="left">${t<SW?'🔵까지 '+fmt(SW-t):'🔵 다 같이 부르는 구간'}</div></div>
  ${MANUAL?`<button class="go ${t0?'stop':''}" data-act="go">${t0?'■ 멈춤':'▶ 시작 (음악 시작할 때)'}</button>
  <div class="row2"><button data-act="back">−5초</button><button data-act="fwd">+5초</button><button data-act="reset">처음으로</button></div>`:''}
  <div class="row2"><button data-act="next">다음 테이크 ›</button></div>
  <div class="note">· 시계는 연출석 넥서스 뮤직과 같은 시간이에요 (초록 🔗 표시)<br>· 곡의 1:38(넥서스 1:42.8)이 되면 화면이 한 번 반짝이고 🔵로 바뀌어요</div>`}
-function tick(){const t=now();const e=$('#tm');if(e)e.textContent=fmt(t+COUNTIN);const l=$('#left');if(l)l.textContent=t<SW?'🔵까지 '+fmt(SW-t):'🔵 다 같이 부르는 구간';
+function tick(){const t=now();const e=$('#tm');if(e)e.textContent=fmt(t+COUNTIN);const l=$('#left');if(l)l.textContent=t<SW?'🔵까지 '+fmt(SW-t):'🔵 다 같이';
  const r=document.querySelector('.ph.r'),b=document.querySelector('.ph.b');if(r){r.classList.toggle('now',t<SW);b.classList.toggle('now',t>=SW)}
  if(t>=SW&&!flashed){flashed=true;const f=$('#flash');f.classList.add('on');setTimeout(()=>f.classList.remove('on'),450);try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}}
  if(t<SW)flashed=false}
