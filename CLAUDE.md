@@ -137,6 +137,7 @@
 - **결재 기준(대표님 결정 2026-10-21)**: 입금·계약·금액·결제·외부 발송만 대표님 결재(`status:'wait'`). 나머지(조사·기획·시안·보고서·내부 정리·**프로젝트 등록/변경·캘린더 일정 등록/변경**)는 '보고' `status:'auto'` — 다리가 승인 없이 끝까지 하고 actions(캘린더·프로젝트)를 바로 반영. 다리 `MONEY_RE`(입금|송금|계약|결제|견적|금액|단가|지출|환불|발송|게시|업로드|공개 …)가 제목·본문에 걸리면 직원이 보고로 올려도 결재로 돌린다. 규칙: `studioApprovedBy`가 ok·auto 모두 허용, 다리 결재 생성 status ∈ wait·auto.
 - **비서실 아침 업무 정리**: items 있는 보고(auto) + `dispatchAt`(30분 뒤, `DIGEST_WAIT_MS`). 그 전엔 항목별 진행/아니오/보류를 고르면 바로 문서 answers에 저장(`chatDigestPending` → studio-choose가 studioPut), '지금 진행'은 dispatchAt=now. 다리 `dispatchTick`(1분)이 시간이 지난 정리를 `applyApproval`로 배분(보류·아니오 제외) + actions 반영.
 - 스튜디오 처리함에서도 auto는 '보고' 배지.
+- **확인만·최종 자료·수정본 번호(2026-10-22)**: `chatIsAck(a)` = 결재 대기 중 by:'sec-direct'(비서실 기록, archive.mjs는 이제 auto로 올림)이거나 followUp false·choices/actions/items 없음·돈 낱말 없음 → '확인만'. `studioWaiting()`은 이것을 빼고 셈(HUD·대표님 카드·직원 상태), `studioAckWaiting()`은 따로. 메인 결재함 = 결정할 것만 + '📄 확인만 N건 [모두 확인]' + `studioFinalsHtml`(📦 최종 자료: 프로젝트·주제별, 같은 직원·같은 이름은 최신 판만). 수정본 번호 `studioVersion`/`studioVerBadge`: 같은 직원 + `studioStem(title)`(머리말 [..]·' — ' 뒤·괄호 뺀 이름)끼리 올린 순서대로 v1·v2…, 최신은 'v3 최신'. 단톡방·스튜디오 카드 제목에 표시.
 
 ### 🙋 지원자 탭 (works — 탭 id `applicants`, owner 전용)
 

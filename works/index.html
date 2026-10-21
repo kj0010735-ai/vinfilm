@@ -4562,17 +4562,32 @@ const STUDIO_AUTO_OFF = []; // 2026-10-15: dev는 다리가 자동 실행(개발
 const STUDIO_TASK_LABEL = { queued: '대기', running: '진행 중', done: '완료', failed: '실패', canceled: '취소' };
 function studioDoc(id) { return studioStaff.find(d => d.id === id) || {}; }
 function studioApprovalStaff(a) { return a.staffId || a.from || ''; }
-function studioWaiting() { return studioApprovals.filter(a => a.status === 'wait'); }
+function studioWaiting() { return studioApprovals.filter(a => a.status === 'wait' && !chatIsAck(a)); } // 기록용('확인만')은 결재 대기로 안 셈
+function studioAckWaiting() { return studioApprovals.filter(a => a.status === 'wait' && chatIsAck(a)); }
+/* 수정본 번호: 같은 직원·같은 이름(제목에서 [..] 머리말과 ' — ' 뒤 설명을 뺀 것)의 보고를 올린 순서대로 v1, v2… */
+function studioStem(title) { return String(title || '').replace(/^\s*(\[[^\]]*\]\s*)+/, '').split(/\s+[—–-]\s+|\s*\(/)[0].trim(); }
+let studioVerCache = { src: null, map: new Map() };
+function studioVersion(a) {
+  if (studioVerCache.src !== studioApprovals) {
+    const groups = new Map();
+    studioApprovals.forEach(x => { const k = studioApprovalStaff(x) + '|' + studioStem(x.title); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x); });
+    const map = new Map();
+    groups.forEach(list => { list.sort((p, q) => (p.createdAt || 0) - (q.createdAt || 0)); list.forEach((x, i) => map.set(x.id, { n: i + 1, total: list.length, latest: list[list.length - 1] })); });
+    studioVerCache = { src: studioApprovals, map };
+  }
+  return studioVerCache.map.get(a.id) || { n: 1, total: 1, latest: a };
+}
+function studioVerBadge(a) { const v = studioVersion(a); if (v.total < 2) return ''; return `<span class="st-ver ${v.n === v.total ? 'new' : ''}">v${v.n}${v.n === v.total ? ' 최신' : ''}</span>`; }
 function studioBranchOff(s) { return s && s.id === 'hisplan' && studioDoc('hisplan').online !== true; } // 히스플랜 맥북 꺼짐
 function studioState(s) {
-  if (studioApprovals.some(a => studioApprovalStaff(a) === s.id && a.status === 'wait')) return 'wait';
+  if (studioApprovals.some(a => studioApprovalStaff(a) === s.id && a.status === 'wait' && !chatIsAck(a))) return 'wait';
   if (studioBranchOff(s)) return 'off';
   if (studioTasks.some(t => t.staffId === s.id && t.status === 'running')) return 'work';
   const st = studioDoc(s.id).state; return st === 'work' || st === 'wait' ? st : 'off';
 }
 function studioTask(s) {
   const st = studioState(s), d = studioDoc(s.id);
-  if (st === 'wait') { const a = studioApprovals.find(x => studioApprovalStaff(x) === s.id && x.status === 'wait'); return a ? a.title + ' 결재 요청' : (d.task || '결재 대기'); }
+  if (st === 'wait') { const a = studioApprovals.find(x => studioApprovalStaff(x) === s.id && x.status === 'wait' && !chatIsAck(x)); return a ? a.title + ' 결재 요청' : (d.task || '결재 대기'); }
   if (st === 'work') { const t = studioTasks.find(x => x.staffId === s.id && x.status === 'running'); return d.task || (t && t.text) || '일하는 중'; }
   return '대기 중';
 }
@@ -4834,6 +4849,24 @@ function studioOutputs() {
     g.latest = Object.values(byName).map(v => v[0]); g.older = Object.values(byName).flatMap(v => v.slice(1)); return g;
   }).sort((a, b) => b.at - a.at);
 }
+/* 메인 결재함 아래: 기록용 '확인만' 한 줄 + 최종 자료(프로젝트·주제별로 같은 이름의 최신 판만, 이전 판 수 표시) */
+function studioAckLineHtml() {
+  const n = studioAckWaiting().length; if (!n) return '';
+  return `<div class="st-ackline"><span>📄 확인만 하면 되는 기록 <b>${n}</b>건</span><button type="button" class="eq-chip" data-action="chat-ack-all">✓ 모두 확인</button><button type="button" class="eq-chip" data-action="set-tab" data-id="chat">단톡방에서 보기</button></div>`;
+}
+function studioFinalsHtml() {
+  const withFiles = studioApprovals.filter(a => a.status !== 'no' && (a.files || []).length);
+  const latest = new Map(); // 같은 직원·같은 이름 → 최신 판
+  withFiles.forEach(a => { const v = studioVersion(a), k = studioApprovalStaff(a) + '|' + studioStem(a.title); const cur = latest.get(k); if (!cur || (a.createdAt || 0) > (cur.createdAt || 0)) latest.set(k, a); });
+  const groups = new Map(); // 프로젝트·주제별
+  [...latest.values()].forEach(a => { const g = a.projectTitle || a.topic || '기타'; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(a); });
+  const ordered = [...groups.entries()].map(([g, list]) => [g, list.sort((x, y) => (y.createdAt || 0) - (x.createdAt || 0))]).sort((x, y) => (y[1][0].createdAt || 0) - (x[1][0].createdAt || 0)).slice(0, 6);
+  if (!ordered.length) return '';
+  return `<h4 class="st-group">📦 최종 자료 <small>같은 자료는 최신 판만</small></h4>${ordered.map(([g, list]) => `<div class="st-final"><div class="st-final-head"><b>${esc(g)}</b><small>${list.length}개 자료</small></div>
+    ${list.slice(0, 8).map(a => { const v = studioVersion(a), st = studioStaffById(studioApprovalStaff(a));
+      return `<div class="st-final-row"><div class="st-final-name"><span class="st-team">${esc(st ? st.short : '')}</span><b>${esc(studioStem(a.title) || a.title || '')}</b>${v.total > 1 ? `<span class="st-ver new">v${v.n} 최신</span><small>이전 판 ${v.total - 1}개</small>` : ''}<small>${esc(studioWhen(a.createdAt))}</small></div>${studioFilesHtml(a.files)}</div>`; }).join('')}
+    ${list.length > 8 ? `<button type="button" class="eq-chip" data-action="set-tab" data-id="library">자료실에서 ${list.length - 8}개 더 보기</button>` : ''}</div>`).join('')}`;
+}
 function studioOutputsHtml() {
   let gs = studioOutputs();
   const teams = [...new Set(gs.flatMap(g => [...g.teams]))].filter(Boolean);
@@ -5049,7 +5082,7 @@ function renderStudioTab() {
   }).join('');
   const roster = STUDIO_STAFF.map(s => { const st = studioState(s), q = studioTasks.filter(t => t.staffId === s.id && t.status === 'queued').length; return `<button type="button" class="${S.studio.sel === s.id ? 'on' : ''}" data-action="studio-sel" data-id="${s.id}" title="${esc(studioTask(s))}"><span class="st-dot ${st}"></span><b>${esc(s.short)}</b>${studioMode(s) ? `<i class="st-mode-ic">${studioMode(s).icon}</i>` : ''}<small>${studioBranchOff(s) && st !== 'wait' ? '맥북 꺼짐' : STUDIO_STATE_LABEL[st]}${q ? ` · 대기 ${q}` : ''}</small></button>`; }).join('');
   const isDigest = a => Array.isArray(a.items) && a.items.length > 0; // 비서실이 팀 보고를 모아 정리한 결재
-  const items = studioApprovals.filter(a => S.studio.box === 'wait' ? a.status === 'wait' : a.status !== 'wait')
+  const items = studioApprovals.filter(a => S.studio.box === 'wait' ? a.status === 'wait' && !chatIsAck(a) : a.status !== 'wait')
     .sort((a, b) => S.studio.box === 'wait' ? (isDigest(b) - isDigest(a)) || (a.createdAt || 0) - (b.createdAt || 0) : (b.decidedAt || 0) - (a.decidedAt || 0));
   const firstTeam = S.studio.box === 'wait' && items.some(isDigest) ? items.findIndex(a => !isDigest(a)) : -1;
   const cards = items.length ? items.map((a, idx) => {
@@ -5059,12 +5092,13 @@ function renderStudioTab() {
     // 결재 = 직원이 보낸 쪽지(폴더). 접혀 있을 땐 '보낸 사람·제목·시간·상태' 한 줄만, 누르면 펼쳐져 내용·선택·승인/반려가 나온다.
     const open = !!S.studio.open[a.id];
     const digest = isDigest(a);
-    return `${idx === firstTeam ? '<h4 class="st-group">팀 직접 보고</h4>' : ''}<article class="st-card st-note${digest ? ' st-digest' : ''}${open ? ' open' : ''}${fresh ? ' st-in' : ''}"><button type="button" class="st-note-head" data-action="studio-note-toggle" data-id="${aid}" aria-expanded="${open}"><span class="st-note-ic">${open ? '📂' : '📁'}</span><span class="st-note-main"><span class="st-note-from"><b>${esc(s ? s.short : studioApprovalStaff(a))}</b> → 대표님 · ${a.createdAt ? esc(studioWhen(a.createdAt)) : ''}</span><span class="st-note-title">${esc(a.title || '(제목 없음)')}</span></span>${pill}<span class="st-note-chev">${open ? '▾' : '▸'}</span></button>
+    return `${idx === firstTeam ? '<h4 class="st-group">팀 직접 보고</h4>' : ''}<article class="st-card st-note${digest ? ' st-digest' : ''}${open ? ' open' : ''}${fresh ? ' st-in' : ''}"><button type="button" class="st-note-head" data-action="studio-note-toggle" data-id="${aid}" aria-expanded="${open}"><span class="st-note-ic">${open ? '📂' : '📁'}</span><span class="st-note-main"><span class="st-note-from"><b>${esc(s ? s.short : studioApprovalStaff(a))}</b> → 대표님 · ${a.createdAt ? esc(studioWhen(a.createdAt)) : ''}</span><span class="st-note-title">${studioVerBadge(a)}${esc(a.title || '(제목 없음)')}</span></span>${pill}<span class="st-note-chev">${open ? '▾' : '▸'}</span></button>
       ${open ? `<div class="st-note-body${studioJustOpened === 'a:' + a.id ? ' st-unfold' : ''}">${digest ? studioDigestHtml(a) : (() => { const qs = studioChoices(a), b = studioBodyWithoutChoices(a, qs); return (b ? studioLinkFileNames(studioBodyHtml(b), a.files) : '') + studioChoicesHtml(a, qs); })()}${studioActionsHtml(a)}${studioFilesHtml(digest ? (a.files || []).filter(f => !/^팀보고_/.test(f && f.name || '')) : a.files)}${a.memo ? `<p>💬 ${esc(a.memo)}</p>` : ''}
       ${a.status === 'wait' ? `<div class="st-acts"><input id="stMemo-${aid}" placeholder="코멘트 (반려할 땐 꼭)"><button type="button" class="yes" data-action="studio-decide" data-id="${aid}" data-v="ok">승인</button><button type="button" class="no" data-action="studio-decide" data-id="${aid}" data-v="no">반려</button></div>
         ${digest ? '<p class="st-follow"><small>승인하면 \'진행\'으로 고른 항목만 각 팀에 자동으로 지시돼요(비서실 배분).</small></p>' : `<label class="st-follow"><input type="checkbox" id="stFollow-${aid}" ${a.followUp !== false ? 'checked' : ''}> 승인 후 다음 단계 지시 <small>${a.followUp === false ? '(확인만 하면 끝나는 보고예요 · 반려하면 코멘트대로 다시 작업)' : '(반려하면 코멘트대로 다시 작업)'}</small></label>`}
         ${S.studio.msg && S.studio.msgId === a.id ? `<p class="st-warn">${esc(S.studio.msg)}</p>` : ''}` : ''}</div>` : ''}</article>`;
-  }).join('') : `<p class="st-empty">${S.studio.box === 'wait' ? '결재할 보고가 없어요. 직원이 결재를 올리면 여기에 떠요.' : '아직 처리한 결재가 없어요.'}</p>`;
+  }).join('') : `<p class="st-empty">${S.studio.box === 'wait' ? '✔ 결정할 것이 없어요. 돈·계약·결제·외부 발송이 걸린 것만 여기에 와요.' : '아직 처리한 결재가 없어요.'}</p>`;
+  const waitExtra = S.studio.box === 'wait' ? studioAckLineHtml() + studioFinalsHtml() : '';
   const today = todayStr(), logs = studioLog.filter(l => l.at && ymd(new Date(l.at)) === today).sort((a, b) => b.at - a.at);
   const sel = S.studio.sel && studioStaffById(S.studio.sel);
   let staffHtml = '<p class="st-empty">사무실이나 아래 상태창에서 직원을 누르면 여기서 바로 일을 시킬 수 있어요.</p>';
@@ -5120,7 +5154,7 @@ function renderStudioTab() {
         <div class="st-panel-body${studioPanelKey() ? ' st-in' : ''}">
           ${STUDIO_HOME && (S.studio.box === 'wait' || S.studio.box === 'done') ? dashNotifHtml() : ''}
           ${S.studio.box === 'out' ? studioOutputsHtml() : S.studio.box === 'notif' ? studioNotifHtml() : S.studio.box === 'staff' ? staffHtml : `<div class="st-ceo"><canvas id="studioCeoCv" width="16" height="20"></canvas><div><b>대표 ${esc(greetingName() || '김규빈')}</b><p>${waiting.length ? `결재할 보고가 ${waiting.length}건 있어요` : '오늘 결재를 다 했어요 🎉'}</p></div></div>
-          ${S.studio.box === 'cfg' ? studioSettingsHtml(cfg, br) : cards}`}
+          ${S.studio.box === 'cfg' ? studioSettingsHtml(cfg, br) : cards + waitExtra}`}
         </div>
       </section>
       ${S.studio.box === 'staff' ? '<div class="st-sheet-backdrop" data-action="studio-box" data-id="wait"></div>' : ''}
@@ -5672,12 +5706,11 @@ function handleApplicantSubmit(form) {
    비서실 아침 업무 정리는 dispatchAt(30분)까지 항목별 보류를 고를 수 있고, 지나면 다리가 각 팀에 배분한다. */
 /* '확인만' — 결정할 게 없는 결재 대기: 비서실이 이미 끝낸 일을 기록용으로 올린 것(by sec-direct)이거나,
    후속 없음·선택지 없음·반영할 일정/프로젝트 없음인 것. 결정 대기 숫자에서 빼고 [확인] 한 번으로 끝낸다. */
-const CHAT_MONEY_RE = /입금|송금|계약|결제|견적|단가|환불|발송|게시|업로드/;
 function chatIsAck(a) {
   if (!a || a.status !== 'wait') return false;
   if (a.by === 'sec-direct') return true;
   const none = x => !(Array.isArray(x) && x.length);
-  return a.followUp === false && none(a.choices) && none(a.actions) && none(a.items) && !CHAT_MONEY_RE.test(String((a.title || '') + ' ' + (a.body || '')));
+  return a.followUp === false && none(a.choices) && none(a.actions) && none(a.items) && !/입금|송금|계약|결제|견적|단가|환불|발송|게시|업로드/.test(String((a.title || '') + ' ' + (a.body || '')));
 }
 function chatAck(ids) {
   const now = Date.now();
@@ -5723,7 +5756,7 @@ function chatApprHtml(a) {
   else if (a.memo) foot = `<p class="ch-peek">💬 ${esc(a.memo)}</p>`;
   return `<div class="ch-row ch-them ${wait ? 'ch-wait' : ''}" data-appr="${aid}">${chatAvatar(staffId)}<div class="ch-col">
     <div class="ch-who"><b>${esc(chatName(staffId))}</b> ${tag}<span>${studioWhen(a.createdAt)}</span></div>
-    <div class="ch-bub ${wait ? 'need' : ''}"><div class="ch-title" ${wait || pending ? '' : `data-action="chat-toggle" data-id="${aid}"`}>${esc(a.title || '')}${wait || pending ? '' : `<i>${open ? '접기' : '펼치기'}</i>`}</div>${inner}${foot}</div></div></div>`;
+    <div class="ch-bub ${wait ? 'need' : ''}"><div class="ch-title" ${wait || pending ? '' : `data-action="chat-toggle" data-id="${aid}"`}><span>${studioVerBadge(a)}${esc(a.title || '')}</span>${wait || pending ? '' : `<i>${open ? '접기' : '펼치기'}</i>`}</div>${inner}${foot}</div></div></div>`;
 }
 function chatMeHtml(t) {
   const txt = String(t.text || '');
@@ -5742,7 +5775,7 @@ function chatSysHtml(it) {
 }
 function renderChatTab() {
   studioSeedSettings();
-  const feed = chatFeed(), acks = studioWaiting().filter(chatIsAck), waits = studioWaiting().filter(a => !chatIsAck(a)), br = studioBridgeStatus();
+  const feed = chatFeed(), acks = studioAckWaiting(), waits = studioWaiting(), br = studioBridgeStatus();
   let lastDay = '';
   const body = feed.length ? feed.map(it => {
     const d = it.at ? ymd(new Date(it.at)) : '', sep = d && d !== lastDay ? `<div class="ch-day">${d === todayStr() ? '오늘' : esc(longDateLabel(d))}</div>` : '';
@@ -5795,7 +5828,7 @@ function handleChatAction(action, el, e) {
   if (action === 'chat-toggle') { S.chat.open[id] = !S.chat.open[id]; render(); return true; }
   if (action === 'chat-jump-wait') { const w = document.querySelector('.ch-wait'); if (w) w.scrollIntoView({ behavior: 'smooth', block: 'start' }); return true; }
   if (action === 'chat-ack') { chatAck([id]); return true; }
-  if (action === 'chat-ack-all') { const ids = studioWaiting().filter(chatIsAck).map(a => a.id); if (ids.length && window.confirm(`기록용 보고 ${ids.length}건을 모두 확인 처리할까요?`)) chatAck(ids); return true; }
+  if (action === 'chat-ack-all') { const ids = studioAckWaiting().map(a => a.id); if (ids.length && window.confirm(`기록용 보고 ${ids.length}건을 모두 확인 처리할까요?`)) chatAck(ids); return true; }
   if (action === 'chat-dispatch-now') { const a = studioApprovals.find(x => String(x.id) === id); if (a) { studioPut('studioApprovals', { id: a.id, dispatchAt: Date.now() }); render(); } return true; }
   return false;
 }
@@ -8641,6 +8674,18 @@ document.addEventListener('DOMContentLoaded', () => {
     .ch-ava { width:28px; height:28px; font-size:10px; }
     .ch-input textarea { font-size:16px; }
   }
+
+  /* 수정본 번호·최종 자료 (2026-10-22) */
+  .st-ver { display:inline-block; font-size:11px; font-weight:700; padding:1px 6px; margin-right:6px; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); vertical-align:1px; }
+  .st-ver.new { border-color:#4cae7d; color:#4cae7d; }
+  .st-ackline { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:10px 0; padding:10px 12px; border:1px dashed var(--border); font-size:13.5px; color:var(--text-dim); }
+  .st-ackline span { flex:1; min-width:160px; }
+  .st-final { border:1px solid var(--border); padding:10px 12px; margin:8px 0; }
+  .st-final-head { display:flex; justify-content:space-between; gap:8px; margin-bottom:6px; }
+  .st-final-head small, .st-final-name small { color:var(--text-faint); font-size:12px; }
+  .st-final-row { padding:6px 0; border-top:1px dashed var(--border); }
+  .st-final-row:first-of-type { border-top:none; }
+  .st-final-name { display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-size:13.5px; }
 
 </style>
 </body>
