@@ -210,6 +210,14 @@ service cloud.firestore {
         && request.resource.data.rt is map && request.resource.data.rt.size() < 40
         && request.resource.data.at is int;
     }
+    // 런다운 내용 (연출석에서 편집한 단계 목록)
+    match /live/{id} {
+      allow read: if id == 'mv1023plan';
+      allow write: if id == 'mv1023plan'
+        && request.resource.data.keys().hasOnly(['items', 'at'])
+        && request.resource.data.items is list && request.resource.data.items.size() <= 40
+        && request.resource.data.at is int;
+    }
     // 연출석이 고른 테이크 → 촬영자 폰이 따라감
     match /live/{id} {
       allow read: if id == 'mv1023take';

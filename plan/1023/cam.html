@@ -150,6 +150,7 @@ function dayStrip(){if(!DD)return'';const now=Date.now(),MI=DD.items.filter(x=>!
  let dl=0;if(cur){const p=DS.ph[cur.id];dl=(p.s-cur.ps)+Math.max(0,(now-p.s)-cur.d*60000)}else if(last){const nx=MI[MI.indexOf(last)+1];dl=DS.ph[last.id].e-last.pe;if(nx&&now>nx.ps)dl=Math.max(dl,now-nx.ps)}else if(now>MI[0].ps)dl=now-MI[0].ps;
  const on=!!cur;if(!cur)cur=MI[last?MI.indexOf(last)+1:0];if(!cur)return'⏱ 오늘 일정 끝';const nx=MI[MI.indexOf(cur)+1];const m=Math.round(dl/60000);const [c,t]=m>=2?['late','+'+m+'분 늦음']:m<=-2?['early',(-m)+'분 빠름']:['ok','계획대로'];
  return `⏱ 런다운 · <b>${on?'지금':'다음'} ${cur.t} ${esc(cur.title)}</b>${nx?` · 다음 ${nx.t} ${esc(nx.title)}`:''}<span class="c ${c}">${t}</span>`}
+try{firebase.firestore().doc('live/mv1023plan').onSnapshot(sn=>{const d=sn.data();if(DD&&d&&Array.isArray(d.items)&&d.items.length){DD.items=d.items.map(x=>({...x}));DD.items.forEach(x=>{x.ps=_at(x.t);x.pe=x.ps+x.d*60000});const ds=$('#dayS');if(ds)ds.innerHTML=dayStrip()}},()=>{})}catch(e){}
 try{firebase.firestore().doc('live/mv1023day').onSnapshot(sn=>{DS={ph:(sn.data()||{}).ph||{}};const ds=$('#dayS');if(ds)ds.innerHTML=dayStrip()},()=>{})}catch(e){}
 setInterval(()=>{const ds=$('#dayS');if(ds)ds.innerHTML=dayStrip()},5000);
 load().catch(()=>{$('#app').innerHTML='<div class="none">앵글표를 못 불러왔어요. 인터넷 연결을 확인해 주세요.</div>'});
