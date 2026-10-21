@@ -22,7 +22,8 @@ body{padding:calc(8px + env(safe-area-inset-top)) 12px calc(30px + env(safe-area
 .chips{grid-column:1/-1;display:flex;gap:4px;flex-wrap:wrap}
 .chip{font:700 12px var(--m);letter-spacing:1px;padding:6px 10px;border:1px solid var(--line);background:#111;color:#bbb}
 .chip.ok{background:#0f2a17;border-color:#1f5a32;color:var(--grn)}.chip.late{background:#2a1110;border-color:#6b2a26;color:var(--red)}.chip.early{background:#0b1d33;border-color:#1d4a80;color:var(--blue)}.chip.warn{background:#2a2200;border-color:#6b5a1a;color:var(--ylw)}
-@media (max-width:760px){.top{grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:8px 10px 10px}.top .cur{grid-column:1/-1;order:3}.big{font-size:50px}}
+@media (max-width:760px){.top{grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:8px 10px 10px}.top .cur{grid-column:1/-1;order:3}.big{font-size:40px}.it{grid-template-columns:70px minmax(0,1fr) auto;gap:10px;padding:9px 10px}.it .tm{font-size:22px}.it .nm{font-size:16px}.it.sub{margin-left:8px}}
+.it>*{min-width:0}.it .nm,.it .wh,.cur .ttl{overflow-wrap:anywhere}.cur .ttl{white-space:normal}
 .list{display:flex;flex-direction:column;gap:3px}
 .gh{font:700 11px var(--m);letter-spacing:2px;color:var(--ylw);margin:14px 2px 4px}
 .it{display:grid;grid-template-columns:96px 1fr auto;gap:12px;align-items:center;background:#0a0a0a;border:1px solid var(--line);border-left:4px solid #222;padding:10px 12px}
@@ -39,7 +40,7 @@ body{padding:calc(8px + env(safe-area-inset-top)) 12px calc(30px + env(safe-area
 .tkc{font:600 12px var(--m);color:#aaa;margin-left:6px}.tkc b{color:var(--ylw)}
 .foot{margin-top:14px;display:flex;gap:6px;flex-wrap:wrap}.foot button{border:1px solid #333;background:#0d0d0d;color:#888;border-radius:0;padding:8px 12px;font:600 12px var(--m)}
 /* 멤버 화면 */
-.M .it{grid-template-columns:86px 1fr}.M .it .act,.M .cks,.M .btns{display:none}.M .it .nm{font-size:18px}.M .it .wh{font-size:15px;color:#bbb}
+.M .it{grid-template-columns:70px minmax(0,1fr)}.M .it .act,.M .cks,.M .btns{display:none}.M .it .nm{font-size:18px}.M .it .wh{font-size:15px;color:#bbb}
 </style></head><body>
 <div id="app"></div>
 <script>
