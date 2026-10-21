@@ -40,6 +40,7 @@ h1{font-size:18px;margin:4px 0 10px}.sub{color:#8d95a1;font-size:13px;margin-bot
 <div class="flash" id="flash"></div>
 <script>
 const SW=98; // 1:38
+const MANUAL=new URLSearchParams(location.search).has('manual'); // 연동이 안 될 때만 ?manual 로 직접 조작
 const PEOPLE=[['윤관','레일 카메라 · T 5번'],['김창훈','레일 밀기 · T 1번 정면'],['박완준','2번 측면'],['문호준','3번 망원'],['최영민','4번 오케스트라'],['전체','모든 카메라 보기']];
 let TAKES=[],me=localStorage.getItem('vf-cam-me')||'',cur=+localStorage.getItem('vf-cam-take')||0,t0=null,timer=null,offset=0,flashed=false;
 const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -72,9 +73,10 @@ function render(){
   <div class="ph b ${phase==='b'?'now':''}"><div class="t">🔵 1:38 ~ 끝 · 다 같이</div><div class="d">${hlab(c.blue)||'—'}</div></div>`:`<div class="ph solo"><div class="d">${hlab(c.other)}</div></div>`}
  </div></div>`).join(''):'<div class="none">이 테이크에는 내 카메라 지시가 없어요 (대기 또는 다른 테이크 준비)</div>'}
  <div class="clock"><div class="tm" id="tm">${fmt(t)}</div><div class="left" id="left">${t<SW?'1:38까지 '+fmt(SW-t):'다 같이 부르는 구간'}</div></div>
- <button class="go ${t0?'stop':''}" data-act="go">${t0?'■ 멈춤':'▶ 시작 (음악 시작할 때)'}</button>
- <div class="row2"><button data-act="back">−5초</button><button data-act="fwd">+5초</button><button data-act="reset">처음으로</button><button data-act="next">다음 테이크 ›</button></div>
- <div class="note">· 넥서스 뮤직에서 촬영용 음원을 틀면 시간이 자동으로 맞춰져요 (초록 🔗 표시). 연동이 안 되면 ▶ 시작을 직접 누르고 ±5초로 맞추세요<br>· 1:38이 되면 화면이 한 번 반짝이고 🔵로 바뀌어요</div>`}
+ ${MANUAL?`<button class="go ${t0?'stop':''}" data-act="go">${t0?'■ 멈춤':'▶ 시작 (음악 시작할 때)'}</button>
+ <div class="row2"><button data-act="back">−5초</button><button data-act="fwd">+5초</button><button data-act="reset">처음으로</button></div>`:''}
+ <div class="row2"><button data-act="next">다음 테이크 ›</button></div>
+ <div class="note">· 시간은 연출석 음악에 맞춰 자동으로 흘러요 (초록 🔗 표시)<br>· 1:38이 되면 화면이 한 번 반짝이고 🔵로 바뀌어요</div>`}
 function tick(){const t=now();const e=$('#tm');if(e)e.textContent=fmt(t);const l=$('#left');if(l)l.textContent=t<SW?'1:38까지 '+fmt(SW-t):'다 같이 부르는 구간';
  const r=document.querySelector('.ph.r'),b=document.querySelector('.ph.b');if(r){r.classList.toggle('now',t<SW);b.classList.toggle('now',t>=SW)}
  if(t>=SW&&!flashed){flashed=true;const f=$('#flash');f.classList.add('on');setTimeout(()=>f.classList.remove('on'),450);try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}}
