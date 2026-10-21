@@ -162,7 +162,7 @@ let SAVED_IDS=null;function planHas(id){return !SAVED_IDS||SAVED_IDS.has(id)}
 const ref=()=>firebase.firestore().doc('live/mv1023day');
 function save(patch){patch.at=Date.now();ref().set(patch,{merge:true}).catch(e=>alert('저장 실패: '+e.message))}
 document.addEventListener('click',e=>{if(!DIR||RE)return;const t=e.target.closest('[data-go],[data-done],[data-undo],[data-ck],[data-rt],[data-act]');if(!t)return;const now=Date.now();
-  if(t.dataset.go){const id=t.dataset.go,ph={};for(const x of MAIN){const q=ST.ph[x.id];if(q&&q.s&&!q.e&&x.id!==id)ph[x.id]={s:q.s,e:now}}ph[id]={s:now};save({ph})}
+  if(t.dataset.go){const id=t.dataset.go,ph={};for(const x of MAIN){const q=ST.ph[x.id];if(q&&q.s&&!q.e&&x.id!==id&&x.pe<=IT.find(y=>y.id===id).ps)ph[x.id]={s:q.s,e:now}}ph[id]={s:now};save({ph})}
   if(t.dataset.done){save({ph:{[t.dataset.done]:{s:ST.ph[t.dataset.done].s,e:now}}})}
   if(t.dataset.undo){if(confirm('이 단계를 진행 전으로 되돌릴까요?')){const ph={...ST.ph};delete ph[t.dataset.undo];ref().set({ph,ck:ST.ck,rt:ST.rt,at:now})}}
   if(t.dataset.ck){save({ck:{[t.dataset.ck]:!ST.ck[t.dataset.ck]}})}
