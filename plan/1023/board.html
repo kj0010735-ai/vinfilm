@@ -304,10 +304,10 @@ function phaseHtml(k,label){
  </div></div></div>`;
 }
 function render(){
- document.getElementById('tabs').innerHTML=PH.map(([k,l])=>`<button data-tab="${k}" class="${S.tab===k?'on':''}">${l.replace('PART ','')}</button>`).join('')+[['ang','🎬 앵글표'],['cue','📋 큐시트'],['light','💡 조명'],['chk','✅ 체크리스트'],['budget','💰 예산안']].map(([t,l])=>`<button data-tab="${t}" class="${S.tab===t?'on':''}">${l}</button>`).join('');
+ document.getElementById('tabs').innerHTML=PH.map(([k,l])=>`<button data-tab="${k}" class="${S.tab===k?'on':''}">${l.replace('PART ','')}</button>`).join('')+[['ang','🎬 앵글표'],['camall','🎥 촬영 진행'],['cue','📋 큐시트'],['light','💡 조명'],['chk','✅ 체크리스트'],['budget','💰 예산안']].map(([t,l])=>`<button data-tab="${t}" class="${S.tab===t?'on':''}">${l}</button>`).join('');
  const local=location.protocol==='file:';
  const ck=document.getElementById('chkWrap'); if(S.tab==='chk'){ck.classList.add('on'); if(!ck.firstChild) ck.innerHTML=`<iframe src="${local?'10_%EC%B4%AC%EC%98%81%EC%9E%A5%EB%B9%84%20%EC%B2%B4%ED%81%AC%EB%A6%AC%EC%8A%A4%ED%8A%B8.html':'checklist.html?v=7'}"></iframe>`;} else ck.classList.remove('on');
- const ag=document.getElementById('angWrap'); const DOC={ang:'angles-web.html?v=7',cue:'cue-web.html?v=7',light:'light-web.html?v=7',budget:'budget-web.html?v=7'}; if(DOC[S.tab]){const u=(local?'https://www.vinfilmstudio.com/plan/1023/':'')+DOC[S.tab];ag.classList.add('on'); if(ag.dataset.u!==u){ag.dataset.u=u;ag.innerHTML=`<iframe src="${u}"></iframe>`}} else ag.classList.remove('on');
+ const ag=document.getElementById('angWrap'); const DOC={ang:'angles-web.html?v=7',camall:'cam.html?all=1&v=7',cue:'cue-web.html?v=7',light:'light-web.html?v=7',budget:'budget-web.html?v=7'}; if(DOC[S.tab]){const u=(local?'https://www.vinfilmstudio.com/plan/1023/':'')+DOC[S.tab];ag.classList.add('on'); if(ag.dataset.u!==u){ag.dataset.u=u;ag.innerHTML=`<iframe src="${u}"></iframe>`}} else ag.classList.remove('on');
  document.querySelector('.sheet').style.display=(S.tab==='chk'||DOC[S.tab])?'none':'';
  document.getElementById('phases').innerHTML=PH.map(([k,l])=>phaseHtml(k,l)).join('');
 }

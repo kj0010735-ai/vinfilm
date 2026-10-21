@@ -37,6 +37,7 @@ h1{font-size:18px;margin:4px 0 10px}.sub{color:#8d95a1;font-size:13px;margin-bot
 .flash{position:fixed;inset:0;background:#7fa8ff;opacity:0;pointer-events:none;transition:opacity .25s}.flash.on{opacity:.55}
 .note{color:#8d95a1;font-size:12.5px;line-height:1.6;margin-top:14px}
 .none{color:#8d95a1;padding:20px 4px}
+@media (min-width:900px){.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}.cards .card{margin-bottom:0!important}.ph .d{font-size:20px}}
 .live{display:inline-block;font-size:12px;font-weight:800;padding:3px 8px;border-radius:999px;background:#22252c;color:#8d95a1;margin-left:6px}.live.on{background:#12301f;color:#5ee08c}
 </style></head><body>
 <div id="app"><div class="none">불러오는 중…</div></div>
@@ -45,9 +46,10 @@ h1{font-size:18px;margin:4px 0 10px}.sub{color:#8d95a1;font-size:13px;margin-bot
 const END=257; // 곡 끝 4:17
 const SW=98; // 곡 1:38 (넥서스·QLab 시간으로는 1:42.8)
 const COUNTIN=4.83; // 촬영용 mp3 앞 카운트인 — 화면 시계는 넥서스 뮤직과 같은 mp3 시간으로 보여줌
+const ALL=new URLSearchParams(location.search).has('all'); // 배치판 탭: 모든 카메라 한 화면
 const MANUAL=new URLSearchParams(location.search).has('manual'); // 연동이 안 될 때만 ?manual 로 직접 조작
 const PEOPLE=[['윤관','레일 카메라 · T 5번'],['김창훈','레일 밀기 · T 1번 정면'],['박완준','2번 측면'],['문호준','3번 망원'],['최영민','4번 오케스트라'],['전체','모든 카메라 보기']];
-let TAKES=[],me=localStorage.getItem('vf-cam-me')||'',cur=+localStorage.getItem('vf-cam-take')||0,t0=null,timer=null,offset=-4.83,flashed=false;
+let TAKES=[],me=ALL?'전체':(localStorage.getItem('vf-cam-me')||''),cur=+localStorage.getItem('vf-cam-take')||0,t0=null,timer=null,offset=-4.83,flashed=false;
 const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function load(){
  const h=await (await fetch('angles-web.html?v='+Date.now(),{cache:'no-store'})).text();
@@ -70,14 +72,14 @@ function render(){
  if(!me){A.innerHTML='<h1>🎥 촬영자 화면</h1><div class="sub">「교회를 사랑하는 건」 10/23 · 내 이름을 고르세요</div><div class="who">'+PEOPLE.map(([n,r])=>`<button data-me="${n}">${n}<small>${r}</small></button>`).join('')+'</div><div class="note">· 앵글표 최신 내용을 그대로 불러와요 (바뀌면 새로고침)<br>· 음악이 시작될 때 ▶ 시작을 누르면 1:38에 화면이 파랗게 바뀌어요</div>';return}
  const tk=TAKES[cur];if(!tk){A.innerHTML='<div class="none">앵글표를 못 불러왔어요</div>';return}
  const cs=tk.shared?tk.cells:tk.cells.filter(mine);const t=now();const phase=t<SW?'r':'b';
- A.innerHTML=`<div class="bar"><b>🎥 ${esc(me)}<span class="live ${LIVE.ok?'on':''}" id="liveB">${LIVE.ok?(LIVE.playing?'🔗 음악 연동 · 재생 중':'🔗 음악 연동 · 멈춤'):'🔗 연동 대기'}</span></b><button data-act="who">사람 바꾸기</button></div>
+ A.innerHTML=`<div class="bar"><b>🎥 ${esc(me)}<span class="live ${LIVE.ok?'on':''}" id="liveB">${LIVE.ok?(LIVE.playing?'🔗 음악 연동 · 재생 중':'🔗 음악 연동 · 멈춤'):'🔗 연동 대기'}</span></b>${ALL?'':'<button data-act="who">사람 바꾸기</button>'}</div>
  <div class="clock" id="clock">${clockHtml(t)}</div>
  <div class="tk">${TAKES.map((x,i)=>`<button class="${i===cur?'on':''}" data-tk="${i}">${esc(x.id)}</button>`).join('')}</div>
  <div class="ttl" style="margin:0 2px 8px">${esc(tk.id)} · ${esc(tk.desc)}</div>
- ${cs.length?cs.map(c=>`<div class="card" style="margin-bottom:12px">${c.img?`<img src="${esc(c.img)}" alt="">`:''}<div class="cin"><div class="cam">${hlab(c.cam)}</div>
+ <div class="cards">${cs.length?cs.map(c=>`<div class="card" style="margin-bottom:12px">${c.img?`<img src="${esc(c.img)}" alt="">`:''}<div class="cin"><div class="cam">${hlab(c.cam)}</div>
   ${c.red||c.blue?`<div class="ph r ${phase==='r'?'now':''}"><div class="t">🔴 처음 ~ 1:38 · 남자 보컬 혼자</div><div class="d">${hlab(c.red)||'—'}</div></div>
   <div class="ph b ${phase==='b'?'now':''}"><div class="t">🔵 1:38 ~ 끝 · 다 같이</div><div class="d">${hlab(c.blue)||'—'}</div></div>`:`<div class="ph solo"><div class="d">${hlab(c.other)}</div></div>`}
- </div></div>`).join(''):'<div class="none">이 테이크에는 내 카메라 지시가 없어요 (대기 또는 다른 테이크 준비)</div>'}
+ </div></div>`).join(''):'<div class="none">이 테이크에는 내 카메라 지시가 없어요 (대기 또는 다른 테이크 준비)</div>'}</div>
  ${MANUAL?`<button class="go ${t0?'stop':''}" data-act="go">${t0?'■ 멈춤':'▶ 시작 (음악 시작할 때)'}</button>
  <div class="row2"><button data-act="back">−5초</button><button data-act="fwd">+5초</button><button data-act="reset">처음으로</button></div>`:''}
  <div class="row2"><button data-act="next">다음 테이크 ›</button></div>
