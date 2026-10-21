@@ -5670,6 +5670,21 @@ function handleApplicantSubmit(form) {
    스튜디오의 지시(studioTasks)·보고/결재(studioApprovals)를 한 줄 대화로 보여 준다. 데이터는 스튜디오와 같다.
    돈·계약·결제·외부 발송만 '결정 필요'(wait, 승인/반려), 나머지는 '보고'(auto: 다리가 바로 진행·캘린더·프로젝트 반영).
    비서실 아침 업무 정리는 dispatchAt(30분)까지 항목별 보류를 고를 수 있고, 지나면 다리가 각 팀에 배분한다. */
+/* '확인만' — 결정할 게 없는 결재 대기: 비서실이 이미 끝낸 일을 기록용으로 올린 것(by sec-direct)이거나,
+   후속 없음·선택지 없음·반영할 일정/프로젝트 없음인 것. 결정 대기 숫자에서 빼고 [확인] 한 번으로 끝낸다. */
+const CHAT_MONEY_RE = /입금|송금|계약|결제|견적|단가|환불|발송|게시|업로드/;
+function chatIsAck(a) {
+  if (!a || a.status !== 'wait') return false;
+  if (a.by === 'sec-direct') return true;
+  const none = x => !(Array.isArray(x) && x.length);
+  return a.followUp === false && none(a.choices) && none(a.actions) && none(a.items) && !CHAT_MONEY_RE.test(String((a.title || '') + ' ' + (a.body || '')));
+}
+function chatAck(ids) {
+  const now = Date.now();
+  ids.forEach(id => { const a = studioApprovals.find(x => String(x.id) === String(id)); if (a && a.status === 'wait') studioPut('studioApprovals', { id: a.id, status: 'ok', memo: '확인', decidedAt: now }); });
+  if (ids.length) studioAddLog(`대표님이 기록용 보고 ${ids.length}건 확인`, 'sec');
+  render();
+}
 function chatDigestPending(a) { return !!(a && a.status === 'auto' && Array.isArray(a.items) && a.items.length && a.dispatchAt && a.dispatchAt > Date.now()); }
 function chatFeed() {
   const out = [];
@@ -5686,8 +5701,9 @@ function chatName(id) { const s = studioStaffById(id); return s ? s.short : (id 
 function chatAvatar(id) { const s = studioStaffById(id); return `<span class="ch-ava" style="--c:${(s && s.shirt) || '#8b90a0'}">${esc((s ? s.short : '?').slice(0, 2))}</span>`; }
 function chatTaskStatus(t) { return { queued: '대기', running: '진행 중', done: '완료', failed: '실패', canceled: '취소' }[t.status] || ''; }
 function chatApprHtml(a) {
-  const staffId = studioApprovalStaff(a), aid = esc(a.id), wait = a.status === 'wait', digest = Array.isArray(a.items) && a.items.length > 0, pending = chatDigestPending(a);
-  const tag = wait ? '<span class="ch-tag need">결정 필요</span>' : pending ? '<span class="ch-tag hold">곧 진행</span>' : a.status === 'auto' ? '<span class="ch-tag">보고</span>' : a.status === 'ok' ? '<span class="ch-tag ok">승인함</span>' : '<span class="ch-tag no">반려함</span>';
+  const ack = chatIsAck(a);
+  const staffId = studioApprovalStaff(a), aid = esc(a.id), wait = a.status === 'wait' && !ack, digest = Array.isArray(a.items) && a.items.length > 0, pending = chatDigestPending(a);
+  const tag = ack ? '<span class="ch-tag">확인만</span>' : wait ? '<span class="ch-tag need">결정 필요</span>' : pending ? '<span class="ch-tag hold">곧 진행</span>' : a.status === 'auto' ? '<span class="ch-tag">보고</span>' : a.status === 'ok' ? '<span class="ch-tag ok">승인함</span>' : '<span class="ch-tag no">반려함</span>';
   const open = wait || pending || !!S.chat.open[a.id];
   let inner = '';
   if (open) {
@@ -5702,6 +5718,7 @@ function chatApprHtml(a) {
   if (wait) foot = `<div class="st-acts ch-acts"><input id="stMemo-${aid}" placeholder="코멘트 (반려할 땐 꼭)"><button type="button" class="yes" data-action="studio-decide" data-id="${aid}" data-v="ok">승인</button><button type="button" class="no" data-action="studio-decide" data-id="${aid}" data-v="no">반려</button></div>
     ${digest ? '' : `<label class="st-follow"><input type="checkbox" id="stFollow-${aid}" ${a.followUp !== false ? 'checked' : ''}> 승인 후 다음 단계 지시</label>`}
     ${S.studio.msg && S.studio.msgId === a.id ? `<p class="st-warn">${esc(S.studio.msg)}</p>` : ''}`;
+  else if (ack) foot = `<div class="ch-pending"><button type="button" class="eq-chip" data-action="chat-ack" data-id="${aid}">✓ 확인</button><small>후속 지시 없이 끝내요</small></div>`;
   else if (pending) foot = `<div class="ch-pending">⏳ ${studioHm(a.dispatchAt)}에 '진행' 항목을 각 팀에 자동으로 맡겨요. 빼고 싶은 항목만 <b>보류</b>로 바꾸세요. <button type="button" class="eq-chip" data-action="chat-dispatch-now" data-id="${aid}">지금 진행</button></div>`;
   else if (a.memo) foot = `<p class="ch-peek">💬 ${esc(a.memo)}</p>`;
   return `<div class="ch-row ch-them ${wait ? 'ch-wait' : ''}" data-appr="${aid}">${chatAvatar(staffId)}<div class="ch-col">
@@ -5725,7 +5742,7 @@ function chatSysHtml(it) {
 }
 function renderChatTab() {
   studioSeedSettings();
-  const feed = chatFeed(), waits = studioWaiting(), br = studioBridgeStatus();
+  const feed = chatFeed(), acks = studioWaiting().filter(chatIsAck), waits = studioWaiting().filter(a => !chatIsAck(a)), br = studioBridgeStatus();
   let lastDay = '';
   const body = feed.length ? feed.map(it => {
     const d = it.at ? ymd(new Date(it.at)) : '', sep = d && d !== lastDay ? `<div class="ch-day">${d === todayStr() ? '오늘' : esc(longDateLabel(d))}</div>` : '';
@@ -5737,7 +5754,8 @@ function renderChatTab() {
     <div class="ch-wrap">
       <div class="ch-head">
         <div><h1 class="eq-title">단톡방</h1><div class="eq-stat">${br.on ? '🟢 Mac 연결됨' : '🔌 Mac 꺼짐 — 켜지면 처리돼요'} · 돈·계약·발송만 결정 요청</div></div>
-        ${waits.length ? `<button type="button" class="ch-need-btn" data-action="chat-jump-wait">🟠 결정 대기 ${waits.length}건</button>` : '<span class="ch-ok">✔ 결정할 것 없음</span>'}
+        <div class="ch-head-btns">${acks.length ? `<button type="button" class="eq-chip" data-action="chat-ack-all">✓ 확인만 ${acks.length}건 모두 확인</button>` : ''}
+        ${waits.length ? `<button type="button" class="ch-need-btn" data-action="chat-jump-wait">🟠 결정 대기 ${waits.length}건</button>` : '<span class="ch-ok">✔ 결정할 것 없음</span>'}</div>
       </div>
       <div class="ch-feed" id="chatFeed">${body}</div>
       <div class="ch-compose">
@@ -5776,6 +5794,8 @@ function handleChatAction(action, el, e) {
   if (action === 'chat-to') { S.chat.to = id; render(); document.getElementById('chatInput')?.focus(); return true; }
   if (action === 'chat-toggle') { S.chat.open[id] = !S.chat.open[id]; render(); return true; }
   if (action === 'chat-jump-wait') { const w = document.querySelector('.ch-wait'); if (w) w.scrollIntoView({ behavior: 'smooth', block: 'start' }); return true; }
+  if (action === 'chat-ack') { chatAck([id]); return true; }
+  if (action === 'chat-ack-all') { const ids = studioWaiting().filter(chatIsAck).map(a => a.id); if (ids.length && window.confirm(`기록용 보고 ${ids.length}건을 모두 확인 처리할까요?`)) chatAck(ids); return true; }
   if (action === 'chat-dispatch-now') { const a = studioApprovals.find(x => String(x.id) === id); if (a) { studioPut('studioApprovals', { id: a.id, dispatchAt: Date.now() }); render(); } return true; }
   return false;
 }
@@ -8576,6 +8596,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .ch-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; flex-wrap:wrap; padding-bottom:10px; border-bottom:1px solid var(--border); }
   .ch-need-btn { font-family:var(--font-body); font-size:14px; font-weight:700; padding:8px 14px; border-radius:999px; border:1px solid #e0a63c; background:rgba(224,166,60,.12); color:#e0a63c; cursor:pointer; }
   .ch-ok { font-size:13px; color:var(--text-dim); }
+  .ch-head-btns { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .ch-feed { flex:1; overflow-y:auto; padding:14px 2px; display:flex; flex-direction:column; gap:12px; }
   .ch-day { align-self:center; font-size:12.5px; color:var(--text-faint); padding:3px 12px; border:1px solid var(--border); border-radius:999px; margin:6px 0; }
   .ch-row { display:flex; gap:10px; align-items:flex-start; }
