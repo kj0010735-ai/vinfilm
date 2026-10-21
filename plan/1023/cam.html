@@ -88,7 +88,7 @@ function clockHtml(t){const red=t<SW,a=red?0:SW,b=red?SW:END,rem=Math.max(0,b-t)
  <div class="pg ${red?'r':'b'}"><i style="width:${end?100:pct}%"></i></div>`}
 function tick(){const t=now();const c=$('#clock');if(c)c.innerHTML=clockHtml(t);
  const r=document.querySelector('.ph.r'),b=document.querySelector('.ph.b');if(r){r.classList.toggle('now',t<SW);b.classList.toggle('now',t>=SW)}
- if(t>=SW&&!flashed){flashed=true;const f=$('#flash');f.classList.add('on');setTimeout(()=>f.classList.remove('on'),450);try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}}
+ if(t>=SW&&!flashed){flashed=true;const f=$('#flash');f.classList.add('on');setTimeout(()=>f.classList.remove('on'),450);try{navigator.userActivation?.hasBeenActive&&navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}}
  if(t<SW)flashed=false}
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
  if(b.dataset.me){me=b.dataset.me;localStorage.setItem('vf-cam-me',me);render();return}
