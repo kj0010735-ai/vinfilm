@@ -53,31 +53,24 @@ html,body{overflow-x:hidden}.clock>*,.cards>*{min-width:0}
 .pv{display:flex;gap:2px;flex-wrap:wrap;align-items:center;margin:0 0 8px}.pv button{border:1px solid var(--line);background:#0d0d0d;color:#999;border-radius:0;padding:7px 12px;font:600 13px var(--m)}.pv button.on{background:var(--ylw);color:#000;border-color:var(--ylw)}.pv span{margin-left:auto;font:600 11px var(--m);color:#666;letter-spacing:.5px}
 .none{color:#777;padding:20px 4px;font-size:14px}
 
-/* ---- 폰 가로 (카메라 리그용): 왼쪽 시계 · 오른쪽 지금 앵글 ---- */
+/* ---- 폰 가로 (카메라 리그용): 세로 화면을 반씩 — 왼쪽 썸네일(원본 비율)+샷 지시 · 오른쪽 시간 ---- */
 @media (orientation:landscape) and (max-height:520px){
- body{padding:4px max(8px,calc(env(safe-area-inset-right) * .45)) 6px max(8px,calc(env(safe-area-inset-left) * .45))}
- #app{min-height:calc(100vh - 10px)}
- #app{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);column-gap:10px;align-items:start}
- #app>*{grid-column:2;min-width:0}
- #app>.bar,#app>.dayS{grid-column:1/-1}
- .bar{margin-bottom:4px}.bar button{padding:4px 8px}
- .dayS{padding:4px 8px;margin-bottom:6px;font-size:12px;white-space:nowrap;overflow:hidden;flex-wrap:nowrap}
- #app>.clock{grid-column:1;grid-row:3/span 6;position:sticky;top:4px;display:flex;flex-direction:column;align-items:stretch;gap:6px;margin:0;padding:10px 12px}
- .clock .ck{text-align:left!important}.clock .ck .tm{font-size:46px}.clock .ck.rt .tm{font-size:64px}
- .clock .ck .hh{display:none}.clock .mid{order:3;align-self:stretch;width:100%}.clock .seg span{font-size:9.5px!important;letter-spacing:0}.clock .mid .tl{display:none}.clock .pg{height:16px;margin-top:2px}
- .tk{margin-bottom:4px}.tk button{padding:6px 10px;font-size:12px}
- .ttl{margin:2px 0 4px}.dir{padding:6px 10px;margin-bottom:6px}
- .card{display:grid;grid-template-columns:52% minmax(0,1fr);align-items:center;height:calc(100vh - 150px);min-height:180px}
- .cards{height:auto}
- #app>.clock{min-height:calc(100vh - 92px);justify-content:space-between}
- .card .im{order:1;display:block;position:relative;align-self:stretch;background:#000}
- .card .im img{width:100%;height:100%;aspect-ratio:auto;object-fit:contain}
- .card .im .nm{display:none}
- .card .cin{order:2;padding:10px 14px}
- .ttl{display:none}
- .card{border-width:3px}.cin{padding:10px 12px}
- .cur .d{font-size:24px;word-break:keep-all}.oth{font-size:14px;word-break:keep-all}
- .cards{gap:4px}
+ body{padding:4px max(8px,calc(env(safe-area-inset-right) * .45)) 4px max(8px,calc(env(safe-area-inset-left) * .45))}
+ #app{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:10px;row-gap:0;align-items:start}
+ #app>*{grid-column:1;min-width:0}
+ #app>.bar{grid-column:1/-1;margin-bottom:4px}.bar button{padding:3px 8px}
+ #app>.dayS{grid-column:2;grid-row:2;padding:4px 8px;margin:0 0 6px;font-size:11.5px;white-space:nowrap;overflow:hidden;flex-wrap:nowrap}
+ #app>.clock{grid-column:2;grid-row:3/span 8;position:sticky;top:4px;display:flex;flex-direction:column;justify-content:space-between;gap:8px;margin:0;padding:10px 12px;min-height:calc(100vh - 80px)}
+ .clock .ck{text-align:left!important}.clock .ck .tm{font-size:48px}.clock .ck.rt .tm{font-size:76px}
+ .clock .ck .hh{display:none}.clock .mid{order:3;align-self:stretch;width:100%}.clock .mid .tl{display:none}.clock .pg{height:18px;margin-top:2px}.clock .seg span{font-size:10px!important;letter-spacing:0}
+ #app>.tk{grid-row:2;margin-bottom:4px}.tk button{padding:5px 9px;font-size:12px}
+ .ttl,.dir span{display:none}.dir{padding:4px 8px;margin-bottom:4px}
+ #app>.cards,#app>.dir{grid-column:1}
+ .card{display:block;border-width:3px}
+ .card .im img{width:100%;aspect-ratio:16/9;object-fit:cover}
+ .card .im .nm{font-size:11px}
+ .cin{padding:8px 10px 10px}
+ .cur .d{font-size:22px;word-break:keep-all;line-height:1.25}.oth{font-size:13px;margin-top:6px;padding-top:6px;word-break:keep-all}
  .row2{display:none}
 }
 
