@@ -39,6 +39,7 @@
     if (lastTake === null) { lastTake = tk; return; }  // 처음 불러온 값은 무시
     if (!tk) return; const d2 = { take: tk };
     if (d2.take === lastTake) return; lastTake = d2.take;
+    if (Date.now() < at(items[0].t) - 2 * 3600000) return; // 촬영 날 전에는 테이크를 골라도 런다운 안 건드림
     const x = main().find(y => (y.takes || []).includes(d2.take)); if (x && ph && !(ph[x.id] && ph[x.id].s)) start(x.id, Date.now());
   }, () => {});
   setInterval(tick, 5000); setTimeout(tick, 1500);

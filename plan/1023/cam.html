@@ -173,6 +173,6 @@ function dayStrip(){if(!DD)return'';const now=Date.now(),MI=DD.items.filter(x=>!
 try{firebase.firestore().doc('live/mv1023plan').onSnapshot(sn=>{const d=sn.data();if(DD&&d&&Array.isArray(d.items)&&d.items.length){DD.items=d.items.map(x=>({...x}));DD.items.forEach(x=>{x.ps=_at(x.t);x.pe=x.ps+x.d*60000});const ds=$('#dayS');if(ds)ds.innerHTML=dayStrip()}},()=>{})}catch(e){}
 try{firebase.firestore().doc('live/mv1023day').onSnapshot(sn=>{DS={ph:(sn.data()||{}).ph||{}};const ds=$('#dayS');if(ds)ds.innerHTML=dayStrip()},()=>{})}catch(e){}
 setInterval(()=>{const ds=$('#dayS');if(ds)ds.innerHTML=dayStrip()},5000);
-if(DIRECTOR){const sc=document.createElement('script');sc.src='rundown-auto.js?v=2';document.body.appendChild(sc)}
+if(DIRECTOR){const sc=document.createElement('script');sc.src='rundown-auto.js?v=3';document.body.appendChild(sc)}
 load().catch(()=>{$('#app').innerHTML='<div class="none">앵글표를 못 불러왔어요. 인터넷 연결을 확인해 주세요.</div>'});
 </script></body></html>

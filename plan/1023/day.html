@@ -174,5 +174,5 @@ try{firebase.initializeApp({apiKey:"AIzaSyAVJ6ZZ6L-3RtgoYe2dDSn_lCHXv3CeBGc",pro
  planRef().onSnapshot(sn=>{const d=sn.data();if(d&&Array.isArray(d.items)&&d.items.length){SAVED_IDS=new Set(d.items.map(x=>x.id));if(!RE){setItems(d.items);render()}}},()=>{});
  ref().onSnapshot(sn=>{const d=sn.data()||{};ST={ph:d.ph||{},ck:d.ck||{},rt:d.rt||{}};OK=true;render()},()=>{OK=false;render()})}catch(e){}
 render();setInterval(render,1000);
-if(DIR){const sc=document.createElement('script');sc.src='rundown-auto.js?v=2';document.body.appendChild(sc)}
+if(DIR){const sc=document.createElement('script');sc.src='rundown-auto.js?v=3';document.body.appendChild(sc)}
 </script></body></html>
