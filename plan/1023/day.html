@@ -180,6 +180,6 @@ if(DIR){const sc=document.createElement('script');sc.src='rundown-auto.js?v=3';d
 (function(){let first=null;const me=location.pathname.split('/').pop()||'cam.html';
  async function chk(){try{const t=await (await fetch(me+'?_='+Date.now(),{cache:'no-store'})).text();const h=t.length+':'+t.slice(-400);
   if(first===null){first=h;return}
-  if(h!==first){const playing=window.LIVE&&LIVE.playing;if(!playing&&!document.querySelector('input:focus,select:focus'))location.reload();}}catch(e){}}
+  if(h!==first){const playing=typeof LIVE!=='undefined'&&LIVE.playing;if(!playing&&!document.querySelector('input:focus,select:focus'))location.reload();}}catch(e){}}
  chk();setInterval(chk,60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)chk()});})();
 </script></body></html>
