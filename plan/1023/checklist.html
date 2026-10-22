@@ -96,8 +96,9 @@ const KEY='vf-gear-checklist-1023-v4';
 let data; try{data=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!data) data={secs:DEFAULT.map(([n,r])=>({n,rows:r.map(x=>({v:x,a:false,b:false}))})),meta:{}};
 if(data&&!data.mig1){data.secs.forEach(s=>s.rows.forEach(r=>{if(/Hollyland/i.test(r.v[0]||'')){r.v=['교회 SYNCO Xtalk XM8 인터컴','8','','교회에서 받기 · 충전 확인 · 반납']}}));data.mig1=1}
+if(data&&data.mig3&&!data.mig4){data.secs.forEach(S=>S.rows.forEach(r=>{r.v[0]=String(r.v[0]).replace('(추가 렌탈)','(칠렌탈)');if(r.v[0]==='샌드백')r.v[0]='샌드백 (칠렌탈)'}));data.mig4=1;try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}}
 if(data&&!data.mig3){const add=(sec,row)=>{const S=data.secs.find(x=>sec.test(x.n));if(S&&!S.rows.some(r=>r.v[0]===row[0]))S.rows.push({v:row,a:false,b:false})};
- add(/전원/,['V마운트 배터리 (추가 렌탈)','1','','렌탈 · 반납']);add(/모니터|무선/,['DJI SDR 송수신 세트 (추가 렌탈)','1','','렌탈 · 반납']);add(/삼각대|지지/,['샌드백','4','','렌탈 · 반납 · 레일·스탠드 고정']);data.mig3=1;try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}}
+ add(/전원/,['V마운트 배터리 (칠렌탈)','1','','렌탈 · 반납']);add(/모니터|무선/,['DJI SDR 송수신 세트 (칠렌탈)','1','','렌탈 · 반납']);add(/삼각대|지지/,['샌드백 (칠렌탈)','4','','렌탈 · 반납 · 레일·스탠드 고정']);data.mig3=1;data.mig4=1;try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}}
 if(data&&!data.mig2){const L=data.secs.find(x=>/렌즈/.test(x.n));if(L&&!L.rows.some(r=>/28-135/.test(r.v[0])))L.rows.push({v:['소니 28-135mm F4 G (칠렌탈)','1','','렌탈 · 반납'],a:false,b:false});data.mig2=1}
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function save(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}}
