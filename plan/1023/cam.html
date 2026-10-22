@@ -67,7 +67,10 @@ html,body{overflow-x:hidden}.clock>*,.cards>*{min-width:0}
  .clock .ck .hh{display:none}.clock .mid{order:3;align-self:stretch;width:100%}.clock .seg span{font-size:9.5px!important;letter-spacing:0}.clock .mid .tl{display:none}.clock .pg{height:16px;margin-top:2px}
  .tk{margin-bottom:4px}.tk button{padding:6px 10px;font-size:12px}
  .ttl{margin:2px 0 4px}.dir{padding:6px 10px;margin-bottom:6px}
- .card .im{display:none}
+ .card{display:grid;grid-template-columns:minmax(0,1fr) 36%;align-items:stretch}
+ .card .cin{order:1}.card .im{order:2;display:block;position:relative}
+ .card .im img{height:100%;min-height:96px;aspect-ratio:auto}
+ .card .im .nm{display:none}.card .im .tag{font-size:10px;padding:2px 5px}
  .card{border-width:3px}.cin{padding:10px 12px}
  .cur .d{font-size:30px}.oth{font-size:15px}
  .cards{gap:4px}
