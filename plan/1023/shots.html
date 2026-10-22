@@ -19,7 +19,7 @@ h1{font:600 30px Oswald,var(--m);letter-spacing:2px;margin:0;color:#fff}.sub{col
 .cell{position:relative;background:#111;border:1px solid var(--line);min-height:150px;overflow:hidden}
 .cell img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.75}
 .cell::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 35%,rgba(0,0,0,.85) 85%)}
-.cell span{position:absolute;left:8px;right:8px;bottom:8px;z-index:1;font-size:16px;font-weight:800;color:#fff;line-height:1.25;text-shadow:0 2px 8px #000;word-break:keep-all}
+.cell .lab{position:absolute;left:8px;right:8px;bottom:8px;z-index:1;font-size:16px;font-weight:800;color:#fff;line-height:1.25;text-shadow:0 2px 8px #000;word-break:keep-all}
 .k{display:inline-block;font:700 .78em var(--m);border:1px solid #6b5a1a;color:#ffd60a;background:#1a1300;padding:0 4px;margin:0 2px}
 .c1 .sec{border-left-color:#ff3b30}
 </style></head><body>
@@ -31,6 +31,6 @@ const D=window.SHOTS,esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt
 const mm=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
 const tag=t=>esc(t).replace(/(^|[^A-Za-z0-9])(WS|FS|MS|CU|CS|MFS|TWO|HAND|FULL|OTS)(?![A-Za-z0-9])/g,(m,a,k)=>a+'<span class="k">'+k+'</span>');
 let h='<div class="hd"><b>구간</b><span>곡 시간</span></div>'+D.cams.map(c=>`<div class="hd"><b>CAM ${c.n}</b><span>${esc(c.op)}</span><i>${esc(c.lens)} · ${esc(c.pos)}</i></div>`).join('');
-for(const s of D.secs){h+=`<div class="sec"><b>${esc(s.name)}</b><div class="t">${mm(s.a)} – ${mm(s.b)}<small>넥서스 ${mm(s.a+D.countIn)}</small></div><i>${esc(s.mood)}</i></div>`+s.s.map(([t,img])=>`<div class="cell"><img loading="lazy" src="angles/ref/${img}.jpg"><span>${tag(t)}</span></div>`).join('')}
+for(const s of D.secs){h+=`<div class="sec"><b>${esc(s.name)}</b><div class="t">${mm(s.a)} – ${mm(s.b)}<small>넥서스 ${mm(s.a+D.countIn)}</small></div><i>${esc(s.mood)}</i></div>`+s.s.map(([t,img])=>`<div class="cell"><img src="angles/ref/${img}.jpg"><span class="lab">${tag(t)}</span></div>`).join('')}
 document.getElementById('t').innerHTML=h;
 </script></body></html>
