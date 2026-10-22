@@ -55,7 +55,8 @@ html,body{overflow-x:hidden}.clock>*,.cards>*{min-width:0}
 
 /* ---- 폰 가로 (카메라 리그용): 왼쪽 시계 · 오른쪽 지금 앵글 ---- */
 @media (orientation:landscape) and (max-height:520px){
- body{padding:calc(4px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) 6px calc(10px + env(safe-area-inset-left))}
+ body{padding:4px max(8px,calc(env(safe-area-inset-right) * .45)) 6px max(8px,calc(env(safe-area-inset-left) * .45))}
+ #app{min-height:calc(100vh - 10px)}
  #app{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);column-gap:10px;align-items:start}
  #app>*{grid-column:2;min-width:0}
  #app>.bar,#app>.dayS{grid-column:1/-1}
