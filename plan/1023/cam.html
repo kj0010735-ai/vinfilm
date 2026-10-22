@@ -79,6 +79,10 @@ html,body{overflow-x:hidden}.clock>*,.cards>*{min-width:0}
  .row2{display:none}
 }
 
+
+/* 폰: 화면이 쓸데없이 출렁이거나 스크롤되지 않게 */
+html,body{overscroll-behavior:none}
+@media (max-width:520px),(max-height:520px){body:not(.director){height:100dvh;overflow:hidden}}
 </style></head><body>
 <div id="app"><div class="none">불러오는 중…</div></div>
 <div class="flash" id="flash"></div>
