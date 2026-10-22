@@ -72,6 +72,26 @@ html,body{overflow-x:hidden}.clock>*,.cards>*{min-width:0}
  .cards{gap:4px}
  .row2{display:none}
 }
+
+/* ---- 폰 세로 최적화: 지시 글씨 먼저 크게, 사진은 작게 ---- */
+@media (max-width:520px) and (orientation:portrait){
+ .bar{margin-bottom:6px}.bar b{font-size:12px}.live{margin-left:6px}
+ .dayS{flex-wrap:nowrap;white-space:nowrap;overflow:hidden;padding:5px 8px;font-size:12px;margin-bottom:6px}
+ .dayS b{overflow:hidden;text-overflow:ellipsis}
+ .clock{padding:8px 10px 10px;margin-bottom:6px}
+ .clock .mid .tl{display:none}
+ .ck .tm{font-size:44px!important}.ck.rt .tm{font-size:58px!important}
+ .pg{height:14px!important;margin-top:4px}.seg span{height:20px}
+ .tk{margin-bottom:6px}.tk button{padding:8px 11px;font-size:13px}
+ .ttl{display:none}
+ .card{display:flex;flex-direction:column}
+ .card .cin{order:1;padding:12px 12px 10px}
+ .card .im{order:2}.card img{aspect-ratio:21/9}
+ .card .tag{top:6px;left:6px}.card .nm{top:6px;right:6px}
+ .cur .d{font-size:32px;line-height:1.2}
+ .oth{font-size:16px;margin-top:10px;padding-top:8px}
+ body:not(.director) .row2{display:none}
+}
 </style></head><body>
 <div id="app"><div class="none">불러오는 중…</div></div>
 <div class="flash" id="flash"></div>
@@ -176,5 +196,6 @@ try{firebase.firestore().doc('live/mv1023plan').onSnapshot(sn=>{const d=sn.data(
 try{firebase.firestore().doc('live/mv1023day').onSnapshot(sn=>{DS={ph:(sn.data()||{}).ph||{}};const ds=$('#dayS');if(ds)ds.innerHTML=dayStrip()},()=>{})}catch(e){}
 setInterval(()=>{const ds=$('#dayS');if(ds)ds.innerHTML=dayStrip()},5000);
 if(DIRECTOR){const sc=document.createElement('script');sc.src='rundown-auto.js?v=3';document.body.appendChild(sc)}
+if(DIRECTOR)document.body.classList.add('director');
 load().catch(()=>{$('#app').innerHTML='<div class="none">앵글표를 못 불러왔어요. 인터넷 연결을 확인해 주세요.</div>'});
 </script></body></html>
