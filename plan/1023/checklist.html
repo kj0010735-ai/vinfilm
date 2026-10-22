@@ -99,6 +99,7 @@ if(data&&!data.mig1){data.secs.forEach(s=>s.rows.forEach(r=>{if(/Hollyland/i.tes
 if(data&&data.mig3&&!data.mig4){data.secs.forEach(S=>S.rows.forEach(r=>{r.v[0]=String(r.v[0]).replace('(추가 렌탈)','(칠렌탈)');if(r.v[0]==='샌드백')r.v[0]='샌드백 (칠렌탈)'}));data.mig4=1;try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}}
 if(data&&!data.mig3){const add=(sec,row)=>{const S=data.secs.find(x=>sec.test(x.n));if(S&&!S.rows.some(r=>r.v[0]===row[0]))S.rows.push({v:row,a:false,b:false})};
  add(/전원/,['V마운트 배터리 (칠렌탈)','1','','렌탈 · 반납']);add(/모니터|무선/,['DJI SDR 송수신 세트 (칠렌탈)','1','','렌탈 · 반납']);add(/삼각대|지지/,['샌드백 (칠렌탈)','4','','렌탈 · 반납 · 레일·스탠드 고정']);data.mig3=1;data.mig4=1;try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}}
+if(data&&!data.mig5){const S=data.secs.find(x=>/삼각대|지지/.test(x.n));if(S&&!S.rows.some(r=>/사다리/.test(r.v[0])))S.rows.push({v:['사다리','1','','하이 앵글 (C1 윤관) · 선반 대용'],a:false,b:false});data.mig5=1;try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}}
 if(data&&!data.mig2){const L=data.secs.find(x=>/렌즈/.test(x.n));if(L&&!L.rows.some(r=>/28-135/.test(r.v[0])))L.rows.push({v:['소니 28-135mm F4 G (칠렌탈)','1','','렌탈 · 반납'],a:false,b:false});data.mig2=1}
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function save(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}}
