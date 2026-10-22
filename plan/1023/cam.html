@@ -67,35 +67,18 @@ html,body{overflow-x:hidden}.clock>*,.cards>*{min-width:0}
  .clock .ck .hh{display:none}.clock .mid{order:3;align-self:stretch;width:100%}.clock .seg span{font-size:9.5px!important;letter-spacing:0}.clock .mid .tl{display:none}.clock .pg{height:16px;margin-top:2px}
  .tk{margin-bottom:4px}.tk button{padding:6px 10px;font-size:12px}
  .ttl{margin:2px 0 4px}.dir{padding:6px 10px;margin-bottom:6px}
- .card{display:grid;grid-template-columns:minmax(0,1fr) 36%;align-items:stretch}
- .card .cin{order:1}.card .im{order:2;display:block;position:relative}
- .card .im img{height:100%;min-height:96px;aspect-ratio:auto}
- .card .im .nm{display:none}.card .im .tag{font-size:10px;padding:2px 5px}
+ .card{display:grid;grid-template-columns:46% minmax(0,1fr);align-items:center}
+ .card .im{order:1;display:block;position:relative;align-self:stretch;background:#000}
+ .card .im img{width:100%;height:100%;aspect-ratio:16/9;object-fit:cover}
+ .card .im .nm{display:none}
+ .card .cin{order:2;padding:10px 14px}
+ .ttl{display:none}
  .card{border-width:3px}.cin{padding:10px 12px}
  .cur .d{font-size:30px}.oth{font-size:15px}
  .cards{gap:4px}
  .row2{display:none}
 }
 
-/* ---- 폰 세로 최적화: 지시 글씨 먼저 크게, 사진은 작게 ---- */
-@media (max-width:520px) and (orientation:portrait){
- .bar{margin-bottom:6px}.bar b{font-size:12px}.live{margin-left:6px}
- .dayS{flex-wrap:nowrap;white-space:nowrap;overflow:hidden;padding:5px 8px;font-size:12px;margin-bottom:6px}
- .dayS b{overflow:hidden;text-overflow:ellipsis}
- .clock{padding:8px 10px 10px;margin-bottom:6px}
- .clock .mid .tl{display:none}
- .ck .tm{font-size:44px!important}.ck.rt .tm{font-size:58px!important}
- .pg{height:14px!important;margin-top:4px}.seg span{height:20px}
- .tk{margin-bottom:6px}.tk button{padding:8px 11px;font-size:13px}
- .ttl{display:none}
- .card{display:flex;flex-direction:column}
- .card .cin{order:1;padding:12px 12px 10px}
- .card .im{order:2}.card img{aspect-ratio:21/9}
- .card .tag{top:6px;left:6px}.card .nm{top:6px;right:6px}
- .cur .d{font-size:32px;line-height:1.2}
- .oth{font-size:16px;margin-top:10px;padding-top:8px}
- body:not(.director) .row2{display:none}
-}
 </style></head><body>
 <div id="app"><div class="none">불러오는 중…</div></div>
 <div class="flash" id="flash"></div>
