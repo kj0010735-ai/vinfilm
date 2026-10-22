@@ -187,7 +187,7 @@ if(DIR){const sc=document.createElement('script');sc.src='rundown-auto.js?v=3';d
 (function(){let y0=null,d=0;const el=document.createElement('div');
  el.style.cssText='position:fixed;left:50%;top:calc(6px + env(safe-area-inset-top));z-index:999;transform:translate(-50%,-60px);transition:transform .15s;background:#1b1b1b;border:1px solid #333;color:#ddd;font:600 12px ui-monospace,Menlo,monospace;padding:7px 12px;border-radius:20px;pointer-events:none';
  el.textContent='↓ 당겨서 새로고침';document.addEventListener('DOMContentLoaded',()=>document.body.appendChild(el));if(document.body)document.body.appendChild(el);
- addEventListener('touchstart',e=>{y0=(scrollY<=0&&e.touches.length===1)?e.touches[0].clientY:null;d=0},{passive:true});
+ addEventListener('touchstart',e=>{y0=(scrollY<=0&&e.touches.length===1&&!e.target.closest('.map,input,select,textarea,[contenteditable],.pf,.cam,.rail'))?e.touches[0].clientY:null;d=0},{passive:true});
  addEventListener('touchmove',e=>{if(y0===null)return;d=e.touches[0].clientY-y0;if(d>0){const p=Math.min(d,140);el.style.transform=`translate(-50%,${p/2-50}px)`;el.textContent=d>100?'↻ 놓으면 새로고침':'↓ 당겨서 새로고침'}},{passive:true});
  addEventListener('touchend',()=>{if(y0!==null&&d>100){el.textContent='↻ 새로고침 중…';location.reload()}else el.style.transform='translate(-50%,-60px)';y0=null;d=0},{passive:true});
 })();
