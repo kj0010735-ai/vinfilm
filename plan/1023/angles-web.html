@@ -107,7 +107,7 @@ cells.forEach((c,i)=>{const im=c.querySelector('img'),ln=c.querySelector('.ln'),
    im.src=v.img||im.dataset.o;c.classList.toggle('chg',!!v.img);if(ln)ln.innerHTML=v.ln!=null?v.ln:ln.dataset.o;if(cn)cn.innerHTML=v.cn!=null?v.cn:cn.dataset.o})}
  let first=true;ref.onSnapshot(sn=>{const d=sn.data();
   if(first){first=false;if(!d||!d.s){if(Object.keys(st).length)__angPush();return}}
-  if(!d||!d.s||d.by===DEV&&d.at<=LAT)return;try{st=JSON.parse(d.s)||{};localStorage.setItem(K,JSON.stringify(st))}catch(e){}apply();window.__drawTags&&__drawTags()},()=>{});
+  if(!d||!d.s||d.by===DEV&&d.at<=LAT)return;try{st=JSON.parse(d.s)||{};localStorage.setItem(K,JSON.stringify(st))}catch(e){}apply();window.__drawTags&&__drawTags();window.__drawGear&&setTimeout(__drawGear,50)},()=>{});
 })();
 // ---- 앵글 수정 창 (칸에 직접 쓰지 않고 칸별 입력) ----
 const SONG=[['인트로','0:00'],['1절A','0:14'],['1절B','0:40'],['후렴1','1:07'],['간주','1:37'],['2절A','1:48'],['2절B','2:14'],['후렴2','2:40'],['후렴3','3:11'],['후주','3:38'],['엔딩','3:53']];
@@ -154,7 +154,7 @@ window.__gear=function(board,rowId,camText){if(!board||!board.ph)return '';const
  if(!c||!c.body)return '';return short(c.body)+(c.lens?' · '+short(c.lens):'')};
 let BOARD=null;function drawGear(){document.querySelectorAll('.c').forEach(c=>{const row=c.closest('.row');const id=row?.querySelector('.tk b')?.textContent||'C';const cn=c.querySelector('.cn');const g=__gear(BOARD,id,cn?[...cn.childNodes].map(n=>n.textContent).join(' '):'');let el=c.querySelector('.gear');if(!g){el&&el.remove();return}if(!el){el=document.createElement('div');el.className='gear';const ov=c.querySelector('.ov');ov?ov.insertBefore(el,ov.firstChild):c.appendChild(el)}el.textContent='🎥 '+g})}
 try{if(!firebase.apps.length)firebase.initializeApp({apiKey:"AIzaSyAVJ6ZZ6L-3RtgoYe2dDSn_lCHXv3CeBGc",projectId:"vinfilm-studio-app"});firebase.firestore().doc('live/mv1023board').onSnapshot(sn=>{const d=sn.data();try{BOARD=d&&d.s?JSON.parse(d.s):null}catch(e){}drawGear()},()=>{})}catch(e){}
-setTimeout(drawGear,0);
+setTimeout(drawGear,0);window.__drawGear=drawGear;
 document.querySelectorAll('.c').forEach(c=>{if(c.querySelector('.ov'))return;const ov=document.createElement('div');ov.className='ov';[...c.children].filter(x=>x.matches('.cn,.ln')).forEach(x=>ov.appendChild(x));c.appendChild(ov)});
 const pk=document.getElementById('pk'),g=document.getElementById('pkg');
 let curSeg=0;function setImg(src,tag){if(curSeg>0){const v=(st[cur]=st[cur]||{});v.si=v.si||{};if(src)v.si[curSeg]={img:src,tag:tag||''};else delete v.si[curSeg];curSeg=0;save();pk.classList.remove('on');drawSegPics();return}const c=cells[cur],im=c.querySelector('img');st[cur]=st[cur]||{};if(src){st[cur].img=src;im.src=src;c.classList.add('chg');if(tag)st[cur].tag=tag;else delete st[cur].tag}else{delete st[cur].img;delete st[cur].tag;im.src=im.dataset.o;c.classList.remove('chg')}save();pk.classList.remove('on');drawTags()}

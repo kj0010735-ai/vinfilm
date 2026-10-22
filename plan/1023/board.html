@@ -339,7 +339,7 @@ function render(){
  document.getElementById('tabs').innerHTML=PH.map(([k,l])=>`<button data-tab="${k}" class="tc-map ${S.tab===k?'on':''}">${({rail:'🛤 레일 배치 · R',base:'📷 삼각대 배치 · T',crea:'✨ 창의 앵글 배치 · C'})[k]||l.replace('PART ','')}</button>`).join('')+'<i class="tsep"></i>'+[['day','⏱ 런다운'],['camall','🎥 촬영 진행'],'|',['ang','🎬 앵글표'],['cue','📋 큐시트'],['light','💡 조명'],'|',['chk','✅ 체크리스트'],['budget','💰 예산안']].map(x=>x==='|'?'<i class="tsep"></i>':`<button data-tab="${x[0]}" class="tc-${TC[x[0]]} ${S.tab===x[0]?'on':''}">${x[1]}</button>`).join('');
  const local=location.protocol==='file:';
  const ck=document.getElementById('chkWrap'); if(S.tab==='chk'){ck.classList.add('on'); if(!ck.firstChild) ck.innerHTML=`<iframe src="${local?'10_%EC%B4%AC%EC%98%81%EC%9E%A5%EB%B9%84%20%EC%B2%B4%ED%81%AC%EB%A6%AC%EC%8A%A4%ED%8A%B8.html':'checklist.html?v=9'}"></iframe>`;} else ck.classList.remove('on');
- const ag=document.getElementById('angWrap'); const DOC={day:'day.html?director&v=12',ang:'angles-web.html?v=25',camall:'cam.html?all=1&v=46',cue:'cue-web.html?v=7',light:'light-web.html?v=7',budget:'budget-web.html?v=7'}; if(DOC[S.tab]){const u=(local?'https://www.vinfilmstudio.com/plan/1023/':'')+DOC[S.tab];ag.classList.add('on'); if(ag.dataset.u!==u){ag.dataset.u=u;ag.innerHTML=`<iframe src="${u}"></iframe>`}} else ag.classList.remove('on');
+ const ag=document.getElementById('angWrap'); const DOC={day:'day.html?director&v=12',ang:'angles-web.html?v=26',camall:'cam.html?all=1&v=46',cue:'cue-web.html?v=7',light:'light-web.html?v=7',budget:'budget-web.html?v=7'}; if(DOC[S.tab]){const u=(local?'https://www.vinfilmstudio.com/plan/1023/':'')+DOC[S.tab];ag.classList.add('on'); if(ag.dataset.u!==u){ag.dataset.u=u;ag.innerHTML=`<iframe src="${u}"></iframe>`}} else ag.classList.remove('on');
  document.querySelector('.sheet').style.display=(S.tab==='chk'||DOC[S.tab])?'none':'';
  document.getElementById('phases').innerHTML=PH.map(([k,l])=>phaseHtml(k,l)).join('');
 }
@@ -382,7 +382,7 @@ window.addEventListener('afterprint',render);
 try{if(localStorage.getItem('vf-board-nobar')==='1')document.body.classList.add('nobar')}catch(e){}
 document.getElementById('hideBar').onclick=()=>{document.body.classList.add('nobar');try{localStorage.setItem('vf-board-nobar','1')}catch(e){}};
 document.getElementById('showBar').onclick=()=>{document.body.classList.remove('nobar');try{localStorage.setItem('vf-board-nobar','0')}catch(e){}};
-document.getElementById('reload').onclick=async()=>{try{await Promise.all(['board.html','checklist.html?v=9','angles-web.html?v=25','cam.html?all=1&v=38','cam.html','cam2.html','cam2.html?all=1&v=1','shots.html?v=1','shots-data.js?v=1','day.html?director&v=12','day.html','day.html?m','day-data.js?v=1','cue-web.html?v=7','light-web.html?v=7','budget-web.html?v=7'].map(u=>fetch(u,{cache:'reload'})))}catch(e){}location.href=location.pathname+'?r='+Date.now()};
+document.getElementById('reload').onclick=async()=>{try{await Promise.all(['board.html','checklist.html?v=9','angles-web.html?v=26','cam.html?all=1&v=38','cam.html','cam2.html','cam2.html?all=1&v=1','shots.html?v=1','shots-data.js?v=1','day.html?director&v=12','day.html','day.html?m','day-data.js?v=1','cue-web.html?v=7','light-web.html?v=7','budget-web.html?v=7'].map(u=>fetch(u,{cache:'reload'})))}catch(e){}location.href=location.pathname+'?r='+Date.now()};
 render();applyZoom();LAST=JSON.stringify(S);
 const _rnd=render;render=function(){_rnd();markSel()};
 </script><script>
