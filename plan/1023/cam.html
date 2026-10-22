@@ -173,7 +173,13 @@ function clockHtml(t){if(SD)return clockSec(t);const red=t<SW,end=t>=END,a=red?0
  <div class="mid"><div class="tl"><span class="lb" style="color:#aaa">${esc(tk.id||'')} · ${esc(tk.desc||'')}</span></div><div class="pg ${red?'':'b'}"><i style="width:${pct}%"></i></div>
  <div class="seg"><span class="r ${red?'on':'dn'}">● SOLO 0:00–1:38</span><span class="b ${end?'':(red?'nx':'on')}">● ALL 1:38–4:17</span></div></div>
  <div class="ck rt ${end?'e':(red?'':'b')}"><div class="lb">${end?'Song end':(red?'Next change in':'Song end in')}</div><div class="tm">${mmss(end?0:rem)}</div></div>`}
-function clockSec(t){const i=secIdx(t),pre=i<0,end=i>=SD.secs.length,S=SD.secs[Math.max(0,Math.min(i,SD.secs.length-1))];const rem=pre?-t:(end?0:S.b-t),pct=pre?0:(end?100:(t-S.a)/(S.b-S.a)*100);const tk=TAKES[cur]||{};
+function clockSec(t){const tk0=TAKES[cur];const vc=tk0&&me!=='전체'?(tk0.shared?[]:tk0.cells.filter(mine)).find(c=>c.segs&&c.segs.length):null;
+ if(vc){const sg=vc.segs;let k=-1;sg.forEach((x,j)=>{if(t>=x.t)k=j});const pre=t<sg[0].t&&k<0,end=k>=0&&!sg[k+1]&&t>=257;const C=sg[Math.max(k,0)],N=sg[k+1];const b=N?N.t:257,a=k<0?0:C.t;const rem=pre?sg[0].t-t:Math.max(0,b-t),pct=Math.min(100,Math.max(0,(t-a)/(b-a)*100));
+  return `<div class="ck"><div class="lb">Elapsed · TC</div><div class="tm"><span class="hh">${tc(t+COUNTIN).slice(0,3)}</span>${tc(t+COUNTIN).slice(3)}</div></div>
+  <div class="mid"><div class="tl"><span class="lb" style="color:#aaa">${esc(tk0.id)} · 구간 ${Math.max(k,0)+1}/${sg.length}</span></div><div class="pg"><i style="width:${pct}%"></i></div>
+  <div class="seg sx">${sg.map((x,j)=>`<span class="r ${j<k?'dn':(j===k?'on':'')}">${mmss(x.t)}~</span>`).join('')}</div></div>
+  <div class="ck rt ${end?'e':''}"><div class="lb">${N?'다음 구간까지':'곡 끝까지'}</div><div class="tm">${mmss(rem)}</div></div>`}
+const i=secIdx(t),pre=i<0,end=i>=SD.secs.length,S=SD.secs[Math.max(0,Math.min(i,SD.secs.length-1))];const rem=pre?-t:(end?0:S.b-t),pct=pre?0:(end?100:(t-S.a)/(S.b-S.a)*100);const tk=TAKES[cur]||{};
  return `<div class="ck"><div class="lb">Elapsed · TC</div><div class="tm"><span class="hh">${tc(t+COUNTIN).slice(0,3)}</span>${tc(t+COUNTIN).slice(3)}</div></div>
  <div class="mid"><div class="tl"><span class="lb" style="color:#aaa">${esc(tk.id||'')} · ${pre?'시작 전':(end?'곡 끝':esc(S.name)+' · '+esc(S.mood))}</span></div><div class="pg"><i style="width:${pct}%"></i></div>
  <div class="seg sx">${SD.secs.map((x,j)=>`<span class="r ${j<i?'dn':(j===i?'on':'')}">${esc(x.name.replace(' · 클라이맥스',''))}</span>`).join('')}</div></div>
