@@ -94,10 +94,12 @@ const PEOPLE=[['윤관','레일 카메라 · T 5번'],['김창훈','레일 밀�
 let TAKES=[],me=ALL?((()=>{try{return localStorage.getItem('vf-cam-pv')}catch(e){}})()||'전체'):(localStorage.getItem('vf-cam-me')||''),cur=+localStorage.getItem('vf-cam-take')||0,t0=null,timer=null,offset=-4.83,flashed=false;
 const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let GI=0,ANG={};
-function parseLn(html){const lines=html.split(/<br\s*\/?>/i).map(x=>{const t=document.createElement('div');t.innerHTML=x;return t.textContent.trim()});
- let red=(lines.find(l=>/^~1:38/.test(l))||'').replace(/^~1:38\s*/,''),blue=(lines.find(l=>/^1:38~/.test(l))||'').replace(/^1:38~\s*/,'');
- const t=document.createElement('div');t.innerHTML=html;return {red,blue,other:!red&&!blue?t.textContent.trim():''}}
-function applyAng(){for(const tk of TAKES)for(const c of tk.cells){if(!c.base)c.base={cam:c.cam,img:c.img,red:c.red,blue:c.blue,other:c.other};const v=ANG[c.gi]||{};Object.assign(c,c.base);if(v.img)c.img=v.img;if(v.ln!=null)Object.assign(c,parseLn(v.ln));if(v.cn!=null){const t=document.createElement('div');t.innerHTML=v.cn;c.cam=t.textContent.replace(/\s+/g,' ').trim()}}}
+function parseLn(html){const t=document.createElement('div');t.innerHTML=String(html).replace(/<br\s*\/?>/gi,'\n').replace(/<\/?(div|p)[^>]*>/gi,'\n');
+ const txt=t.textContent.replace(/ /g,' ').replace(/[ \t]+/g,' ');
+ const m=txt.match(/~\s*1:38([\s\S]*?)(?=1:38\s*~|$)/),n=txt.match(/1:38\s*~([\s\S]*)$/);
+ const clean=v=>(v||'').replace(/\s*\n\s*/g,' ').trim();
+ const red=m?clean(m[1]):'',blue=n?clean(n[1]):'';return {red,blue,other:!red&&!blue?clean(txt):''}}
+function applyAng(){for(const tk of TAKES)for(const c of tk.cells){if(!c.base)c.base={cam:c.cam,img:c.img,red:c.red,blue:c.blue,other:c.other};const v=ANG[c.gi]||{};Object.assign(c,c.base);if(v.img)c.img=v.img;if(v.ln!=null)Object.assign(c,parseLn(v.ln));if(v.cn!=null){const t=document.createElement('div');t.innerHTML=v.cn;c.cam=[...t.childNodes].map(n=>n.textContent).join(' ').replace(/\s+/g,' ').trim()}}}
 async function load(){
  const h=await (await fetch('angles-web.html?v='+Date.now(),{cache:'no-store'})).text();
  const d=new DOMParser().parseFromString(h,'text/html');

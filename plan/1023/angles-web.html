@@ -97,6 +97,7 @@ function markSel(){if(!tgt)return;const used=new Set([...tgt.querySelectorAll('.
 document.addEventListener('focusin',e=>{if(e.target.matches&&e.target.matches('.c .cn,.c .ln'))setTimeout(markSel,0)});
 document.addEventListener('input',e=>{if(e.target===tgt)markSel()});
 tp.addEventListener('click',()=>setTimeout(markSel,30));
+document.addEventListener('keydown',e=>{const t=e.target;if(e.key==='Enter'&&!e.isComposing&&t.matches&&t.matches('.c .ln,.c .cn')){e.preventDefault();if(t.matches('.c .cn')){t.blur();return}document.execCommand('insertLineBreak')}});
 addEventListener('keydown',e=>{if(e.key==='Escape'){const pk=document.getElementById('pk');if(pk&&pk.classList.contains('on')){pk.classList.remove('on');return}if(tp.classList.contains('on')){tp.classList.remove('on');document.body.style.paddingBottom='';tgt&&tgt.blur()}}});})();</script><button class="dkb" id="dkb">🌙 어둡게</button><script>
 (function(){const K='vf-1023-dark';let on=false;try{on=localStorage.getItem(K)==='1'}catch(e){}
 const b=document.getElementById('dkb');const ap=()=>{document.body.classList.toggle('dk',on);b.textContent=on?'☀️ 밝게':'🌙 어둡게'};ap();
