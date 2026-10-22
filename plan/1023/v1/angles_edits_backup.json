@@ -1,0 +1,16 @@
+{
+  "name": "projects/vinfilm-studio-app/databases/(default)/documents/live/mv1023angles",
+  "fields": {
+    "by": {
+      "stringValue": "aeijirdh"
+    },
+    "at": {
+      "integerValue": "1792665387710"
+    },
+    "s": {
+      "stringValue": "{\"0\":{\"ln\":\"\u003ci\u003e~1:38\u003c/i\u003e&nbsp;남자 보컬\u003cspan class=\\\"sh\\\" contenteditable=\\\"false\\\" title=\\\"Extreme Wide Shot\\\"\u003eEWS\u003c/span\u003e&nbsp;&gt;&nbsp;\u003cspan class=\\\"sh\\\" contenteditable=\\\"false\\\" title=\\\"Waist Shot\\\"\u003eWST\u003c/span\u003e&nbsp;\u003cdiv\u003e\u003cdiv\u003e\u003cdiv\u003e\u003cu\u003e1:38~\u003c/u\u003e 밴드 전체 + 빔\u003cbr\u003e\u003c/div\u003e\u003c/div\u003e\u003c/div\u003e\",\"cn\":\"🛤 레일\u003cem\u003e달리 인\u003c/em\u003e\"},\"1\":{\"ln\":\"\u003ci\u003e~1:38\u003c/i\u003e&nbsp;남자 보컬&nbsp;\u003cspan class=\\\"sh\\\" contenteditable=\\\"false\\\" title=\\\"Waist Shot\\\"\u003eWST\u003c/span\u003e&nbsp;\u003cbr\u003e\u003cu\u003e1:38~\u003c/u\u003e 멤버 \u003cspan class=\\\"sh\\\" contenteditable=\\\"false\\\" title=\\\"Medium Shot\\\"\u003eMS\u003c/span\u003e\",\"img\":\"angles/bsi/../ref/v05-0040.jpg\",\"cn\":\"2 박완준\u003cem\u003e측면\u003c/em\u003e\"},\"2\":{\"ln\":\"\u003ci\u003e~1:38\u003c/i\u003e 남자 보컬 \u003cspan class=\\\"sh\\\" contenteditable=\\\"false\\\" title=\\\"Close Shot\\\"\u003eCS\u003c/span\u003e\u003cbr\u003e\u003cu\u003e1:38~\u003c/u\u003e 남자 보컬 \u003cspan class=\\\"sh\\\" contenteditable=\\\"false\\\" title=\\\"Close Shot\\\"\u003eCS\u003c/span\u003e (곡 전체)\"},\"4\":{\"ln\":\"\u003ci\u003e~1:38\u003c/i\u003e 전체 → 남자 보컬 \u003cspan class=\\\"sh\\\" contenteditable=\\\"false\\\" title=\\\"Medium Shot\\\"\u003eMS\u003c/span\u003e\u003cbr\u003e\u003cu\u003e1:38~\u003c/u\u003e 보컬 \u003cspan class=\\\"sh\\\" contenteditable=\\\"false\\\" title=\\\"Two Shot\\\"\u003eTWO\u003c/span\u003e\",\"cn\":\"🛤 레일\u003cem\u003e달리 인\u003c/em\u003e\"},\"13\":{\"ln\":\"\u003ci\u003e~1:38\u003c/i\u003e 남자 보컬 \u003cspan class=\\\"sh\\\" contenteditable=\\\"false\\\" title=\\\"Over The Shoulder\\\"\u003eOTS\u003c/span\u003e\u003cbr\u003e\u003cu\u003e1:38~\u003c/u\u003e 베이스 \u003cspan class=\\\"sh\\\" contenteditable=\\\"false\\\" title=\\\"Close Shot\\\"\u003eCS\u003c/span\u003e\"},\"58\":{\"ln\":\"\u003cb\u003e슬로모션\u003c/b\u003e — 60~120fps · 가이드 2배속\"},\"59\":{\"ln\":\"\u003cb\u003e인서트\u003c/b\u003e — 손·악기·마이크·빔 디테일\"}}"
+    }
+  },
+  "createTime": "2026-10-22T05:37:26.997905Z",
+  "updateTime": "2026-10-22T10:36:27.875871Z"
+}
