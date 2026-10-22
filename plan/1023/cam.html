@@ -6,6 +6,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="day-data.js?v=1"></script>
+<script src="shots-data.js?v=1"></script>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&display=swap" rel="stylesheet">
 <style>
 :root{--m:'SF Mono',ui-monospace,Menlo,monospace;--red:#ff3b30;--blue:#0a84ff;--grn:#30d158;--ylw:#ffd60a;--line:#232323}
@@ -51,6 +52,7 @@ html,body{overflow-x:hidden}.clock>*,.cards>*{min-width:0}
 .tk button.dt{box-shadow:inset 0 -3px 0 var(--ylw)}.tk button.on.dt{box-shadow:inset 0 -3px 0 #000}
 .dayS{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);background:#0a0a0a;padding:7px 10px;margin:0 0 8px;font-size:13px;color:#bbb}.dayS b{color:#fff}.dayS .c{font:700 11px var(--m);letter-spacing:1px;padding:3px 7px;border:1px solid var(--line)}.dayS .c.late{color:var(--red);border-color:#6b2a26}.dayS .c.ok{color:var(--grn);border-color:#1f5a32}.dayS .c.early{color:var(--blue);border-color:#1d4a80}
 .pv{display:flex;gap:2px;flex-wrap:wrap;align-items:center;margin:0 0 8px}.pv button{border:1px solid var(--line);background:#0d0d0d;color:#999;border-radius:0;padding:7px 12px;font:600 13px var(--m)}.pv button.on{background:var(--ylw);color:#000;border-color:var(--ylw)}.pv span{margin-left:auto;font:600 11px var(--m);color:#666;letter-spacing:.5px}
+.seg.sx span{font-size:8.5px!important;letter-spacing:0;padding:0 1px}.seg.sx span.r.dn{background:#2a1110;color:#7a3a36}
 .none{color:#777;padding:20px 4px;font-size:14px}
 
 /* ---- 폰 가로 (카메라 리그용): 세로 화면을 반씩 — 왼쪽 썸네일(원본 비율)+샷 지시 · 오른쪽 시간 ---- */
@@ -127,7 +129,7 @@ function render(){
  if(!me){A.innerHTML='<h1>CAMERA CUE</h1><div class="sub">「교회를 사랑하는 건」 10/23 · 내 이름을 고르세요</div><div class="who">'+PEOPLE.map(([n,r])=>`<button data-me="${n}">${n}<small>${r}</small></button>`).join('')+'</div><div class="note">· 앵글표 최신 내용을 그대로 불러와요 (바뀌면 새로고침)<br>· 음악이 시작될 때 ▶ 시작을 누르면 1:38에 화면이 파랗게 바뀌어요</div>';return}
  const tk=TAKES[cur];if(!tk){A.innerHTML='<div class="none">앵글표를 못 불러왔어요</div>';return}
  const cs=tk.shared?tk.cells:tk.cells.filter(mine);const t=now();const phase=t<SW?'r':'b';
- const ph=t>=END?'e':(t<SW?'r':'b');LASTPH=ph;
+ const ph=phaseOf(t);LASTPH=ph;
  A.innerHTML=`<div class="bar"><b>CAM · ${esc(me==='전체'?'ALL':me)}<span class="live" id="liveB"></span></b>${ALL?'':'<button data-act="who">사람 바꾸기</button>'}</div>
  <div class="dayS" id="dayS">${dayStrip()}</div>
  <div class="clock" id="clock">${clockHtml(t)}</div>
@@ -140,21 +142,36 @@ function render(){
  <div class="row2"><button data-act="back">−5s</button><button data-act="fwd">+5s</button><button data-act="reset">RESET</button></div>`:''}
  <div class="row2"><button data-act="next">NEXT TAKE ›</button></div>`;liveBadge()}
 let LASTPH='';
+// ---- 구간별 지시 (shots-data.js) ----
+const SD=window.SHOTS||null;
+function secIdx(t){if(!SD)return -1;if(t<0)return -1;const i=SD.secs.findIndex(s=>t>=s.a&&t<s.b);return i<0?SD.secs.length:i}
+function phaseOf(t){return SD?'s'+secIdx(t):(t>=END?'e':(t<SW?'r':'b'))}
+function planCol(c){if(/레일/.test(c.cam))return 5;const m=c.cam.match(/^(\d)/);return m?+m[1]:0}
+function planShot(c,i){const col=planCol(c);const S=SD&&SD.secs[i];if(!S||!col)return null;return {sec:S,shot:S.s[col-1][0],img:'angles/ref/'+S.s[col-1][1]+'.jpg'}}
 function camTag(s){const m=s.match(/^(\S+)\s*(.*)$/)||['',s,''];const n=m[1].replace('🛤','').trim()||'RAIL';return [/레일/.test(s)?'RAIL':n,(/레일/.test(s)?s.replace(/🛤|레일/g,'').trim():m[2])]}
 function cardHtml(c,ph){const [n,who]=camTag(c.cam);
  if(!(c.red||c.blue))return `<div class="card s"><div class="im">${c.img?`<img src="${esc(c.img)}" alt="">`:''}<span class="tag">${esc(n)}</span><span class="nm">${esc(who)}</span></div><div class="cin"><div class="cur"><div class="d">${hlab(c.other)}</div></div></div></div>`;
+ if(SD){const t=now(),i=Math.max(0,Math.min(secIdx(t),SD.secs.length-1)),P=planShot(c,i),Q=planShot(c,i+1);if(P){
+  return `<div class="card r"><div class="im"><img src="${esc(P.img)}" alt=""><span class="tag">CAM ${esc(n)}</span><span class="nm">${esc(who)}</span></div><div class="cin">
+  <div class="cur"><div class="k2">● ${esc(P.sec.name)} · ${mmss(P.sec.a)} ~ ${mmss(P.sec.b)}</div><div class="d">${hlab(P.shot)}</div></div>
+  ${Q?`<div class="oth"><b>NEXT ${mmss(Q.sec.a)} ${esc(Q.sec.name)} ▸</b>${hlab(Q.shot)}</div>`:''}</div></div>`}}
  const b=ph!=='r';
  return `<div class="card ${b?'b':'r'}"><div class="im">${c.img?`<img src="${esc(c.img)}" alt="">`:''}<span class="tag">CAM ${esc(n)}</span><span class="nm">${esc(who)}</span></div><div class="cin">
  <div class="cur"><div class="k2">${b?'● ALL · 1:38 ~ END':'● SOLO · 0:00 ~ 1:38'}</div><div class="d">${hlab(b?c.blue:c.red)||'—'}</div></div>
  <div class="oth">${b?`<b>DONE</b>${hlab(c.red)||'—'}`:`<b>NEXT 1:38 ▸</b>${hlab(c.blue)||'—'}`}</div></div></div>`}
-function clockHtml(t){const red=t<SW,end=t>=END,a=red?0:SW,b=red?SW:END,rem=Math.max(0,b-t),pct=end?100:Math.min(100,Math.max(0,(t-a)/(b-a)*100));
+function clockHtml(t){if(SD)return clockSec(t);const red=t<SW,end=t>=END,a=red?0:SW,b=red?SW:END,rem=Math.max(0,b-t),pct=end?100:Math.min(100,Math.max(0,(t-a)/(b-a)*100));
  const tk=TAKES[cur]||{};
  return `<div class="ck"><div class="lb">Elapsed · TC</div><div class="tm"><span class="hh">${tc(t+COUNTIN).slice(0,3)}</span>${tc(t+COUNTIN).slice(3)}</div></div>
  <div class="mid"><div class="tl"><span class="lb" style="color:#aaa">${esc(tk.id||'')} · ${esc(tk.desc||'')}</span></div><div class="pg ${red?'':'b'}"><i style="width:${pct}%"></i></div>
  <div class="seg"><span class="r ${red?'on':'dn'}">● SOLO 0:00–1:38</span><span class="b ${end?'':(red?'nx':'on')}">● ALL 1:38–4:17</span></div></div>
  <div class="ck rt ${end?'e':(red?'':'b')}"><div class="lb">${end?'Song end':(red?'Next change in':'Song end in')}</div><div class="tm">${mmss(end?0:rem)}</div></div>`}
-function tick(){const t=now();const ph=t>=END?'e':(t<SW?'r':'b');if(LASTPH&&ph!==LASTPH&&me&&TAKES.length)render();else{const c=$('#clock');if(c)c.innerHTML=clockHtml(t)}const ds=$('#dayS');if(ds)ds.innerHTML=dayStrip();
- if(t>=SW&&!flashed){flashed=true;const f=$('#flash');f.classList.add('on');setTimeout(()=>f.classList.remove('on'),450);try{navigator.userActivation?.hasBeenActive&&navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}}
+function clockSec(t){const i=secIdx(t),pre=i<0,end=i>=SD.secs.length,S=SD.secs[Math.max(0,Math.min(i,SD.secs.length-1))];const rem=pre?-t:(end?0:S.b-t),pct=pre?0:(end?100:(t-S.a)/(S.b-S.a)*100);const tk=TAKES[cur]||{};
+ return `<div class="ck"><div class="lb">Elapsed · TC</div><div class="tm"><span class="hh">${tc(t+COUNTIN).slice(0,3)}</span>${tc(t+COUNTIN).slice(3)}</div></div>
+ <div class="mid"><div class="tl"><span class="lb" style="color:#aaa">${esc(tk.id||'')} · ${pre?'시작 전':(end?'곡 끝':esc(S.name)+' · '+esc(S.mood))}</span></div><div class="pg"><i style="width:${pct}%"></i></div>
+ <div class="seg sx">${SD.secs.map((x,j)=>`<span class="r ${j<i?'dn':(j===i?'on':'')}">${esc(x.name.replace(' · 클라이맥스',''))}</span>`).join('')}</div></div>
+ <div class="ck rt ${end?'e':''}"><div class="lb">${pre?'시작까지':(end?'Song end':'다음 구간까지')}</div><div class="tm">${mmss(rem)}</div></div>`}
+function tick(){const t=now();const ph=phaseOf(t);if(SD&&LASTPH&&ph!==LASTPH&&ph!=='s-1'){const f=$('#flash');f.classList.add('on');setTimeout(()=>f.classList.remove('on'),350)}if(LASTPH&&ph!==LASTPH&&me&&TAKES.length)render();else{const c=$('#clock');if(c)c.innerHTML=clockHtml(t)}const ds=$('#dayS');if(ds)ds.innerHTML=dayStrip();
+ if(!SD&&t>=SW&&!flashed){flashed=true;const f=$('#flash');f.classList.add('on');setTimeout(()=>f.classList.remove('on'),450);try{navigator.userActivation?.hasBeenActive&&navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}}
  if(t<SW)flashed=false}
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
  if(b.dataset.pv){me=b.dataset.pv;try{localStorage.setItem('vf-cam-pv',me)}catch(e){}render();return}
