@@ -105,7 +105,11 @@ function parseLn(html){const t=document.createElement('div');t.innerHTML=String(
  const m=txt.match(/~\s*1:38([\s\S]*?)(?=1:38\s*~|$)/),n=txt.match(/1:38\s*~([\s\S]*)$/);
  const clean=v=>(v||'').replace(/\s*\n\s*/g,' ').trim();
  const red=m?clean(m[1]):'',blue=n?clean(n[1]):'';return {red,blue,other:!red&&!blue?clean(txt):''}}
-function applyAng(){for(const tk of TAKES)for(const c of tk.cells){if(!c.base)c.base={cam:c.cam,img:c.img,red:c.red,blue:c.blue,other:c.other};const v=ANG[c.gi]||{};Object.assign(c,c.base);if(v.img)c.img=v.img;if(v.ln!=null)Object.assign(c,parseLn(v.ln));if(v.cn!=null){const t=document.createElement('div');t.innerHTML=v.cn;c.cam=[...t.childNodes].map(n=>n.textContent).join(' ').replace(/\s+/g,' ').trim()}}}
+function parseSegs(html){const t=document.createElement('div');t.innerHTML=String(html).replace(/<br\s*\/?>/gi,'\n').replace(/<\/?(div|p)[^>]*>/gi,'\n');const L=t.textContent.replace(/ /g,' ');
+ const out=[];const re=/(~\s*(\d{1,2}):(\d{2})|(\d{1,2}):(\d{2})\s*~)/g;let m,last=null;
+ while((m=re.exec(L))){if(last)last.text=L.slice(last.end,m.index).replace(/\s+/g,' ').trim();last={t:m[2]?0:(+m[4])*60+(+m[5]),end:re.lastIndex};out.push(last)}
+ if(last)last.text=L.slice(last.end).replace(/\s+/g,' ').trim();return out.filter(x=>x.text).map(x=>({t:x.t,text:x.text})).sort((a,b)=>a.t-b.t)}
+function applyAng(){for(const tk of TAKES)for(const c of tk.cells){if(!c.base)c.base={cam:c.cam,img:c.img,red:c.red,blue:c.blue,other:c.other};const v=ANG[c.gi]||{};Object.assign(c,c.base);if(v.img)c.img=v.img;c.segs=null;if(v.ln!=null){Object.assign(c,parseLn(v.ln));const sg=parseSegs(v.ln);if(sg.length)c.segs=sg}if(v.cn!=null){const t=document.createElement('div');t.innerHTML=v.cn;c.cam=[...t.childNodes].map(n=>n.textContent).join(' ').replace(/\s+/g,' ').trim()}}}
 async function load(){
  const h=await (await fetch('angles-web.html?v='+Date.now(),{cache:'no-store'})).text();
  const d=new DOMParser().parseFromString(h,'text/html');
@@ -145,12 +149,16 @@ let LASTPH='';
 // ---- 구간별 지시 (shots-data.js) ----
 const SD=window.SHOTS||null;
 function secIdx(t){if(!SD)return -1;if(t<0)return -1;const i=SD.secs.findIndex(s=>t>=s.a&&t<s.b);return i<0?SD.secs.length:i}
-function phaseOf(t){return SD?'s'+secIdx(t):(t>=END?'e':(t<SW?'r':'b'))}
+function phaseOf(t){const sg=TAKES.flatMap(x=>x.cells).filter(c=>c.segs).map(c=>{let k=-1;c.segs.forEach((x,j)=>{if(t>=x.t)k=j});return k}).join(',');return (SD?'s'+secIdx(t):(t>=END?'e':(t<SW?'r':'b')))+'|'+sg}
 function planCol(c){if(/레일/.test(c.cam))return 5;const m=c.cam.match(/^(\d)/);return m?+m[1]:0}
 function planShot(c,i){const col=planCol(c);const S=SD&&SD.secs[i];if(!S||!col)return null;return {sec:S,shot:S.s[col-1][0],img:'angles/ref/'+S.s[col-1][1]+'.jpg'}}
 function camTag(s){const m=s.match(/^(\S+)\s*(.*)$/)||['',s,''];const n=m[1].replace('🛤','').trim()||'RAIL';return [/레일/.test(s)?'RAIL':n,(/레일/.test(s)?s.replace(/🛤|레일/g,'').trim():m[2])]}
 function cardHtml(c,ph){const [n,who]=camTag(c.cam);
  if(!(c.red||c.blue))return `<div class="card s"><div class="im">${c.img?`<img src="${esc(c.img)}" alt="">`:''}<span class="tag">${esc(n)}</span><span class="nm">${esc(who)}</span></div><div class="cin"><div class="cur"><div class="d">${hlab(c.other)}</div></div></div></div>`;
+ if(c.segs&&c.segs.length){const t=now();let k=-1;c.segs.forEach((x,j)=>{if(t>=x.t)k=j});const ci=Math.max(0,k),C=c.segs[ci],N=c.segs[ci+1],end=N?N.t:257;
+  return `<div class="card r"><div class="im">${c.img?`<img src="${esc(c.img)}" alt="">`:''}<span class="tag">CAM ${esc(n)}</span><span class="nm">${esc(who)}</span></div><div class="cin">
+  <div class="cur"><div class="k2">● 구간 ${ci+1}/${c.segs.length} · ${mmss(C.t)} ~ ${mmss(end)}</div><div class="d">${hlab(C.text)}</div></div>
+  ${N?`<div class="oth"><b>NEXT ${mmss(N.t)} ▸</b>${hlab(N.text)}</div>`:''}</div></div>`}
  if(SD){const t=now(),i=Math.max(0,Math.min(secIdx(t),SD.secs.length-1)),P=planShot(c,i),Q=planShot(c,i+1);if(P){
   return `<div class="card r"><div class="im"><img src="${esc(P.img)}" alt=""><span class="tag">CAM ${esc(n)}</span><span class="nm">${esc(who)}</span></div><div class="cin">
   <div class="cur"><div class="k2">● ${esc(P.sec.name)} · ${mmss(P.sec.a)} ~ ${mmss(P.sec.b)}</div><div class="d">${hlab(P.shot)}</div></div>
@@ -170,7 +178,7 @@ function clockSec(t){const i=secIdx(t),pre=i<0,end=i>=SD.secs.length,S=SD.secs[M
  <div class="mid"><div class="tl"><span class="lb" style="color:#aaa">${esc(tk.id||'')} · ${pre?'시작 전':(end?'곡 끝':esc(S.name)+' · '+esc(S.mood))}</span></div><div class="pg"><i style="width:${pct}%"></i></div>
  <div class="seg sx">${SD.secs.map((x,j)=>`<span class="r ${j<i?'dn':(j===i?'on':'')}">${esc(x.name.replace(' · 클라이맥스',''))}</span>`).join('')}</div></div>
  <div class="ck rt ${end?'e':''}"><div class="lb">${pre?'시작까지':(end?'Song end':'다음 구간까지')}</div><div class="tm">${mmss(rem)}</div></div>`}
-function tick(){const t=now();const ph=phaseOf(t);if(SD&&LASTPH&&ph!==LASTPH&&ph!=='s-1'){const f=$('#flash');f.classList.add('on');setTimeout(()=>f.classList.remove('on'),350)}if(LASTPH&&ph!==LASTPH&&me&&TAKES.length)render();else{const c=$('#clock');if(c)c.innerHTML=clockHtml(t)}const ds=$('#dayS');if(ds)ds.innerHTML=dayStrip();
+function tick(){const t=now();const ph=phaseOf(t);if(SD&&LASTPH&&ph!==LASTPH&&!ph.startsWith('s-1|')){const f=$('#flash');f.classList.add('on');setTimeout(()=>f.classList.remove('on'),350)}if(LASTPH&&ph!==LASTPH&&me&&TAKES.length)render();else{const c=$('#clock');if(c)c.innerHTML=clockHtml(t)}const ds=$('#dayS');if(ds)ds.innerHTML=dayStrip();
  if(!SD&&t>=SW&&!flashed){flashed=true;const f=$('#flash');f.classList.add('on');setTimeout(()=>f.classList.remove('on'),450);try{navigator.userActivation?.hasBeenActive&&navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}}
  if(t<SW)flashed=false}
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
