@@ -218,6 +218,14 @@ service cloud.firestore {
         && request.resource.data.items is list && request.resource.data.items.size() <= 40
         && request.resource.data.at is int;
     }
+    // ON SET 배치판 (카메라·인원 배치, 장비) — 기기 간 동기화
+    match /live/{id} {
+      allow read: if id == 'mv1023board';
+      allow write: if id == 'mv1023board'
+        && request.resource.data.keys().hasOnly(['s', 'at', 'by'])
+        && request.resource.data.s is string && request.resource.data.s.size() < 800000
+        && request.resource.data.at is int && request.resource.data.by is string;
+    }
     // 연출석이 고른 테이크 → 촬영자 폰이 따라감
     match /live/{id} {
       allow read: if id == 'mv1023take';

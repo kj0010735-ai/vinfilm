@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow"><title>ON SET · 10/23 교회를 사랑하는 건</title>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-onset.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="ON SET"><meta name="theme-color" content="#111111">
 <style>
 :root{--ink:#111;--line:#dcdcdc;--soft:#f5f5f5;--accent:#d81f1f;--blue:#2f6fee}
@@ -174,7 +175,7 @@ html{background:#111}
 </style></head><body>
 <div class="bar" id="bar"><button id="hideBar" title="탭 숨기기">⌃</button>
 <div class="tabs" id="tabs"></div>
-<span class="ctl"><span class="grp"><button data-undo title="실행 취소 (⌘Z)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button><button data-redo title="다시 실행 (⇧⌘Z)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button></span><span class="grp"><button data-zoom="-1" title="축소"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg></button><b id="zmv">100%</b><button data-zoom="1" title="확대"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button></span><span class="grp"><button id="dkBoard" title="어둡게/밝게"></button><button id="reload" title="새로고침 (모든 탭 최신으로)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button></span></span></div>
+<span class="ctl"><span class="grp"><button data-undo title="실행 취소 (⌘Z)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button><button data-redo title="다시 실행 (⇧⌘Z)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button></span><span class="grp"><button data-zoom="-1" title="축소"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg></button><b id="zmv">100%</b><button data-zoom="1" title="확대"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button></span><span class="grp"><button id="cloudPush" title="이 기기의 배치를 모든 기기에 보내기"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H7a5 5 0 1 1 1.6-9.7A6 6 0 0 1 20 11a4 4 0 0 1-2.5 8z"/><path d="M12 12v6M9.5 14.5 12 12l2.5 2.5"/></svg></button><button id="dkBoard" title="어둡게/밝게"></button><button id="reload" title="새로고침 (모든 탭 최신으로)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button></span></span></div>
 <button id="showBar">☰ 탭</button>
 <div class="sheet">
 
@@ -276,9 +277,9 @@ document.addEventListener('pointerup',e=>{
  if(!MQ)return;const {map,x0,y0,d,add}=MQ;const bx=[Math.min(x0,e.clientX),Math.max(x0,e.clientX)],by=[Math.min(y0,e.clientY),Math.max(y0,e.clientY)];d.remove();MQ=null;
  if(!add)SEL.clear();if(bx[1]-bx[0]>4||by[1]-by[0]>4){map.querySelectorAll('[data-pf],[data-cam],[data-dir],[data-rail]').forEach(el=>{const b=el.getBoundingClientRect(),cx=b.left+b.width/2,cy=b.top+b.height/2;if(cx>=bx[0]&&cx<=bx[1]&&cy>=by[0]&&cy<=by[1])SEL.add(itKey(el))})}markSel()},true);
 addEventListener('keydown',e=>{if(e.key==='Escape'&&SEL.size){SEL.clear();markSel()}});
-const save=()=>{const now=JSON.stringify(S);if(LAST!==null&&now!==LAST){UND.push(LAST);if(UND.length>80)UND.shift();RED=[]}LAST=now;try{localStorage.setItem(KEY,now)}catch(e){}};
-function undo(){if(!UND.length)return;RED.push(JSON.stringify(S));S=JSON.parse(UND.pop());LAST=JSON.stringify(S);try{localStorage.setItem(KEY,LAST)}catch(e){};render();applyZoom()}
-function redo(){if(!RED.length)return;UND.push(JSON.stringify(S));S=JSON.parse(RED.pop());LAST=JSON.stringify(S);try{localStorage.setItem(KEY,LAST)}catch(e){};render();applyZoom()}
+const save=()=>{const now=JSON.stringify(S);if(LAST!==null&&now!==LAST){UND.push(LAST);if(UND.length>80)UND.shift();RED=[]}LAST=now;window.pushSoon&&pushSoon();try{localStorage.setItem(KEY,now)}catch(e){}};
+function undo(){if(!UND.length)return;RED.push(JSON.stringify(S));S=JSON.parse(UND.pop());LAST=JSON.stringify(S);window.pushSoon&&pushSoon();try{localStorage.setItem(KEY,LAST)}catch(e){};render();applyZoom()}
+function redo(){if(!RED.length)return;UND.push(JSON.stringify(S));S=JSON.parse(RED.pop());LAST=JSON.stringify(S);window.pushSoon&&pushSoon();try{localStorage.setItem(KEY,LAST)}catch(e){};render();applyZoom()}
 addEventListener('keydown',e=>{if(!(e.metaKey||e.ctrlKey)||e.key.toLowerCase()!=='z')return;if(e.target.closest&&e.target.closest('[contenteditable],input,textarea'))return;e.preventDefault();e.shiftKey?redo():undo()});
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const cap=n=>{const m=/×\s*(\d+)/.exec(n||'');return m?+m[1]:1};
@@ -381,4 +382,15 @@ const ap=()=>{document.body.classList.toggle('dk',on);b.innerHTML=on?"<svg viewB
 b.onclick=()=>{on=!on;try{localStorage.setItem(K,on?'1':'0')}catch(e){}ap()};
 addEventListener('storage',e=>{if(e.key===K){on=e.newValue==='1';ap()}});
 document.addEventListener('click',e=>{if(e.target.id!=='dkBoard')setTimeout(()=>{try{on=localStorage.getItem(K)==='1'}catch(e){};ap()},300)},true);
-})();</script></body></html>
+})();</script><script>
+// 배치판 기기 간 동기화 (live/mv1023board) — 보고 있는 탭은 기기마다 따로
+let SYNC_ON=false,PUSH_T=null,LAST_AT=0;const DEV=(()=>{let d;try{d=localStorage.getItem('vf-dev')||Math.random().toString(36).slice(2,10);localStorage.setItem('vf-dev',d);try{SYNC_ON=localStorage.getItem('vf-board-sync')==='1'}catch(e){}}catch(e){d='x'}return d})();
+let bref=null;try{firebase.initializeApp({apiKey:"AIzaSyAVJ6ZZ6L-3RtgoYe2dDSn_lCHXv3CeBGc",projectId:"vinfilm-studio-app"});bref=firebase.firestore().doc('live/mv1023board')}catch(e){}
+function boardJSON(){const o=JSON.parse(JSON.stringify(S));delete o.tab;return JSON.stringify(o)}
+function pushNow(){if(!bref)return;const at=Date.now();LAST_AT=at;bref.set({s:boardJSON(),at,by:DEV}).catch(e=>console.warn(e))}
+window.pushSoon=function(){if(!SYNC_ON||!bref)return;clearTimeout(PUSH_T);PUSH_T=setTimeout(pushNow,1200)}
+if(bref)bref.onSnapshot(sn=>{const d=sn.data();if(!d||!d.s||d.by===DEV||d.at<=LAST_AT)return;LAST_AT=d.at;
+  if(document.body.classList.contains('dragging')||document.querySelector('.map .drag'))return;
+  try{const r=JSON.parse(d.s);r.tab=S.tab;S=r;LAST=JSON.stringify(S);localStorage.setItem(KEY,LAST);SYNC_ON=true;localStorage.setItem('vf-board-sync','1');render();applyZoom()}catch(e){}},()=>{});
+document.getElementById('cloudPush').onclick=()=>{if(!confirm('지금 이 기기의 배치·카메라·장비 설정을 모든 기기(아이패드·맥)에 보낼까요?\n다른 기기의 배치는 이걸로 바뀌어요. 이후에는 자동으로 맞춰져요.'))return;SYNC_ON=true;try{localStorage.setItem('vf-board-sync','1')}catch(e){}pushNow();alert('보냈어요. 다른 기기에서 열면 같은 배치로 바뀌어요.')};
+</script></body></html>
