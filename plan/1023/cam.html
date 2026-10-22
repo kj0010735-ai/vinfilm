@@ -68,6 +68,7 @@ html,body{overflow-x:hidden}.clock>*,.cards>*{min-width:0}
  .ttl,.dir span{display:none}.dir{padding:4px 8px;margin-bottom:4px}
  #app>.cards,#app>.dir{grid-column:1}
  .card{display:block;border-width:3px;position:relative;height:calc(100vh - 78px);min-height:220px;overflow:hidden}
+ #app>.dir~.cards .card{height:calc(100vh - 116px)}
  .card .im{position:absolute;inset:0}.card .im img{width:100%;height:100%;object-fit:cover;aspect-ratio:auto}
  .card .im::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 30%,rgba(0,0,0,.72) 58%,#000 92%)}
  .card .im .tag,.card .im .nm{z-index:2}.card .im .nm{font-size:12px}
