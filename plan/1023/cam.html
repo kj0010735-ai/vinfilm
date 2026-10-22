@@ -99,7 +99,8 @@ async function load(){
  d.querySelectorAll('.row').forEach(r=>{const tk=r.querySelector('.tk');if(!tk)return;let id=tk.querySelector('b')?.textContent.trim(),desc=tk.querySelector('span')?.textContent.trim()||'';
   const cells=[...r.querySelectorAll('.c')].map(c=>{const cn=c.querySelector('.cn'),ln=c.querySelector('.ln');
    const lines=ln?ln.innerHTML.split(/<br\s*\/?>/i).map(x=>{const t=document.createElement('div');t.innerHTML=x;return t.textContent.trim()}):[];
-   const red=(lines.find(l=>/^~?1:38/.test(l)&&l.startsWith('~'))||'').replace(/^~1:38\s*/,''),blue=(lines.find(l=>/^1:38~/.test(l))||'').replace(/^1:38~\s*/,'');
+   let red=(lines.find(l=>/^~?1:38/.test(l)&&l.startsWith('~'))||'').replace(/^~1:38\s*/,''),blue=(lines.find(l=>/^1:38~/.test(l))||'').replace(/^1:38~\s*/,'');
+   const _e=v=>/^[—\-–\s]*$/.test(v)?'':v;red=_e(red);blue=_e(blue);
    const other=!red&&!blue?(ln?ln.textContent.trim():''):'';
    return {cam:cn?[...cn.childNodes].map(n=>n.textContent).join(' ').replace(/\s+/g,' ').trim():'',img:c.querySelector('img')?.getAttribute('src'),red,blue,other}});
   if(!id){const ks=cells.map(c=>c.cam.split(' ')[0]);id=ks[0]+'–'+ks[ks.length-1];desc='창의 앵글 · 인서트 (해당 구간만 · 감독 지시로 나눠 찍기)'}
