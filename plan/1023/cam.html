@@ -110,7 +110,7 @@ function parseSegs(html){const t=document.createElement('div');t.innerHTML=Strin
  const out=[];const re=/(~\s*(\d{1,2}):(\d{2})|(\d{1,2}):(\d{2})\s*~)/g;let m,last=null;
  while((m=re.exec(L))){if(last)last.text=L.slice(last.end,m.index).replace(/\s+/g,' ').trim();last={t:m[2]?0:(+m[4])*60+(+m[5]),end:re.lastIndex};out.push(last)}
  if(last)last.text=L.slice(last.end).replace(/\s+/g,' ').trim();return out.filter(x=>x.text).map(x=>({t:x.t,text:x.text})).sort((a,b)=>a.t-b.t)}
-function applyAng(){for(const tk of TAKES)for(const c of tk.cells){if(!c.base)c.base={cam:c.cam,img:c.img,red:c.red,blue:c.blue,other:c.other};const v=ANG[c.gi]||{};Object.assign(c,c.base);if(v.img)c.img=v.img;c.tagL=v.tag||'';c.segs=null;if(v.ln!=null)Object.assign(c,parseLn(v.ln));{const sg=parseSegs(v.ln!=null?v.ln:(c.lnH||''));if(sg.length)c.segs=sg}if(v.cn!=null){const t=document.createElement('div');t.innerHTML=v.cn;c.cam=[...t.childNodes].map(n=>n.textContent).join(' ').replace(/\s+/g,' ').trim()}}}
+function applyAng(){for(const tk of TAKES)for(const c of tk.cells){if(!c.base)c.base={cam:c.cam,img:c.img,red:c.red,blue:c.blue,other:c.other};const v=ANG[c.gi]||{};Object.assign(c,c.base);if(v.img)c.img=v.img;c.tagL=v.tag||'';c.si=v.si||null;c.segs=null;if(v.ln!=null)Object.assign(c,parseLn(v.ln));{const sg=parseSegs(v.ln!=null?v.ln:(c.lnH||''));if(sg.length)c.segs=sg}if(v.cn!=null){const t=document.createElement('div');t.innerHTML=v.cn;c.cam=[...t.childNodes].map(n=>n.textContent).join(' ').replace(/\s+/g,' ').trim()}}}
 async function load(){
  const h=await (await fetch('angles-web.html?v='+Date.now(),{cache:'no-store'})).text();
  const d=new DOMParser().parseFromString(h,'text/html');
@@ -163,9 +163,9 @@ function planShot(c,i){const col=planCol(c);const S=SD&&SD.secs[i];if(!S||!col)r
 function camTag(s){const m=s.match(/^(\S+)\s*(.*)$/)||['',s,''];const n=m[1].replace('🛤','').trim()||'RAIL';return [/레일/.test(s)?'RAIL':n,(/레일/.test(s)?s.replace(/🛤|레일/g,'').trim():m[2])]}
 function cardHtml(c,ph){const [n,who]=camTag(c.cam);
  if(!(c.red||c.blue))return `<div class="card s"><div class="im">${c.img?`<img src="${esc(c.img)}" alt="">`:''}<span class="tag">${esc(n)}</span><span class="nm">${esc(who)}</span></div><div class="cin"><div class="cur"><div class="d">${hlab(c.other)}</div></div></div></div>`;
- if(c.segs&&c.segs.length){const t=now();let k=-1;c.segs.forEach((x,j)=>{if(t>=x.t)k=j});const ci=Math.max(0,k),C=c.segs[ci],N=c.segs[ci+1],end=N?N.t:257;
-  return `<div class="card r"><div class="im">${c.img?`<img src="${esc(c.img)}" alt="">`:''}<span class="tag">CAM ${esc(n)}</span><span class="nm">${esc(who)}</span></div><div class="cin">
-  <div class="cur"><div class="k2">● 구간 ${ci+1}/${c.segs.length} · ${mmss(C.t)} ~ ${mmss(end)}</div><div class="d">${hlab(C.text)}</div>${c.tagL?`<div class="gearc" style="color:#ffd60a;border-color:rgba(255,214,10,.5);background:rgba(255,214,10,.12);margin-right:4px">${esc(c.tagL)}</div>`:''}${(()=>{const g=__gear(BOARD,(TAKES[cur]||{}).id||'',c.cam);return g?`<div class="gearc">🎥 ${esc(g)}</div>`:''})()}</div>
+ if(c.segs&&c.segs.length){const t=now();let k=-1;c.segs.forEach((x,j)=>{if(t>=x.t)k=j});const ci=Math.max(0,k),C=c.segs[ci],N=c.segs[ci+1],end=N?N.t:257;const SP=ci>0&&c.si&&c.si[ci],IMG=SP?SP.img:c.img,TG=SP?(SP.tag||''):c.tagL;
+  return `<div class="card r"><div class="im">${IMG?`<img src="${esc(IMG)}" alt="">`:''}<span class="tag">CAM ${esc(n)}</span><span class="nm">${esc(who)}</span></div><div class="cin">
+  <div class="cur"><div class="k2">● 구간 ${ci+1}/${c.segs.length} · ${mmss(C.t)} ~ ${mmss(end)}</div><div class="d">${hlab(C.text)}</div>${TG?`<div class="gearc" style="color:#ffd60a;border-color:rgba(255,214,10,.5);background:rgba(255,214,10,.12);margin-right:4px">${esc(TG)}</div>`:''}${(()=>{const g=__gear(BOARD,(TAKES[cur]||{}).id||'',c.cam);return g?`<div class="gearc">🎥 ${esc(g)}</div>`:''})()}</div>
   ${N?`<div class="oth"><b>NEXT ${mmss(N.t)} ▸</b>${hlab(N.text)}</div>`:''}</div></div>`}
  if(false){const t=now(),i=0,P=null,Q=null;if(P){
   return `<div class="card r"><div class="im"><img src="${esc(P.img)}" alt=""><span class="tag">CAM ${esc(n)}</span><span class="nm">${esc(who)}</span></div><div class="cin">
