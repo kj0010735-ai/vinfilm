@@ -53,6 +53,7 @@ html,body{overflow-x:hidden}.clock>*,.cards>*{min-width:0}
 .dayS{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);background:#0a0a0a;padding:7px 10px;margin:0 0 8px;font-size:13px;color:#bbb}.dayS b{color:#fff}.dayS .c{font:700 11px var(--m);letter-spacing:1px;padding:3px 7px;border:1px solid var(--line)}.dayS .c.late{color:var(--red);border-color:#6b2a26}.dayS .c.ok{color:var(--grn);border-color:#1f5a32}.dayS .c.early{color:var(--blue);border-color:#1d4a80}
 .pv{display:flex;gap:2px;flex-wrap:wrap;align-items:center;margin:0 0 8px}.pv button{border:1px solid var(--line);background:#0d0d0d;color:#999;border-radius:0;padding:7px 12px;font:600 13px var(--m)}.pv button.on{background:var(--ylw);color:#000;border-color:var(--ylw)}.pv span{margin-left:auto;font:600 11px var(--m);color:#666;letter-spacing:.5px}
 .seg.sx span{font-size:8.5px!important;letter-spacing:0;padding:0 1px}.seg.sx span.r.dn{background:#2a1110;color:#7a3a36}
+.gearc{display:inline-block;margin-top:6px;font:700 12px var(--m);color:#9ad1ff;background:rgba(10,132,255,.18);border:1px solid rgba(10,132,255,.45);padding:2px 7px}
 .none{color:#777;padding:20px 4px;font-size:14px}
 
 /* ---- 폰 가로 (카메라 리그용): 세로 화면을 반씩 — 왼쪽 썸네일(원본 비율)+샷 지시 · 오른쪽 시간 ---- */
@@ -146,6 +147,13 @@ function render(){
  <div class="row2"><button data-act="back">−5s</button><button data-act="fwd">+5s</button><button data-act="reset">RESET</button></div>`:''}
  <div class="row2"><button data-act="next">NEXT TAKE ›</button></div>`;liveBadge()}
 let LASTPH='';
+// ---- 카메라·렌즈 표시 (배치판 live/mv1023board 의 카메라 설정에서) ----
+window.__gear=function(board,rowId,camText){if(!board||!board.ph)return '';const ph=/^R/.test(rowId)?'rail':(/^T/.test(rowId)?'base':'crea');const cams=board.ph[ph]||[];
+ const short=v=>String(v||'').replace(/^(VINFILM|교회|칠렌탈|박완준|문호준|최영민)\s+/,'').replace(/\s*·.*$/,'');
+ let c=null;if(/레일/.test(camText))c=cams.find(x=>/펀치달리|레일/.test(x.sup||''));
+ if(!c){const m=String(camText).match(/^(\d)/);const names=['윤관','김창훈','박완준','문호준','최영민'];const nm=names.find(n=>camText.includes(n));c=cams.find(x=>nm&&String(x.op||'').includes(nm))||(m?cams.find(x=>+x.n===+m[1]):null)}
+ if(!c||!c.body)return '';return short(c.body)+(c.lens?' · '+short(c.lens):'')};
+let BOARD=null;
 // ---- 구간별 지시 (shots-data.js) ----
 const SD=window.SHOTS||null;
 function secIdx(t){if(!SD)return -1;if(t<0)return -1;const i=SD.secs.findIndex(s=>t>=s.a&&t<s.b);return i<0?SD.secs.length:i}
@@ -157,7 +165,7 @@ function cardHtml(c,ph){const [n,who]=camTag(c.cam);
  if(!(c.red||c.blue))return `<div class="card s"><div class="im">${c.img?`<img src="${esc(c.img)}" alt="">`:''}<span class="tag">${esc(n)}</span><span class="nm">${esc(who)}</span></div><div class="cin"><div class="cur"><div class="d">${hlab(c.other)}</div></div></div></div>`;
  if(c.segs&&c.segs.length){const t=now();let k=-1;c.segs.forEach((x,j)=>{if(t>=x.t)k=j});const ci=Math.max(0,k),C=c.segs[ci],N=c.segs[ci+1],end=N?N.t:257;
   return `<div class="card r"><div class="im">${c.img?`<img src="${esc(c.img)}" alt="">`:''}<span class="tag">CAM ${esc(n)}</span><span class="nm">${esc(who)}</span></div><div class="cin">
-  <div class="cur"><div class="k2">● 구간 ${ci+1}/${c.segs.length} · ${mmss(C.t)} ~ ${mmss(end)}</div><div class="d">${hlab(C.text)}</div></div>
+  <div class="cur"><div class="k2">● 구간 ${ci+1}/${c.segs.length} · ${mmss(C.t)} ~ ${mmss(end)}</div><div class="d">${hlab(C.text)}</div>${(()=>{const g=__gear(BOARD,(TAKES[cur]||{}).id||'',c.cam);return g?`<div class="gearc">🎥 ${esc(g)}</div>`:''})()}</div>
   ${N?`<div class="oth"><b>NEXT ${mmss(N.t)} ▸</b>${hlab(N.text)}</div>`:''}</div></div>`}
  if(false){const t=now(),i=0,P=null,Q=null;if(P){
   return `<div class="card r"><div class="im"><img src="${esc(P.img)}" alt=""><span class="tag">CAM ${esc(n)}</span><span class="nm">${esc(who)}</span></div><div class="cin">
@@ -227,6 +235,7 @@ setInterval(()=>{const ds=$('#dayS');if(ds)ds.innerHTML=dayStrip()},5000);
 if(DIRECTOR){const sc=document.createElement('script');sc.src='rundown-auto.js?v=3';document.body.appendChild(sc)}
 if(DIRECTOR)document.body.classList.add('director');
 try{firebase.firestore().doc('live/mv1023angles').onSnapshot(sn=>{const d=sn.data();try{ANG=d&&d.s?JSON.parse(d.s):{}}catch(e){ANG={}}if(TAKES.length){applyAng();render()}},()=>{})}catch(e){}
+try{firebase.firestore().doc('live/mv1023board').onSnapshot(sn=>{const d=sn.data();try{BOARD=d&&d.s?JSON.parse(d.s):null}catch(e){}if(TAKES.length)render()},()=>{})}catch(e){}
 load().catch(()=>{$('#app').innerHTML='<div class="none">앵글표를 못 불러왔어요. 인터넷 연결을 확인해 주세요.</div>'});
 </script><script>
 // 새 버전이 올라오면 자동 새로고침 (음악 재생 중이 아닐 때) — 1분마다 확인
