@@ -175,4 +175,11 @@ try{firebase.initializeApp({apiKey:"AIzaSyAVJ6ZZ6L-3RtgoYe2dDSn_lCHXv3CeBGc",pro
  ref().onSnapshot(sn=>{const d=sn.data()||{};ST={ph:d.ph||{},ck:d.ck||{},rt:d.rt||{}};OK=true;render()},()=>{OK=false;render()})}catch(e){}
 render();setInterval(render,1000);
 if(DIR){const sc=document.createElement('script');sc.src='rundown-auto.js?v=3';document.body.appendChild(sc)}
+</script><script>
+// 새 버전이 올라오면 자동 새로고침 (음악 재생 중이 아닐 때) — 1분마다 확인
+(function(){let first=null;const me=location.pathname.split('/').pop()||'cam.html';
+ async function chk(){try{const t=await (await fetch(me+'?_='+Date.now(),{cache:'no-store'})).text();const h=t.length+':'+t.slice(-400);
+  if(first===null){first=h;return}
+  if(h!==first){const playing=window.LIVE&&LIVE.playing;if(!playing&&!document.querySelector('input:focus,select:focus'))location.reload();}}catch(e){}}
+ chk();setInterval(chk,60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)chk()});})();
 </script></body></html>

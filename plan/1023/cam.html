@@ -185,4 +185,11 @@ setInterval(()=>{const ds=$('#dayS');if(ds)ds.innerHTML=dayStrip()},5000);
 if(DIRECTOR){const sc=document.createElement('script');sc.src='rundown-auto.js?v=3';document.body.appendChild(sc)}
 if(DIRECTOR)document.body.classList.add('director');
 load().catch(()=>{$('#app').innerHTML='<div class="none">앵글표를 못 불러왔어요. 인터넷 연결을 확인해 주세요.</div>'});
+</script><script>
+// 새 버전이 올라오면 자동 새로고침 (음악 재생 중이 아닐 때) — 1분마다 확인
+(function(){let first=null;const me=location.pathname.split('/').pop()||'cam.html';
+ async function chk(){try{const t=await (await fetch(me+'?_='+Date.now(),{cache:'no-store'})).text();const h=t.length+':'+t.slice(-400);
+  if(first===null){first=h;return}
+  if(h!==first){const playing=window.LIVE&&LIVE.playing;if(!playing&&!document.querySelector('input:focus,select:focus'))location.reload();}}catch(e){}}
+ chk();setInterval(chk,60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)chk()});})();
 </script></body></html>
