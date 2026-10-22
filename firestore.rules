@@ -226,6 +226,14 @@ service cloud.firestore {
         && request.resource.data.s is string && request.resource.data.s.size() < 800000
         && request.resource.data.at is int && request.resource.data.by is string;
     }
+    // ON SET 앵글표 수정 내용 (칸별 문구·사진) — 모든 기기 + 촬영자 화면
+    match /live/{id} {
+      allow read: if id == 'mv1023angles';
+      allow write: if id == 'mv1023angles'
+        && request.resource.data.keys().hasOnly(['s', 'at', 'by'])
+        && request.resource.data.s is string && request.resource.data.s.size() < 900000
+        && request.resource.data.at is int && request.resource.data.by is string;
+    }
     // 연출석이 고른 테이크 → 촬영자 폰이 따라감
     match /live/{id} {
       allow read: if id == 'mv1023take';

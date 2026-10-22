@@ -93,18 +93,23 @@ const MANUAL=new URLSearchParams(location.search).has('manual'); // 연동이 �
 const PEOPLE=[['윤관','레일 카메라 · T 5번'],['김창훈','레일 밀기 · T 1번 정면'],['박완준','2번 측면'],['문호준','3번 망원'],['최영민','4번 오케스트라'],['전체','모든 카메라 보기']];
 let TAKES=[],me=ALL?((()=>{try{return localStorage.getItem('vf-cam-pv')}catch(e){}})()||'전체'):(localStorage.getItem('vf-cam-me')||''),cur=+localStorage.getItem('vf-cam-take')||0,t0=null,timer=null,offset=-4.83,flashed=false;
 const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let GI=0,ANG={};
+function parseLn(html){const lines=html.split(/<br\s*\/?>/i).map(x=>{const t=document.createElement('div');t.innerHTML=x;return t.textContent.trim()});
+ let red=(lines.find(l=>/^~1:38/.test(l))||'').replace(/^~1:38\s*/,''),blue=(lines.find(l=>/^1:38~/.test(l))||'').replace(/^1:38~\s*/,'');
+ const t=document.createElement('div');t.innerHTML=html;return {red,blue,other:!red&&!blue?t.textContent.trim():''}}
+function applyAng(){for(const tk of TAKES)for(const c of tk.cells){if(!c.base)c.base={cam:c.cam,img:c.img,red:c.red,blue:c.blue,other:c.other};const v=ANG[c.gi]||{};Object.assign(c,c.base);if(v.img)c.img=v.img;if(v.ln!=null)Object.assign(c,parseLn(v.ln));if(v.cn!=null){const t=document.createElement('div');t.innerHTML=v.cn;c.cam=t.textContent.replace(/\s+/g,' ').trim()}}}
 async function load(){
  const h=await (await fetch('angles-web.html?v='+Date.now(),{cache:'no-store'})).text();
  const d=new DOMParser().parseFromString(h,'text/html');
  d.querySelectorAll('.row').forEach(r=>{const tk=r.querySelector('.tk');if(!tk)return;let id=tk.querySelector('b')?.textContent.trim(),desc=tk.querySelector('span')?.textContent.trim()||'';
-  const cells=[...r.querySelectorAll('.c')].map(c=>{const cn=c.querySelector('.cn'),ln=c.querySelector('.ln');
+  const cells=[...r.querySelectorAll('.c')].map(c=>{const cn=c.querySelector('.cn'),ln=c.querySelector('.ln');const gi=GI++;
    const lines=ln?ln.innerHTML.split(/<br\s*\/?>/i).map(x=>{const t=document.createElement('div');t.innerHTML=x;return t.textContent.trim()}):[];
    let red=(lines.find(l=>/^~?1:38/.test(l)&&l.startsWith('~'))||'').replace(/^~1:38\s*/,''),blue=(lines.find(l=>/^1:38~/.test(l))||'').replace(/^1:38~\s*/,'');
    const other=!red&&!blue?(ln?ln.textContent.trim():''):'';
-   return {cam:cn?[...cn.childNodes].map(n=>n.textContent).join(' ').replace(/\s+/g,' ').trim():'',img:c.querySelector('img')?.getAttribute('src'),red,blue,other}});
+   return {gi,cnH:cn?cn.innerHTML:'',lnH:ln?ln.innerHTML:'',cam:cn?[...cn.childNodes].map(n=>n.textContent).join(' ').replace(/\s+/g,' ').trim():'',img:c.querySelector('img')?.getAttribute('src'),red,blue,other}});
   if(!id){const ks=cells.map(c=>c.cam.split(' ')[0]);id=ks[0]+'–'+ks[ks.length-1];desc='창의 앵글 · 인서트 (해당 구간만 · 감독 지시로 나눠 찍기)'}
   TAKES.push({id,desc,cells,shared:!tk.querySelector('b')})});
- if(cur>=TAKES.length)cur=0;if(DTAKE&&!DIRECTOR){const i=TAKES.findIndex(x=>x.id===DTAKE);if(i>=0)cur=i}render()}
+ applyAng();if(cur>=TAKES.length)cur=0;if(DTAKE&&!DIRECTOR){const i=TAKES.findIndex(x=>x.id===DTAKE);if(i>=0)cur=i}render()}
 function mine(c){if(me==='전체')return true;const s=c.cam;if(me==='윤관')return /윤관|레일/.test(s)&&!/밀기/.test(s);if(me==='김창훈')return /김창훈|레일/.test(s);return s.includes(me)}
 function hlab(t){const s=esc(t);return s.replace(/(^|[^A-Za-z0-9])([A-Z][A-Z0-9\-\/]{1,7}|[1-3]S|OTS|POV)(?![A-Za-z0-9])/g,(m,a,k)=>a+'<span class="sh">'+k+'</span>')}
 function tc(s){s=Math.max(0,s);const h=Math.floor(s/3600),m=Math.floor(s/60)%60,x=Math.floor(s%60);return [h,m,x].map(v=>String(v).padStart(2,'0')).join(':')}
@@ -184,6 +189,7 @@ try{firebase.firestore().doc('live/mv1023day').onSnapshot(sn=>{DS={ph:(sn.data()
 setInterval(()=>{const ds=$('#dayS');if(ds)ds.innerHTML=dayStrip()},5000);
 if(DIRECTOR){const sc=document.createElement('script');sc.src='rundown-auto.js?v=3';document.body.appendChild(sc)}
 if(DIRECTOR)document.body.classList.add('director');
+try{firebase.firestore().doc('live/mv1023angles').onSnapshot(sn=>{const d=sn.data();try{ANG=d&&d.s?JSON.parse(d.s):{}}catch(e){ANG={}}if(TAKES.length){applyAng();render()}},()=>{})}catch(e){}
 load().catch(()=>{$('#app').innerHTML='<div class="none">앵글표를 못 불러왔어요. 인터넷 연결을 확인해 주세요.</div>'});
 </script><script>
 // 새 버전이 올라오면 자동 새로고침 (음악 재생 중이 아닐 때) — 1분마다 확인
