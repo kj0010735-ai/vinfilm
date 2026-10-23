@@ -232,6 +232,14 @@ if ('launchQueue' in window) launchQueue.setConsumer(function (p) {
     .sf-month-input { flex:1; }
   }
   html { touch-action: manipulation; }
+
+  .sf-sort { display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-size:13px; color:var(--sf-text-dim); }
+  .sf-sort-btn { font:inherit; font-size:13px; padding:5px 11px; border-radius:999px; border:1px solid var(--sf-border); background:transparent; color:inherit; cursor:pointer; }
+  .sf-sort-btn.on { border-color:var(--sf-blue); color:var(--sf-blue); font-weight:700; }
+  .sf-next-guess { font-size:12px; color:var(--sf-text-dim); white-space:nowrap; }
+  .sf-subs-list-head { flex-wrap:wrap; gap:10px; }
+
+  .sf-expired-toggle { padding:10px 16px 14px; }
 </style>
 </head>
 <body>
@@ -335,6 +343,8 @@ const S = {
   subConfirmDeleteId: null,
   subPrefillService: '',
   rateModalOpen: false,
+  showExpired: false,
+  subSort: (() => { try { return localStorage.getItem('sf-sub-sort') || 'next'; } catch (e) { return 'next'; } })(),
 };
 
 function saveEntries(next) {
@@ -660,15 +670,55 @@ function subsRowHtml(s) {
       <td><div class="sf-cell-main">${esc(s.service)}</div><div class="sf-cell-sub">${esc(s.plan) || '요금제 미입력'}</div></td>
       <td><div class="sf-cell-amount">${amountFmt}</div><div class="sf-cell-sub">${s.billingCycle === 'yearly' ? '연간 결제' : '월간 결제'}</div></td>
       <td><div class="sf-cell-amount">${monthlyFmt}</div>${krwSub}</td>
-      <td><div class="sf-cell-main">${s.nextPaymentDate}</div><div class="sf-cell-sub"><span class="sf-badge ${dday.cls}">${dday.text}</span></div></td>
+      <td>${s.status === 'cancelled' ? subExpiryCell(s) : `<div class="sf-cell-main">${s.nextPaymentDate}</div><div class="sf-cell-sub"><span class="sf-badge ${dday.cls}">${dday.text}</span>${subUpcoming(s) && subUpcoming(s) !== s.nextPaymentDate ? ` <span class="sf-next-guess">→ 예상 ${subUpcoming(s).slice(5).replace('-', '/')}</span>` : ''}</div>`}</td>
       <td><span class="sf-badge ${statusMeta.cls}">${statusMeta.label}</span></td>
       <td>${esc(s.paymentMethod) || '—'}</td>
       <td><button class="sf-edit-btn" data-action="sf-open-sub-edit" data-id="${s.id}">수정</button></td>
     </tr>`;
 }
 
+/* 정렬(2026-10-23): 다음 결제일(지난 날짜는 결제 주기만큼 앞으로 굴린 예상일) · 매달 결제일(1~31일) · 월 금액(원화 환산) · 이름 · 상태 */
+const SUB_SORTS = [
+  { id: 'next', label: '다음 결제일' },
+  { id: 'day', label: '매달 결제일' },
+  { id: 'amount', label: '금액 큰 순' },
+  { id: 'name', label: '이름' },
+  { id: 'status', label: '상태' },
+];
+function subUpcoming(s) { // 저장된 다음 결제일이 지났으면 월간은 한 달, 연간은 1년씩 오늘 이후로 굴린 날짜
+  const d = s.nextPaymentDate; if (!/^\d{4}-\d{2}-\d{2}$/.test(d || '')) return '';
+  const [y, m, dd] = d.split('-').map(Number), today = todayStr();
+  let yy = y, mm = m, n = 0, cur = d;
+  while (cur < today && n < 240) {
+    if (s.billingCycle === 'yearly') yy++; else { mm++; if (mm > 12) { mm = 1; yy++; } }
+    const last = new Date(yy, mm, 0).getDate();
+    cur = `${yy}-${String(mm).padStart(2, '0')}-${String(Math.min(dd, last)).padStart(2, '0')}`; n++;
+  }
+  return cur;
+}
+function subMonthlyKrw(s) { const m = s.billingCycle === 'yearly' ? (s.amount || 0) / 12 : (s.amount || 0); return s.currency === 'USD' ? m * (settings.usdKrwRate || 0) : m; }
+/* 해지 구독: 만료일까지 사용 가능 — 남은 날 표시, 만료가 지나면 목록에서 숨김(아래 '만료된 구독 보기'로 펼침) */
+function subExpired(s) { return s.status === 'cancelled' && !!s.expiresAt && s.expiresAt < todayStr(); }
+function subExpiryCell(s) {
+  if (!s.expiresAt) return `<div class="sf-cell-main">—</div><div class="sf-cell-sub">만료일 미입력</div>`;
+  const d = daysUntil(s.expiresAt);
+  const badge = d < 0 ? '<span class="sf-badge gray">만료됨</span>' : d === 0 ? '<span class="sf-badge amber">오늘까지</span>' : `<span class="sf-badge ${d <= 7 ? 'amber' : 'green'}">${d}일 남음</span>`;
+  return `<div class="sf-cell-main">~${s.expiresAt} 사용</div><div class="sf-cell-sub">${badge}</div>`;
+}
+function sortedSubs() {
+  const rank = { active: 0, paused: 1, cancelled: 2 }, by = S.subSort;
+  return subs.filter(x => S.showExpired || !subExpired(x)).sort((a, b) => {
+    if (by === 'day') return (Number((a.nextPaymentDate || '').slice(8, 10)) || 99) - (Number((b.nextPaymentDate || '').slice(8, 10)) || 99) || (a.service || '').localeCompare(b.service || '', 'ko');
+    if (by === 'amount') return subMonthlyKrw(b) - subMonthlyKrw(a);
+    if (by === 'name') return (a.service || '').localeCompare(b.service || '', 'ko');
+    if (by === 'status') return (rank[a.status] ?? 0) - (rank[b.status] ?? 0) || (subUpcoming(a) || '9').localeCompare(subUpcoming(b) || '9');
+    // 다음 결제일: 해지는 맨 아래, 나머지는 예상 다음 결제일이 가까운 순
+    return ((a.status === 'cancelled') - (b.status === 'cancelled')) || (subUpcoming(a) || '9').localeCompare(subUpcoming(b) || '9');
+  });
+}
+
 function subsTabHtml() {
-  const list = [...subs].sort((a, b) => (a.nextPaymentDate || '').localeCompare(b.nextPaymentDate || ''));
+  const list = sortedSubs();
   return `
     <div class="sf-subs-head">
       <h2>디지털 월세</h2>
@@ -685,11 +735,12 @@ function subsTabHtml() {
       ${QUICK_ADD_SERVICES.map(q => `<button class="sf-quick-add-btn" data-action="sf-quick-add-sub" data-service="${esc(q.service)}">+ ${esc(q.short)}</button>`).join('')}
     </div>
     <div class="sf-card">
-      <div class="sf-subs-list-head"><h2>구독 목록 ${list.length}개</h2><span>전체 구독 · 결제일 순</span></div>
+      <div class="sf-subs-list-head"><h2>구독 목록 ${list.length}개</h2><div class="sf-sort">정렬 ${SUB_SORTS.map(o => `<button class="sf-sort-btn ${S.subSort === o.id ? 'on' : ''}" data-action="sf-sub-sort" data-sort="${o.id}">${o.label}</button>`).join('')}</div></div>
       <table class="sf-table">
         <thead><tr><th>서비스 / 요금제</th><th>결제 금액</th><th>월 환산</th><th>다음 결제일</th><th>상태</th><th>결제 수단</th><th></th></tr></thead>
         <tbody>${list.length ? list.map(subsRowHtml).join('') : `<tr class="sf-empty-row"><td colspan="7">등록된 구독이 없어요.</td></tr>`}</tbody>
       </table>
+      ${subs.some(subExpired) ? `<div class="sf-expired-toggle"><button class="sf-sort-btn" data-action="sf-toggle-expired">${S.showExpired ? '만료된 구독 숨기기' : `만료된 구독 ${subs.filter(subExpired).length}개 보기`}</button></div>` : ''}
     </div>
     <p class="sf-note">사용 중인 구독만 합산해. 연간 결제는 12개월로 나눈 월 환산액이며, 실제 출금액과 다를 수 있어. 원화 환산에는 위 "적용 환율"이 쓰이고, 결제 시점 실제 환율과는 다를 수 있어.</p>
     <p class="sf-note">결제일이 지나면 실제 청구 내역을 확인하고 다음 결제일을 수정해줘. 구독 상태 변경은 이 장부에만 반영돼. 지출 장부에는 실제 결제 건을 따로 기록해.</p>`;
@@ -857,6 +908,7 @@ function subModalHtml() {
               <label class="sf-radio-option"><input type="radio" name="status" value="cancelled" ${editing?.status === 'cancelled' ? 'checked' : ''}><span>해지</span></label>
             </div>
           </div>
+          <div class="sf-field" id="sfExpiresField" style="display:${editing?.status === 'cancelled' ? 'block' : 'none'}"><label>만료일 (해지 후 이 날까지 사용 가능)</label><input type="date" name="expiresAt" value="${editing?.expiresAt || (editing ? subUpcoming(editing) : '') || ''}" /></div>
           <div class="sf-field"><label>결제 수단</label><input type="text" name="paymentMethod" list="sfMethodList" value="${esc(editing?.paymentMethod || '')}" placeholder="예: 농협카드" />
             <datalist id="sfMethodList">${methods.map(m => `<option value="${esc(m)}"></option>`).join('')}</datalist>
           </div>
@@ -960,6 +1012,12 @@ function render() {
 }
 
 function wireLiveFormBehavior() {
+  const subForm = document.getElementById('sfSubForm');
+  if (subForm) subForm.querySelectorAll('input[name="status"]').forEach(r => r.addEventListener('change', () => {
+    const f = document.getElementById('sfExpiresField'); if (!f || !r.checked) return;
+    f.style.display = r.value === 'cancelled' ? 'block' : 'none';
+    const ex = subForm.elements.expiresAt; if (r.value === 'cancelled' && ex && !ex.value) ex.value = subForm.elements.nextPaymentDate.value; // 보통 다음 결제일 전날까지 쓸 수 있어 기본값으로
+  }));
   const form = document.getElementById('sfEntryForm');
   if (!form) return;
   const filingFieldset = document.getElementById('sfFilingFieldset');
@@ -1035,6 +1093,7 @@ document.addEventListener('submit', e => {
       billingCycle: fd.get('billingCycle'),
       nextPaymentDate: fd.get('nextPaymentDate'),
       status: fd.get('status'),
+      expiresAt: fd.get('status') === 'cancelled' ? (fd.get('expiresAt') || '') : '',
       paymentMethod: (fd.get('paymentMethod') || '').trim(),
     };
     if (!payload.service) return;
@@ -1078,6 +1137,8 @@ document.addEventListener('click', e => {
       break;
     }
     case 'sf-open-sub-add': S.subModalOpen = true; S.subEditingId = null; S.subPrefillService = ''; render(); break;
+    case 'sf-toggle-expired': S.showExpired = !S.showExpired; render(); break;
+    case 'sf-sub-sort': S.subSort = btn.dataset.sort || 'next'; try { localStorage.setItem('sf-sub-sort', S.subSort); } catch (e) {} render(); break;
     case 'sf-quick-add-sub': S.subModalOpen = true; S.subEditingId = null; S.subPrefillService = btn.dataset.service; render(); break;
     case 'sf-open-sub-edit': S.subModalOpen = true; S.subEditingId = id; render(); break;
     case 'sf-close-sub-modal': if (e.target === btn) { S.subModalOpen = false; S.subEditingId = null; S.subPrefillService = ''; render(); } break;
