@@ -103,6 +103,9 @@ service cloud.firestore {
     match /notes/{id} { allow read, write: if isOwner(); }
     // 노래연습(유튜브 inst 링크 + 가사) — 대표님 개인용
     match /songs/{id} { allow read, write: if isOwner(); }
+    // 이륜차 정비(차량·주기 + 정비 기록) — 대표님 개인용
+    match /bikes/{id} { allow read, write: if isOwner(); }
+    match /bikeRecords/{id} { allow read, write: if isOwner(); }
     // 🙋 지원자 탭 — 공모(모집 공고)와 지원자. 개인정보라 대표님만
     match /recruits/{id} { allow read, write: if isOwner(); }
     match /applicants/{id} { allow read, write: if isOwner(); }

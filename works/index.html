@@ -268,6 +268,7 @@ const NAV_ITEMS_BASE = [
   { id: 'shared', icon: '🤝', label: '공유 프로젝트' },
   { id: 'notes', icon: '📝', label: '메모장' },
   { id: 'songs', icon: '🎤', label: '노래연습' },
+  { id: 'bikes', icon: '🏍', label: '이륜차 정비' },
   { id: 'studio', icon: '🏢', label: '스튜디오' },
   { id: 'library', icon: '🗂', label: '자료실' },
   { id: 'chat', icon: '💬', label: '단톡방' },
@@ -301,10 +302,39 @@ const LS_PRESETS = 'eq-manager-presets';
 const LS_TASKS = 'eq-manager-today-tasks';
 const LS_NOTES = 'eq-manager-notes';
 const LS_SONGS = 'eq-manager-songs';
+const LS_BIKES = 'eq-manager-bikes';
+const LS_BIKE_RECORDS = 'eq-manager-bikeRecords';
 const LS_RECRUITS = 'eq-manager-recruits';
 const LS_APPLICANTS = 'eq-manager-applicants';
 const LS_SHORTCUTS = 'eq-manager-shortcuts';
 /* 대시보드 바로가기 기본값 — 처음 한 번만 쓰이고, 이후엔 사용자가 추가/수정/삭제한 목록이 클라우드(shortcuts)에 저장됨 */
+/* 이륜차 정비 기본값 — 처음 한 번 클라우드에 올라가고 그 뒤로는 탭에서 고친다. 엔진오일 외 주기는 일반 권장치(설명서로 확인 전). */
+const DEFAULT_BIKES = [
+  { id: 'supercub', order: 1, name: '슈퍼커브', odometer: null, odometerDate: '',
+    memo: '엔진오일: SAE 10W-30, JASO MA (C125 기준)\n오일 주입량: 미확인. 연식별 설명서에서 확인 후 적어 두세요.\n오일필터: 카트리지 필터 없음. 원심 필터 청소 주기는 설명서 확인.\n엔진오일 3,000km는 자료가 3,000~6,400km로 갈려 짧은 쪽을 택한 값입니다. 나머지는 일반 권장치입니다.',
+    items: [
+      { id: 'oil', name: '엔진오일', km: 3000, months: 12, spec: '10W-30 MA' },
+      { id: 'chain', name: '체인 청소·윤활·장력', km: 1000, months: null, spec: '' },
+      { id: 'brake', name: '브레이크 점검', km: 3000, months: 12, spec: '패드·슈 잔량' },
+      { id: 'tire', name: '타이어 점검', km: 3000, months: 12, spec: '마모·공기압' },
+      { id: 'air', name: '에어필터', km: 6000, months: 24, spec: '' },
+      { id: 'plug', name: '점화플러그', km: 6000, months: 24, spec: '' },
+      { id: 'battery', name: '배터리 점검', km: null, months: 12, spec: '' },
+    ] },
+  { id: 'nc750', order: 2, name: 'NC750', odometer: null, odometerDate: '',
+    memo: '엔진오일: SAE 10W-30, JASO T 903 (NC750X 설명서 기준)\n주입량(수동): 오일만 약 3.1L, 필터 포함 약 3.4L (NC750X 설명서 발췌, 연식 확인 필요)\n주입량(DCT): 필터 포함 약 3.4L (같은 발췌, 연식 확인 필요)\n필터: 엔진오일 필터 HF204RC (정비 가이드 기준). DCT는 클러치 오일 필터도 같은 주기로 교환.\n엔진오일은 자료상 12,800km 또는 12개월을 12,000km로 내림한 값입니다. 나머지는 일반 권장치입니다.',
+    items: [
+      { id: 'oil', name: '엔진오일·필터', km: 12000, months: 12, spec: '10W-30, DCT는 클러치 필터 포함' },
+      { id: 'chain', name: '체인 청소·윤활·장력', km: 1000, months: null, spec: '' },
+      { id: 'pads', name: '브레이크 패드 점검', km: 6000, months: 12, spec: '' },
+      { id: 'fluid', name: '브레이크 오일', km: null, months: 24, spec: '' },
+      { id: 'tire', name: '타이어 점검', km: 6000, months: 12, spec: '마모·공기압' },
+      { id: 'coolant', name: '냉각수', km: null, months: 24, spec: '' },
+      { id: 'air', name: '에어필터', km: 20000, months: 24, spec: '' },
+      { id: 'plug', name: '점화플러그', km: 24000, months: null, spec: '' },
+      { id: 'battery', name: '배터리 점검', km: null, months: 12, spec: '' },
+    ] },
+];
 const DEFAULT_SHORTCUTS = [
   { id: 'sc-suno', name: 'SUNO', url: 'https://suno.com' },
   { id: 'sc-splice', name: 'SPLICE', url: 'splice://', iconDomain: 'splice.com' }, // splice:// = 설치된 Splice 데스크톱 앱 열기
@@ -334,6 +364,8 @@ let presets = GUEST_MODE ? [] : loadJSON(LS_PRESETS, []);
 let todayTasks = GUEST_MODE ? [] : loadJSON(LS_TASKS, []);
 let notes = GUEST_MODE ? [] : loadJSON(LS_NOTES, []);
 let songs = GUEST_MODE ? [] : loadJSON(LS_SONGS, []);
+let bikes = GUEST_MODE ? [] : loadJSON(LS_BIKES, DEFAULT_BIKES);
+let bikeRecords = GUEST_MODE ? [] : loadJSON(LS_BIKE_RECORDS, []);
 let recruits = GUEST_MODE ? [] : loadJSON(LS_RECRUITS, []);       // 공모(모집 공고) {id,title,postedAt,role,channel,memo,closed}
 let applicants = GUEST_MODE ? [] : loadJSON(LS_APPLICANTS, []);   // 지원자 {id,recruitId,name,email,phone,links,receivedAt,status,memo,raw}
 let shortcuts = loadJSON(LS_SHORTCUTS, DEFAULT_SHORTCUTS);
@@ -387,6 +419,7 @@ const S = {
   shoot: { formOpen: false, editingParamsId: null, selectedShootId: null, mode: 'pack', confirmDeleteShootId: null, confirmDeletePresetId: null, applyPresetId: null },
   task: { modalOpen: false, editingId: null, confirmDeleteId: null },
   note: { modalOpen: false, editingId: null, confirmDeleteId: null },
+  bike: { cur: '', modal: '', editId: null, itemId: null, msg: '' },
   song: { modalOpen: false, editingId: null, playId: null, search: '', msg: '', syncing: false, syncTimes: [], follow: true },
   shortcut: { modalOpen: false, editingId: null },
   quote: { view: 'quotes', draft: null, cdraft: null, bizOpen: false, bizSignCleared: false, msg: '' },
@@ -406,6 +439,8 @@ function saveTodayTasks(next) { const prev = todayTasks; todayTasks = next; try 
 function saveShortcuts(next) { const prev = shortcuts; shortcuts = next; try { localStorage.setItem(LS_SHORTCUTS, JSON.stringify(next)); } catch (e) {} pushToCloud('shortcuts', prev, next); }
 function saveRecruits(next) { const prev = recruits; recruits = next; try { localStorage.setItem(LS_RECRUITS, JSON.stringify(next)); } catch (e) {} pushToCloud('recruits', prev, next); }
 function saveApplicants(next) { const prev = applicants; applicants = next; try { localStorage.setItem(LS_APPLICANTS, JSON.stringify(next)); } catch (e) {} pushToCloud('applicants', prev, next); }
+function saveBikes(next) { const prev = bikes; bikes = next; try { localStorage.setItem(LS_BIKES, JSON.stringify(next)); } catch (e) {} pushToCloud('bikes', prev, next); }
+function saveBikeRecords(next) { const prev = bikeRecords; bikeRecords = next; try { localStorage.setItem(LS_BIKE_RECORDS, JSON.stringify(next)); } catch (e) {} pushToCloud('bikeRecords', prev, next); }
 function saveSongs(next) { const prev = songs; songs = next; try { localStorage.setItem(LS_SONGS, JSON.stringify(next)); } catch (e) {} pushToCloud('songs', prev, next); }
 function saveNotes(next) { const prev = notes; notes = next; try { localStorage.setItem(LS_NOTES, JSON.stringify(next)); } catch (e) {} pushToCloud('notes', prev, next); }
 function saveSharedProjItems(next) { if (COLLAB_MODE) next = next.map(x => x.collabId ? x : { ...x, collabId: COLLAB_ID }); const prev = sharedProjItems; sharedProjItems = next; try { localStorage.setItem(LS_SHARED, JSON.stringify(next)); } catch (e) {} pushToCloud('sharedProjects', prev, next); }
@@ -422,6 +457,8 @@ function getLocalArrayFor(name) {
     case 'todayTasks': return todayTasks;
     case 'notes': return notes;
     case 'songs': return songs;
+    case 'bikes': return bikes;
+    case 'bikeRecords': return bikeRecords;
     case 'recruits': return recruits;
     case 'applicants': return applicants;
     case 'shortcuts': return shortcuts;
@@ -463,6 +500,8 @@ function applyCloudUpdate(name, items) {
     case 'todayTasks': todayTasks = items; try { localStorage.setItem(LS_TASKS, JSON.stringify(items)); } catch (e) {} break;
     case 'notes': notes = items; try { localStorage.setItem(LS_NOTES, JSON.stringify(items)); } catch (e) {} break;
     case 'songs': songs = items; try { localStorage.setItem(LS_SONGS, JSON.stringify(items)); } catch (e) {} break;
+    case 'bikes': bikes = items; try { localStorage.setItem(LS_BIKES, JSON.stringify(items)); } catch (e) {} break;
+    case 'bikeRecords': bikeRecords = items; try { localStorage.setItem(LS_BIKE_RECORDS, JSON.stringify(items)); } catch (e) {} break;
     case 'recruits': recruits = items; try { localStorage.setItem(LS_RECRUITS, JSON.stringify(items)); } catch (e) {} break;
     case 'applicants': applicants = items; try { localStorage.setItem(LS_APPLICANTS, JSON.stringify(items)); } catch (e) {} break;
     case 'shortcuts': shortcuts = items; try { localStorage.setItem(LS_SHORTCUTS, JSON.stringify(items)); } catch (e) {} break;
@@ -485,7 +524,7 @@ async function pushToCloud(name, prevArr, nextArr) {
   } catch (e) { console.warn('cloud sync push failed for', name, e); }
 }
 
-const CLOUD_COLLECTIONS = ['equipment', 'categories', 'schedule', 'projects', 'shoots', 'presets', 'todayTasks', 'notes', 'songs', 'recruits', 'applicants', 'shortcuts', 'sharedProjects', 'quotes', 'contracts', 'collabs', 'notices'];
+const CLOUD_COLLECTIONS = ['equipment', 'categories', 'schedule', 'projects', 'shoots', 'presets', 'todayTasks', 'notes', 'songs', 'bikes', 'bikeRecords', 'recruits', 'applicants', 'shortcuts', 'sharedProjects', 'quotes', 'contracts', 'collabs', 'notices'];
 /* 공유 링크(?guest=1)로 접속했을 때는 이 목록만 동기화한다 — 스케줄/메모장 등 내부 데이터는 외부 브라우저로 아예 내려받지 않는다. */
 const GUEST_CLOUD_COLLECTIONS = ['equipment', 'categories', 'sharedProjects'];
 const FIREBASE_CONFIG = {
@@ -1519,6 +1558,7 @@ function mobileMoreSheetHtml() {
       ${row('data-action="set-tab" data-id="shared"', MI.shared, '공유 프로젝트')}
       ${row('data-action="set-tab" data-id="notes"', MI.note, '메모장')}
       ${row('data-action="set-tab" data-id="songs"', MI.mic, '노래연습')}
+      ${row('data-action="set-tab" data-id="bikes"', '<span style="font-size:17px;line-height:1">🏍</span>', '이륜차 정비')}
       ${row('data-action="set-tab" data-id="applicants"', '<span style="font-size:17px;line-height:1">🙋</span>', '지원자')}
       ${row('data-action="set-tab" data-id="chat"', '<span style="font-size:17px;line-height:1">💬</span>', '단톡방')}
       ${row('data-action="set-tab" data-id="library"', '<span style="font-size:17px;line-height:1">🗂</span>', '자료실')}
@@ -3160,6 +3200,159 @@ function renderNotesTab() {
       ${notes.length === 0 ? `<div class="task-note-empty">아직 작성한 메모가 없어요.</div>` : notes.map(noteCardHtml).join('')}
     </div>
     ${noteModalHtml()}
+  `;
+}
+
+/* =======================================================================
+   BIKES TAB (이륜차 정비) — 차량별 주행거리·정비 기록을 적으면 항목마다 다음 정비까지 남은 거리·날짜를 계산한다.
+   bikes(차량 + items 주기 + memo 규격) / bikeRecords(정비 기록) 컬렉션, owner 전용.
+   ======================================================================= */
+const BIKE_STATE = { over: '지남', soon: '곧 정비', none: '기록 없음', ok: '여유' };
+const BIKE_RANK = { over: 0, soon: 1, none: 2, ok: 3 };
+function bikeKm(v) { return Number(v).toLocaleString('ko-KR'); }
+function bikeNum(v) { const s = String(v == null ? '' : v).replace(/[,\s]/g, ''); if (!s) return null; const x = Number(s); return Number.isFinite(x) && x >= 0 ? x : null; }
+function bikeList() { return [...bikes].sort((a, b) => (a.order || 0) - (b.order || 0)); }
+function bikeCurrent() { const list = bikeList(); return list.find(b => b.id === S.bike.cur) || list[0] || null; }
+function bikeRecordsOf(id) { return bikeRecords.filter(r => r.bikeId === id).sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.km || 0) - (a.km || 0)); }
+function bikeOdometer(b) {
+  const kms = bikeRecordsOf(b.id).map(r => r.km).filter(k => k != null);
+  if (b.odometer != null) kms.push(b.odometer);
+  return kms.length ? Math.max(...kms) : null;
+}
+function bikeAddMonths(s, months) {
+  const d = parseYmd(s), day = d.getDate();
+  d.setDate(1); d.setMonth(d.getMonth() + months);
+  d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
+  return d;
+}
+function bikeStatus(item, b) {
+  const last = bikeRecordsOf(b.id).find(r => r.itemId === item.id);
+  if (!last) return { state: 'none', frac: 0 };
+  const odo = bikeOdometer(b);
+  let kmLeft = null, daysLeft = null, due = null, frac = 0;
+  if (item.km && last.km != null && odo != null) { kmLeft = last.km + item.km - odo; frac = Math.max(frac, 1 - kmLeft / item.km); }
+  if (item.months && last.date) {
+    due = bikeAddMonths(last.date, item.months);
+    const start = parseYmd(last.date), now = parseYmd(todayStr());
+    daysLeft = Math.round((due - now) / 864e5);
+    frac = Math.max(frac, (now - start) / (due - start));
+  }
+  const over = (kmLeft != null && kmLeft < 0) || (daysLeft != null && daysLeft < 0);
+  const soon = (kmLeft != null && kmLeft <= item.km * 0.1) || (daysLeft != null && daysLeft <= 30);
+  return { state: over ? 'over' : soon ? 'soon' : 'ok', frac: Math.min(1, Math.max(0, frac)), kmLeft, daysLeft, due, last };
+}
+function bikeInterval(item) { return [item.km ? bikeKm(item.km) + 'km' : '', item.months ? item.months + '개월' : ''].filter(Boolean).join(' 또는 '); }
+function bikeLeftHtml(st, item) {
+  if (st.state === 'none') return `<div class="bike-left">마지막 정비를 기록하면 계산해요<small>주기 ${esc(bikeInterval(item))}</small></div>`;
+  const p = [];
+  if (st.kmLeft != null) p.push(st.kmLeft >= 0 ? `${bikeKm(st.kmLeft)}km 남음` : `${bikeKm(-st.kmLeft)}km 초과`);
+  if (st.due) p.push(st.daysLeft >= 0 ? `${ymd(st.due)}까지` : `${ymd(st.due)} 지남`);
+  if (!p.length) p.push('주행거리를 입력하면 계산해요');
+  return `<div class="bike-left">${esc(p.join(' · '))}<small>마지막 ${esc(st.last.date)}${st.last.km != null ? ` · ${bikeKm(st.last.km)}km` : ''} · 주기 ${esc(bikeInterval(item))}</small></div>`;
+}
+function bikeModalHtml(b) {
+  const m = S.bike.modal;
+  if (!m) return '';
+  const shell = (title, body) => `
+    <div class="eq-modal-overlay">
+      <div class="eq-modal" data-stop-close>
+        <div class="eq-modal-head"><h2>${title}</h2><button class="eq-modal-close" data-action="bike-close-modal">✕</button></div>
+        ${body}
+      </div>
+    </div>`;
+  if (m === 'record') {
+    const r = S.bike.editId ? bikeRecords.find(x => x.id === S.bike.editId) : null;
+    const odo = bikeOdometer(b);
+    const f = r || { itemId: S.bike.itemId, date: todayStr(), km: odo, cost: null, note: '' };
+    return shell(`${esc(b.name)} 정비 ${r ? '기록 수정' : '기록'}`, `
+      <form data-form-role="bike-record-form">
+        <div class="eq-field"><label>항목</label><select name="itemId" required>${(b.items || []).map(i => `<option value="${esc(i.id)}" ${i.id === f.itemId ? 'selected' : ''}>${esc(i.name)}</option>`).join('')}</select></div>
+        <div class="eq-field-row">
+          <div class="eq-field"><label>날짜</label><input type="date" name="date" value="${esc(f.date || '')}" required /></div>
+          <div class="eq-field"><label>그때 주행거리 (km)</label><input name="km" inputmode="numeric" value="${f.km == null ? '' : esc(f.km)}" /></div>
+        </div>
+        <div class="eq-field"><label>비용 (원) <span class="eq-hint">(선택)</span></label><input name="cost" inputmode="numeric" value="${f.cost == null ? '' : esc(f.cost)}" /></div>
+        <div class="eq-field"><label>메모 <span class="eq-hint">(선택)</span></label><input name="note" value="${esc(f.note || '')}" placeholder="오일 제품, 교환 장소, 주입량 등" /></div>
+        <button type="submit" class="eq-modal-submit">${r ? '수정 완료' : '기록 저장'}</button>
+        ${r ? `<button type="button" class="eq-detail-delete-btn" style="width:100%; margin-top:10px;" data-action="bike-record-delete" data-id="${esc(r.id)}">삭제</button>` : ''}
+      </form>`);
+  }
+  if (m === 'item') {
+    const it = S.bike.editId ? (b.items || []).find(x => x.id === S.bike.editId) : null;
+    const f = it || { name: '', km: null, months: null, spec: '' };
+    return shell(it ? '정비 항목 수정' : '정비 항목 추가', `
+      <form data-form-role="bike-item-form">
+        <div class="eq-field"><label>항목 이름</label><input name="name" value="${esc(f.name)}" required placeholder="예: 구동벨트" /></div>
+        <div class="eq-field-row">
+          <div class="eq-field"><label>주기 (km)</label><input name="km" inputmode="numeric" value="${f.km == null ? '' : esc(f.km)}" /></div>
+          <div class="eq-field"><label>주기 (개월)</label><input name="months" inputmode="numeric" value="${f.months == null ? '' : esc(f.months)}" /></div>
+        </div>
+        <div class="eq-field"><label>규격 · 메모 <span class="eq-hint">(선택)</span></label><input name="spec" value="${esc(f.spec || '')}" /></div>
+        ${S.bike.msg ? `<div class="q-hint" style="margin-bottom:10px">${esc(S.bike.msg)}</div>` : ''}
+        <button type="submit" class="eq-modal-submit">${it ? '수정 완료' : '추가하기'}</button>
+        ${it ? `<button type="button" class="eq-detail-delete-btn" style="width:100%; margin-top:10px;" data-action="bike-item-delete" data-id="${esc(it.id)}">항목 삭제</button>` : ''}
+      </form>`);
+  }
+  return shell('규격 메모 수정', `
+    <form data-form-role="bike-memo-form">
+      <div class="eq-field"><textarea name="memo" class="sched-memo-textarea">${esc(b.memo || '')}</textarea></div>
+      <button type="submit" class="eq-modal-submit">저장</button>
+    </form>`);
+}
+function renderBikesTab() {
+  const b = bikeCurrent();
+  if (!b) return `<div class="eq-header"><div class="eq-title-block"><h1 class="eq-title">이륜차 정비</h1></div></div><div class="task-note-empty">등록된 차량이 없어요.</div>`;
+  const rows = (b.items || []).map(i => ({ i, st: bikeStatus(i, b) })).sort((x, y) => BIKE_RANK[x.st.state] - BIKE_RANK[y.st.state]);
+  const odo = bikeOdometer(b);
+  const recs = bikeRecordsOf(b.id);
+  const names = Object.fromEntries((b.items || []).map(i => [i.id, i.name]));
+  const year = todayStr().slice(0, 4);
+  const yearCost = recs.filter(r => (r.date || '').startsWith(year)).reduce((t, r) => t + (r.cost || 0), 0);
+  return `
+    <div class="eq-header">
+      <div class="eq-title-block"><h1 class="eq-title">이륜차 정비</h1></div>
+      <button class="eq-add-btn" data-action="bike-record-add">+ 정비 기록</button>
+    </div>
+    <div class="bike-tabs">
+      ${bikeList().map(x => {
+        const late = (x.items || []).filter(i => bikeStatus(i, x).state === 'over').length;
+        return `<button class="bike-tab ${x.id === b.id ? 'on' : ''}" data-action="bike-set" data-id="${esc(x.id)}">${esc(x.name)}${late ? `<span class="bike-count">${late}</span>` : ''}</button>`;
+      }).join('')}
+    </div>
+    <div class="bike-odo">
+      <div>
+        <div class="bike-odo-num ${odo == null ? 'is-empty' : ''}">${odo == null ? '0' : bikeKm(odo)}<span>km</span></div>
+        <div class="bike-sub">${odo == null ? '아직 주행거리가 없어요' : b.odometerDate ? `${esc(b.odometerDate)} 입력 기준` : '정비 기록 기준'}</div>
+      </div>
+      <form class="bike-odo-form" data-form-role="bike-odo-form">
+        <input name="km" inputmode="numeric" placeholder="현재 주행거리 (km)" aria-label="현재 주행거리" autocomplete="off" />
+        <button type="submit" class="eq-add-btn">저장</button>
+      </form>
+    </div>
+    ${S.bike.msg && !S.bike.modal ? `<div class="q-hint" style="margin-top:8px">${esc(S.bike.msg)}</div>` : ''}
+    <div class="bike-head"><h2>정비 항목</h2><button class="eq-chip" data-action="bike-item-add">+ 항목 추가</button></div>
+    <div class="bike-items">
+      ${rows.length ? rows.map(({ i, st }) => `
+        <div class="bike-item">
+          <div class="bike-item-name"><b>${esc(i.name)}</b>${i.spec ? `<small>${esc(i.spec)}</small>` : ''}</div>
+          <div class="bike-meter"><div class="bike-gauge"><i class="bike-c-${st.state}" style="width:${Math.round(st.frac * 100)}%"></i></div>${bikeLeftHtml(st, i)}</div>
+          <div class="bike-act">
+            <span class="bike-pill bike-p-${st.state}">${BIKE_STATE[st.state]}</span>
+            <button class="eq-chip" data-action="bike-record-add" data-id="${esc(i.id)}">기록</button>
+            <button class="bike-edit" data-action="bike-item-edit" data-id="${esc(i.id)}" aria-label="${esc(i.name)} 수정">✎</button>
+          </div>
+        </div>`).join('') : `<div class="task-note-empty">정비 항목이 없어요.</div>`}
+    </div>
+    <div class="bike-head"><h2>정비 이력</h2><span class="bike-sub">${yearCost ? `${year}년 비용 ${bikeKm(yearCost)}원` : ''}</span></div>
+    ${recs.length ? `<div class="bike-log">${recs.map(r => `
+      <button class="bike-log-row" data-action="bike-record-edit" data-id="${esc(r.id)}">
+        <span class="bike-log-date">${esc(r.date)}</span>
+        <span class="bike-log-main"><b>${esc(names[r.itemId] || r.itemName || '삭제된 항목')}</b>${r.note ? `<small>${esc(r.note)}</small>` : ''}</span>
+        <span class="bike-log-num">${r.km != null ? `${bikeKm(r.km)}km` : ''}${r.cost != null ? `<small>${bikeKm(r.cost)}원</small>` : ''}</span>
+      </button>`).join('')}</div>` : `<div class="task-note-empty">아직 기록이 없어요. 마지막 엔진오일 교환부터 넣어 보세요.</div>`}
+    <div class="bike-head"><h2>규격 메모</h2><button class="eq-chip" data-action="bike-memo-edit">수정</button></div>
+    <div class="bike-memo">${b.memo ? linkify(b.memo) : '<span class="bike-sub">오일 규격, 주입량 같은 내용을 적어 두세요.</span>'}</div>
+    ${bikeModalHtml(b)}
   `;
 }
 
@@ -5861,6 +6054,7 @@ function renderTab() {
   if (S.activeTab === 'shootprep') return renderShootPrepTab();
   if (S.activeTab === 'notes') return renderNotesTab();
   if (S.activeTab === 'songs') return renderSongsTab();
+  if (S.activeTab === 'bikes' && !GUEST_MODE) return renderBikesTab();
   if (S.activeTab === 'applicants' && !GUEST_MODE) return renderApplicantsTab();
   if (S.activeTab === 'quotes') return renderQuotesTab();
   if (S.activeTab === 'studio' && !GUEST_MODE) return renderStudioTab();
@@ -6507,6 +6701,21 @@ function bootApp() {
         if (s && window.confirm(`"${s.title}"을(를) 삭제할까요?`)) { saveSongs(songs.filter(x => x.id !== id)); S.song.modalOpen = false; S.song.editingId = null; if (S.song.playId === id) S.song.playId = null; render(); }
         break;
       }
+      case 'bike-set': S.bike.cur = id; S.bike.msg = ''; render(); break;
+      case 'bike-close-modal': S.bike.modal = ''; S.bike.editId = null; S.bike.itemId = null; S.bike.msg = ''; render(); break;
+      case 'bike-record-add': S.bike.modal = 'record'; S.bike.editId = null; S.bike.itemId = id || null; S.bike.msg = ''; render(); break;
+      case 'bike-record-edit': S.bike.modal = 'record'; S.bike.editId = id; S.bike.msg = ''; render(); break;
+      case 'bike-record-delete':
+        if (window.confirm('이 정비 기록을 삭제할까요?')) { saveBikeRecords(bikeRecords.filter(r => r.id !== id)); S.bike.modal = ''; S.bike.editId = null; render(); }
+        break;
+      case 'bike-item-add': S.bike.modal = 'item'; S.bike.editId = null; S.bike.msg = ''; render(); break;
+      case 'bike-item-edit': S.bike.modal = 'item'; S.bike.editId = id; S.bike.msg = ''; render(); break;
+      case 'bike-item-delete': {
+        const b = bikeCurrent();
+        if (b && window.confirm('이 정비 항목을 삭제할까요? 지난 기록은 이력에 남아요.')) { saveBikes(bikes.map(x => x.id === b.id ? { ...x, items: (x.items || []).filter(i => i.id !== id) } : x)); S.bike.modal = ''; S.bike.editId = null; render(); }
+        break;
+      }
+      case 'bike-memo-edit': S.bike.modal = 'memo'; S.bike.msg = ''; render(); break;
       case 'note-open-add': S.note.editingId = null; S.note.modalOpen = true; render(); break;
       case 'note-open-edit': S.note.editingId = id; S.note.modalOpen = true; render(); break;
       case 'note-close-modal': S.note.modalOpen = false; S.note.editingId = null; render(); break;
@@ -6935,6 +7144,40 @@ function bootApp() {
       else saveSongs([{ id: songId, createdAt: Date.now(), ...payload }, ...songs]);
       S.song.modalOpen = false; S.song.editingId = null;
       if (hasFile) songUploadAudio(songId, file, before && before.audioPath);
+      render();
+    } else if (form.matches('[data-form-role="bike-odo-form"]')) {
+      const fd = new FormData(form), b = bikeCurrent(), km = bikeNum(fd.get('km'));
+      if (!b) return;
+      const maxRec = Math.max(0, ...bikeRecordsOf(b.id).map(r => r.km || 0));
+      if (km == null) S.bike.msg = '주행거리를 숫자로 입력해 주세요.';
+      else if (km < maxRec) S.bike.msg = `정비 기록의 ${bikeKm(maxRec)}km보다 작아요. 숫자를 확인하거나 그 기록을 고쳐 주세요.`;
+      else { saveBikes(bikes.map(x => x.id === b.id ? { ...x, odometer: km, odometerDate: todayStr() } : x)); S.bike.msg = ''; }
+      render();
+    } else if (form.matches('[data-form-role="bike-record-form"]')) {
+      const fd = new FormData(form), b = bikeCurrent();
+      const itemId = (fd.get('itemId') || '').toString(), date = (fd.get('date') || '').toString();
+      const item = b && (b.items || []).find(i => i.id === itemId);
+      if (!item || !date) return;
+      const payload = { bikeId: b.id, itemId, itemName: item.name, date, km: bikeNum(fd.get('km')), cost: bikeNum(fd.get('cost')), note: (fd.get('note') || '').toString().trim() };
+      if (S.bike.editId) saveBikeRecords(bikeRecords.map(r => r.id === S.bike.editId ? { ...r, ...payload } : r));
+      else saveBikeRecords([{ id: uid(), createdAt: Date.now(), ...payload }, ...bikeRecords]);
+      S.bike.modal = ''; S.bike.editId = null; S.bike.itemId = null;
+      render();
+    } else if (form.matches('[data-form-role="bike-item-form"]')) {
+      const fd = new FormData(form), b = bikeCurrent();
+      if (!b) return;
+      const name = (fd.get('name') || '').toString().trim(), km = bikeNum(fd.get('km')), months = bikeNum(fd.get('months'));
+      if (!name || (!km && !months)) { S.bike.msg = '이름과 주기(km 또는 개월)를 넣어 주세요.'; render(); return; }
+      const payload = { name, km: km || null, months: months || null, spec: (fd.get('spec') || '').toString().trim() };
+      const editId = S.bike.editId;
+      saveBikes(bikes.map(x => x.id !== b.id ? x : { ...x, items: editId ? (x.items || []).map(i => i.id === editId ? { ...i, ...payload } : i) : [...(x.items || []), { id: uid(), ...payload }] }));
+      S.bike.modal = ''; S.bike.editId = null; S.bike.msg = '';
+      render();
+    } else if (form.matches('[data-form-role="bike-memo-form"]')) {
+      const fd = new FormData(form), b = bikeCurrent();
+      if (!b) return;
+      saveBikes(bikes.map(x => x.id === b.id ? { ...x, memo: (fd.get('memo') || '').toString().replace(/\s+$/, '') } : x));
+      S.bike.modal = '';
       render();
     } else if (form.matches('[data-form-role="note-form"]')) {
       const fd = new FormData(form);
@@ -8509,6 +8752,55 @@ document.addEventListener('DOMContentLoaded', () => {
   .st-term .st-sheet td { border-bottom:1px dashed var(--t-dim); } .st-term .st-sheet td.plus { color:var(--t-ok); } .st-term .st-sheet td.minus { color:var(--t-bad); } .st-term .st-sheet h3 { color:var(--t-hi); }
 
   /* ===== 노래연습 ===== */
+  .bike-tabs { display:flex; gap:22px; border-bottom:1px solid var(--border); margin-bottom:22px; flex-wrap:wrap; }
+  .bike-tab { background:none; border:0; border-bottom:2px solid transparent; margin-bottom:-1px; padding:8px 0; font:inherit; font-size:15px; font-weight:500; color:var(--text-dim); cursor:pointer; display:flex; align-items:center; gap:7px; }
+  .bike-tab.on { color:var(--text); font-weight:700; border-bottom-color:var(--text); }
+  .bike-count { font-size:12px; font-weight:700; line-height:1; padding:3px 7px; border-radius:99px; color:#e5534b; background:color-mix(in srgb, #e5534b 14%, transparent); }
+  .bike-odo { display:flex; flex-wrap:wrap; gap:14px 28px; align-items:flex-end; justify-content:space-between; }
+  .bike-odo-num { font-size:38px; font-weight:700; line-height:1.15; letter-spacing:-0.03em; font-variant-numeric:tabular-nums; }
+  .bike-odo-num span { font-size:15px; font-weight:500; letter-spacing:0; color:var(--text-dim); margin-left:6px; }
+  .bike-odo-num.is-empty { color:var(--text-faint); }
+  .bike-sub { font-size:13px; color:var(--text-dim); font-weight:400; }
+  .bike-odo-form { display:flex; gap:8px; flex:1 1 240px; max-width:320px; align-items:stretch; }
+  .bike-odo-form input { flex:1; min-width:0; background:var(--surface); border:1px solid var(--border-strong); border-radius:8px; padding:9px 12px; color:var(--text); font:inherit; font-size:14px; }
+  .bike-odo-form input:focus { outline:none; border-color:var(--accent); }
+  .bike-odo-form .eq-add-btn { flex:none; padding:9px 18px; justify-content:center; }
+  .bike-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:32px 0 10px; min-height:30px; }
+  .bike-head h2 { font-size:16px; font-weight:700; margin:0; }
+  .bike-items { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:2px 16px; box-shadow:var(--shadow-sm); }
+  .bike-item { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1.4fr) 186px; gap:8px 20px; align-items:center; padding:14px 0; border-bottom:1px solid var(--border); }
+  .bike-item:last-child { border-bottom:0; }
+  .bike-item-name b { font-weight:600; display:block; overflow-wrap:anywhere; }
+  .bike-item-name small { font-size:13px; color:var(--text-dim); overflow-wrap:anywhere; }
+  .bike-gauge { height:5px; border-radius:99px; background:var(--border); overflow:hidden; }
+  .bike-gauge i { display:block; height:100%; border-radius:99px; }
+  .bike-c-ok { background:#4cae7d; } .bike-c-soon { background:#e0a63c; } .bike-c-over { background:#e5534b; } .bike-c-none { background:#8b90a0; }
+  .bike-left { font-size:13.5px; margin-top:6px; overflow-wrap:anywhere; }
+  .bike-left small { display:block; font-size:12.5px; color:var(--text-dim); }
+  .bike-act { display:flex; align-items:center; justify-content:flex-end; gap:6px; }
+  .bike-pill { font-size:12.5px; font-weight:600; padding:2px 9px; border-radius:99px; white-space:nowrap; margin-right:2px; }
+  .bike-p-ok { color:#2f9465; background:color-mix(in srgb, #4cae7d 16%, transparent); }
+  .bike-p-soon { color:#b57f18; background:color-mix(in srgb, #e0a63c 18%, transparent); }
+  .bike-p-over { color:#e5534b; background:color-mix(in srgb, #e5534b 14%, transparent); }
+  .bike-p-none { color:var(--text-dim); background:color-mix(in srgb, #8b90a0 16%, transparent); }
+  .bike-edit { background:none; border:0; color:var(--text-dim); cursor:pointer; font-size:14px; padding:4px; }
+  .bike-edit:hover { color:var(--text); }
+  .bike-log { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:2px 16px; box-shadow:var(--shadow-sm); }
+  .bike-log-row { width:100%; display:grid; grid-template-columns:96px minmax(0, 1fr) auto; gap:12px; align-items:baseline; text-align:left; background:none; border:0; border-bottom:1px solid var(--border); padding:12px 0; color:inherit; font:inherit; font-size:14px; cursor:pointer; }
+  .bike-log-row:last-child { border-bottom:0; }
+  .bike-log-date { color:var(--text-dim); font-size:13px; font-variant-numeric:tabular-nums; }
+  .bike-log-main b { font-weight:600; display:block; overflow-wrap:anywhere; }
+  .bike-log-main small, .bike-log-num small { display:block; font-size:12.5px; color:var(--text-dim); overflow-wrap:anywhere; }
+  .bike-log-num { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .bike-memo { font-size:14px; line-height:1.7; white-space:pre-wrap; overflow-wrap:anywhere; color:var(--text-dim); }
+  @media (max-width:720px) {
+    .bike-odo-form { max-width:none; flex-basis:100%; }
+    .bike-item { grid-template-columns:minmax(0, 1fr) auto; }
+    .bike-meter { grid-column:1 / -1; grid-row:2; }
+    .bike-act { grid-column:2; grid-row:1; }
+    .bike-log-row { grid-template-columns:minmax(0, 1fr) auto; }
+    .bike-log-date { grid-column:1 / -1; }
+  }
   .song-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:14px; margin-top:14px; }
   .song-card { position:relative; background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; cursor:pointer; box-shadow:var(--shadow-sm); transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
   .song-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-md); border-color:var(--accent); }
