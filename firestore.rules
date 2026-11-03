@@ -110,6 +110,8 @@ service cloud.firestore {
     match /recruits/{id} { allow read, write: if isOwner(); }
     match /applicants/{id} { allow read, write: if isOwner(); }
     match /shortcuts/{id} { allow read, write: if isOwner(); }
+    // 폰 푸시 구독(WORKS 홈 화면 앱이 올림) — Mac 다리가 읽어서 알림을 보내고, 만료된 구독은 지운다.
+    match /pushSubs/{id} { allow read, write: if isOwner(); allow read, delete: if isBridge(); }
     // 앱 설정(예: 아이폰 구독용 Google 캘린더 비공개 iCal 주소) — 비밀 링크라 owner만.
     match /appSettings/{id} { allow read, write: if isOwner(); }
 

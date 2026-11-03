@@ -757,6 +757,7 @@ function settingsModalHtml() {
         <div class="eq-field">
           <label>앱으로 추가 <span class="eq-hint">(홈 화면·Dock에 아이콘 만들기)</span></label>
           <button type="button" class="eq-modal-submit eq-modal-submit-secondary" data-action="install-open" style="margin-top:0;">📲 설치 방법 보기</button>
+          ${!GUEST_MODE && pushSupported() ? `<button type="button" class="eq-modal-submit eq-modal-submit-secondary" data-action="push-enable" style="margin-top:8px;">🔔 ${Notification.permission === 'granted' ? '알림 다시 연결 (시험 알림)' : '폰 알림 켜기'}</button>` : ''}
         </div>
         <div class="eq-field" style="margin-bottom:0;">
           <label>앱 버전 <span class="eq-hint">(화면이 예전 그대로면 눌러주세요)</span></label>
@@ -1501,6 +1502,7 @@ function gcalDetailModalHtml() {
    "더보기"는 아래에서 올라오는 시트로 나머지 메뉴(촬영준비·공유 프로젝트·메모장·수입·지출·설정·로그아웃)를 보여준다.
    데스크톱에서는 이 요소들이 CSS로 숨겨져 있어서 기존 사이드바 화면은 그대로다. */
 const MI = {
+  bell: '<svg viewBox="0 0 24 24"><path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></svg>',
   home: '<svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>',
   cal: '<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
   proj: '<svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>',
@@ -4532,6 +4534,39 @@ function installBannerHtml() {
   if (dismissed || !uaInfo().mobile) return '';
   return `<div class="install-banner"><span>📲 홈 화면에 <b>앱으로 추가</b>하면 더 빨리 열 수 있어요</span><button data-action="install-open">방법 보기</button><button class="x" data-action="install-dismiss" aria-label="닫기">✕</button></div>`;
 }
+/* 📲 폰 푸시 알림 — 홈 화면 WORKS에서 한 번 허용하면 Mac 스튜디오 다리(tools/studio-bridge/push.mjs)가 결재·아침 정리를 보낸다.
+   구독은 Firestore pushSubs/{endpoint 해시}(owner 전용, 다리는 읽기·만료 삭제). 공개키만 여기 있고 비밀키는 Mac에만. */
+const PUSH_PUBLIC_KEY = 'BFlVVLflAd2_g40m8DJenLxUwUsegKmH7Ord2Dgn8dYKHLuNcQDKidPSKwILRK3v3S-5cp3r5xR7j7WmU6Fg9xI';
+const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+function pushBannerHtml() {
+  if (GUEST_MODE || IS_LOCAL_DEV || !pushSupported() || Notification.permission !== 'default') return '';
+  if (uaInfo().mobile && !isStandaloneApp()) return ''; // 아이폰은 홈 화면 앱에서만 알림이 된다
+  let dismissed = false; try { dismissed = localStorage.getItem('vinfilm-push-dismissed') === '1'; } catch (e) {}
+  if (dismissed) return '';
+  return `<div class="install-banner push-banner"><i class="push-banner-ic">${MI.bell}</i><span><b>알림 받기</b> · 결재·아침 정리를 폰으로 바로 받아요</span><button data-action="push-enable">켜기</button><button class="x" data-action="push-dismiss" aria-label="닫기">✕</button></div>`;
+}
+function pushB64(k) { const p = '='.repeat((4 - k.length % 4) % 4), b = atob((k + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, c => c.charCodeAt(0)); }
+async function pushSave(sub) {
+  if (!window.firebase || !firebase.firestore) return;
+  const j = JSON.stringify(sub), h = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sub.endpoint)))).slice(0, 12).map(b => b.toString(16).padStart(2, '0')).join('');
+  await firebase.firestore().collection('pushSubs').doc(h).set({ sub: j, device: (uaInfo().ios ? 'iPhone' : uaInfo().android ? 'Android' : 'PC') + (isStandaloneApp() ? ' 앱' : ''), at: Date.now() });
+}
+async function pushEnable() {
+  if (!pushSupported()) { alert('이 기기에서는 알림을 받을 수 없어요. 아이폰은 홈 화면에 추가한 WORKS에서 켜 주세요.'); return; }
+  const perm = await Notification.requestPermission(); // 아이폰은 버튼을 누른 바로 그 순간에만 물어볼 수 있다
+  if (perm !== 'granted') { alert('알림이 꺼져 있어요. 아이폰 설정 → 알림 → WORKS에서 켤 수 있어요.'); render(); return; }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: pushB64(PUSH_PUBLIC_KEY) });
+    await pushSave(sub);
+    reg.showNotification('🔔 알림이 켜졌어요', { body: '결재·아침 정리가 생기면 여기로 알려 드릴게요.', icon: '/assets/works-icon.png' });
+  } catch (e) { alert('알림 연결에 실패했어요: ' + e.message); }
+  render();
+}
+async function pushRefresh() { // 이미 허용한 기기는 구독이 바뀌었을 수 있어 열 때마다 다시 적어 둔다
+  if (GUEST_MODE || IS_LOCAL_DEV || !pushSupported() || Notification.permission !== 'granted') return;
+  try { const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription(); if (sub) await pushSave(sub); } catch (e) {}
+}
 function installGuideHtml() {
   if (!S.installOpen) return '';
   const u = uaInfo();
@@ -4573,6 +4608,8 @@ function handleInstallAction(action, el, e) {
     case 'install-open': S.installOpen = true; render(); return true;
     case 'install-close': S.installOpen = false; render(); return true;
     case 'install-close-backdrop': if (!e.target.closest('[data-stop-close]')) { S.installOpen = false; render(); } return true;
+    case 'push-enable': pushEnable(); return true;
+    case 'push-dismiss': try { localStorage.setItem('vinfilm-push-dismissed', '1'); } catch (x) {} render(); return true;
     case 'install-dismiss': try { localStorage.setItem('vinfilm-install-dismissed', '1'); } catch (x) {} render(); return true;
     case 'install-now':
       if (deferredInstall) { const p = deferredInstall; deferredInstall = null; p.prompt(); p.userChoice.finally(() => { S.installOpen = false; render(); }); }
@@ -4642,7 +4679,7 @@ function dashNotifHtml() {
 }
 function notifBellHtml() {
   const n = notifUnread();
-  return `<button class="notif-bell ${S.notif.open ? 'on' : ''}" data-action="notif-toggle" aria-label="알림">🔔${n ? `<span class="notif-badge">${n > 9 ? '9+' : n}</span>` : ''}</button>`;
+  return `<button class="m-icon-btn notif-bell ${S.notif.open ? 'on' : ''}" data-action="notif-toggle" aria-label="알림">${MI.bell}${n ? `<span class="notif-badge">${n > 9 ? '9+' : n}</span>` : ''}</button>`;
 }
 function notifPanelHtml() {
   if (!S.notif.open) return '';
@@ -4695,7 +4732,7 @@ function notifGo(n) {
 function handleNotifAction(action, el, e) {
   switch (action) {
     case 'notif-toggle':
-      if (STUDIO_HOME && !GUEST_MODE) { S.activeTab = 'studio'; S.studio.box = 'notif'; S.notif.open = false; S.moreOpen = false; render(); return true; } // 폰 상단 종도 스튜디오 알림으로
+      if (STUDIO_HOME && !GUEST_MODE && !window.matchMedia('(max-width:720px)').matches) { S.activeTab = 'studio'; S.studio.box = 'notif'; S.notif.open = false; S.moreOpen = false; render(); return true; } // 폰 상단 종도 스튜디오 알림으로
       S.notif.open = !S.notif.open; render(); return true;
     case 'notif-close': S.notif.open = false; render(); return true;
     case 'notif-read-all': notifMarkRead(notifItems().map(n => n.id)); render(); return true;
@@ -6066,7 +6103,7 @@ function render() {
   if (STUDIO_HOME && !GUEST_MODE && S.activeTab === 'today') S.activeTab = 'studio'; // 예전 대시보드로 가는 링크·알림은 스튜디오로
   const studioKeep = S.activeTab === 'studio' ? studioCaptureInputs() : null;
   const chatKeep = S.activeTab === 'chat' ? chatCapture() : null;
-  document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderMobileTopBar()}${installBannerHtml()}${renderTab()}</main>${renderMobileTabBar()}</div>${schedModalHtml()}${settingsModalHtml()}${collabModalHtml()}${installGuideHtml()}${notifPanelHtml()}${noticeModalHtml()}${gcalModalHtml()}${gcalDetailModalHtml()}${GUEST_MODE ? '' : studioViewerHtml()}`;
+  document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderMobileTopBar()}${installBannerHtml()}${pushBannerHtml()}${renderTab()}</main>${renderMobileTabBar()}</div>${schedModalHtml()}${settingsModalHtml()}${collabModalHtml()}${installGuideHtml()}${notifPanelHtml()}${noticeModalHtml()}${gcalModalHtml()}${gcalDetailModalHtml()}${GUEST_MODE ? '' : studioViewerHtml()}`;
   fitCalendar();
   positionNavIndicator();
   quoteAfterRender();
@@ -6162,8 +6199,11 @@ async function handlePhotoFile(file) {
 function bootApp() {
   // ?proj={id} — 외부 페이지(촬영 배치판 등)에서 특정 프로젝트 상세로 바로 열기
   { const pj = new URLSearchParams(location.search).get('proj'); if (pj && !GUEST_MODE) { S.activeTab = 'projects'; S.proj.detailId = pj; } }
+  if (new URLSearchParams(location.search).get('ap') && !GUEST_MODE) S.activeTab = 'studio'; // 푸시 알림을 눌러 들어온 경우
   render();
   startAppUpdates();
+  pushRefresh();
+  if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'OPEN_URL') location.href = e.data.url; });
   hisplanRefresh(false); hisplanLoadUrl();
   if (gcalTokenValid()) gcalSync(false);
   else if (localStorage.getItem(GCAL_LS.enabled) === '1') { gcal.status = 'expired'; }
@@ -8276,7 +8316,11 @@ document.addEventListener('DOMContentLoaded', () => {
   .notif-bell.on, .notif-bell:hover { border-color:var(--accent); }
   .notif-badge { position:absolute; top:-5px; right:-6px; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#e5484d; color:#fff; font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; border:2px solid var(--bg); }
   .m-top-actions { display:flex; align-items:center; gap:10px; }
-  .m-top-actions .notif-bell { width:36px; height:36px; box-shadow:none; background:transparent; border-color:transparent; }
+  .m-top-actions .notif-bell { width:44px; height:44px; box-shadow:none; background:transparent; border:none; color:var(--text); -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  .m-top-actions .notif-bell svg { width:24px; height:24px; pointer-events:none; }
+  .m-top-actions .notif-bell.on { color:var(--accent); }
+  .m-top-actions .notif-bell .notif-badge { top:5px; right:5px; min-width:16px; height:16px; font-size:10.5px; padding:0 4px; pointer-events:none; }
+  .push-banner-ic { display:flex; color:var(--accent); } .push-banner-ic svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
   .notif-backdrop { position:fixed; inset:0; z-index:120; }
   .notif-panel { position:fixed; z-index:121; top:16px; left:180px; width:360px; max-height:min(560px, calc(100vh - 90px)); display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--border); border-radius:18px; box-shadow:var(--shadow-lg); overflow:hidden; animation:modalIn .2s ease both; }
   .notif-head { display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid var(--border); }
