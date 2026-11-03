@@ -7515,7 +7515,7 @@ document.addEventListener('DOMContentLoaded', () => {
   :root[data-theme="terminal"] .st-term::after { display:none; }
   /* 터미널 테마: 청록(accent) 바탕 위 흰 글씨는 안 읽혀서 검정으로 */
   :root[data-theme="terminal"] .cal-cell.is-today .cal-daynum span, :root[data-theme="terminal"] .gcal-steps li.done::before, :root[data-theme="terminal"] .install-banner button,
-  :root[data-theme="terminal"] .song-sec-chorus .song-sec-label, :root[data-theme="terminal"] .sp-play, :root[data-theme="terminal"] .st-opt.on, :root[data-theme="terminal"] .eq-modal-submit, :root[data-theme="terminal"] .eq-cat-add-row button { color:#06090b; } /* 화면 전체 주사선이 있으니 스튜디오 겹침 방지 */
+  :root[data-theme="terminal"] .song-sec-chorus .song-sec-label, :root[data-theme="terminal"] .sp-play, :root[data-theme="terminal"] .st-opt.on, :root[data-theme="terminal"] .eq-modal-submit:not(.eq-modal-submit-secondary), :root[data-theme="terminal"] .eq-cat-add-row button { color:#06090b; } /* 화면 전체 주사선이 있으니 스튜디오 겹침 방지 */
   :root[data-theme="terminal"] .notif-badge { background:transparent; color:#e7b65a; border:1px solid #e7b65a; }
   :root[data-theme="light"] .eq-add-btn, :root[data-theme="light"] .eq-modal-submit, :root[data-theme="light"] .eq-cat-add-row button, :root[data-theme="light"] .sched-dday-badge.is-today { color:#fff; }
   :root[data-theme="light"] .eq-confirm-bar { background:rgba(255,255,255,0.96); }
