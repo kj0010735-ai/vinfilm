@@ -273,7 +273,19 @@ const NAV_ITEMS_BASE = [
   { id: 'library', icon: '🗂', label: '자료실' },
   { id: 'chat', icon: '💬', label: '단톡방' },
 ];
-const NAV_ITEMS = STUDIO_HOME ? [NAV_ITEMS_BASE.find(x => x.id === 'studio'), NAV_ITEMS_BASE.find(x => x.id === 'chat'), NAV_ITEMS_BASE.find(x => x.id === 'library'), ...NAV_ITEMS_BASE.filter(x => !['today', 'studio', 'library', 'chat'].includes(x.id))] : NAV_ITEMS_BASE;
+/* 사이드바 섹션(2026-11-06 대표님: 일과 취미를 나눠 보기) — 업무 / AI 팀 / 개인 순서로 묶어 보여 줌 */
+const NAV_SECTIONS = [
+  { label: '업무', ids: ['today', 'schedule', 'projects', 'shared', 'quotes', 'shootprep', 'equipment', 'applicants', 'notes'] },
+  { label: 'AI 팀', ids: ['studio', 'chat', 'library'] },
+  { label: '개인', ids: ['songs', 'bikes'] },
+];
+function navSectionOf(id) { const s = NAV_SECTIONS.find(x => x.ids.includes(id)); return s ? s.label : ''; }
+const NAV_ITEMS = (() => {
+  const base = STUDIO_HOME ? NAV_ITEMS_BASE.filter(x => x.id !== 'today') : NAV_ITEMS_BASE;
+  const home = STUDIO_HOME ? base.find(x => x.id === 'studio') : null;
+  const ordered = NAV_SECTIONS.flatMap(sec => sec.ids.map(id => base.find(x => x.id === id)).filter(Boolean));
+  return home ? [home, ...ordered.filter(x => x !== home)] : ordered;
+})();
 const SHARED_STATUSES = [
   { id: 'todo', label: '준비중', color: '#e0a63c' },
   { id: 'doing', label: '진행중', color: '#4cae7d' },
@@ -775,10 +787,12 @@ function renderSidebar() {
       <div class="side-nav-brand"><img class="side-nav-logo" src="../assets/logo.png" alt="VINFILM STUDIO" width="112" height="56" /><small>WORKS</small></div>
       ${GUEST_MODE ? `<div class="side-nav-guest-badge">👋 공유 보기</div>` : ''}
       <div class="side-nav-indicator"></div>
-      ${items.map((it, i) => `
+      ${items.map((it, i) => {
+        const secOf = j => GUEST_MODE || j === 0 ? '' : navSectionOf(items[j].id); const sec = secOf(i), prev = i ? secOf(i - 1) : null;
+        return `${sec && sec !== prev ? `<div class="side-nav-sec">${sec}</div>` : ''}
         <button class="side-nav-item ${S.activeTab===it.id?'active':''}" data-action="set-tab" data-id="${it.id}">
           <span class="side-nav-icon">${it.icon}</span><span class="side-nav-label">${it.label}</span>
-        </button>${i === 0 ? sideNotifHtml() : ''}`).join('')}
+        </button>${i === 0 ? sideNotifHtml() : ''}`; }).join('')}
       <div class="side-nav-sync" title="${window.cloudSyncReady ? '클라우드에 자동으로 저장/동기화되고 있어요' : '이 기기에만 저장돼요'}">
         <span class="side-nav-icon">${window.cloudSyncReady ? '☁️' : '💾'}</span><span class="side-nav-label">${window.cloudSyncReady ? '동기화됨' : '로컬 저장'}</span>
       </div>
@@ -5253,7 +5267,9 @@ function docPrint(name, text) {
     h2{font-size:22px;border-bottom:2px solid #111;padding-bottom:6px}h3{font-size:17px;margin-top:22px}h4{font-size:15px}
     table{border-collapse:collapse;width:100%;font-size:13px;margin:10px 0}th,td{border:1px solid #bbb;padding:6px 8px;text-align:left;vertical-align:top}th{background:#f1f1f1}
     blockquote{border-left:3px solid #999;margin:8px 0;padding:2px 12px;color:#444}code{background:#f3f3f3;padding:0 4px}a{color:#1a56c4}hr{border:0;border-top:1px dashed #aaa}
-    @page{margin:16mm}</style></head><body>${html}<script>setTimeout(()=>print(),300)<\/script></body></html>`);
+    @page{margin:16mm}  .side-nav-sec{font-size:11.5px;font-weight:700;letter-spacing:.04em;color:var(--text-faint);padding:14px 14px 4px;}
+  @media (max-width:720px){ .side-nav-sec{font-size:0;padding:6px 0 0;margin:6px 10px 0;border-top:1px solid var(--border);} }
+</style></head><body>${html}<script>setTimeout(()=>print(),300)<\/script></body></html>`);
   w.document.close();
 }
 function studioViewerLoad() {
