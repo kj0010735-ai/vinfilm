@@ -256,7 +256,9 @@ function getKnownClients() {
 }
 /* 대시보드 → 스튜디오 통합(2026-10-14 대표님). true면 사이드바 첫 메뉴·첫 화면·폰 홈이 🏢 스튜디오이고, 대시보드 기능(인사·알림 요약·
    다가오는 일정·진행 중 프로젝트·바로가기·오늘 할 일)이 스튜디오 탭 안으로 들어간다. false로 바꾸면 예전 대시보드로 돌아감. 협업자 화면은 영향 없음. */
-const STUDIO_HOME = true;
+const STUDIO_HOME = false; // 2026-11-06 대표님: 홈을 다시 '오늘 할 일' 대시보드로
+/* AI 팀(스튜디오·단톡방·자료실) 메뉴 숨김(2026-11-06 대표님: 실제로 잘 안 쓰고 일만 늘어나는 느낌). 데이터는 그대로, false로 바꾸면 다시 보임 */
+const STUDIO_HIDDEN = true;
 const NAV_ITEMS_BASE = [
   { id: 'today', icon: '📊', label: '대시보드' },
   { id: 'equipment', icon: '🎥', label: '장비목록' },
@@ -276,7 +278,7 @@ const NAV_ITEMS_BASE = [
 /* 사이드바 섹션(2026-11-06 대표님: 일과 취미를 나눠 보기) — 업무 / AI 팀 / 개인 순서로 묶어 보여 줌 */
 const NAV_SECTIONS = [
   { label: '업무', ids: ['today', 'schedule', 'projects', 'shared', 'quotes', 'shootprep', 'equipment', 'applicants', 'notes'] },
-  { label: 'AI 팀', ids: ['studio', 'chat', 'library'] },
+  ...(STUDIO_HIDDEN ? [] : [{ label: 'AI 팀', ids: ['studio', 'chat', 'library'] }]),
   { label: '개인', ids: ['songs', 'bikes'] },
 ];
 function navSectionOf(id) { const s = NAV_SECTIONS.find(x => x.ids.includes(id)); return s ? s.label : ''; }
@@ -1576,9 +1578,9 @@ function mobileMoreSheetHtml() {
       ${row('data-action="set-tab" data-id="songs"', MI.mic, '노래연습')}
       ${row('data-action="set-tab" data-id="bikes"', '<span style="font-size:17px;line-height:1">🏍</span>', '이륜차 정비')}
       ${row('data-action="set-tab" data-id="applicants"', '<span style="font-size:17px;line-height:1">🙋</span>', '지원자')}
-      ${row('data-action="set-tab" data-id="chat"', '<span style="font-size:17px;line-height:1">💬</span>', '단톡방')}
-      ${row('data-action="set-tab" data-id="library"', '<span style="font-size:17px;line-height:1">🗂</span>', '자료실')}
-      ${STUDIO_HOME ? '' : row('data-action="set-tab" data-id="studio"', '<span style="font-size:17px;line-height:1">🏢</span>', '스튜디오')}
+      ${STUDIO_HIDDEN ? '' : row('data-action="set-tab" data-id="chat"', '<span style="font-size:17px;line-height:1">💬</span>', '단톡방')}
+      ${STUDIO_HIDDEN ? '' : row('data-action="set-tab" data-id="library"', '<span style="font-size:17px;line-height:1">🗂</span>', '자료실')}
+      ${STUDIO_HOME || STUDIO_HIDDEN ? '' : row('data-action="set-tab" data-id="studio"', '<span style="font-size:17px;line-height:1">🏢</span>', '스튜디오')}
       <a class="m-sheet-row" href="../ledger/"><span class="m-sheet-ic">${MI.money}</span><span>수입·지출 관리</span><i>${MI.chev}</i></a>
       ${row('data-action="open-settings"', MI.gear, '설정')}
       ${row('data-action="logout"', MI.logout, '로그아웃', 'is-dim')}
@@ -3126,14 +3128,36 @@ function shortcutModalHtml() {
     </div>`;
 }
 
+/* 이번 주 해야 할 것 — 오늘·내일 일정 수, 이번 주(월~일) 마감 프로젝트, 이번 달 받을 돈(장부 '예정' 매출) */
+function dashWeekHtml() {
+  let money = null; try { studioLoadLedger(); money = studioLedger.sched; } catch (e) {}
+  const t = todayStr(), d = new Date(t + 'T00:00:00'), mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  const iso = x => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6); const tm = new Date(d); tm.setDate(d.getDate() + 1);
+  const ws = iso(mon), we = iso(sun), tom = iso(tm);
+  const due = projItems.filter(p => p.status !== 'done' && p.dueDate && p.dueDate <= we).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  const evs = visibleSchedItems(), nToday = evs.filter(e => e.date === t).length, nTom = evs.filter(e => e.date === tom).length;
+  const dd = x => x < t ? `<em class="dw-late">지남</em>` : x === t ? `<em class="dw-late">오늘</em>` : `<em>${x.slice(5).replace('-', '/')}</em>`;
+  return `<div class="dash-card dash-week">
+    <div class="dash-card-head"><h2>이번 주 해야 할 것</h2></div>
+    <div class="dw-stats">
+      <button data-action="set-tab" data-id="schedule"><small>오늘 일정</small><b>${nToday}</b></button>
+      <button data-action="set-tab" data-id="schedule"><small>내일 일정</small><b>${nTom}</b></button>
+      <button data-action="set-tab" data-id="projects"><small>이번 주 마감</small><b>${due.length}</b></button>
+      <a href="../ledger/"><small>이번 달 받을 돈</small><b>${money == null ? '—' : '₩' + won(money)}</b></a>
+    </div>
+    ${due.length ? `<div class="dash-list">${due.slice(0, 6).map(p => `<button class="dash-row" data-action="today-open-project-detail" data-id="${p.id}">${dd(p.dueDate)}<span class="dash-row-main"><b>${esc(p.title)}</b>${p.client ? `<small>${esc(p.client)}</small>` : ''}</span></button>`).join('')}</div>` : `<p class="dash-empty">이번 주 마감은 없어요.</p>`}
+  </div>`;
+}
 function renderTodayTab() {
   return `
     <div class="dash-hello"><h1>안녕하세요${greetingName() ? `, ${esc(greetingName())}님` : ''}</h1><p>${longDateLabel(todayStr())}</p></div>
     ${dashNotifHtml()}
     ${dashQuickHtml()}
+    ${dashWeekHtml()}
     <div class="dash-grid">${dashUpcomingHtml()}${dashProjectsHtml()}</div>
-    ${shortcutsSectionHtml()}
     ${todayTasksSectionHtml()}
+    ${shortcutsSectionHtml()}
   `;
 }
 /* 대시보드의 '오늘 할 일'(오늘/월별 보기·오늘 일정·오늘 마감·할 일 메모) — 스튜디오 탭(STUDIO_HOME)에서도 그대로 씀 */
@@ -5267,7 +5291,15 @@ function docPrint(name, text) {
     h2{font-size:22px;border-bottom:2px solid #111;padding-bottom:6px}h3{font-size:17px;margin-top:22px}h4{font-size:15px}
     table{border-collapse:collapse;width:100%;font-size:13px;margin:10px 0}th,td{border:1px solid #bbb;padding:6px 8px;text-align:left;vertical-align:top}th{background:#f1f1f1}
     blockquote{border-left:3px solid #999;margin:8px 0;padding:2px 12px;color:#444}code{background:#f3f3f3;padding:0 4px}a{color:#1a56c4}hr{border:0;border-top:1px dashed #aaa}
-    @page{margin:16mm}  .side-nav-sec{font-size:11.5px;font-weight:700;letter-spacing:.04em;color:var(--text-faint);padding:14px 14px 4px;}
+    @page{margin:16mm}  .dash-week{margin-bottom:16px;}
+  .dw-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px;}
+  .dw-stats>*{display:flex;flex-direction:column;gap:4px;align-items:flex-start;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);text-decoration:none;cursor:pointer;font:inherit;text-align:left;min-width:0;}
+  .dw-stats small{font-size:13px;color:var(--text-dim);}
+  .dw-stats b{font-size:20px;overflow-wrap:anywhere;}
+  .dash-week .dash-row em{font-style:normal;font-size:13px;font-weight:700;color:var(--text-dim);min-width:40px;}
+  .dash-week .dash-row em.dw-late{color:#e5534b;}
+  @media (max-width:720px){ .dw-stats{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  .side-nav-sec{font-size:11.5px;font-weight:700;letter-spacing:.04em;color:var(--text-faint);padding:14px 14px 4px;}
   @media (max-width:720px){ .side-nav-sec{font-size:0;padding:6px 0 0;margin:6px 10px 0;border-top:1px solid var(--border);} }
 </style></head><body>${html}<script>setTimeout(()=>print(),300)<\/script></body></html>`);
   w.document.close();
@@ -5301,7 +5333,7 @@ function studioLoadLedger() {
     snap.forEach(doc => { const e = doc.data(); if (e.category === 'revenue') { rev += Number(e.totalAmount) || 0; if ((e.paymentStatus || 'scheduled') === 'scheduled') sched += Number(e.totalAmount) || 0; } else if (e.category === 'expense' || e.category === 'labor') exp += Number(e.totalAmount) || 0; });
     studioLedger = { month, at: Date.now(), rev, exp, sched, loading: false, err: '' };
   }).catch(err => { studioLedger = { ...studioLedger, month, at: Date.now(), loading: false, err: String(err && err.message || err) }; })
-    .then(() => { if (S.activeTab === 'studio') render(); });
+    .then(() => { if (S.activeTab === 'studio' || S.activeTab === 'today') render(); });
 }
 function studioMoney(n) { return n == null ? '—' : '₩' + won(n); }
 
