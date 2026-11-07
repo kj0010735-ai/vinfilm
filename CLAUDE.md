@@ -262,6 +262,14 @@
 
 즉 장비목록/공유 프로젝트는 **URL만 알면 로그인 없이 누구나 읽고 쓸 수 있는 상태**다 (의도된 설계). guest 모드는 그 위에서 UI 탭만 제한해 외부 협업자가 필요한 두 화면만 보게 하는 것이지, 데이터 자체를 잠그는 게 아니다.
 
+## WORKS 데이터 읽기 (비서실 · CUVIS)
+일정·프로젝트·촬영 준비·장비·수입지출은 코드가 아니라 **실제 데이터**를 읽고 쓴다:
+`python3 ~/jarvis/works.py list` / `python3 ~/jarvis/works.py get schedule projects shoots ledgerEntries ledgerSubscriptions [--since YYYY-MM-DD]`
+- 직원 계정 studio-bridge@vinfilmstudio.com으로 로그인(비밀번호는 키체인 `vinfilm-studio-bridge` — 출력·채팅 금지). 범위는 `firestore.rules`의 isBridge(): shoots·ledger*는 읽기만(2026-11-08 배포).
+- **일정·프로젝트는 추가·수정도 직접 한다** (읽기만 된다고 답하지 말 것): `add-schedule` `edit-schedule` `cancel-schedule` `add-project` `edit-project` — 사용법은 `python3 ~/jarvis/works.py`(인자 없이)로 확인. 쓸 때마다 스튜디오 탭에 'CUVIS ·' 보고가 자동으로 남는다.
+  - 일정 칸: date endDate time title location memo category(shoot·meeting·scout·deadline·etc) meet / 프로젝트 칸: title type(shoot·edit·etc) client dueDate status(todo·doing·done) notes
+  - **장부 추가·수정(`add-ledger`/`edit-ledger`)과 삭제(`delete schedule|projects|ledgerEntries <id>`)도 된다**(2026-11-08 대표님 요청). 삭제 전에 원본을 `~/jarvis/backups/`에 저장하고 스튜디오 탭에 보고를 남김. 협업자 일정은 못 지움. 촬영 준비(shoots)·구독은 읽기만.
+
 ## 작업 시 유의사항
 
 - 프레임워크 없이 바닐라 JS로 작성됨 — React/Vue 등 새 의존성을 임의로 추가하지 말 것.

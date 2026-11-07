@@ -95,9 +95,9 @@ service cloud.firestore {
       allow update: if isOwner() || (isBridge()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'dueDate', 'notes', 'client', 'title', 'type', 'updatedAt', 'studioApprovalId'])
         && bridgeProjValid(request.resource.data));
-      allow delete: if isOwner();
+      allow delete: if isOwner() || isBridge();   // CUVIS 삭제(2026-11-08 대표님 요청, works.py가 지우기 전에 백업)
     }
-    match /shoots/{id} { allow read, write: if isOwner(); }
+    match /shoots/{id} { allow read, write: if isOwner(); allow read: if isBridge(); }   // CUVIS: 촬영 준비 읽기만
     match /presets/{id} { allow read, write: if isOwner(); }
     match /todayTasks/{id} { allow read, write: if isOwner(); }
     match /notes/{id} { allow read, write: if isOwner(); }
@@ -159,9 +159,16 @@ service cloud.firestore {
     }
 
     // STUDIO FINANCE 통합장부(ledger/index.html) — 재무 데이터라 owner만 읽고 쓸 수 있다.
-    match /ledgerEntries/{id} { allow read, write: if isOwner(); }
-    match /ledgerSubscriptions/{id} { allow read, write: if isOwner(); }
-    match /ledgerSettings/{id} { allow read, write: if isOwner(); }
+    // CUVIS(2026-11-08 대표님 요청): 장부 매출·지출 추가·수정·삭제 가능 (works.py가 지우기 전에 Mac에 백업)
+    match /ledgerEntries/{id} {
+      allow read, write: if isOwner();
+      allow read, delete: if isBridge();
+      allow create, update: if isBridge() && request.resource.data.id == id
+        && request.resource.data.category in ['revenue', 'labor', 'expense']
+        && request.resource.data.totalAmount is number && request.resource.data.date is string;
+    }
+    match /ledgerSubscriptions/{id} { allow read, write: if isOwner(); allow read: if isBridge(); }
+    match /ledgerSettings/{id} { allow read, write: if isOwner(); allow read: if isBridge(); }
 
     // WORKS 🏢 스튜디오 탭 — 대표님이 지시(studioTasks)하면 다리가 Claude 직원을 돌려 결재(studioApprovals)로 돌려준다.
     // 게스트·협업자는 전부 못 읽음. 다리는 아래 범위만.
