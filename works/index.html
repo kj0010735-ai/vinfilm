@@ -4594,7 +4594,7 @@ async function pushEnable() {
   const perm = await Notification.requestPermission(); // 아이폰은 버튼을 누른 바로 그 순간에만 물어볼 수 있다
   if (perm !== 'granted') { alert('알림이 꺼져 있어요. 아이폰 설정 → 알림 → WORKS에서 켤 수 있어요.'); render(); return; }
   try {
-    const reg = await navigator.serviceWorker.ready;
+    const reg = await Promise.race([navigator.serviceWorker.ready, new Promise((_, rej) => setTimeout(() => rej(new Error('앱 준비가 안 끝났어요. 앱을 완전히 닫았다 다시 열고 한 번 더 눌러 주세요')), 8000))]);
     const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: pushB64(PUSH_PUBLIC_KEY) });
     await pushSave(sub);
     reg.showNotification('🔔 알림이 켜졌어요', { body: '결재·아침 정리가 생기면 여기로 알려 드릴게요.', icon: '/assets/works-icon.png' });
@@ -6268,7 +6268,7 @@ function bootApp() {
     if (GUEST_MODE && EQ_WRITE_ACTIONS.includes(action)) return;
     if (/^(quote-|contract-|biz-sign)/.test(action) && !GUEST_MODE && (handleQuoteAction(action, el, e) || handleContractAction(action, el, e))) return;
     if (/^(collab-|shared-collab-filter)/.test(action) && !GUEST_MODE && handleCollabAction(action, el, e)) return;
-    if (/^install-/.test(action) && handleInstallAction(action, el, e)) return;
+    if (/^(install-|push-)/.test(action) && handleInstallAction(action, el, e)) return;
     if (action === 'time-chip') {
       const box = el.closest('.time-field'), inp = box && box.querySelector('input');
       if (inp) { inp.value = el.dataset.id; inp.dispatchEvent(new Event('input', { bubbles: true })); }
