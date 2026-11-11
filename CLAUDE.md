@@ -6,6 +6,7 @@
 
 - `index.html` — **공개 홈페이지** (루트, 커스텀 도메인 `www.vinfilmstudio.com`이 여기로 연결됨). 포트폴리오/소개/연락처.
 - `service.html` — 서비스 상세 페이지 (`?id=interview|sketch|mv|youtube`). index.html의 "무엇을 만드나요?" 목록에서 클릭하면 넘어옴. 서비스별 태그라인·소개문구·진행 단계도 `siteContent/home`의 `services` 필드에서 읽어온다.
+- `christmas/index.html` — 중등부 크리스마스 콩트 대본 "크리스마스 가족 대소동 수정안" (2026-11-11 추가, 홈페이지와 별개·검색 비노출 noindex). 단일 HTML(사진은 data URI, 음원은 저작권 때문에 뺌). 대본 데이터는 Firestore `siteContent/christmas-skit` 문서의 `state`(JSON 문자열, 사진 제외)에서 읽고, 대표님 구글 계정으로 로그인하면 페이지에서 바로 고쳐 저장(`.set()` 덮어쓰기). 기존 `siteContent` 규칙(누구나 읽기·owner만 쓰기)을 그대로 써서 규칙 추가 없음. 다른 페이지는 `siteContent/home`만 쓰므로 영향 없음.
 - `admin/index.html` — 홈페이지 콘텐츠 관리자 화면. 비밀번호 게이트 + Firestore `siteContent/home` 문서 편집.
 - `works/index.html` — **내부 작업 관리 앱 "WORKS"(대화에서는 "웍스")** — 2026-10-09 이름 변경(처음엔 "VINFILM WORKS"로 했다가 대표님 정정으로 "WORKS"): 탭 제목·사이드바 브랜드·eyebrow·manifest(name/short_name 모두 "WORKS")·Mac 실행기(tools/works-app "WORKS.app")·홈 화면 이름(WORKS)·ledger 링크(🎬 WORKS로)·견적/계약 미리보기 안내 문구. 주소 /works/와 기능 탭 이름은 그대로. 홈 화면 웹앱은 manifest 이름이 바뀌면 지우고 다시 추가해야 반영됨. (기존 "작업 관리" 툴, 원래 루트에 있던 파일을 이전한 것). 장비목록/스케줄/프로젝트/공유 프로젝트/메모장 탭 구성. `?guest=1`로 외부 공유 모드 진입 가능. 사이드바 하단(동기화 표시와 로그아웃 사이, guest 모드에는 없음)에 `ledger/`로 넘어가는 "💰 수입·지출 관리" 링크가 있다(라벨은 한글 — 168px 사이드바에서 영문 "STUDIO FINANCE"는 폭이 빠듯해 잘렸고 한글로 써달라는 요청도 있었음) — 두 앱은 서로 다른 페이지(SPA 탭이 아니라 실제 `<a href>` 이동)라 브라우저 뒤로가기로 돌아온다. `ledger/index.html`에도 우측 상단에 반대 방향 링크("🎬 작업 관리로")가 있다.
 - `works/장비목록 이미지/` — 장비 사진 에셋.
