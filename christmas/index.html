@@ -259,7 +259,7 @@ textarea.f { resize: none; overflow: hidden; display: block; }
   var onServer = /^https?:$/.test(location.protocol);
   /* on vinfilmstudio.com the script lives in Firestore: everyone reads it, only the owner's Google login can save */
   var cloudMode = onServer && /(^|\.)vinfilmstudio\.com$/.test(location.hostname) && typeof firebase !== 'undefined';
-  var OWNER_EMAILS = ['kj0010735@gmail.com'];
+  var OWNER_EMAILS = ['kj0010735@gmail.com', 'khm95419@gmail.com'];  /* 대표님 + 와이프(김혜민) */
   var cloudDoc = null, cloudUser = null;
   var editKey = '';
   try { editKey = new URLSearchParams(location.search).get('key') || ''; } catch (e) {}
@@ -1228,11 +1228,11 @@ textarea.f { resize: none; overflow: hidden; display: block; }
     var b = document.getElementById('edit-btn'); if (b) b.hidden = !canWrite;
     var hint = document.getElementById('inline-hint'); if (hint) hint.hidden = !canWrite;
     var lb = document.getElementById('login-btn'); if (lb) lb.textContent = cloudUser ? '로그아웃' : '수정하려면 로그인';
-    if (u && !canWrite) toast('이 계정은 보기만 할 수 있어요. 대표님 계정으로 로그인해 주세요.');
+    if (u && !canWrite) toast('이 계정은 보기만 할 수 있어요. 수정 권한이 있는 계정으로 로그인해 주세요.');
   }
   function saveCloud() {
     if (inlineEl) commitInline();
-    if (!canWrite) { setStatus('대표님 계정으로 로그인해야 저장할 수 있어요.', true); return; }
+    if (!canWrite) { setStatus('수정 권한이 있는 계정으로 로그인해야 저장할 수 있어요.', true); return; }
     if (!dirty) { setStatus('바뀐 내용이 없어요.', false); return; }
     saving = true;
     var sb = document.getElementById('save-btn'); if (sb) sb.disabled = true;
@@ -1246,7 +1246,7 @@ textarea.f { resize: none; overflow: hidden; display: block; }
       }, function (err) {
         saving = false; if (sb) sb.disabled = false;
         setStatus(err && err.code === 'permission-denied'
-          ? '저장 권한이 없어요. 대표님 계정으로 로그인했는지 확인해 주세요.'
+          ? '저장 권한이 없어요. 수정 권한이 있는 계정으로 로그인했는지 확인해 주세요.'
           : '저장하지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.', true);
       });
   }
