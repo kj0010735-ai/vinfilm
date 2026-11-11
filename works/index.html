@@ -3129,8 +3129,28 @@ function shortcutModalHtml() {
 }
 
 /* 이번 주 해야 할 것 — 오늘·내일 일정 수, 이번 주(월~일) 마감 프로젝트, 이번 달 받을 돈(장부 '예정' 매출) */
+/* 받을 돈(장부 '예정' 매출 전체) · 원천세 기한(지난달 인건비 중 납부 안 한 것, 매달 10일) — 홈 '이번 주 해야 할 것'용. 읽기만 한다. */
+let dashRecv = { at: 0, loading: false, list: null, tax: 0, taxMonth: '' };
+function dashLoadRecv() {
+  if (IS_LOCAL_DEV || GUEST_MODE || typeof firebase === 'undefined' || !firebase.firestore || !window.cloudSyncReady) return;
+  if (dashRecv.loading || Date.now() - dashRecv.at < 60000) return;
+  dashRecv.loading = true;
+  const db = firebase.firestore(), d = new Date(), pm = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+  const prev = `${pm.getFullYear()}-${String(pm.getMonth() + 1).padStart(2, '0')}`;
+  Promise.all([
+    db.collection('ledgerEntries').where('paymentStatus', '==', 'scheduled').get(),
+    db.collection('ledgerEntries').where('date', '>=', prev + '-01').where('date', '<=', prev + '-31').get(),
+  ]).then(([a, b]) => {
+    const list = []; a.forEach(x => { const e = x.data(); if (e.category === 'revenue') list.push(e); });
+    list.sort((x, y) => String(x.date || '').localeCompare(String(y.date || '')));
+    let tax = 0; b.forEach(x => { const e = x.data(); if (e.category === 'labor' && e.taxPaymentStatus !== 'done') tax += Number(e.withholdingTax) || 0; });
+    dashRecv = { at: Date.now(), loading: false, list, tax, taxMonth: prev };
+  }).catch(() => { dashRecv.loading = false; dashRecv.at = Date.now(); })
+    .then(() => { if (S.activeTab === 'today') render(); });
+}
 function dashWeekHtml() {
-  let money = null; try { studioLoadLedger(); money = studioLedger.sched; } catch (e) {}
+  let money = null; try { studioLoadLedger(); dashLoadRecv(); money = studioLedger.sched; } catch (e) {}
+  const recv = dashRecv.list, recvSum = recv ? recv.reduce((n, e) => n + (Number(e.totalAmount) || 0), 0) : null;
   const t = todayStr(), d = new Date(t + 'T00:00:00'), mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay() + 6) % 7));
   const iso = x => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
   const sun = new Date(mon); sun.setDate(mon.getDate() + 6); const tm = new Date(d); tm.setDate(d.getDate() + 1);
@@ -3144,10 +3164,27 @@ function dashWeekHtml() {
       <button data-action="set-tab" data-id="schedule"><small>오늘 일정</small><b>${nToday}</b></button>
       <button data-action="set-tab" data-id="schedule"><small>내일 일정</small><b>${nTom}</b></button>
       <button data-action="set-tab" data-id="projects"><small>이번 주 마감</small><b>${due.length}</b></button>
-      <a href="../ledger/"><small>이번 달 받을 돈</small><b>${money == null ? '—' : '₩' + won(money)}</b></a>
+      <a href="../ledger/"><small>받을 돈</small><b>${recvSum != null ? '₩' + won(recvSum) : money == null ? '—' : '₩' + won(money)}</b></a>
     </div>
+    ${dashWeekExtraHtml(t, we, evs, dd)}
     ${due.length ? `<div class="dash-list">${due.slice(0, 6).map(p => `<button class="dash-row" data-action="today-open-project-detail" data-id="${p.id}">${dd(p.dueDate)}<span class="dash-row-main"><b>${esc(p.title)}</b>${p.client ? `<small>${esc(p.client)}</small>` : ''}</span></button>`).join('')}</div>` : `<p class="dash-empty">이번 주 마감은 없어요.</p>`}
   </div>`;
+}
+function dashWeekExtraHtml(t, we, evs, dd) {
+  const rows = [];
+  // 받을 돈 — 날짜 지난 건 빨갛게
+  (dashRecv.list || []).slice(0, 5).forEach(e => rows.push(`<a class="dash-row" href="../ledger/"><em class="${e.date && e.date < t ? 'dw-late' : ''}">${e.date ? e.date.slice(5).replace('-', '/') : '—'}</em><span class="dash-row-main"><b>받을 돈 ₩${won(e.totalAmount)}</b><small>${esc([e.partner, e.project].filter(Boolean).join(' · '))}</small></span></a>`));
+  // 원천세: 지난달 인건비를 줬다면 이번 달 10일까지 신고·납부
+  if (dashRecv.tax > 0) {
+    const due10 = t.slice(0, 7) + '-10', late = t > due10;
+    rows.push(`<a class="dash-row" href="../ledger/"><em class="${late || t === due10 ? 'dw-late' : ''}">${late ? '지남' : due10.slice(5).replace('-', '/')}</em><span class="dash-row-main"><b>원천세 신고·납부 ₩${won(dashRecv.tax)}</b><small>${Number(dashRecv.taxMonth.slice(5))}월 인건비 · 매달 10일까지</small></span></a>`);
+  }
+  // 부가세 확정신고(일반과세자): 1/25, 7/25 — 한 달 전부터 보여 줌
+  const y = Number(t.slice(0, 4)), dl = [`${y}-01-25`, `${y}-07-25`, `${y + 1}-01-25`].find(x => x >= t);
+  if (dl && (new Date(dl) - new Date(t)) / 864e5 <= 30) rows.push(`<a class="dash-row" href="../ledger/"><em>${dl.slice(5).replace('-', '/')}</em><span class="dash-row-main"><b>부가세 확정신고</b><small>${dl.slice(5, 7) === '01' ? '하반기' : '상반기'} 매출·매입 정리</small></span></a>`);
+  // 캘린더 '마감'(답장 보내기 같은 할 일) — 프로젝트에 안 붙은 것
+  evs.filter(e => e.category === 'deadline' && !e.projectId && e.date >= t && e.date <= we).forEach(e => rows.push(`<button class="dash-row" data-action="sched-open-detail" data-id="${e.id}">${dd(e.date)}<span class="dash-row-main"><b>${esc(e.title)}</b></span></button>`));
+  return rows.length ? `<div class="dash-list" style="margin-bottom:8px">${rows.join('')}</div>` : '';
 }
 function renderTodayTab() {
   return `
