@@ -768,11 +768,11 @@ function settingsModalHtml() {
           <input class="hisplan-url-input" data-role="hisplan-url" inputmode="url" autocomplete="off" placeholder="https://…/calendar-feed?t=…" value="${esc(hisplan.url)}" />
           <div class="hisplan-status">${hisplan.busy ? '불러오는 중…' : hisplan.msg ? esc(hisplan.msg) : hisplan.url && hisplan.lastSync ? `✓ ${hisplan.events.length}개 일정 · ${pad2(new Date(hisplan.lastSync).getHours())}:${pad2(new Date(hisplan.lastSync).getMinutes())} 기준` : ''}</div>
         </div>`}
-        <div class="eq-field">
+        ${workAppIos() ? appPushSettingsHtml() : `<div class="eq-field">
           <label>앱으로 추가 <span class="eq-hint">(홈 화면·Dock에 아이콘 만들기)</span></label>
           <button type="button" class="eq-modal-submit eq-modal-submit-secondary" data-action="install-open" style="margin-top:0;">📲 설치 방법 보기</button>
           ${!GUEST_MODE && pushSupported() ? `<button type="button" class="eq-modal-submit eq-modal-submit-secondary" data-action="push-enable" style="margin-top:8px;">🔔 ${Notification.permission === 'granted' ? '알림 다시 연결 (시험 알림)' : '폰 알림 켜기'}</button>` : ''}
-        </div>
+        </div>`}
         <div class="eq-field" style="margin-bottom:0;">
           <label>앱 버전 <span class="eq-hint">(화면이 예전 그대로면 눌러주세요)</span></label>
           <button type="button" class="eq-modal-submit eq-modal-submit-secondary" data-action="app-refresh" style="margin-top:0;">새로고침</button>
@@ -3875,7 +3875,11 @@ function quoteUpdateTotalsDom() {
   set('qtSupply', won(t.supply)); set('qtVat', won(t.vat)); set('qtTotal', won(t.total));
   (d.items || []).forEach(it => set('qa-' + it.id, won((Number(it.qty) || 0) * (Number(it.price) || 0))));
 }
-function isStandaloneApp() { return window.navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches); }
+function isStandaloneApp() { return window.navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || workAppIos(); }
+/* 📱 WORKS 아이폰 앱(tools/works-ios, WKWebView) 안에서 열렸는지 — 앱이 페이지에 window.__workApp 을 넣어 준다.
+   앱 ↔ 사이트 약속: 앱→웹 window.__workApp.push={permission,token,env} + 'workapp:push' 이벤트 / 웹→앱 messageHandlers.workApp.postMessage({type:'enablePush'|'badge'|'openSettings'}) */
+function workAppIos() { return !!(window.__workApp && window.__workApp.platform === 'ios'); }
+function workAppPost(msg) { try { window.webkit.messageHandlers.workApp.postMessage(msg); } catch (e) {} }
 function quotePreview(q) {
   try { localStorage.setItem('vinfilm-quote-preview', JSON.stringify(quoteSnapshot(q))); } catch (e) {}
   const url = '../quote/?preview=1';
@@ -4612,13 +4616,17 @@ function installBannerHtml() {
 /* 📲 폰 푸시 알림 — 홈 화면 WORKS에서 한 번 허용하면 Mac 스튜디오 다리(tools/studio-bridge/push.mjs)가 결재·아침 정리를 보낸다.
    구독은 Firestore pushSubs/{endpoint 해시}(owner 전용, 다리는 읽기·만료 삭제). 공개키만 여기 있고 비밀키는 Mac에만. */
 const PUSH_PUBLIC_KEY = 'BFlVVLflAd2_g40m8DJenLxUwUsegKmH7Ord2Dgn8dYKHLuNcQDKidPSKwILRK3v3S-5cp3r5xR7j7WmU6Fg9xI';
-const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
-function pushBannerHtml() {
-  if (GUEST_MODE || IS_LOCAL_DEV || !pushSupported() || Notification.permission !== 'default') return '';
-  if (uaInfo().mobile && !isStandaloneApp()) return ''; // 아이폰은 홈 화면 앱에서만 알림이 된다
-  let dismissed = false; try { dismissed = localStorage.getItem('vinfilm-push-dismissed') === '1'; } catch (e) {}
-  if (dismissed) return '';
-  return `<div class="install-banner push-banner"><i class="push-banner-ic">${MI.bell}</i><span><b>알림 받기</b> · 결재·아침 정리를 폰으로 바로 받아요</span><button data-action="push-enable">켜기</button><button class="x" data-action="push-dismiss" aria-label="닫기">✕</button></div>`;
+const pushSupported = () => workAppIos() || ('serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window);
+/* 홈의 '알림 받기' 배너는 없앴다(2026-11-12, 아이폰 앱으로 쓰니 홈에 안내가 필요 없음). 알림 켜기는 설정(⚙️) 창에서만 한다.
+   아이폰 앱 안의 설정 창 '알림' 칸 — 허용 상태는 앱이 알려 주고(window.__workApp.push.permission), 상태가 바뀌면 workapp:push 이벤트가 화면을 다시 그린다. */
+function appPushSettingsHtml() {
+  if (GUEST_MODE) return '';
+  const perm = (window.__workApp.push || {}).permission;
+  const btn = (action, label) => `<button type="button" class="eq-modal-submit eq-modal-submit-secondary" data-action="${action}" style="margin-top:0;">${label}</button>`;
+  const body = perm === 'granted' ? '<div class="hisplan-status">✓ 알림이 켜져 있어요</div>'
+    : perm === 'denied' ? `${btn('push-settings', '⚙️ 아이폰 설정에서 켜기')}<div class="hisplan-status">알림이 꺼져 있어요. 아이폰 설정 → 알림 → WORKS에서 켤 수 있어요.</div>`
+    : btn('push-enable', '🔔 알림 켜기');
+  return `<div class="eq-field"><label>알림 <span class="eq-hint">(이 아이폰으로 받기)</span></label>${body}</div>`;
 }
 function pushB64(k) { const p = '='.repeat((4 - k.length % 4) % 4), b = atob((k + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, c => c.charCodeAt(0)); }
 async function pushSave(sub) {
@@ -4626,7 +4634,29 @@ async function pushSave(sub) {
   const j = JSON.stringify(sub), h = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sub.endpoint)))).slice(0, 12).map(b => b.toString(16).padStart(2, '0')).join('');
   await firebase.firestore().collection('pushSubs').doc(h).set({ sub: j, device: (uaInfo().ios ? 'iPhone' : uaInfo().android ? 'Android' : 'PC') + (isStandaloneApp() ? ' 앱' : ''), at: Date.now() });
 }
+/* 아이폰 앱의 애플 푸시 토큰 — pushSubs/apns-{해시}에 {apns:{token,env}} 로 적는다(Mac 다리의 push.mjs가 읽어 APNs로 보냄).
+   env: Xcode에서 돌린 Debug는 sandbox, TestFlight(Release)는 production. */
+async function pushSaveApns(token, env) {
+  if (!window.firebase || !firebase.firestore || !firebase.auth || !firebase.auth().currentUser) return;
+  const h = 'apns-' + Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(env + ':' + token)))).slice(0, 12).map(b => b.toString(16).padStart(2, '0')).join('');
+  await firebase.firestore().collection('pushSubs').doc(h).set({ apns: { token, env }, device: 'iPhone 앱', at: Date.now() });
+}
+let _appPushPerm = workAppIos() ? ((window.__workApp.push || {}).permission || null) : null;
+window.addEventListener('workapp:push', () => { // 앱이 알림 허용 상태·토큰을 바꿔 알려 줄 때
+  if (!workAppIos()) return;
+  const perm = (window.__workApp.push || {}).permission || null;
+  pushRefresh();
+  if (perm !== _appPushPerm) { _appPushPerm = perm; try { render(); } catch (e) {} } // 배너를 바로 바꾼다
+});
+let _appBadge = -1;
+function syncAppBadge() { // 앱 아이콘 숫자 = 안 읽은 알림(종 빨간 숫자)
+  if (!workAppIos()) return;
+  let n = 0; try { n = notifUnread(); } catch (e) { return; }
+  if (n === _appBadge) return;
+  _appBadge = n; workAppPost({ type: 'badge', count: n });
+}
 async function pushEnable() {
+  if (workAppIos()) { workAppPost({ type: 'enablePush' }); return; } // 아이폰 알림 허용 창은 앱이 띄운다
   if (!pushSupported()) { alert('이 기기에서는 알림을 받을 수 없어요. 아이폰은 홈 화면에 추가한 WORKS에서 켜 주세요.'); return; }
   const perm = await Notification.requestPermission(); // 아이폰은 버튼을 누른 바로 그 순간에만 물어볼 수 있다
   if (perm !== 'granted') { alert('알림이 꺼져 있어요. 아이폰 설정 → 알림 → WORKS에서 켤 수 있어요.'); render(); return; }
@@ -4639,7 +4669,9 @@ async function pushEnable() {
   render();
 }
 async function pushRefresh() { // 이미 허용한 기기는 구독이 바뀌었을 수 있어 열 때마다 다시 적어 둔다
-  if (GUEST_MODE || IS_LOCAL_DEV || !pushSupported() || Notification.permission !== 'granted') return;
+  if (GUEST_MODE || IS_LOCAL_DEV) return;
+  if (workAppIos()) { const p = window.__workApp.push || {}; if (p.permission === 'granted' && p.token) { try { await pushSaveApns(p.token, p.env || 'production'); } catch (e) {} } return; }
+  if (!pushSupported() || Notification.permission !== 'granted') return;
   try { const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription(); if (sub) await pushSave(sub); } catch (e) {}
 }
 function installGuideHtml() {
@@ -4684,7 +4716,7 @@ function handleInstallAction(action, el, e) {
     case 'install-close': S.installOpen = false; render(); return true;
     case 'install-close-backdrop': if (!e.target.closest('[data-stop-close]')) { S.installOpen = false; render(); } return true;
     case 'push-enable': pushEnable(); return true;
-    case 'push-dismiss': try { localStorage.setItem('vinfilm-push-dismissed', '1'); } catch (x) {} render(); return true;
+    case 'push-settings': workAppPost({ type: 'openSettings' }); return true;
     case 'install-dismiss': try { localStorage.setItem('vinfilm-install-dismissed', '1'); } catch (x) {} render(); return true;
     case 'install-now':
       if (deferredInstall) { const p = deferredInstall; deferredInstall = null; p.prompt(); p.userChoice.finally(() => { S.installOpen = false; render(); }); }
@@ -6178,7 +6210,7 @@ function render() {
   if (STUDIO_HOME && !GUEST_MODE && S.activeTab === 'today') S.activeTab = 'studio'; // 예전 대시보드로 가는 링크·알림은 스튜디오로
   const studioKeep = S.activeTab === 'studio' ? studioCaptureInputs() : null;
   const chatKeep = S.activeTab === 'chat' ? chatCapture() : null;
-  document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderMobileTopBar()}${installBannerHtml()}${pushBannerHtml()}${renderTab()}</main>${renderMobileTabBar()}</div>${schedModalHtml()}${settingsModalHtml()}${collabModalHtml()}${installGuideHtml()}${notifPanelHtml()}${noticeModalHtml()}${gcalModalHtml()}${gcalDetailModalHtml()}${GUEST_MODE ? '' : studioViewerHtml()}`;
+  document.getElementById('root').innerHTML = `<div class="app-shell">${renderSidebar()}<main class="app-main">${renderMobileTopBar()}${installBannerHtml()}${renderTab()}</main>${renderMobileTabBar()}</div>${schedModalHtml()}${settingsModalHtml()}${collabModalHtml()}${installGuideHtml()}${notifPanelHtml()}${noticeModalHtml()}${gcalModalHtml()}${gcalDetailModalHtml()}${GUEST_MODE ? '' : studioViewerHtml()}`;
   fitCalendar();
   positionNavIndicator();
   quoteAfterRender();
@@ -6190,6 +6222,7 @@ function render() {
   if (S.activeTab === 'studio' && !GUEST_MODE) { studioMountCanvas(); studioRestoreInputs(studioKeep); }
   if (S.activeTab === 'chat' && !GUEST_MODE) chatRestore(chatKeep);
   syncThemeColor();
+  syncAppBadge();
   const main = document.querySelector('.app-main');
   if (main && window.__lastTab !== S.activeTab) { main.classList.add('tab-enter'); if (window.__lastTab && !window.__tabBack) { (window.__tabHist = window.__tabHist || []).push(window.__lastTab); if (window.__tabHist.length > 20) window.__tabHist.shift(); } window.__tabBack = false; window.__lastTab = S.activeTab; }
   const af = document.querySelector('[autofocus]');
@@ -8395,7 +8428,6 @@ document.addEventListener('DOMContentLoaded', () => {
   .m-top-actions .notif-bell svg { width:24px; height:24px; pointer-events:none; }
   .m-top-actions .notif-bell.on { color:var(--accent); }
   .m-top-actions .notif-bell .notif-badge { top:5px; right:5px; min-width:16px; height:16px; font-size:10.5px; padding:0 4px; pointer-events:none; }
-  .push-banner-ic { display:flex; color:var(--accent); } .push-banner-ic svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
   .notif-backdrop { position:fixed; inset:0; z-index:120; }
   .notif-panel { position:fixed; z-index:121; top:16px; left:180px; width:360px; max-height:min(560px, calc(100vh - 90px)); display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--border); border-radius:18px; box-shadow:var(--shadow-lg); overflow:hidden; animation:modalIn .2s ease both; }
   .notif-head { display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid var(--border); }
