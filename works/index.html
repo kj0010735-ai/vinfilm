@@ -259,21 +259,49 @@ function getKnownClients() {
 const STUDIO_HOME = false; // 2026-11-06 대표님: 홈을 다시 '오늘 할 일' 대시보드로
 /* AI 팀(스튜디오·단톡방·자료실) 메뉴 숨김(2026-11-06 대표님: 실제로 잘 안 쓰고 일만 늘어나는 느낌). 데이터는 그대로, false로 바꾸면 다시 보임 */
 const STUDIO_HIDDEN = true;
+/* 사이드바·알림용 선 아이콘(이모지 대신, 2026-11-12 대표님 '더 심플하게') — currentColor라 테마·활성 색을 따라간다 */
+const _si = p => `<svg viewBox="0 0 24 24" aria-hidden="true">${p}</svg>`;
+const SI = {
+  dash: _si('<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>'),
+  cal: _si('<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'),
+  proj: _si('<path d="M9 4h6v3H9z"/><path d="M7 5.5H6A1.5 1.5 0 0 0 4.5 7v12A1.5 1.5 0 0 0 6 20.5h12a1.5 1.5 0 0 0 1.5-1.5V7A1.5 1.5 0 0 0 18 5.5h-1"/><path d="M8.5 12h7M8.5 15.5h5"/>'),
+  shared: _si('<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19.5c.6-3.2 2.9-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9.5" r="2.5"/><path d="M16 14.6c2.4-.2 4.2 1.3 4.6 4.4"/>'),
+  quote: _si('<path d="M6 3.5h12v17l-2.5-1.6L13 20.5l-2.5-1.6L8 20.5l-2-1.3z"/><path d="M9 8h6M9 11.5h6M9 15h3.5"/>'),
+  bag: _si('<path d="M6 8h12l-1 12H7z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/>'),
+  eq: _si('<rect x="3" y="7" width="13" height="11" rx="2"/><path d="m16 11 5-3v9l-5-3"/>'),
+  person: _si('<circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c.8-4 3.6-6 7-6s6.2 2 7 6"/>'),
+  note: _si('<path d="M5 3.5h10l4 4V20a.5.5 0 0 1-.5.5h-13A.5.5 0 0 1 5 20z"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4"/>'),
+  mic: _si('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M8.5 21h7"/>'),
+  bike: _si('<circle cx="6" cy="16.5" r="3"/><circle cx="18" cy="16.5" r="3"/><path d="M6 16.5 9.5 9H14l4 7.5M9.5 9 8 6.5H6M12 16.5l2-7.5"/>'),
+  studio: _si('<path d="M4 20.5V8l8-4.5L20 8v12.5z"/><path d="M9 20.5v-5h6v5"/>'),
+  folder: _si('<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>'),
+  chat: _si('<path d="M20.5 12a7.5 7.5 0 0 1-11 6.6L4 20l1.4-4.6A7.5 7.5 0 1 1 20.5 12z"/>'),
+  bell: _si('<path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/>'),
+  cloud: _si('<path d="M7 18.5a4 4 0 0 1-.6-7.95A5.5 5.5 0 0 1 17 9.5a4.5 4.5 0 0 1 .5 9z"/>'),
+  disk: _si('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 4v5h8V4M8 20v-6h8v6"/>'),
+  money: _si('<rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18M16 14.5h2"/>'),
+  gear: _si('<circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/>'),
+  logout: _si('<path d="M14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14"/><path d="M10 8l-4 4 4 4M6 12h10"/>'),
+  mega: _si('<path d="M4 10v4h3l7 4V6L7 10z"/><path d="M17.5 9a4 4 0 0 1 0 6"/>'),
+  check: _si('<circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-5"/>'),
+  sign: _si('<path d="M4 20l1-4L16.5 4.5a1.7 1.7 0 0 1 2.4 0l.6.6a1.7 1.7 0 0 1 0 2.4L8 19z"/><path d="M13.5 7.5l3 3"/>'),
+  clock: _si('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
+};
 const NAV_ITEMS_BASE = [
-  { id: 'today', icon: '📊', label: '대시보드' },
-  { id: 'equipment', icon: '🎥', label: '장비목록' },
-  { id: 'shootprep', icon: '🎒', label: '촬영준비' },
-  { id: 'schedule', icon: '🗓', label: '캘린더' },
-  { id: 'projects', icon: '📋', label: '프로젝트' },
-  { id: 'quotes', icon: '🧾', label: '견적·계약' },
-  { id: 'applicants', icon: '🙋', label: '지원자' },
-  { id: 'shared', icon: '🤝', label: '공유 프로젝트' },
-  { id: 'notes', icon: '📝', label: '메모장' },
-  { id: 'songs', icon: '🎤', label: '노래연습' },
-  { id: 'bikes', icon: '🏍', label: '이륜차 정비' },
-  { id: 'studio', icon: '🏢', label: '스튜디오' },
-  { id: 'library', icon: '🗂', label: '자료실' },
-  { id: 'chat', icon: '💬', label: '단톡방' },
+  { id: 'today', icon: SI.dash, label: '대시보드' },
+  { id: 'equipment', icon: SI.eq, label: '장비목록' },
+  { id: 'shootprep', icon: SI.bag, label: '촬영준비' },
+  { id: 'schedule', icon: SI.cal, label: '캘린더' },
+  { id: 'projects', icon: SI.proj, label: '프로젝트' },
+  { id: 'quotes', icon: SI.quote, label: '견적·계약' },
+  { id: 'applicants', icon: SI.person, label: '지원자' },
+  { id: 'shared', icon: SI.shared, label: '공유 프로젝트' },
+  { id: 'notes', icon: SI.note, label: '메모장' },
+  { id: 'songs', icon: SI.mic, label: '노래연습' },
+  { id: 'bikes', icon: SI.bike, label: '이륜차 정비' },
+  { id: 'studio', icon: SI.studio, label: '스튜디오' },
+  { id: 'library', icon: SI.folder, label: '자료실' },
+  { id: 'chat', icon: SI.chat, label: '단톡방' },
 ];
 /* 사이드바 섹션(2026-11-06 대표님: 일과 취미를 나눠 보기) — 업무 / AI 팀 / 개인 순서로 묶어 보여 줌 */
 const NAV_SECTIONS = [
@@ -796,14 +824,14 @@ function renderSidebar() {
           <span class="side-nav-icon">${it.icon}</span><span class="side-nav-label">${it.label}</span>
         </button>${i === 0 ? sideNotifHtml() : ''}`; }).join('')}
       <div class="side-nav-sync" title="${window.cloudSyncReady ? '클라우드에 자동으로 저장/동기화되고 있어요' : '이 기기에만 저장돼요'}">
-        <span class="side-nav-icon">${window.cloudSyncReady ? '☁️' : '💾'}</span><span class="side-nav-label">${window.cloudSyncReady ? '동기화됨' : '로컬 저장'}</span>
+        <span class="side-nav-icon">${window.cloudSyncReady ? SI.cloud : SI.disk}</span><span class="side-nav-label">${window.cloudSyncReady ? '동기화됨' : '로컬 저장'}</span>
       </div>
       ${!GUEST_MODE ? `
       <a class="side-nav-item" href="../ledger/" style="text-decoration:none;">
-        <span class="side-nav-icon">💰</span><span class="side-nav-label">수입·지출 관리</span>
+        <span class="side-nav-icon">${SI.money}</span><span class="side-nav-label">수입·지출 관리</span>
       </a>` : ''}
-      <button class="side-nav-item" data-action="open-settings"><span class="side-nav-icon">⚙️</span><span class="side-nav-label">설정</span></button>
-      ${!GUEST_MODE ? `<button class="side-nav-item" data-action="logout" style="opacity:0.6;"><span class="side-nav-icon">🚪</span><span class="side-nav-label">로그아웃</span></button>` : ''}
+      <button class="side-nav-item" data-action="open-settings"><span class="side-nav-icon">${SI.gear}</span><span class="side-nav-label">설정</span></button>
+      ${!GUEST_MODE ? `<button class="side-nav-item" data-action="logout" style="opacity:0.6;"><span class="side-nav-icon">${SI.logout}</span><span class="side-nav-label">로그아웃</span></button>` : ''}
     </nav>`;
 }
 
@@ -4778,11 +4806,11 @@ function notifItems() {
   const today = todayStr(), tomorrow = addDaysYmd(today, 1);
   const dayStart = (ymdStr) => parseYmd(ymdStr).getTime();
   // 공지(협업자: 받은 것 / 대표님: 목록엔 안 넣고 '보낸 공지'로 따로)
-  if (GUEST_MODE) notices.forEach(n => out.push({ id: 'nt-' + n.id, icon: '📢', title: n.title || '공지', sub: (n.body || '').split('\n')[0], at: n.createdAt || 0, act: 'notice', ref: n.id }));
+  if (GUEST_MODE) notices.forEach(n => out.push({ id: 'nt-' + n.id, icon: SI.mega, title: n.title || '공지', sub: (n.body || '').split('\n')[0], at: n.createdAt || 0, act: 'notice', ref: n.id }));
   // 오늘/내일 일정
   visibleSchedItems().forEach(s => {
     if (s.date !== today && s.date !== tomorrow) return;
-    out.push({ id: `sd-${s.id}-${s.date}`, icon: '📅', title: `${s.date === today ? '오늘' : '내일'} ${s.time || '종일'} · ${s.title}`, sub: s.location || '', at: dayStart(s.date), act: 'sched', ref: s.id });
+    out.push({ id: `sd-${s.id}-${s.date}`, icon: SI.cal, title: `${s.date === today ? '오늘' : '내일'} ${s.time || '종일'} · ${s.title}`, sub: s.location || '', at: dayStart(s.date), act: 'sched', ref: s.id });
   });
   // 마감 임박/지남
   const dueList = GUEST_MODE ? sharedProjItems : projItems;
@@ -4790,14 +4818,14 @@ function notifItems() {
     if (!p.dueDate || p.status === 'done' || p.dueDate > tomorrow) return;
     const kind = p.dueDate < today ? '마감 지남' : p.dueDate === today ? '오늘 마감' : '내일 마감';
     if (p.dueDate < addDaysYmd(today, -14)) return; // 오래 지난 건 알림에서 뺌
-    out.push({ id: `pd-${p.id}-${p.dueDate}-${kind}`, icon: p.dueDate < today ? '⏰' : '⌛', title: `${kind} · ${p.title}`, sub: p.dueDate, at: dayStart(p.dueDate), act: GUEST_MODE ? 'shared' : 'proj', ref: p.id });
+    out.push({ id: `pd-${p.id}-${p.dueDate}-${kind}`, icon: SI.clock, title: `${kind} · ${p.title}`, sub: p.dueDate, at: dayStart(p.dueDate), act: GUEST_MODE ? 'shared' : 'proj', ref: p.id });
   });
   if (!GUEST_MODE) {
-    quotes.forEach(q => { if (q.approval) out.push({ id: 'qa-' + q.id, icon: '✅', title: `견적 승인 · ${q.clientName || q.approval.name}`, sub: `${q.approval.name}님 · ${q.projectTitle || ''}`, at: q.approval.at, act: 'quote', ref: q.id }); });
-    contracts.forEach(k => { if (k.signing) out.push({ id: 'cs-' + k.id, icon: '✍️', title: `계약 서명 완료 · ${k.clientName}`, sub: `${k.signing.name}님 · ${k.projectTitle || ''}`, at: k.signing.at, act: 'contract', ref: k.id }); });
+    quotes.forEach(q => { if (q.approval) out.push({ id: 'qa-' + q.id, icon: SI.check, title: `견적 승인 · ${q.clientName || q.approval.name}`, sub: `${q.approval.name}님 · ${q.projectTitle || ''}`, at: q.approval.at, act: 'quote', ref: q.id }); });
+    contracts.forEach(k => { if (k.signing) out.push({ id: 'cs-' + k.id, icon: SI.sign, title: `계약 서명 완료 · ${k.clientName}`, sub: `${k.signing.name}님 · ${k.projectTitle || ''}`, at: k.signing.at, act: 'contract', ref: k.id }); });
     const me = currentEditorName(), week = Date.now() - 7 * 86400000;
-    sharedProjItems.forEach(p => { if (p.updatedBy && p.updatedBy !== me && (p.updatedAt || 0) > week) out.push({ id: `ce-${p.id}-${p.updatedAt}`, icon: '👥', title: `${p.updatedBy}님이 수정 · ${p.title}`, sub: p.collabId ? collabName(p.collabId) : '', at: p.updatedAt, act: 'shared', ref: p.id }); });
-    schedItems.forEach(s => { if (s.createdBy && s.collabId && (s.createdAt || 0) > week) out.push({ id: `ca-${s.id}`, icon: '👥', title: `${s.createdBy}님이 일정 추가 · ${s.title}`, sub: `${s.date}${s.collabId ? ' · ' + collabName(s.collabId) : ''}`, at: s.createdAt, act: 'sched', ref: s.id }); });
+    sharedProjItems.forEach(p => { if (p.updatedBy && p.updatedBy !== me && (p.updatedAt || 0) > week) out.push({ id: `ce-${p.id}-${p.updatedAt}`, icon: SI.shared, title: `${p.updatedBy}님이 수정 · ${p.title}`, sub: p.collabId ? collabName(p.collabId) : '', at: p.updatedAt, act: 'shared', ref: p.id }); });
+    schedItems.forEach(s => { if (s.createdBy && s.collabId && (s.createdAt || 0) > week) out.push({ id: `ca-${s.id}`, icon: SI.shared, title: `${s.createdBy}님이 일정 추가 · ${s.title}`, sub: `${s.date}${s.collabId ? ' · ' + collabName(s.collabId) : ''}`, at: s.createdAt, act: 'sched', ref: s.id }); });
   }
   return out.sort((a, b) => b.at - a.at).slice(0, 60);
 }
@@ -4807,13 +4835,13 @@ function notifUnread() { const r = notifReadSet(); return notifItems().filter(n 
 function sideNotifHtml() {
   if (STUDIO_HOME && !GUEST_MODE) return ''; // 스튜디오가 홈이면 알림은 스튜디오 탭 안 '🔔 알림'에서만
   const n = notifUnread();
-  return `<button class="side-nav-item side-notif ${S.notif.open ? 'on' : ''}" data-action="notif-toggle"><span class="side-nav-icon">🔔${n ? `<span class="side-notif-dot">${n > 9 ? '9+' : n}</span>` : ''}</span><span class="side-nav-label">알림</span>${n ? `<span class="side-notif-badge">${n > 99 ? '99+' : n}</span>` : ''}</button>`;
+  return `<button class="side-nav-item side-notif ${S.notif.open ? 'on' : ''}" data-action="notif-toggle"><span class="side-nav-icon">${SI.bell}${n ? `<span class="side-notif-dot">${n > 9 ? '9+' : n}</span>` : ''}</span><span class="side-nav-label">알림</span>${n ? `<span class="side-notif-badge">${n > 99 ? '99+' : n}</span>` : ''}</button>`;
 }
 /* 대시보드 맨 위 안 읽은 알림 요약(최대 3건) — 누르면 알림 패널 */
 function dashNotifHtml() {
   const r = notifReadSet(), un = notifItems().filter(x => !r.has(x.id));
   if (!un.length) return '';
-  return `<button class="dash-notif" ${STUDIO_HOME && !GUEST_MODE ? 'data-action="studio-box" data-id="notif"' : 'data-action="notif-toggle"'}><span class="dash-notif-head">🔔 안 읽은 알림 <b>${un.length}</b>건<i>모두 보기 ›</i></span>${un.slice(0, 3).map(x => `<span class="dash-notif-row"><em>${x.icon}</em>${esc(x.title)}</span>`).join('')}</button>`;
+  return `<button class="dash-notif" ${STUDIO_HOME && !GUEST_MODE ? 'data-action="studio-box" data-id="notif"' : 'data-action="notif-toggle"'}><span class="dash-notif-head"><i class="dash-notif-bell">${SI.bell}</i>안 읽은 알림 <b>${un.length}</b>건<i>모두 보기 ›</i></span>${un.slice(0, 3).map(x => `<span class="dash-notif-row"><em>${x.icon}</em>${esc(x.title)}</span>`).join('')}</button>`;
 }
 function notifBellHtml() {
   const n = notifUnread();
@@ -9185,6 +9213,15 @@ document.addEventListener('DOMContentLoaded', () => {
   @media (max-width:720px){ .dw-stats{grid-template-columns:repeat(2,minmax(0,1fr));} }
   .side-nav-sec{font-size:11.5px;font-weight:700;letter-spacing:.04em;color:var(--text-faint);padding:14px 14px 4px;}
   @media (max-width:720px){ .side-nav-sec{font-size:0;padding:6px 0 0;margin:6px 10px 0;border-top:1px solid var(--border);} }
+
+  /* 사이드바·알림 아이콘: 이모지 대신 선 아이콘(2026-11-12) */
+  .side-nav-icon svg, .notif-ic svg, .dash-notif-row em svg, .dash-notif-bell svg { width:18px; height:18px; display:block; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+  .side-nav-icon { display:flex; align-items:center; justify-content:center; color:var(--text-dim); }
+  .side-nav-item.active .side-nav-icon, .side-nav-item.on .side-nav-icon { color:var(--accent); }
+  .dash-notif-bell { display:inline-flex; font-style:normal; margin-right:2px; } .dash-notif-row em { display:inline-flex; vertical-align:middle; margin-right:6px; font-style:normal; color:var(--text-dim); } .notif-ic { color:var(--text-dim); display:flex; align-items:center; }
+  .side-nav-icon svg { width:18px; height:18px; }
+  /* 홈 '이번 주 해야 할 것' 줄이 <a>라 밑줄이 보이던 것 제거 */
+  a.dash-row, a.dash-row:hover, a.dash-row * { text-decoration:none !important; }
 </style>
 </body>
 </html>
