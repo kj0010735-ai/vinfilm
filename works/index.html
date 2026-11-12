@@ -4,9 +4,8 @@
 <meta charset="UTF-8" />
 <!-- 창 제목줄 색(WORKS.app·설치 웹앱·모바일 브라우저 주소창) — 테마/스튜디오 탭에 맞춰 syncThemeColor()가 바꾼다 -->
 <meta name="theme-color" id="themeColorMeta" content="#f6f7f9">
-<script>/* 테마: light(화이트) / dark(블랙) / terminal(터미널·미니룸 톤, 2026-10-14부터 기본). 기존 기기도 한 번만 터미널로 바꾸고(theme-v2 표시), 그 뒤엔 고른 값 유지 */
-try{var ls=localStorage;if(ls.getItem('vinfilm-works-theme-v2')!=='1'){ls.setItem('vinfilm-works-theme','terminal');ls.setItem('vinfilm-works-theme-v2','1');}
-var v=ls.getItem('vinfilm-works-theme'),t=v==='dark'||v==='light'?v:'terminal';document.documentElement.setAttribute('data-theme',t);document.getElementById('themeColorMeta').setAttribute('content',t==='terminal'?'#06090b':t==='dark'?'#101216':'#f6f7f9');}catch(e){document.documentElement.setAttribute('data-theme','terminal');}</script>
+<script>/* 테마: light(화이트, 기본) / dark(블랙) / terminal(터미널·미니룸 톤). 처음 열거나 따로 고른 적 없는 기기는 화이트로 시작(2026-11-12 대표님). 이미 저장된 값은 그대로 유지 */
+try{var v=localStorage.getItem('vinfilm-works-theme'),t=v==='dark'||v==='terminal'||v==='light'?v:'light';document.documentElement.setAttribute('data-theme',t);document.getElementById('themeColorMeta').setAttribute('content',t==='terminal'?'#06090b':t==='dark'?'#101216':'#f6f7f9');}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <script>
 /* 앱처럼 쓰는 화면이라 손가락 확대(핀치 줌)를 막는다 — 아이폰 Safari는 viewport만으로는 안 막혀서 제스처 이벤트도 막음 */
@@ -763,9 +762,9 @@ async function refreshToLatest() {
 
 /* ================= 설정(테마) ================= */
 const LS_THEME = 'vinfilm-works-theme';
-function currentTheme() { const t = document.documentElement.getAttribute('data-theme'); return t === 'dark' || t === 'light' ? t : 'terminal'; }
+function currentTheme() { const t = document.documentElement.getAttribute('data-theme'); return t === 'dark' || t === 'terminal' ? t : 'light'; }
 function applyTheme(theme) {
-  const t = theme === 'light' || theme === 'dark' ? theme : 'terminal';
+  const t = theme === 'terminal' || theme === 'dark' ? theme : 'light';
   document.documentElement.setAttribute('data-theme', t);
   try { localStorage.setItem(LS_THEME, t); localStorage.setItem('vinfilm-works-theme-v2', '1'); } catch (e) {}
   syncThemeColor();
