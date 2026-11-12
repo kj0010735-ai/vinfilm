@@ -4712,14 +4712,16 @@ function appReminderItems() {
   const add = (s, kind, when, title, body) => { if (when > now + 10000) out.push({ id: `${s.id}-${kind}`, at: when, title, body }); };
   visibleSchedItems().forEach(s => {
     if (s.canceled || s.collabId || !s.date) return;
-    const t = s.title || '일정', hm = s.time || '', place = s.location ? ' · ' + s.location : '';
+    const t = s.title || '일정', hm = s.time || '', loc = s.location || '';
+    const kind = { shoot: '촬영', meeting: '미팅', scout: '답사' }[s.category] || '';
+    const full = loc ? `${t} · ${loc}` : t; // 아이폰 알림 제목은 한 줄만 보여서 짧게, 일정 이름·장소는 본문(여러 줄)으로(2026-11-12 '내용이 잘림')
     if (['shoot', 'meeting', 'scout'].includes(s.category)) {
-      add(s, 'eve', at(before(s.date), '20:00'), `내일 ${hm || '종일'} · ${t}`, (s.location || '') || '내일 일정이에요');
-      if (hm) add(s, 'h1', at(s.date, hm) - 3600000, `1시간 뒤 ${hm} · ${t}`, place.replace(/^ · /, '') || '곧 시작해요');
-      else add(s, 'am', at(s.date, '08:00'), `오늘 · ${t}`, place.replace(/^ · /, '') || '오늘 일정이에요');
+      add(s, 'eve', at(before(s.date), '20:00'), `내일 ${hm || '종일'} ${kind}`, full);
+      if (hm) add(s, 'h1', at(s.date, hm) - 3600000, `1시간 뒤 ${hm} ${kind}`, full);
+      else add(s, 'am', at(s.date, '08:00'), `오늘 ${kind}`, full);
     } else if (s.category === 'deadline') {
-      add(s, 'eve', at(before(s.date), '09:00'), `내일 마감 · ${t}`, '');
-      add(s, 'am', at(s.date, '09:00'), `오늘 마감 · ${t}`, '');
+      add(s, 'eve', at(before(s.date), '09:00'), '내일 마감', t);
+      add(s, 'am', at(s.date, '09:00'), '오늘 마감', t);
     }
   });
   return out.sort((a, b) => a.at - b.at).slice(0, 60);
