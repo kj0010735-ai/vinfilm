@@ -4648,6 +4648,37 @@ window.addEventListener('workapp:push', () => { // 앱이 알림 허용 상태·
   pushRefresh();
   if (perm !== _appPushPerm) { _appPushPerm = perm; try { render(); } catch (e) {} } // 배너를 바로 바꾼다
 });
+/* 📅 일정 알림 — 아이폰 앱이 아이폰 자체 '예약 알림'으로 건다(맥·서버 없이 시간이 되면 울림, 2026-11-12 대표님 요청).
+   촬영·미팅·답사: 전날 저녁 8시 + 1시간 전(시간 없으면 당일 아침 8시) / 마감: 전날 아침 9시 + 당일 아침 9시. 기타는 알림 없음.
+   앱이 켜질 때·일정이 바뀔 때마다 다시 계산해서 통째로 다시 건다(가까운 것 60개까지 — 아이폰은 예약 64개 제한). */
+let _appRemSig = '';
+function appReminderItems() {
+  const now = Date.now(), out = [], pad = n => String(n).padStart(2, '0');
+  const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const at = (date, hm) => new Date(`${date}T${hm}:00`).getTime();
+  const before = date => { const d = new Date(date + 'T00:00:00'); d.setDate(d.getDate() - 1); return iso(d); };
+  const add = (s, kind, when, title, body) => { if (when > now + 10000) out.push({ id: `${s.id}-${kind}`, at: when, title, body }); };
+  visibleSchedItems().forEach(s => {
+    if (s.canceled || s.collabId || !s.date) return;
+    const t = s.title || '일정', hm = s.time || '', place = s.location ? ' · ' + s.location : '';
+    if (['shoot', 'meeting', 'scout'].includes(s.category)) {
+      add(s, 'eve', at(before(s.date), '20:00'), `내일 ${hm || '종일'} · ${t}`, (s.location || '') || '내일 일정이에요');
+      if (hm) add(s, 'h1', at(s.date, hm) - 3600000, `1시간 뒤 ${hm} · ${t}`, place.replace(/^ · /, '') || '곧 시작해요');
+      else add(s, 'am', at(s.date, '08:00'), `오늘 · ${t}`, place.replace(/^ · /, '') || '오늘 일정이에요');
+    } else if (s.category === 'deadline') {
+      add(s, 'eve', at(before(s.date), '09:00'), `내일 마감 · ${t}`, '');
+      add(s, 'am', at(s.date, '09:00'), `오늘 마감 · ${t}`, '');
+    }
+  });
+  return out.sort((a, b) => a.at - b.at).slice(0, 60);
+}
+function syncAppReminders() {
+  if (!workAppIos() || GUEST_MODE) return;
+  let items; try { items = appReminderItems(); } catch (e) { return; }
+  const sig = items.map(x => x.id + x.at + x.title).join('|');
+  if (sig === _appRemSig) return;
+  _appRemSig = sig; workAppPost({ type: 'reminders', items });
+}
 let _appBadge = -1;
 function syncAppBadge() { // 앱 아이콘 숫자 = 안 읽은 알림(종 빨간 숫자)
   if (!workAppIos()) return;
@@ -6222,7 +6253,7 @@ function render() {
   if (S.activeTab === 'studio' && !GUEST_MODE) { studioMountCanvas(); studioRestoreInputs(studioKeep); }
   if (S.activeTab === 'chat' && !GUEST_MODE) chatRestore(chatKeep);
   syncThemeColor();
-  syncAppBadge();
+  syncAppBadge(); syncAppReminders();
   const main = document.querySelector('.app-main');
   if (main && window.__lastTab !== S.activeTab) { main.classList.add('tab-enter'); if (window.__lastTab && !window.__tabBack) { (window.__tabHist = window.__tabHist || []).push(window.__lastTab); if (window.__tabHist.length > 20) window.__tabHist.shift(); } window.__tabBack = false; window.__lastTab = S.activeTab; }
   const af = document.querySelector('[autofocus]');

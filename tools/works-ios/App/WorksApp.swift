@@ -168,6 +168,12 @@ final class WebVC: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScrip
             let n = (body["count"] as? NSNumber)?.intValue ?? 0
             UNUserNotificationCenter.current().setBadgeCount(n)
             if n == 0 { UNUserNotificationCenter.current().removeAllDeliveredNotifications() }
+        case "reminders":
+            let list = (body["items"] as? [[String: Any]] ?? []).compactMap { d -> Reminders.Item? in
+                guard let id = d["id"] as? String, let at = (d["at"] as? NSNumber)?.doubleValue else { return nil }
+                return Reminders.Item(id: id, at: at, title: d["title"] as? String ?? "WORKS", body: d["body"] as? String ?? "")
+            }
+            Reminders.schedule(list)
         case "openSettings":
             if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
         default:
@@ -300,4 +306,25 @@ extension WebVC: WKDownloadDelegate {
         present(vc, animated: true)
     }
     nonisolated(unsafe) static var dlKey = 0
+}
+
+// 📅 일정 알림 — 사이트가 보낸 목록을 아이폰 자체 예약 알림으로 건다(맥·서버 없이도 시간이 되면 울림).
+// 앱이 켜질 때마다 목록을 통째로 다시 보내므로, 예전에 건 것(rm- 로 시작)을 지우고 다시 건다.
+enum Reminders {
+    struct Item: Sendable { let id: String; let at: Double; let title: String; let body: String }
+    static func schedule(_ items: [Item]) {
+        let center = UNUserNotificationCenter.current()
+        center.getPendingNotificationRequests { reqs in
+            let old = reqs.map(\.identifier).filter { $0.hasPrefix("rm-") }
+            center.removePendingNotificationRequests(withIdentifiers: old)
+            let now = Date().timeIntervalSince1970 * 1000
+            for it in items.prefix(60) where it.at > now + 5000 {
+                let c = UNMutableNotificationContent()
+                c.title = it.title; c.body = it.body; c.sound = .default
+                c.userInfo = ["link": "/works/"]
+                let comps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second], from: Date(timeIntervalSince1970: it.at / 1000))
+                center.add(UNNotificationRequest(identifier: "rm-" + it.id, content: c, trigger: UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)))
+            }
+        }
+    }
 }
