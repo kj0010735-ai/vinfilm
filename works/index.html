@@ -1924,7 +1924,7 @@ function calFilteredItems() {
     if (it.endDate && it.endDate > it.date && it.source !== 'google') {
       // 기간 일정은 시작~종료 모든 날에 칩을 그림(최대 90일)
       let d = it.date, n = 0;
-      while (d <= it.endDate && n < 90) { (byDate[d] = byDate[d] || []).push({ ...it, _span: d === it.date ? 'start' : d === it.endDate ? 'end' : 'mid', _wk: parseYmd(d).getDay() === 0, _lane: it._lane }); d = addDaysYmd(d, 1); n++; }
+      while (d <= it.endDate && n < 90) { (byDate[d] = byDate[d] || []).push({ ...it, _span: d === it.date ? 'start' : d === it.endDate ? 'end' : 'mid', _wk: parseYmd(d).getDay() === 0, _lane: it._lane, _cell: d }); d = addDaysYmd(d, 1); n++; }
     } else (byDate[it.date] = byDate[it.date] || []).push(it);
   });
   if (st.categoryFilter === 'all' || st.categoryFilter === 'calendar') {
@@ -1954,7 +1954,10 @@ function calEventHtml(it, compact) {
   const collabMark = !GUEST_MODE && it.collabId ? '👥 ' : '';
   const spanCls = it._span ? ' span-' + it._span + (it._span !== 'start' && !it._wk ? ' span-quiet' : '') + (it._wk ? ' span-wk' : '') : '';
   if (collabMark) it = { ...it, title: collabMark + it.title };
-  return `<button class="cal-ev${spanCls} ${past ? 'is-past' : ''} ${g ? 'is-phone' : ''}" style="--ev:${g && it.tag === 'hisplan' ? 'var(--sched-hisplan)' : `var(--sched-${it.category})`}" data-action="${g ? 'gcal-open-detail' : 'sched-open-detail'}" data-id="${esc(it.id)}" title="${esc(it.title)}${g ? ' · ' + gcalSourceLabel(it) : ''}">${it.time ? `<span class="cal-ev-time">${esc(it.time)}</span>` : ''}<span class="cal-ev-title">${esc(it.title)}</span></button>`;
+  // 기간 막대의 제목이 이어지는 칸 위로 펼쳐지도록(폰) 이번 주 안에서 막대가 차지하는 칸 수
+  let spanDays = 1;
+  if (it._span && it._cell) { const wd = parseYmd(it._cell).getDay(); let d = it._cell; while (d < it.endDate && spanDays < 7 - wd) { d = addDaysYmd(d, 1); spanDays++; } }
+  return `<button class="cal-ev${spanCls} ${past ? 'is-past' : ''} ${g ? 'is-phone' : ''}" style="--ev:${g && it.tag === 'hisplan' ? 'var(--sched-hisplan)' : `var(--sched-${it.category})`};--span-days:${spanDays}" data-action="${g ? 'gcal-open-detail' : 'sched-open-detail'}" data-id="${esc(it.id)}" title="${esc(it.title)}${g ? ' · ' + gcalSourceLabel(it) : ''}">${it.time ? `<span class="cal-ev-time">${esc(it.time)}</span>` : ''}<span class="cal-ev-title">${esc(it.title)}</span></button>`;
 }
 function calTitle() {
   const c = parseYmd(S.sched.cursor);
@@ -2002,7 +2005,7 @@ function calGridHtml() {
     const last = new Date(c.getFullYear(), c.getMonth() + 1, 0);
     weeks = Math.ceil((first.getDay() + last.getDate()) / 7);
   }
-  const maxShow = S.sched.view === 'week' ? 99 : 3;
+  const maxShow = S.sched.view === 'week' ? 99 : (window.innerWidth <= 720 ? 4 : 3);
   const selDay = S.sched.view === 'month' ? calSelDay() : '';
   let cells = '';
   for (let i = 0; i < weeks * 7; i++) {
@@ -2014,7 +2017,6 @@ function calGridHtml() {
     cells += `
       <div class="cal-cell ${outside ? 'is-outside' : ''} ${key === today ? 'is-today' : ''} ${key === selDay ? 'is-selected' : ''} ${d.getDay() === 0 ? 'is-sun' : ''} ${d.getDay() === 6 ? 'is-sat' : ''}" data-action="cal-add-on-date" data-date="${key}">
         <div class="cal-daynum"><span>${d.getDate()}</span></div>
-        ${S.sched.view === 'month' ? calDotsHtml(items) : ''}
         <div class="cal-evs">
           ${shown.map(it => calEventHtml(it)).join('')}
           ${items.length > shown.length ? `<button class="cal-more" data-action="cal-open-day" data-date="${key}">+${items.filter(x => !x._spacer).length - shown.filter(x => !x._spacer).length}개 더보기</button>` : ''}
@@ -2024,8 +2026,8 @@ function calGridHtml() {
   return `
     <div class="cal ${S.sched.view === 'week' ? 'cal-week' : ''}">
       <div class="cal-head">${weekdays.map((w, i) => `<div class="${i===0?'is-sun':i===6?'is-sat':''}">${w}</div>`).join('')}</div>
-      <div class="cal-body" style="grid-template-rows:repeat(${weeks}, minmax(${S.sched.view === 'week' ? '300px' : '84px'}, 1fr));">${cells}</div>
-    </div>${S.sched.view === 'month' ? calAgendaHtml(byDate) : ''}`;
+      <div class="cal-body" style="grid-template-rows:repeat(${weeks}, minmax(${S.sched.view === 'week' ? '300px' : (window.innerWidth <= 720 ? '96px' : '84px')}, 1fr));">${cells}</div>
+    </div>`;
 }
 function calToolbarHtml() {
   const v = S.sched.view;
@@ -6352,7 +6354,7 @@ function fitCalendar() {
   const top = cal.getBoundingClientRect().top + window.scrollY;
   const tb = document.querySelector('.m-tabbar');
   const tbh = tb && getComputedStyle(tb).display !== 'none' ? tb.offsetHeight : 0;
-  const h = Math.max(window.innerHeight - top - 40 - tbh, 460);
+  const h = Math.max(window.innerHeight - top - (window.innerWidth <= 720 ? 8 : 40) - tbh, 460);
   cal.style.height = h + 'px';
 }
 window.addEventListener('resize', () => fitCalendar());
@@ -6543,7 +6545,6 @@ function bootApp() {
       case 'sched-open-add': S.sched.multiDay = null; S.sched.editingId = null; S.sched.linkProjectId = null; S.sched.prefillDate = null; S.sched.modalOpen = true; render(); break;
       case 'cal-add-on-date':
         if (e.target.closest('.cal-ev, .cal-more')) break;
-        if (S.sched.view === 'month' && window.matchMedia('(max-width: 720px)').matches) { S.sched.selDay = el.dataset.date; render(); break; } // 폰: 날짜 선택(아래에 그날 일정)
         S.sched.editingId = null; S.sched.linkProjectId = null; S.sched.prefillDate = el.dataset.date; S.sched.modalOpen = true; render(); break;
       case 'cal-add-sel': S.sched.multiDay = null; S.sched.editingId = null; S.sched.linkProjectId = null; S.sched.prefillDate = calSelDay(); S.sched.modalOpen = true; render(); break;
       case 'cal-open-day': S.sched.view = 'week'; S.sched.cursor = el.dataset.date; render(); break;
@@ -9251,33 +9252,42 @@ document.addEventListener('DOMContentLoaded', () => {
   /* 홈 '이번 주 해야 할 것' 줄이 <a>라 밑줄이 보이던 것 제거 */
   a.dash-row, a.dash-row:hover, a.dash-row * { text-decoration:none !important; }
 
-  /* 폰 월 보기 = 아이폰 캘린더 방식: 날짜 아래 점 + 선택한 날 일정 목록 (데스크톱은 숨김) */
-  .cal-dots, .cal-agenda { display:none; }
+
+  /* 폰 월간 캘린더 — 구글 캘린더처럼 가장자리까지 꽉 채우고, 일정은 색 막대 + 작은 글씨 (2026-11-13) */
   @media (max-width: 720px) {
-    .cal:not(.cal-week) { height:auto !important; border:none; border-radius:0; overflow:visible; }
-    .cal:not(.cal-week) .cal-head { background:none; border:none; }
-    .cal:not(.cal-week) .cal-body { grid-template-rows:none !important; grid-auto-rows:52px; }
-    .cal:not(.cal-week) .cal-cell { border:none; padding:4px 0 0; background:none !important; overflow:visible; display:flex; flex-direction:column; align-items:center; }
-    .cal:not(.cal-week) .cal-evs { display:none; }
-    .cal:not(.cal-week) .cal-daynum { justify-content:center; margin:0; font-size:17px; font-weight:500; }
-    .cal:not(.cal-week) .cal-daynum span { min-width:34px; height:34px; font-size:17px; padding:0; }
-    .cal:not(.cal-week) .cal-cell.is-outside .cal-daynum { opacity:.35; }
-    .cal:not(.cal-week) .cal-cell.is-today .cal-daynum span { background:none; color:var(--accent); font-weight:800; }
-    .cal:not(.cal-week) .cal-cell.is-selected .cal-daynum span { background:var(--text); color:var(--bg); font-weight:700; }
-    .cal:not(.cal-week) .cal-cell.is-today.is-selected .cal-daynum span { background:var(--accent); color:#fff; }
-    .cal-dots { display:flex; justify-content:center; gap:3px; height:6px; margin-top:3px; }
-    .cal-dot { width:6px; height:6px; border-radius:50%; background:var(--ev, var(--accent)); }
-    .cal-agenda { display:block; margin-top:6px; border-top:1px solid var(--border); padding-top:10px; }
-    .cal-ag-head { display:flex; align-items:center; justify-content:space-between; padding:0 2px 6px; font-size:15px; }
-    .cal-ag-add { border:none; background:none; color:var(--accent); font-size:24px; line-height:1; padding:0 6px; cursor:pointer; }
-    .cal-ag-item { display:flex; align-items:stretch; gap:10px; width:100%; border:none; background:none; text-align:left; padding:9px 2px; font-family:var(--font-body); color:var(--text); cursor:pointer; border-top:1px solid var(--border); }
-    .cal-ag-item:first-of-type { border-top:none; }
-    .cal-ag-time { width:42px; flex:none; font-size:13.5px; color:var(--text-dim); text-align:right; padding-top:1px; }
-    .cal-ag-bar { width:4px; flex:none; border-radius:2px; background:var(--ev, var(--accent)); }
-    .cal-ag-main { min-width:0; display:flex; flex-direction:column; gap:2px; }
-    .cal-ag-main b { font-size:15px; font-weight:600; overflow-wrap:anywhere; }
-    .cal-ag-main small { font-size:13px; color:var(--text-faint); overflow-wrap:anywhere; }
-    .cal-ag-empty { margin:6px 2px 10px; color:var(--text-faint); font-size:14px; }
+    .cal-card { margin:0 -16px; padding:6px 0 0; border:none; border-radius:0; box-shadow:none; background:transparent; }
+    .cal-bar { padding:0 12px; margin-bottom:10px; }
+    .cal { border:none; border-radius:0; border-top:1px solid var(--border); }
+    .cal-head { background:transparent; border-bottom:none; }
+    .cal-head div { font-size:12px; font-weight:600; padding:7px 0 3px; }
+    .cal-cell { padding:3px 0 2px; }
+    .cal-cell:hover, .cal-cell.is-today { background:transparent; }
+    .cal-cell.is-outside { background:transparent; }
+    .cal-daynum { justify-content:center; font-size:12.5px; font-weight:600; margin-bottom:3px; }
+    .cal-daynum span { min-width:22px; height:22px; padding:0 4px; }
+    .cal-evs { margin:0; gap:2px; }
+    .cal-evs > * { margin-left:2px; margin-right:2px; }
+    .cal-ev { border:none !important; border-radius:3px; background:var(--ev); color:#0d1116; font-size:10.5px; font-weight:600; letter-spacing:-0.03em; line-height:1.35; padding:1px 3px; gap:0; }
+    :root[data-theme="light"] .cal-ev { color:#fff; }
+    .cal-ev:hover { transform:none; }
+    .cal-ev-title { text-overflow:clip; }
+    .cal-evs > .cal-ev.span-start { margin-right:0; border-radius:3px 0 0 3px; }
+    .cal-evs > .cal-ev.span-mid { margin-left:0; margin-right:0; border-radius:0; padding-left:3px; }
+    .cal-evs > .cal-ev.span-end { margin-left:0; border-radius:0 3px 3px 0; padding-left:3px; }
+    .cal-evs > .cal-ev.span-wk { margin-left:2px; border-top-left-radius:3px; border-bottom-left-radius:3px; padding-left:3px; }
+    .cal-ev.is-due { background:transparent; border:1px dashed var(--ev) !important; color:var(--text); }
+    :root[data-theme="light"] .cal-ev.is-due { color:var(--text); }
+    .cal-more { font-size:10px; padding:0 3px; }
+    /* 기간 막대 제목은 칸을 넘어 막대 끝까지 이어서 보이게 */
+    .cal-cell, .cal-evs { overflow:visible; }
+    .cal-ev.span-start, .cal-ev.span-wk { overflow:visible; }
+    .cal-ev.span-start .cal-ev-title, .cal-ev.span-wk .cal-ev-title { position:relative; z-index:1; flex:none; overflow:hidden; width:calc(var(--span-days, 1) * 100% + (var(--span-days, 1) - 1) * 1px - 3px); }
+    .cal-ev.span-start.span-quiet .cal-ev-title { visibility:visible; }
+    .cal-evs > .cal-ev.span-start, .cal-evs > .cal-ev.span-mid { margin-right:-1px; } /* 칸 경계선을 덮어 막대가 끊김 없이 이어지게 */
+    .cal-ev.is-past { opacity:1; } /* 투명도는 제목이 옆 칸 위로 올라가는 걸 막아서(쌓임 맥락) 폰에선 지난 일정도 그대로 */
+    /* 캘린더 위 필터 줄은 한 줄 가로 스크롤로 */
+    .eq-toolbar:has(~ .cal-card) .eq-chip-row { flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+    .eq-toolbar:has(~ .cal-card) .eq-chip-row::-webkit-scrollbar { display:none; }
   }
 </style>
 </body>
