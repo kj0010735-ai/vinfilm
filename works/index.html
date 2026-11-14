@@ -2005,7 +2005,7 @@ function calGridHtml() {
     const last = new Date(c.getFullYear(), c.getMonth() + 1, 0);
     weeks = Math.ceil((first.getDay() + last.getDate()) / 7);
   }
-  const maxShow = S.sched.view === 'week' ? 99 : (window.innerWidth <= 720 ? 4 : 3);
+  const maxShow = S.sched.view === 'week' ? 99 : (window.innerWidth <= 720 ? 4 : Math.max(3, Math.floor(((window.innerHeight - 250) / weeks - 30) / 21)));
   const selDay = S.sched.view === 'month' ? calSelDay() : '';
   let cells = '';
   for (let i = 0; i < weeks * 7; i++) {
@@ -6354,7 +6354,7 @@ function fitCalendar() {
   const top = cal.getBoundingClientRect().top + window.scrollY;
   const tb = document.querySelector('.m-tabbar');
   const tbh = tb && getComputedStyle(tb).display !== 'none' ? tb.offsetHeight : 0;
-  const h = Math.max(window.innerHeight - top - (window.innerWidth <= 720 ? 8 : 40) - tbh, 460);
+  const h = Math.max(window.innerHeight - top - (window.innerWidth <= 720 ? 8 : 16) - tbh, 460);
   cal.style.height = h + 'px';
 }
 window.addEventListener('resize', () => fitCalendar());
@@ -9253,6 +9253,38 @@ document.addEventListener('DOMContentLoaded', () => {
   a.dash-row, a.dash-row:hover, a.dash-row * { text-decoration:none !important; }
 
 
+  /* 데스크톱 월간 캘린더도 구글 캘린더처럼 — 카드 테두리·여백 없이 꽉 채우고, 일정은 색이 꽉 찬 막대, 기간 막대 제목은 막대 끝까지 (2026-11-15) */
+  @media (min-width: 721px) {
+    .cal-card { padding:4px 0 0; border:none; border-radius:0; box-shadow:none; background:transparent; }
+    .cal { border-radius:10px; }
+    .cal-head { background:transparent; }
+    .cal-head div { padding:8px 0 6px; }
+    .cal-cell { padding:4px 0 3px; }
+    .cal-cell.is-today { background:transparent; }
+    .cal-cell.is-outside { background:color-mix(in srgb, var(--bg) 60%, transparent); }
+    .cal-daynum { justify-content:center; margin-bottom:3px; }
+    .cal-evs { margin:0; gap:2px; }
+    .cal-evs > * { margin-left:4px; margin-right:4px; }
+    .cal-ev { border:none !important; border-radius:4px; background:var(--ev); color:#0d1116; font-size:12px; font-weight:600; line-height:1.4; padding:1px 6px; }
+    :root[data-theme="light"] .cal-ev { color:#fff; }
+    .cal-ev:hover { transform:none; filter:brightness(1.06); }
+    .cal-ev-time { color:inherit; opacity:.8; }
+    .cal-ev-title { text-overflow:clip; }
+    .cal-evs > .cal-ev.span-start { margin-right:-1px; border-radius:4px 0 0 4px; }
+    .cal-evs > .cal-ev.span-mid { margin-left:0; margin-right:-1px; border-radius:0; padding-left:6px; }
+    .cal-evs > .cal-ev.span-end { margin-left:0; border-radius:0 4px 4px 0; padding-left:6px; }
+    .cal-evs > .cal-ev.span-wk { margin-left:4px; border-top-left-radius:4px; border-bottom-left-radius:4px; padding-left:6px; }
+    .cal-ev.is-due { background:transparent; border:1px dashed var(--ev) !important; color:var(--text); }
+    :root[data-theme="light"] .cal-ev.is-due { color:var(--text); }
+    .cal-ev.is-phone { background:color-mix(in srgb, var(--ev) 22%, var(--surface)); color:var(--text); }
+    :root[data-theme="light"] .cal-ev.is-phone { color:var(--text); }
+    .cal-week .cal-evs > .cal-ev, .cal-week .cal-ev { padding:4px 8px; font-size:13px; }
+    .cal:not(.cal-week) .cal-cell, .cal:not(.cal-week) .cal-evs { overflow:visible; }
+    .cal:not(.cal-week) .cal-ev.span-start, .cal:not(.cal-week) .cal-ev.span-wk { overflow:visible; }
+    .cal:not(.cal-week) .cal-ev.span-start .cal-ev-title, .cal:not(.cal-week) .cal-ev.span-wk .cal-ev-title { position:relative; z-index:1; flex:none; overflow:hidden; width:calc(var(--span-days, 1) * 100% + (var(--span-days, 1) - 1) * 14px); }
+    .cal:not(.cal-week) .cal-ev.span-start.span-quiet .cal-ev-title { visibility:visible; }
+    .cal-ev.is-past { opacity:1; }
+  }
   /* 폰 월간 캘린더 — 구글 캘린더처럼 가장자리까지 꽉 채우고, 일정은 색 막대 + 작은 글씨 (2026-11-13) */
   @media (max-width: 720px) {
     .cal-card { margin:0 -16px; padding:6px 0 0; border:none; border-radius:0; box-shadow:none; background:transparent; }
