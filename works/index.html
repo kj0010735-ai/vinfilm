@@ -2005,7 +2005,7 @@ function calGridHtml() {
     const last = new Date(c.getFullYear(), c.getMonth() + 1, 0);
     weeks = Math.ceil((first.getDay() + last.getDate()) / 7);
   }
-  const maxShow = S.sched.view === 'week' ? 99 : (window.innerWidth <= 720 ? 4 : Math.max(3, Math.floor(((window.innerHeight - 130) / weeks - 30) / 21)));
+  const maxShow = S.sched.view === 'week' ? 99 : (window.innerWidth <= 720 ? 5 : Math.max(3, Math.floor(((window.innerHeight - 130) / weeks - 30) / 17)));
   const selDay = S.sched.view === 'month' ? calSelDay() : '';
   let cells = '';
   for (let i = 0; i < weeks * 7; i++) {
@@ -9293,7 +9293,7 @@ document.addEventListener('DOMContentLoaded', () => {
     .cal-daynum { justify-content:center; margin-bottom:3px; }
     .cal-evs { margin:0; gap:2px; }
     .cal-evs > * { margin-left:4px; margin-right:4px; }
-    .cal-ev { border:none !important; border-radius:4px; background:var(--ev); color:#0d1116; font-size:12px; font-weight:600; line-height:1.4; padding:1px 6px; }
+    .cal-ev { border:none !important; border-radius:3px; background:var(--ev); color:#0d1116; font-size:11.5px; font-weight:600; line-height:1.25; padding:0 6px; }
     :root[data-theme="light"] .cal-ev { color:#fff; }
     .cal-ev:hover { transform:none; filter:brightness(1.06); }
     .cal-ev-time { color:inherit; opacity:.8; }
@@ -9362,7 +9362,7 @@ document.addEventListener('DOMContentLoaded', () => {
     .cal-daynum span { min-width:22px; height:22px; padding:0 4px; }
     .cal-evs { margin:0; gap:2px; }
     .cal-evs > * { margin-left:2px; margin-right:2px; }
-    .cal-ev { border:none !important; border-radius:3px; background:var(--ev); color:#0d1116; font-size:10.5px; font-weight:600; letter-spacing:-0.03em; line-height:1.35; padding:1px 3px; gap:0; }
+    .cal-ev { border:none !important; border-radius:2px; background:var(--ev); color:#0d1116; font-size:10px; font-weight:600; letter-spacing:-0.03em; line-height:1.2; padding:0 3px; gap:0; }
     :root[data-theme="light"] .cal-ev { color:#fff; }
     .cal-ev:hover { transform:none; }
     .cal-ev-title { text-overflow:clip; }
