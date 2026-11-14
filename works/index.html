@@ -813,7 +813,7 @@ function renderSidebar() {
   const items = GUEST_MODE ? NAV_ITEMS.filter(it => GUEST_ALLOWED_TABS.includes(it.id)) : NAV_ITEMS;
   return `
     <nav class="side-nav" id="sideNav">
-      <div class="side-nav-brand"><img class="side-nav-logo" src="../assets/logo.png" alt="VINFILM STUDIO" width="112" height="56" /><small>WORKS</small></div>
+      <div class="side-nav-brand"><img class="side-nav-logo" src="../assets/logo-wide.png" alt="VINFILM STUDIO" width="140" height="20" /><small>WORKS</small></div>
       ${GUEST_MODE ? `<div class="side-nav-guest-badge">👋 공유 보기</div>` : ''}
       <div class="side-nav-indicator"></div>
       ${items.map((it, i) => {
@@ -1575,10 +1575,10 @@ const MOBILE_TABS_GUEST = [
 function renderMobileTopBar() {
   return `
     <header class="m-topbar">
-      <img class="m-logo" src="../assets/logo.png" alt="VINFILM STUDIO" width="86" height="43" />
+      <img class="m-logo" src="../assets/logo-wide.png" alt="VINFILM STUDIO" width="166" height="24" />
       <div class="m-top-actions">
         ${notifBellHtml()}
-        <button class="m-icon-btn" data-action="open-settings" aria-label="설정">${MI.gear}</button>
+        ${GUEST_MODE ? `<button class="m-icon-btn" data-action="open-settings" aria-label="설정">${MI.gear}</button>` : ''}${/* 대표님은 설정을 아래 '더보기'에서 (2026-11-15) */''}
       </div>
     </header>`;
 }
@@ -2005,7 +2005,7 @@ function calGridHtml() {
     const last = new Date(c.getFullYear(), c.getMonth() + 1, 0);
     weeks = Math.ceil((first.getDay() + last.getDate()) / 7);
   }
-  const maxShow = S.sched.view === 'week' ? 99 : (window.innerWidth <= 720 ? 4 : Math.max(3, Math.floor(((window.innerHeight - 250) / weeks - 30) / 21)));
+  const maxShow = S.sched.view === 'week' ? 99 : (window.innerWidth <= 720 ? 4 : Math.max(3, Math.floor(((window.innerHeight - 130) / weeks - 30) / 21)));
   const selDay = S.sched.view === 'month' ? calSelDay() : '';
   let cells = '';
   for (let i = 0; i < weeks * 7; i++) {
@@ -2050,20 +2050,23 @@ function calToolbarHtml() {
 function renderScheduleTab() {
   const todayCount = visibleSchedItems().filter(it => it.date === todayStr()).length + (gcalEventsByDate()[todayStr()] || []).length;
   return `
+    <div class="sched-top">
     <div class="eq-header">
       <div class="eq-title-block"><h1 class="eq-title">캘린더</h1><div class="eq-stat">오늘 <b>${todayCount}</b> / 전체 <b>${schedItems.length}</b></div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${GUEST_MODE ? '' : gcalButtonHtml()}
-        <button class="eq-add-btn" data-action="sched-open-add">+ 일정 등록</button>
+        ${GUEST_MODE ? '' : gcalButtonHtml().replace('📱 ', '📱<span class="gcal-lbl">').replace('</button>', '</span></button>')}
+        <button class="eq-add-btn" data-action="sched-open-add">${window.innerWidth <= 720 ? '+ 일정' : '+ 일정 등록'}</button>
       </div>
     </div>
-    ${GUEST_MODE ? '' : gcalNoticeHtml()}
     <div class="eq-toolbar">
-      <div class="eq-search"><input id="schedSearchInput" placeholder="제목, 장소, 메모로 검색" value="${esc(S.sched.search)}" /></div>
+      <button class="eq-chip sched-search-toggle ${S.sched.mSearch || S.sched.search ? 'active' : ''}" data-action="sched-search-toggle" aria-label="검색">🔍</button>
       <div class="eq-chip-row">${SCHED_FILTER_CATEGORIES.filter(c => !GUEST_MODE || c.id !== 'calendar').map(c => `<button class="eq-chip ${S.sched.categoryFilter===c.id?'active':''}" data-action="sched-set-category-filter" data-id="${c.id}">${c.id !== 'all' ? `<span class="eq-chip-dot" style="background:var(--sched-${c.id})"></span>` : ''}${c.label}</button>`).join('')}</div>
       ${calGroupToggleHtml()}
       ${S.sched.view === 'list' ? `<button class="eq-chip ${S.sched.showPast?'active':''}" data-action="sched-toggle-past">지난 일정 ${S.sched.showPast?'숨기기':'보기'}</button>` : ''}
     </div>
+    <div class="eq-search ${S.sched.mSearch || S.sched.search ? 'is-open' : ''}"><input id="schedSearchInput" placeholder="제목, 장소, 메모로 검색" value="${esc(S.sched.search)}" /></div>
+    </div>
+    ${GUEST_MODE ? '' : gcalNoticeHtml()}
     <div class="cal-card">
       ${calToolbarHtml()}
       ${S.sched.view === 'list' ? `<div id="schedList">${schedGroupsHtml()}</div>` : calGridHtml()}
@@ -6354,7 +6357,7 @@ function fitCalendar() {
   const top = cal.getBoundingClientRect().top + window.scrollY;
   const tb = document.querySelector('.m-tabbar');
   const tbh = tb && getComputedStyle(tb).display !== 'none' ? tb.offsetHeight : 0;
-  const h = Math.max(window.innerHeight - top - (window.innerWidth <= 720 ? 8 : 16) - tbh, 460);
+  const h = Math.max(window.innerHeight - top - (window.innerWidth <= 720 ? 8 : 0) - tbh, 460);
   cal.style.height = h + 'px';
 }
 window.addEventListener('resize', () => fitCalendar());
@@ -6549,6 +6552,7 @@ function bootApp() {
       case 'cal-add-sel': S.sched.multiDay = null; S.sched.editingId = null; S.sched.linkProjectId = null; S.sched.prefillDate = calSelDay(); S.sched.modalOpen = true; render(); break;
       case 'cal-open-day': S.sched.view = 'week'; S.sched.cursor = el.dataset.date; render(); break;
       case 'cal-set-view': S.sched.view = id; render(); break;
+      case 'sched-search-toggle': S.sched.mSearch = !(S.sched.mSearch || S.sched.search); if (!S.sched.mSearch) S.sched.search = ''; render(); if (S.sched.mSearch) document.getElementById('schedSearchInput')?.focus(); break;
       case 'cal-today': S.sched.cursor = todayStr(); S.sched.selDay = todayStr(); render(); break;
       case 'cal-prev': case 'cal-next': {
         const dir = action === 'cal-next' ? 1 : -1;
@@ -7714,7 +7718,7 @@ document.addEventListener('DOMContentLoaded', () => {
     --text: #eceef2; --text-dim: #b4bac6; --text-faint: #8f97a5;
     --accent: #7aa7ff; --accent-soft: rgba(122,167,255,0.14);
     --status-owned: #4cae7d; --status-lent: #5b8def; --status-repair: #e0a63c; --status-sold: #6b7080;
-    --sched-shoot: #d98a3d; --sched-meeting: #5b8def; --sched-deadline: #d9534f; --sched-etc: #6b7080; --sched-scout: #14b8a6; --sched-calendar: #4cae7d; --sched-hisplan: #8b5cf6;
+    --sched-shoot: #d98a3d; --sched-meeting: #5b8def; --sched-deadline: #d9534f; --sched-etc: #33a873; --sched-scout: #14b8a6; --sched-calendar: #4cae7d; --sched-hisplan: #8b5cf6;
     /* 본문 글꼴 = 기기 시스템 글꼴(맥·아이폰: 영문 SF Pro + 한글 Apple SD 산돌고딕 Neo). 페이퍼로지 → Pretendard를 거쳐 '맥에서 쓰는 글꼴로' 요청으로 정함 */
     --font-body: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
     --font-mono: var(--font-body); /* 숫자/코드 라벨도 본문 글꼴(시스템 글꼴)로 통일 (예전 모노스페이스는 한글이 다른 폰트로 폴백돼 섞여 보였음) */
@@ -7736,7 +7740,7 @@ document.addEventListener('DOMContentLoaded', () => {
     --row-bg:#081114; --row-bg-hover:#0e1b1e; --row-border:rgba(127,211,200,.26); --row-title:#e6fffb; --row-text:#b5f2ea;
     --text:#e6fffb; --text-dim:#b5f2ea; --text-faint:#6fa8a1; --accent:#7fd3c8; --accent-soft:rgba(127,211,200,.14);
     --status-owned:#6fd39a; --status-lent:#7aa7ff; --status-repair:#e7b65a; --status-sold:#8f97a5;
-    --sched-shoot:#f0a35e; --sched-meeting:#7aa7ff; --sched-deadline:#ff7a70; --sched-etc:#8f97a5; --sched-scout:#3fd6c6; --sched-calendar:#6fd39a; --sched-hisplan:#b18cff;
+    --sched-shoot:#f0a35e; --sched-meeting:#7aa7ff; --sched-deadline:#ff7a70; --sched-etc:#5fd49a; --sched-scout:#3fd6c6; --sched-calendar:#6fd39a; --sched-hisplan:#b18cff;
     --font-body:'Galmuri11', ui-monospace, monospace; --font-mono:'Galmuri11', ui-monospace, monospace; --font-display:'Galmuri11', ui-monospace, monospace;
     color-scheme:dark;
   }
@@ -8094,7 +8098,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .side-nav-brand b { display:block; font-family:var(--font-display); font-size:15px; letter-spacing:1.5px; font-weight:400; color:var(--text); line-height:1.1; }
   .side-nav-brand small { display:block; font-size:12px; color:var(--text-faint); margin-top:3px; letter-spacing:0.02em; }
   .side-nav-brand { flex-direction:column; align-items:flex-start; gap:8px; }
-  .side-nav-logo { width:112px; height:auto; aspect-ratio:1852/934; border-radius:6px; display:block; }
+  .side-nav-logo { width:140px; height:auto; aspect-ratio:940/136; border-radius:4px; display:block; } /* 가로 한 줄 로고(assets/logo-wide.png, 2026-11-15) */
   .side-nav-brand small { margin-top:0; }
   @media (max-width: 720px) { .side-nav-brand { align-items:center; } .side-nav-logo { width:38px; border-radius:4px; } .side-nav-brand small { display:none; } }
   .side-nav-indicator { position:absolute; left:10px; right:10px; top:0; height:40px; border-radius:11px; background:var(--accent-soft); pointer-events:none; z-index:0; transition:transform .38s cubic-bezier(.4,0,.2,1), height .38s cubic-bezier(.4,0,.2,1), opacity .2s ease; }
@@ -8287,7 +8291,7 @@ document.addEventListener('DOMContentLoaded', () => {
     .side-nav { display:none !important; }
     .app-main { margin-left:0 !important; padding:0 16px calc(96px + env(safe-area-inset-bottom)) !important; }
     .m-topbar { display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:40; margin:0 -16px 18px; padding:calc(10px + env(safe-area-inset-top)) 16px 10px 18px; background:color-mix(in srgb, var(--bg) 86%, transparent); -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px); border-bottom:1px solid var(--border); }
-    .m-logo { height:30px; width:auto; border-radius:4px; display:block; }
+    .m-logo { height:24px; width:auto; border-radius:3px; display:block; }
     .m-top-actions { display:flex; align-items:center; gap:4px; }
     .m-sync { color:var(--text-faint); font-size:15px; margin-right:4px; }
     .m-icon-btn { width:42px; height:42px; border:none; background:none; color:var(--text); display:flex; align-items:center; justify-content:center; border-radius:12px; -webkit-tap-highlight-color:transparent; }
@@ -9253,6 +9257,30 @@ document.addEventListener('DOMContentLoaded', () => {
   a.dash-row, a.dash-row:hover, a.dash-row * { text-decoration:none !important; }
 
 
+  /* PC 캘린더 탭: 머리글을 한 줄(제목·검색·칩·버튼)로 줄이고, 달력은 좌우·아래 여백 없이 화면 끝까지 (2026-11-15) */
+  @media (min-width: 721px) {
+    .app-main:has(.sched-top) { padding:0; }
+    .sched-top { display:flex; align-items:center; gap:10px; padding:12px 16px 10px; }
+    .sched-top .eq-header, .sched-top .eq-toolbar { display:contents; }
+    .sched-top .eq-title-block { order:0; flex:none; display:flex; align-items:baseline; gap:10px; }
+    .sched-top .eq-title { font-size:22px; }
+    .sched-top .eq-search { order:1; flex:0 1 200px; min-width:140px; }
+    .sched-top .eq-search input { height:34px; padding-top:0; padding-bottom:0; font-size:13px; }
+    .sched-top .eq-chip-row { order:2; flex:1 1 auto; min-width:0; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; }
+    .sched-top .eq-chip-row::-webkit-scrollbar { display:none; }
+    .sched-top .eq-chip { flex:none; padding:5px 11px; font-size:12.5px; }
+    .sched-top .eq-toolbar > :not(.eq-search):not(.eq-chip-row) { order:3; flex:none; }
+    .sched-top .eq-header > div:last-child { order:4; flex:none; flex-wrap:nowrap !important; }
+    .sched-top .eq-add-btn { padding:7px 14px; font-size:13px; }
+    .app-main:has(.sched-top) .gcal-notice, .app-main:has(.sched-top) > .tab-enter > .gcal-notice { margin-left:16px; margin-right:16px; }
+    .app-main:has(.sched-top) .cal-card { padding:0; }
+    .app-main:has(.sched-top) .cal-bar { padding:0 16px; margin-bottom:8px; }
+    .app-main:has(.sched-top) .cal-nav-btn, .app-main:has(.sched-top) .cal-today-btn { height:30px; min-width:30px; }
+    .app-main:has(.sched-top) .cal-title { font-size:17px; }
+    .app-main:has(.sched-top) .cal-seg button { padding:4px 12px; }
+    .app-main:has(.sched-top) .cal { border-radius:0; border-left:none; border-right:none; border-bottom:none; }
+    .app-main:has(.sched-top) #schedList { padding:0 16px 40px; }
+  }
   /* 데스크톱 월간 캘린더도 구글 캘린더처럼 — 카드 테두리·여백 없이 꽉 채우고, 일정은 색이 꽉 찬 막대, 기간 막대 제목은 막대 끝까지 (2026-11-15) */
   @media (min-width: 721px) {
     .cal-card { padding:4px 0 0; border:none; border-radius:0; box-shadow:none; background:transparent; }
@@ -9284,6 +9312,41 @@ document.addEventListener('DOMContentLoaded', () => {
     .cal:not(.cal-week) .cal-ev.span-start .cal-ev-title, .cal:not(.cal-week) .cal-ev.span-wk .cal-ev-title { position:relative; z-index:1; flex:none; overflow:hidden; width:calc(var(--span-days, 1) * 100% + (var(--span-days, 1) - 1) * 14px); }
     .cal:not(.cal-week) .cal-ev.span-start.span-quiet .cal-ev-title { visibility:visible; }
     .cal-ev.is-past { opacity:1; }
+  }
+  /* 폰 위 바를 얇게: 가로 한 줄 로고 + 알림만 (설정은 더보기), 캘린더 탭도 같은 바 (2026-11-15) */
+  @media (max-width: 720px) {
+    .m-topbar { padding:calc(4px + env(safe-area-inset-top)) 10px 4px 16px !important; margin-bottom:12px !important; }
+    .m-topbar .m-icon-btn { width:36px; height:36px; }
+    .m-topbar .m-icon-btn svg { width:22px; height:22px; }
+    .app-main:has(.sched-top) .m-topbar { margin-bottom:8px !important; }
+    .sched-top .eq-stat { display:none; }
+  }
+  /* PC에선 검색 칸이 늘 보여서 🔍 버튼은 폰에서만 */
+  .sched-search-toggle { display:none; }
+  /* 폰 캘린더 위쪽 정리 (2026-11-15): ① 제목·작은 버튼 한 줄 ② 🔍·분류 칩 한 줄 가로 스크롤(검색은 🔍를 눌렀을 때만) ③ ‹ › 오늘 · 달 · 월/주/목록 한 줄 */
+  @media (max-width: 720px) {
+    .sched-top .eq-header { flex-wrap:nowrap; align-items:center; gap:8px; margin-bottom:10px; }
+    .sched-top .eq-title-block { display:flex; align-items:baseline; gap:8px; min-width:0; }
+    .sched-top .eq-title { font-size:22px; }
+    .sched-top .eq-stat { font-size:12px; white-space:nowrap; }
+    .sched-top .eq-header > div:last-child { flex-wrap:nowrap !important; gap:6px !important; }
+    .sched-top .eq-add-btn { padding:7px 12px; font-size:13px; }
+    .sched-top .gcal-btn .gcal-lbl, .sched-top .eq-add-btn .gcal-lbl { display:none; }
+    .sched-top .eq-toolbar { flex-wrap:nowrap; overflow-x:auto; gap:6px; margin:0 -16px 8px; padding:0 16px; scrollbar-width:none; }
+    .sched-top .eq-toolbar::-webkit-scrollbar { display:none; }
+    .sched-top .eq-chip-row { flex:none; overflow:visible; }
+    .sched-top .eq-toolbar > * { flex:none; }
+    .sched-top .eq-chip { padding:5px 11px; font-size:13px; }
+    .sched-search-toggle { display:inline-flex; }
+    .sched-top .eq-search { display:none; margin-bottom:8px; }
+    .sched-top .eq-search.is-open { display:block; }
+    .cal-bar { grid-template-columns:auto 1fr auto; gap:6px; }
+    .cal-title { grid-column:auto; order:0; font-size:16px; }
+    .cal-nav { gap:4px; }
+    .cal-nav-btn, .cal-today-btn { height:30px; min-width:30px; padding:0 9px; font-size:14px; }
+    .cal-today-btn { font-size:12.5px; }
+    .cal-seg { padding:2px; }
+    .cal-seg button { padding:4px 9px; font-size:12.5px; }
   }
   /* 폰 월간 캘린더 — 구글 캘린더처럼 가장자리까지 꽉 채우고, 일정은 색 막대 + 작은 글씨 (2026-11-13) */
   @media (max-width: 720px) {
@@ -9318,8 +9381,8 @@ document.addEventListener('DOMContentLoaded', () => {
     .cal-evs > .cal-ev.span-start, .cal-evs > .cal-ev.span-mid { margin-right:-1px; } /* 칸 경계선을 덮어 막대가 끊김 없이 이어지게 */
     .cal-ev.is-past { opacity:1; } /* 투명도는 제목이 옆 칸 위로 올라가는 걸 막아서(쌓임 맥락) 폰에선 지난 일정도 그대로 */
     /* 캘린더 위 필터 줄은 한 줄 가로 스크롤로 */
-    .eq-toolbar:has(~ .cal-card) .eq-chip-row { flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
-    .eq-toolbar:has(~ .cal-card) .eq-chip-row::-webkit-scrollbar { display:none; }
+    .sched-top .eq-chip-row { flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+    .sched-top .eq-chip-row::-webkit-scrollbar { display:none; }
   }
 </style>
 </body>
