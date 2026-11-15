@@ -285,6 +285,7 @@ const SI = {
   check: _si('<circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-5"/>'),
   sign: _si('<path d="M4 20l1-4L16.5 4.5a1.7 1.7 0 0 1 2.4 0l.6.6a1.7 1.7 0 0 1 0 2.4L8 19z"/><path d="M13.5 7.5l3 3"/>'),
   clock: _si('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
+  actor: _si('<path d="M4 5.5c2.5 1 5.5 1 8 0v6a4 4 0 0 1-8 0z"/><path d="M12 9.5c2.5 1 5.5 1 8 0v6a4 4 0 0 1-8 0"/><path d="M6.5 9h.01M9.5 9h.01M14.5 13h.01M17.5 13h.01M6.5 12.5c.9.8 2.1.8 3 0M14.5 17.5c.9-.8 2.1-.8 3 0"/>'),
 };
 const NAV_ITEMS_BASE = [
   { id: 'today', icon: SI.dash, label: '대시보드' },
@@ -294,6 +295,7 @@ const NAV_ITEMS_BASE = [
   { id: 'projects', icon: SI.proj, label: '프로젝트' },
   { id: 'quotes', icon: SI.quote, label: '견적·계약' },
   { id: 'applicants', icon: SI.person, label: '지원자' },
+  { id: 'actors', icon: SI.actor, label: '배우' },
   { id: 'shared', icon: SI.shared, label: '공유 프로젝트' },
   { id: 'notes', icon: SI.note, label: '메모장' },
   { id: 'songs', icon: SI.mic, label: '노래연습' },
@@ -304,7 +306,7 @@ const NAV_ITEMS_BASE = [
 ];
 /* 사이드바 섹션(2026-11-06 대표님: 일과 취미를 나눠 보기) — 업무 / AI 팀 / 개인 순서로 묶어 보여 줌 */
 const NAV_SECTIONS = [
-  { label: '업무', ids: ['today', 'schedule', 'projects', 'shared', 'quotes', 'shootprep', 'equipment', 'applicants', 'notes'] },
+  { label: '업무', ids: ['today', 'schedule', 'projects', 'shared', 'quotes', 'shootprep', 'equipment', 'applicants', 'actors', 'notes'] },
   ...(STUDIO_HIDDEN ? [] : [{ label: 'AI 팀', ids: ['studio', 'chat', 'library'] }]),
   { label: '개인', ids: ['songs', 'bikes'] },
 ];
@@ -1605,6 +1607,7 @@ function mobileMoreSheetHtml() {
       ${row('data-action="set-tab" data-id="songs"', MI.mic, '노래연습')}
       ${row('data-action="set-tab" data-id="bikes"', '<span style="font-size:17px;line-height:1">🏍</span>', '이륜차 정비')}
       ${row('data-action="set-tab" data-id="applicants"', '<span style="font-size:17px;line-height:1">🙋</span>', '지원자')}
+      ${row('data-action="set-tab" data-id="actors"', '<span style="font-size:17px;line-height:1">🎭</span>', '배우')}
       ${STUDIO_HIDDEN ? '' : row('data-action="set-tab" data-id="chat"', '<span style="font-size:17px;line-height:1">💬</span>', '단톡방')}
       ${STUDIO_HIDDEN ? '' : row('data-action="set-tab" data-id="library"', '<span style="font-size:17px;line-height:1">🗂</span>', '자료실')}
       ${STUDIO_HOME || STUDIO_HIDDEN ? '' : row('data-action="set-tab" data-id="studio"', '<span style="font-size:17px;line-height:1">🏢</span>', '스튜디오')}
@@ -5943,6 +5946,12 @@ const APL_STATUSES = [
   { id: 'rejected', label: '불합격', color: '#c96a6a' },
   { id: 'hired', label: '합격', color: '#7a5af5' },
 ];
+/* 🎭 배우 탭(2026-11-16)은 지원자 탭과 같은 화면·데이터(recruits/applicants)를 쓰고 kind:'actor'로만 나눈다 — 새 컬렉션·규칙 없이 */
+function aplKind() { return S.activeTab === 'actors' ? 'actor' : 'staff'; }
+function aplOfKind(x) { return (x.kind === 'actor' ? 'actor' : 'staff') === aplKind(); }
+function aplApps() { return applicants.filter(aplOfKind); }
+function aplRecs() { return recruits.filter(aplOfKind); }
+function aplWord() { return aplKind() === 'actor' ? { tab: '배우', who: '배우님', crewTitle: '자주 함께하는 배우님', applied: '지원하신 배우님들', recruit: '캐스팅', person: '배우' } : { tab: '지원자', who: '감독님', crewTitle: '자주 함께하는 감독님', applied: '지원하신 분들', recruit: '공모', person: '지원자' }; }
 function aplStatus(id) { return APL_STATUSES.find(x => x.id === id) || APL_STATUSES[0]; }
 function aplDate(v) { if (!v) return ''; const d = parseYmd(v); return `${d.getFullYear()}.${pad2(d.getMonth() + 1)}.${pad2(d.getDate())}`; }
 /* 메일 본문에서 이메일·전화번호·링크·이름 추측 */
@@ -5965,7 +5974,7 @@ function aplMatches(a) {
 function aplRowHtml(a) {
   const st = aplStatus(a.status);
   const links = aplLinkChips(a.links, 3);
-  const isCrew = applicants.some(x => x.crew && aplPersonKey(x) === aplPersonKey(a));
+  const isCrew = aplApps().some(x => x.crew && aplPersonKey(x) === aplPersonKey(a));
   return `
     <div class="apl-row" data-action="apl-open-edit" data-id="${a.id}">
       <div class="apl-name"><b>${esc(a.name || '(이름 없음)')}</b><span>${aplDate(a.receivedAt)}</span></div>
@@ -5981,12 +5990,12 @@ function aplRowHtml(a) {
 /* ✍️ 내 평가 메모 — 그 감독님이 어땠는지 대표님이 적어 두는 칸(목록에서 바로 쓰고, 칸을 벗어나면 저장). 같은 사람(이메일)이 다른 공모에 남긴 평가가 있으면 빈칸에 흐리게 보여 줌 (2026-11-15) */
 function aplPrevReview(a) {
   if (!a.email) return '';
-  const o = applicants.filter(x => x.id !== a.id && x.email === a.email && (x.review || '').trim()).sort((x, y) => (y.receivedAt || '').localeCompare(x.receivedAt || ''))[0];
+  const o = aplApps().filter(x => x.id !== a.id && x.email === a.email && (x.review || '').trim()).sort((x, y) => (y.receivedAt || '').localeCompare(x.receivedAt || ''))[0];
   return o ? o.review.trim() : '';
 }
 function aplReviewCellHtml(a) {
   const prev = (a.review || '').trim() ? '' : aplPrevReview(a);
-  return `<div class="apl-review" contenteditable="true" data-role="apl-review-inline" data-id="${a.id}" data-ph="${esc(prev ? '이전 공모: ' + prev.slice(0, 40) : '✍️ 평가 메모 (어땠는지)')}" onclick="event.stopPropagation()">${esc(a.review || '')}</div>`;
+  return `<div class="apl-review" contenteditable="true" data-role="apl-review-inline" data-id="${a.id}" data-ph="${esc(prev ? '이전 ' + aplWord().recruit + ': ' + prev.slice(0, 40) : '✍️ 평가 메모 (어땠는지)')}" onclick="event.stopPropagation()">${esc(a.review || '')}</div>`;
 }
 /* 포트폴리오 링크 — 사이트 이름으로 보여 주고 누르면 새 탭으로 바로 열림(행 클릭과 분리) */
 function aplLinkLabel(u) {
@@ -6007,7 +6016,7 @@ function aplLinkChips(links, max) {
 function aplPersonKey(a) { return (a.email || '').toLowerCase() || 'n:' + (a.name || '').trim(); }
 function aplCrewList() {
   const by = {};
-  applicants.forEach(a => { const k = aplPersonKey(a); (by[k] = by[k] || []).push(a); });
+  aplApps().forEach(a => { const k = aplPersonKey(a); (by[k] = by[k] || []).push(a); });
   return Object.values(by).filter(rs => rs.some(a => a.crew)).map(rs => {
     rs.sort((x, y) => (y.receivedAt || '').localeCompare(x.receivedAt || ''));
     const latest = rs[0], review = (rs.find(a => (a.review || '').trim()) || {}).review || '';
@@ -6019,14 +6028,14 @@ function aplCrewHtml() {
   const crew = aplCrewList();
   return `
     <section class="apl-crew">
-      <div class="apl-sec-head"><h2><span class="apl-crew-brand">CREW</span> 자주 함께하는 감독님 <b>${crew.length}</b></h2><span class="apl-dim">지원자 줄의 ☆를 누르면 여기로 들어와요</span></div>
+      <div class="apl-sec-head"><h2><span class="apl-crew-brand">CREW</span> ${aplWord().crewTitle} <b>${crew.length}</b></h2><span class="apl-dim">${aplWord().person} 줄의 ☆를 누르면 여기로 들어와요</span></div>
       ${crew.length ? `<div class="apl-crew-grid">${crew.map(c => `
         <div class="apl-crew-card" data-action="apl-open-edit" data-id="${c.latest.id}">
           <div class="apl-crew-top"><b>${esc(c.latest.name || '(이름 없음)')}</b>${c.together ? `<span class="apl-crew-badge">함께 ${c.together}번</span>` : ''}<button class="apl-star on" data-action="apl-crew" data-id="${c.latest.id}" title="크루에서 빼기">★</button></div>
           <div class="apl-crew-contact">${esc([c.phone, c.latest.email].filter(Boolean).join(' · '))}</div>
           ${c.links.length ? `<div class="apl-links">${aplLinkChips(c.links, 4)}</div>` : ''}
           <div class="apl-crew-review ${c.review ? '' : 'is-empty'}">${c.review ? esc(c.review) : '평가 메모가 아직 없어요'}</div>
-        </div>`).join('')}</div>` : `<div class="apl-empty-row" style="border:none">아직 크루가 없어요. 함께 해 보고 좋았던 감독님 줄의 ☆를 눌러 두세요.</div>`}
+        </div>`).join('')}</div>` : `<div class="apl-empty-row" style="border:none">아직 크루가 없어요. 함께 해 보고 좋았던 ${aplWord().who} 줄의 ☆를 눌러 두세요.</div>`}
     </section>`;
 }
 /* 📋 DoF 공고 양식 — 공고 올릴 때 복사해서 쓰는 글. 기기 localStorage + Firestore appSettings/recruitTemplate(owner 전용 규칙) */
@@ -6084,10 +6093,11 @@ function aplTplHtml() {
     </section>`;
 }
 function aplListHtml() {
-  const groups = [...recruits].sort((a, b) => (b.postedAt || '').localeCompare(a.postedAt || '') || (b.createdAt || 0) - (a.createdAt || 0)).map(r => ({ r, list: applicants.filter(a => a.recruitId === r.id) }));
-  const loose = applicants.filter(a => !a.recruitId || !recruits.some(r => r.id === a.recruitId));
+  const apps = aplApps(), recs = aplRecs();
+  const groups = [...recs].sort((a, b) => (b.postedAt || '').localeCompare(a.postedAt || '') || (b.createdAt || 0) - (a.createdAt || 0)).map(r => ({ r, list: apps.filter(a => a.recruitId === r.id) }));
+  const loose = apps.filter(a => !a.recruitId || !recs.some(r => r.id === a.recruitId));
   if (loose.length) groups.push({ r: null, list: loose });
-  if (!groups.length) return `<div class="eq-empty"><p>아직 등록된 공모가 없어요.</p><p>오른쪽 위 <b>+ 공모 추가</b>로 모집 공고를 먼저 만들고, 지원자를 넣어 보세요.</p></div>`;
+  if (!groups.length) return `<div class="eq-empty"><p>아직 등록된 ${aplWord().recruit} 목록이 없어요.</p><p>오른쪽 위 <b>+ ${aplWord().recruit} 추가</b>로 먼저 만들고, ${aplWord().person}를 넣어 보세요.</p></div>`;
   const filtering = S.apl.search.trim() || S.apl.status !== 'all';
   return groups.map(({ r, list }) => {
     const key = r ? r.id : '_loose';
@@ -6099,12 +6109,12 @@ function aplListHtml() {
         <div class="apl-group-head" data-action="apl-toggle-group" data-id="${key}">
           <span class="apl-caret">${closed ? '▸' : '▾'}</span>
           <div class="apl-group-title">
-            <h3>${r ? esc(r.title) : '공모 없음'}${r && r.closed ? ' <span class="apl-tag">마감</span>' : ''}</h3>
-            <div class="apl-group-meta">${r ? [r.postedAt ? '공모 ' + aplDate(r.postedAt) : '', r.role, r.channel].filter(Boolean).map(esc).join(' · ') : '공모를 고르지 않은 지원자'}</div>
+            <h3>${r ? esc(r.title) : aplWord().recruit + ' 없음'}${r && r.closed ? ' <span class="apl-tag">마감</span>' : ''}</h3>
+            <div class="apl-group-meta">${r ? [r.postedAt ? aplWord().recruit + ' ' + aplDate(r.postedAt) : '', r.role, r.channel].filter(Boolean).map(esc).join(' · ') : aplWord().recruit + ' 선택 안 한 ' + aplWord().person}</div>
           </div>
           <div class="apl-group-counts">${list.length}명${APL_STATUSES.filter(x => c[x.id]).map(x => `<span style="color:${x.color}">${x.label} ${c[x.id]}</span>`).join('')}</div>
           ${r ? `<button class="eq-chip" data-action="apl-open-recruit" data-id="${r.id}">✎</button>
-          <button class="eq-chip" data-action="apl-open-add" data-id="${r.id}">+ 지원자</button>` : ''}
+          <button class="eq-chip" data-action="apl-open-add" data-id="${r.id}">+ ${aplWord().person}</button>` : ''}
         </div>
         ${closed ? '' : shown.length ? `<div class="apl-rows">${shown.map(aplRowHtml).join('')}</div>` : `<div class="apl-empty-row">아직 지원자가 없어요.</div>`}
       </section>`;
@@ -6117,7 +6127,7 @@ function aplModalHtml() {
     return `
       <div class="eq-modal-overlay is-drawer" data-action="apl-close-backdrop">
         <div class="eq-modal" data-stop-close>
-          <div class="eq-modal-head"><h2>${r ? '공모 수정' : '공모 추가'}</h2><button class="eq-modal-close" data-action="apl-close">✕</button></div>
+          <div class="eq-modal-head"><h2>${aplWord().recruit} ${r ? '수정' : '추가'}</h2><button class="eq-modal-close" data-action="apl-close">✕</button></div>
           <form data-form-role="apl-recruit-form">
             <div class="eq-field"><label>공모(프로젝트) 이름</label><input name="title" autofocus required value="${esc(f.title)}" placeholder="예: 10월 편집자 모집, 크리스마스 라이브클립 촬영 스태프" /></div>
             <div class="eq-field"><label>공모한 날짜</label><input type="date" name="postedAt" value="${esc(f.postedAt || '')}" /></div>
@@ -6126,7 +6136,7 @@ function aplModalHtml() {
             <div class="eq-field"><label>메모 <span class="eq-hint">(선택)</span></label><textarea name="memo" class="sched-memo-textarea" placeholder="조건, 마감일 등">${esc(f.memo || '')}</textarea></div>
             <label class="collab-check"><input type="checkbox" name="closed" ${f.closed ? 'checked' : ''} /> 마감된 공모</label>
             <button type="submit" class="eq-modal-submit">${r ? '수정 완료' : '추가하기'}</button>
-            ${r ? `<button type="button" class="eq-detail-delete-btn" style="width:100%; margin-top:10px;" data-action="apl-delete-recruit" data-id="${r.id}">공모 삭제 (지원자는 '공모 없음'으로 남아요)</button>` : ''}
+            ${r ? `<button type="button" class="eq-detail-delete-btn" style="width:100%; margin-top:10px;" data-action="apl-delete-recruit" data-id="${r.id}">${aplWord().recruit} 삭제 (${aplWord().person}는 '${aplWord().recruit} 없음'으로 남아요)</button>` : ''}
           </form>
         </div>
       </div>`;
@@ -6134,27 +6144,27 @@ function aplModalHtml() {
   if (S.apl.modal === 'applicant') {
     const a = S.apl.editingId ? applicants.find(x => x.id === S.apl.editingId) : null;
     const f = a || { recruitId: S.apl.recruitId || '', name: '', email: '', phone: '', links: [], receivedAt: ymd(new Date()), status: 'new', memo: '', raw: '' };
-    const rs = [...recruits].sort((x, y) => (y.postedAt || '').localeCompare(x.postedAt || ''));
+    const rs = [...aplRecs()].sort((x, y) => (y.postedAt || '').localeCompare(x.postedAt || ''));
     return `
       <div class="eq-modal-overlay is-drawer" data-action="apl-close-backdrop">
         <div class="eq-modal" data-stop-close>
-          <div class="eq-modal-head"><h2>${a ? '지원자 정보' : '지원자 추가'}</h2><button class="eq-modal-close" data-action="apl-close">✕</button></div>
+          <div class="eq-modal-head"><h2>${aplWord().person} ${a ? '정보' : '추가'}</h2><button class="eq-modal-close" data-action="apl-close">✕</button></div>
           <form data-form-role="apl-applicant-form">
             <div class="eq-field"><label>지원 메일 붙여넣기 <span class="eq-hint">(선택 — 붙여넣고 '자동 채우기'를 누르면 이메일·전화·링크를 찾아 넣어요)</span></label>
               <textarea name="raw" id="aplRaw" class="sched-memo-textarea" placeholder="네이버 메일에서 지원 메일 본문을 복사해 붙여넣으세요">${esc(f.raw || '')}</textarea>
               <button type="button" class="eq-chip" style="margin-top:6px" data-action="apl-autofill">✨ 자동 채우기</button></div>
-            <div class="eq-field"><label>공모</label><select name="recruitId"><option value="">공모 없음</option>${rs.map(r => `<option value="${r.id}" ${r.id === f.recruitId ? 'selected' : ''}>${esc(r.title)}${r.postedAt ? ' (' + aplDate(r.postedAt) + ')' : ''}</option>`).join('')}</select></div>
+            <div class="eq-field"><label>${aplWord().recruit}</label><select name="recruitId"><option value="">${aplWord().recruit} 없음</option>${rs.map(r => `<option value="${r.id}" ${r.id === f.recruitId ? 'selected' : ''}>${esc(r.title)}${r.postedAt ? ' (' + aplDate(r.postedAt) + ')' : ''}</option>`).join('')}</select></div>
             <div class="eq-field"><label>이름</label><input name="name" value="${esc(f.name || '')}" placeholder="지원자 이름" /></div>
             <div class="eq-field"><label>이메일</label><input name="email" value="${esc(f.email || '')}" inputmode="email" /></div>
             <div class="eq-field"><label>전화번호</label><input name="phone" value="${esc(f.phone || '')}" inputmode="tel" /></div>
             <div class="eq-field"><label>포트폴리오·링크 <span class="eq-hint">(한 줄에 하나)</span></label>${(f.links || []).length ? `<div class="apl-links apl-links-modal">${aplLinkChips(f.links)}</div>` : ''}<textarea name="links" class="sched-memo-textarea" placeholder="https://...">${esc((f.links || []).join('\n'))}</textarea></div>
             <div class="eq-field"><label>지원일</label><input type="date" name="receivedAt" value="${esc(f.receivedAt || '')}" /></div>
-            <div class="eq-field"><label>✍️ 내 평가 메모 <span class="eq-hint">(이 감독님은 어땠는지 — 실력·태도·장비·다시 부를지)</span></label><textarea name="review" class="sched-memo-textarea" placeholder="예: 구도 좋음, 시간 약속 잘 지킴, 다음 공연 촬영 때 다시 연락">${esc(f.review || '')}</textarea>${a && !(f.review || '').trim() && aplPrevReview(a) ? `<div class="eq-hint" style="margin-top:6px">다른 공모에서 남긴 평가: ${esc(aplPrevReview(a))}</div>` : ''}</div>
-            <label class="apl-crew-check"><input type="checkbox" name="crew" ${a && applicants.some(x => x.crew && aplPersonKey(x) === aplPersonKey(a)) ? 'checked' : ''} /> ⭐ CREW로 등록 <span class="eq-hint">(자주 함께하는 감독님 — 맨 위에 모아 보여 줘요)</span></label>
+            <div class="eq-field"><label>✍️ 내 평가 메모 <span class="eq-hint">(이 ${aplWord().who}은 어땠는지 — ${aplKind() === 'actor' ? '연기·이미지·태도·다시 부를지' : '실력·태도·장비·다시 부를지'})</span></label><textarea name="review" class="sched-memo-textarea" placeholder="예: 구도 좋음, 시간 약속 잘 지킴, 다음 공연 촬영 때 다시 연락">${esc(f.review || '')}</textarea>${a && !(f.review || '').trim() && aplPrevReview(a) ? `<div class="eq-hint" style="margin-top:6px">다른 공모에서 남긴 평가: ${esc(aplPrevReview(a))}</div>` : ''}</div>
+            <label class="apl-crew-check"><input type="checkbox" name="crew" ${a && aplApps().some(x => x.crew && aplPersonKey(x) === aplPersonKey(a)) ? 'checked' : ''} /> ⭐ CREW로 등록 <span class="eq-hint">(${aplWord().crewTitle} — 맨 위에 모아 보여 줘요)</span></label>
             <div class="eq-field"><label>상태</label><select name="status">${APL_STATUSES.map(x => `<option value="${x.id}" ${x.id === (f.status || 'new') ? 'selected' : ''}>${x.label}</option>`).join('')}</select></div>
             <div class="eq-field"><label>메모</label><textarea name="memo" class="sched-memo-textarea" placeholder="경력, 인상, 희망 조건 등">${esc(f.memo || '')}</textarea></div>
             <button type="submit" class="eq-modal-submit">${a ? '저장' : '추가하기'}</button>
-            ${a ? `<button type="button" class="eq-detail-delete-btn" style="width:100%; margin-top:10px;" data-action="apl-delete" data-id="${a.id}">지원자 삭제</button>` : ''}
+            ${a ? `<button type="button" class="eq-detail-delete-btn" style="width:100%; margin-top:10px;" data-action="apl-delete" data-id="${a.id}">${aplWord().person} 삭제</button>` : ''}
           </form>
         </div>
       </div>`;
@@ -6163,13 +6173,13 @@ function aplModalHtml() {
 }
 function renderApplicantsTab() {
   aplTplLoad();
-  const total = applicants.length, fresh = applicants.filter(a => (a.status || 'new') === 'new').length;
+  const W = aplWord(), apps = aplApps(), total = apps.length, fresh = apps.filter(a => (a.status || 'new') === 'new').length;
   return `
     <div class="eq-header">
-      <div class="eq-title-block"><h1 class="eq-title">지원자</h1><div class="eq-stat">공모 <b>${recruits.length}</b> · 지원자 <b>${total}</b>${fresh ? ` · 새 지원 <b>${fresh}</b>` : ''}</div></div>
+      <div class="eq-title-block"><h1 class="eq-title">${W.tab}</h1><div class="eq-stat">${W.recruit} <b>${aplRecs().length}</b> · ${W.person} <b>${total}</b>${fresh ? ` · 새 지원 <b>${fresh}</b>` : ''}</div></div>
       <div style="display:flex; gap:8px; flex-wrap:wrap">
-        <button class="eq-chip" data-action="apl-open-recruit">+ 공모 추가</button>
-        <button class="eq-add-btn" data-action="apl-open-add">+ 지원자 추가</button>
+        <button class="eq-chip" data-action="apl-open-recruit">+ ${aplWord().recruit} 추가</button>
+        <button class="eq-add-btn" data-action="apl-open-add">+ ${aplWord().person} 추가</button>
       </div>
     </div>
     <div class="eq-toolbar">
@@ -6177,9 +6187,9 @@ function renderApplicantsTab() {
       <div class="apl-filter">${[{ id: 'all', label: '전체' }, ...APL_STATUSES].map(x => `<button class="eq-chip ${S.apl.status === x.id ? 'active' : ''}" data-action="apl-filter" data-id="${x.id}">${x.label}</button>`).join('')}</div>
     </div>
     ${S.apl.msg ? `<div class="q-hint" style="margin:8px 0">${esc(S.apl.msg)}</div>` : ''}
-    ${aplTplHtml()}
+    ${aplKind() === 'actor' ? '' : aplTplHtml()}
     ${aplCrewHtml()}
-    <div class="apl-sec-head apl-sec-applied"><h2>지원하신 분들 <b>${applicants.length}</b></h2></div>
+    <div class="apl-sec-head apl-sec-applied"><h2>${W.applied} <b>${total}</b></h2></div>
     <div id="aplList">${aplListHtml()}</div>
     ${aplModalHtml()}`;
 }
@@ -6197,8 +6207,8 @@ function handleApplicantAction(action, el, e) {
     case 'apl-filter': S.apl.status = id; render(); return true;
     case 'apl-crew': { // ☆/★ — 같은 사람(이메일)의 기록 전체에 맞춰 둔다
       const a = applicants.find(x => x.id === id); if (!a) return true;
-      const k = aplPersonKey(a), on = !applicants.some(x => x.crew && aplPersonKey(x) === k);
-      saveApplicants(applicants.map(x => aplPersonKey(x) === k ? { ...x, crew: on && x.id === a.id ? true : (on ? !!x.crew : false), updatedAt: Date.now() } : x));
+      const k = aplPersonKey(a), on = !aplApps().some(x => x.crew && aplPersonKey(x) === k);
+      saveApplicants(applicants.map(x => aplOfKind(x) && aplPersonKey(x) === k ? { ...x, crew: on && x.id === a.id ? true : (on ? !!x.crew : false), updatedAt: Date.now() } : x));
       render(); return true;
     }
     case 'apl-tpl-toggle': S.apl.tplOpen = !S.apl.tplOpen; render(); if (S.apl.tplOpen) document.getElementById('aplTplText')?.focus(); return true;
@@ -6240,13 +6250,13 @@ function handleApplicantSubmit(form) {
     const title = g('title'); if (!title) return;
     const payload = { title, postedAt: g('postedAt'), role: g('role'), channel: g('channel'), memo: g('memo'), closed: !!fd.get('closed'), updatedAt: Date.now() };
     if (S.apl.editingId) saveRecruits(recruits.map(r => r.id === S.apl.editingId ? { ...r, ...payload } : r));
-    else saveRecruits([{ id: uid(), createdAt: Date.now(), ...payload }, ...recruits]);
+    else saveRecruits([{ id: uid(), createdAt: Date.now(), ...(aplKind() === 'actor' ? { kind: 'actor' } : {}), ...payload }, ...recruits]);
   } else {
     const links = g('links').split('\n').map(x => x.trim()).filter(Boolean).map(normalizeUrl);
     const payload = { recruitId: g('recruitId'), name: g('name'), email: g('email'), phone: g('phone'), links, receivedAt: g('receivedAt'), status: g('status') || 'new', memo: g('memo'), review: g('review'), crew: !!fd.get('crew'), raw: g('raw').slice(0, 20000), updatedAt: Date.now() };
     if (!payload.name && !payload.email && !payload.phone) { S.apl.msg = '이름, 이메일, 전화번호 중 하나는 넣어 주세요.'; render(); return; }
-    let next = S.apl.editingId ? applicants.map(a => a.id === S.apl.editingId ? { ...a, ...payload } : a) : [{ id: uid(), createdAt: Date.now(), ...payload }, ...applicants];
-    if (!payload.crew && S.apl.editingId) { const cur = next.find(a => a.id === S.apl.editingId); const k = cur && aplPersonKey(cur); if (k) next = next.map(a => aplPersonKey(a) === k && a.crew ? { ...a, crew: false } : a); } // 크루 해제는 같은 사람 기록 모두
+    let next = S.apl.editingId ? applicants.map(a => a.id === S.apl.editingId ? { ...a, ...payload } : a) : [{ id: uid(), createdAt: Date.now(), ...(aplKind() === 'actor' ? { kind: 'actor' } : {}), ...payload }, ...applicants];
+    if (!payload.crew && S.apl.editingId) { const cur = next.find(a => a.id === S.apl.editingId); const k = cur && aplPersonKey(cur); if (k) next = next.map(a => aplOfKind(a) && aplPersonKey(a) === k && a.crew ? { ...a, crew: false } : a); } // 크루 해제는 같은 사람 기록 모두
     saveApplicants(next);
   }
   S.apl.msg = ''; S.apl.modal = null; S.apl.editingId = null; S.apl.recruitId = '';
@@ -6415,7 +6425,7 @@ function renderTab() {
   if (S.activeTab === 'notes') return renderNotesTab();
   if (S.activeTab === 'songs') return renderSongsTab();
   if (S.activeTab === 'bikes' && !GUEST_MODE) return renderBikesTab();
-  if (S.activeTab === 'applicants' && !GUEST_MODE) return renderApplicantsTab();
+  if ((S.activeTab === 'applicants' || S.activeTab === 'actors') && !GUEST_MODE) return renderApplicantsTab();
   if (S.activeTab === 'quotes') return renderQuotesTab();
   if (S.activeTab === 'studio' && !GUEST_MODE) return renderStudioTab();
   if (S.activeTab === 'library' && !GUEST_MODE) return renderLibraryTab();
