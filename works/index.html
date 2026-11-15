@@ -1099,7 +1099,8 @@ function schedConflictHtml(date) {
   if (!evs.length) return '';
   return `<div class="sched-conflict">⚠️ 이 날 ${evs.map(ev => `<b>${gcalSourceLabel(ev)}</b> ${esc(ev.time ? ev.time + ' ' : '')}${esc(ev.title)}`).join(', ')} 일정이 있어요</div>`;
 }
-function visibleSchedItems() { return schedItems.filter(it => it.source !== 'calendar'); }
+function isJpSched(it) { return /^\s*\[JP\]/.test(it.title || ''); }
+function visibleSchedItems() { const hideJp = !GUEST_MODE && calGroupsHidden().jp; return schedItems.filter(it => it.source !== 'calendar' && !(hideJp && isJpSched(it))); }
 /* ================= 휴대폰(아이폰) 캘린더 연결 — Google 캘린더 경유 =================
    정적 사이트라 서버가 없어서, 아이폰이 기본으로 동기화하는 Google 캘린더를 다리로 쓴다.
    - VINFILM 일정 → Google의 "VINFILM STUDIO" 캘린더에 자동 반영(추가/수정/삭제) → 아이폰 캘린더 앱에 표시
@@ -1681,7 +1682,7 @@ function dashProjectsHtml() {
    기기마다 localStorage에 기억하고, 휴대폰 일정(📱)은 이 설정과 무관. */
 const CAL_GROUPS_LS = 'vinfilm-works-cal-groups';
 function calGroupsHidden() {
-  if (!S.sched.hiddenGroups) { let v = {}; try { v = JSON.parse(localStorage.getItem(CAL_GROUPS_LS) || '{}') || {}; } catch (e) {} S.sched.hiddenGroups = { share: !!v.share, work: !!v.work }; }
+  if (!S.sched.hiddenGroups) { let v = {}; try { v = JSON.parse(localStorage.getItem(CAL_GROUPS_LS) || '{}') || {}; } catch (e) {} S.sched.hiddenGroups = { share: !!v.share, work: !!v.work, jp: v.jp === undefined ? true : !!v.jp }; }
   return S.sched.hiddenGroups;
 }
 function schedCatHidden(cat) {
@@ -1694,6 +1695,7 @@ function calGroupToggleHtml() {
   return `<div class="eq-chip-row">
     <button class="eq-chip ${h.share ? '' : 'active'}" data-action="sched-toggle-group" data-id="share" title="촬영·미팅·답사">${h.share ? '○' : '●'} 스케줄</button>
     <button class="eq-chip ${h.work ? '' : 'active'}" data-action="sched-toggle-group" data-id="work" title="마감·기타, 프로젝트 마감">${h.work ? '○' : '●'} 작업 일정</button>
+    <button class="eq-chip ${h.jp ? '' : 'active'}" data-action="sched-toggle-group" data-id="jp" title="제목이 [JP]로 시작하는 일정 (기본 숨김)">${h.jp ? '○' : '●'} JP</button>
   </div>`;
 }
 function getFilteredSchedule() {
