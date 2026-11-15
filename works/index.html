@@ -813,7 +813,7 @@ function renderSidebar() {
   const items = GUEST_MODE ? NAV_ITEMS.filter(it => GUEST_ALLOWED_TABS.includes(it.id)) : NAV_ITEMS;
   return `
     <nav class="side-nav" id="sideNav">
-      <div class="side-nav-brand"><img class="side-nav-logo" src="../assets/logo-wide.png" alt="VINFILM STUDIO" width="140" height="20" /><small>WORKS</small></div>
+      <div class="side-nav-brand"><img class="side-nav-logo" src="../assets/logo-works.png" alt="VINFILM WORKS" width="140" height="20" /></div>
       ${GUEST_MODE ? `<div class="side-nav-guest-badge">👋 공유 보기</div>` : ''}
       <div class="side-nav-indicator"></div>
       ${items.map((it, i) => {
@@ -1575,7 +1575,7 @@ const MOBILE_TABS_GUEST = [
 function renderMobileTopBar() {
   return `
     <header class="m-topbar">
-      <img class="m-logo" src="../assets/logo-wide.png" alt="VINFILM STUDIO" width="166" height="24" />
+      <img class="m-logo" src="../assets/logo-works.png" alt="VINFILM WORKS" width="169" height="24" />
       <div class="m-top-actions">
         ${notifBellHtml()}
         ${GUEST_MODE ? `<button class="m-icon-btn" data-action="open-settings" aria-label="설정">${MI.gear}</button>` : ''}${/* 대표님은 설정을 아래 '더보기'에서 (2026-11-15) */''}
@@ -8229,7 +8229,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .side-nav-brand b { display:block; font-family:var(--font-display); font-size:15px; letter-spacing:1.5px; font-weight:400; color:var(--text); line-height:1.1; }
   .side-nav-brand small { display:block; font-size:12px; color:var(--text-faint); margin-top:3px; letter-spacing:0.02em; }
   .side-nav-brand { flex-direction:column; align-items:flex-start; gap:8px; }
-  .side-nav-logo { width:140px; height:auto; aspect-ratio:940/136; border-radius:4px; display:block; } /* 가로 한 줄 로고(assets/logo-wide.png, 2026-11-15) */
+  .side-nav-logo { width:140px; height:auto; aspect-ratio:957/136; border-radius:4px; display:block; } /* 가로 한 줄 'VINFILM [WORKS]' 로고(assets/logo-works.png — STUDIO 박스를 같은 글꼴 Montserrat ExtraBold로 WORKS로 바꿈, 2026-11-15) */
   .side-nav-brand small { margin-top:0; }
   @media (max-width: 720px) { .side-nav-brand { align-items:center; } .side-nav-logo { width:38px; border-radius:4px; } .side-nav-brand small { display:none; } }
   .side-nav-indicator { position:absolute; left:10px; right:10px; top:0; height:40px; border-radius:11px; background:var(--accent-soft); pointer-events:none; z-index:0; transition:transform .38s cubic-bezier(.4,0,.2,1), height .38s cubic-bezier(.4,0,.2,1), opacity .2s ease; }
