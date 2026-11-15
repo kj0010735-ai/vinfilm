@@ -811,7 +811,7 @@ function settingsModalHtml() {
 
 /* ================= render: sidebar ================= */
 function renderSidebar() {
-  const items = GUEST_MODE ? NAV_ITEMS.filter(it => GUEST_ALLOWED_TABS.includes(it.id)) : NAV_ITEMS;
+  const items = GUEST_MODE ? NAV_ITEMS.filter(it => GUEST_ALLOWED_TABS.includes(it.id)) : NAV_ITEMS.filter(it => it.id !== 'shared'); // 대표님은 공유 프로젝트를 프로젝트 탭 안에서
   return `
     <nav class="side-nav" id="sideNav">
       <div class="side-nav-brand"><img class="side-nav-logo" src="../assets/logo-works.png" alt="VINFILM WORKS" width="140" height="20" /></div>
@@ -820,7 +820,7 @@ function renderSidebar() {
       ${items.map((it, i) => {
         const secOf = j => GUEST_MODE || j === 0 ? '' : navSectionOf(items[j].id); const sec = secOf(i), prev = i ? secOf(i - 1) : null;
         return `${sec && sec !== prev ? `<div class="side-nav-sec">${sec}</div>` : ''}
-        <button class="side-nav-item ${S.activeTab===it.id?'active':''}" data-action="set-tab" data-id="${it.id}">
+        <button class="side-nav-item ${S.activeTab===it.id || (!GUEST_MODE && it.id === 'projects' && S.activeTab === 'shared')?'active':''}" data-action="set-tab" data-id="${it.id}">
           <span class="side-nav-icon">${it.icon}</span><span class="side-nav-label">${it.label}</span>
         </button>${i === 0 ? sideNotifHtml() : ''}`; }).join('')}
       <div class="side-nav-sync" title="${window.cloudSyncReady ? '클라우드에 자동으로 저장/동기화되고 있어요' : '이 기기에만 저장돼요'}">
@@ -1585,10 +1585,10 @@ function renderMobileTopBar() {
 }
 function renderMobileTabBar() {
   const tabs = GUEST_MODE ? GUEST_ALLOWED_TABS.map(id => MOBILE_TABS_GUEST.find(t => t.id === id)).filter(Boolean) : MOBILE_TABS_OWNER;
-  const inTabs = tabs.some(t => t.id === S.activeTab);
+  const inTabs = tabs.some(t => t.id === S.activeTab) || (!GUEST_MODE && S.activeTab === 'shared');
   return `
     <nav class="m-tabbar">
-      ${tabs.map(t => `<button class="m-tab ${S.activeTab === t.id ? 'on' : ''}" data-action="set-tab" data-id="${t.id}">${t.icon}<span>${t.label}</span></button>`).join('')}
+      ${tabs.map(t => `<button class="m-tab ${S.activeTab === t.id || (!GUEST_MODE && t.id === 'projects' && S.activeTab === 'shared') ? 'on' : ''}" data-action="set-tab" data-id="${t.id}">${t.icon}<span>${t.label}</span></button>`).join('')}
       ${GUEST_MODE ? '' : `<button class="m-tab ${!inTabs || S.moreOpen ? 'on' : ''}" data-action="m-more">${MI.more}<span>더보기</span></button>`}
     </nav>
     ${S.moreOpen ? mobileMoreSheetHtml() : ''}`;
@@ -1601,7 +1601,6 @@ function mobileMoreSheetHtml() {
       <div class="m-sheet-grip"></div>
       ${row('data-action="set-tab" data-id="shootprep"', MI.bag, '촬영준비')}
       ${row('data-action="set-tab" data-id="quotes"', MI.quote, '견적·계약')}
-      ${row('data-action="set-tab" data-id="shared"', MI.shared, '공유 프로젝트')}
       ${row('data-action="set-tab" data-id="notes"', MI.note, '메모장')}
       ${row('data-action="set-tab" data-id="songs"', MI.mic, '노래연습')}
       ${row('data-action="set-tab" data-id="bikes"', '<span style="font-size:17px;line-height:1">🏍</span>', '이륜차 정비')}
@@ -1628,7 +1627,6 @@ function dashQuickHtml() {
     { attrs: 'data-action="set-tab" data-id="schedule"', icon: MI.cal, label: '캘린더', tone: 't-blue' },
     { attrs: 'data-action="set-tab" data-id="projects"', icon: MI.proj, label: '프로젝트', tone: 't-violet' },
     { attrs: 'data-action="set-tab" data-id="quotes"', icon: MI.quote, label: '견적·계약', tone: 't-blue' },
-    { attrs: 'data-action="set-tab" data-id="shared"', icon: MI.shared, label: '공유 프로젝트', tone: 't-green' },
     { attrs: 'data-action="set-tab" data-id="equipment"', icon: MI.eq, label: '장비목록', tone: 't-slate' },
     { attrs: 'data-action="set-tab" data-id="shootprep"', icon: MI.bag, label: '촬영준비', tone: 't-orange' },
     { attrs: 'data-action="set-tab" data-id="notes"', icon: MI.note, label: '메모장', tone: 't-yellow' },
@@ -2472,6 +2470,14 @@ function projBulkBarHtml() {
     </div>`;
 }
 function refreshProjList() { const el = document.getElementById('projList'); if (el) el.innerHTML = projListHtml(); }
+function projKindSegHtml() {
+  if (GUEST_MODE) return '';
+  const mine = projItems.filter(p => !p.parentId && p.status !== 'done').length, shared = sharedProjItems.filter(p => !p.parentId && p.status !== 'done').length;
+  return `<div class="apl-kind-seg proj-kind-seg">
+      <button class="${S.activeTab === 'projects' ? 'on' : ''}" data-action="set-tab" data-id="projects">📁 내 프로젝트 <b>${mine}</b></button>
+      <button class="${S.activeTab === 'shared' ? 'on' : ''}" data-action="set-tab" data-id="shared">👥 공유 프로젝트 <b>${shared}</b></button>
+    </div>`;
+}
 function renderProjectsTab() {
   const parentId = S.proj.currentParentId || null;
   const parent = parentId ? projItems.find(p => p.id === parentId) : null;
@@ -2486,6 +2492,7 @@ function renderProjectsTab() {
   const breadcrumb = projBreadcrumb(parentId);
   return `
     <div class="proj-eyebrow">WORKS</div>
+    ${parent ? '' : projKindSegHtml()}
     <div class="eq-header">
       <div class="eq-title-block"><h1 class="eq-title">${parent ? esc(parent.title) : '프로젝트'}</h1><div class="eq-stat">진행중 <b>${counts.doing}</b> / 전체 <b>${counts.all}</b></div></div>
       <button class="eq-add-btn" data-action="proj-open-add" data-id="todo">+ 새 프로젝트</button>
@@ -2744,6 +2751,7 @@ function renderSharedProjectsTab() {
   };
   const breadcrumb = sharedBreadcrumb(parentId);
   return `
+    ${parent ? '' : projKindSegHtml()}
     <div class="eq-header">
       <div class="eq-title-block"><h1 class="eq-title">${parent ? esc(parent.title) : COLLAB_MODE && collabInfo ? esc(collabInfo.name) : '공유 프로젝트'}</h1><div class="eq-stat">진행중 <b>${counts.doing}</b> / 전체 <b>${counts.all}</b></div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -9581,6 +9589,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .apl-kind-seg button b { margin-left:4px; color:var(--text-faint); font-weight:700; }
   .apl-kind-seg button.on { background:var(--accent); color:#fff; }
   .apl-kind-seg button.on b { color:rgba(255,255,255,.8); }
+  .proj-kind-seg { margin:0 0 12px; }
 </style>
 </body>
 </html>
