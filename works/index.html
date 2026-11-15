@@ -1696,6 +1696,7 @@ function calGroupToggleHtml() {
     <button class="eq-chip ${h.share ? '' : 'active'}" data-action="sched-toggle-group" data-id="share" title="촬영·미팅·답사">${h.share ? '○' : '●'} 스케줄</button>
     <button class="eq-chip ${h.work ? '' : 'active'}" data-action="sched-toggle-group" data-id="work" title="마감·기타, 프로젝트 마감">${h.work ? '○' : '●'} 작업 일정</button>
     <button class="eq-chip ${h.jp ? '' : 'active'}" data-action="sched-toggle-group" data-id="jp" title="제목이 [JP]로 시작하는 일정 (기본 숨김)">${h.jp ? '○' : '●'} JP</button>
+    ${(!GUEST_MODE && schedItems.some(isJpSched)) ? `<button class="eq-chip" data-action="sched-delete-jp" title="제목이 [JP]로 시작하는 일정을 모두 삭제 (휴대폰 캘린더에서도 사라짐)">🗑 JP ${schedItems.filter(isJpSched).length}개 삭제</button>` : ''}
   </div>`;
 }
 function getFilteredSchedule() {
@@ -6731,6 +6732,15 @@ function bootApp() {
       case 'sched-toggle-group': {
         const h = calGroupsHidden(); h[id] = !h[id];
         try { localStorage.setItem(CAL_GROUPS_LS, JSON.stringify(h)); } catch (e) {}
+        render(); break;
+      }
+      case 'sched-delete-jp': {
+        if (GUEST_MODE) break;
+        const jp = schedItems.filter(isJpSched);
+        if (!jp.length) break;
+        if (!confirm('제목이 [JP]로 시작하는 일정 ' + jp.length + '개를 삭제할까요?\n휴대폰 캘린더에서도 사라집니다.\n(삭제 전 이 기기에 백업을 남깁니다)')) break;
+        try { localStorage.setItem('vinfilm-backup-jp-schedule-' + Date.now(), JSON.stringify(jp)); } catch (e) {}
+        saveSchedItems(schedItems.filter(it => !isJpSched(it)));
         render(); break;
       }
       case 'sched-toggle-past': S.sched.showPast = !S.sched.showPast; render(); break;
