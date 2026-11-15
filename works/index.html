@@ -295,7 +295,6 @@ const NAV_ITEMS_BASE = [
   { id: 'projects', icon: SI.proj, label: '프로젝트' },
   { id: 'quotes', icon: SI.quote, label: '견적·계약' },
   { id: 'applicants', icon: SI.person, label: '지원자' },
-  { id: 'actors', icon: SI.actor, label: '배우' },
   { id: 'shared', icon: SI.shared, label: '공유 프로젝트' },
   { id: 'notes', icon: SI.note, label: '메모장' },
   { id: 'songs', icon: SI.mic, label: '노래연습' },
@@ -306,7 +305,7 @@ const NAV_ITEMS_BASE = [
 ];
 /* 사이드바 섹션(2026-11-06 대표님: 일과 취미를 나눠 보기) — 업무 / AI 팀 / 개인 순서로 묶어 보여 줌 */
 const NAV_SECTIONS = [
-  { label: '업무', ids: ['today', 'schedule', 'projects', 'shared', 'quotes', 'shootprep', 'equipment', 'applicants', 'actors', 'notes'] },
+  { label: '업무', ids: ['today', 'schedule', 'projects', 'shared', 'quotes', 'shootprep', 'equipment', 'applicants', 'notes'] },
   ...(STUDIO_HIDDEN ? [] : [{ label: 'AI 팀', ids: ['studio', 'chat', 'library'] }]),
   { label: '개인', ids: ['songs', 'bikes'] },
 ];
@@ -451,7 +450,7 @@ const S = {
   notif: { open: false, compose: false, viewId: null },
   moreOpen: false,
   chat: { to: 'sec', open: {}, toBottom: true, msg: '' },
-  apl: { search: '', status: 'all', modal: null, editingId: null, recruitId: '', closed: {}, msg: '' },
+  apl: { kind: 'staff', search: '', status: 'all', modal: null, editingId: null, recruitId: '', closed: {}, msg: '' },
   activeTab: COLLAB_MODE ? 'shared' : GUEST_MODE ? 'equipment' : STUDIO_HOME ? 'studio' : 'today',
   eq: { search: '', categoryFilter: 'all', statusFilter: 'all', sortBy: 'recent', sortOpen: false, modalOpen: false, editingId: null, confirmDeleteId: null, categoryModalOpen: false, detailId: null },
   sched: { view: 'month', cursor: todayStr(), prefillDate: null, search: '', categoryFilter: 'all', showPast: false, modalOpen: false, editingId: null, confirmDeleteId: null, importMsg: '', detailId: null, linkProjectId: null },
@@ -1607,7 +1606,6 @@ function mobileMoreSheetHtml() {
       ${row('data-action="set-tab" data-id="songs"', MI.mic, '노래연습')}
       ${row('data-action="set-tab" data-id="bikes"', '<span style="font-size:17px;line-height:1">🏍</span>', '이륜차 정비')}
       ${row('data-action="set-tab" data-id="applicants"', '<span style="font-size:17px;line-height:1">🙋</span>', '지원자')}
-      ${row('data-action="set-tab" data-id="actors"', '<span style="font-size:17px;line-height:1">🎭</span>', '배우')}
       ${STUDIO_HIDDEN ? '' : row('data-action="set-tab" data-id="chat"', '<span style="font-size:17px;line-height:1">💬</span>', '단톡방')}
       ${STUDIO_HIDDEN ? '' : row('data-action="set-tab" data-id="library"', '<span style="font-size:17px;line-height:1">🗂</span>', '자료실')}
       ${STUDIO_HOME || STUDIO_HIDDEN ? '' : row('data-action="set-tab" data-id="studio"', '<span style="font-size:17px;line-height:1">🏢</span>', '스튜디오')}
@@ -5946,8 +5944,8 @@ const APL_STATUSES = [
   { id: 'rejected', label: '불합격', color: '#c96a6a' },
   { id: 'hired', label: '합격', color: '#7a5af5' },
 ];
-/* 🎭 배우 탭(2026-11-16)은 지원자 탭과 같은 화면·데이터(recruits/applicants)를 쓰고 kind:'actor'로만 나눈다 — 새 컬렉션·규칙 없이 */
-function aplKind() { return S.activeTab === 'actors' ? 'actor' : 'staff'; }
+/* 🎭 배우(2026-11-16)는 별도 탭 대신 지원자 탭 안 [감독 | 배우] 전환 — 같은 데이터(recruits/applicants)에 kind:'actor'로만 구분(새 컬렉션·규칙 없이) */
+function aplKind() { return S.apl.kind === 'actor' ? 'actor' : 'staff'; } // 지원자 탭 안 [🎬 감독 | 🎭 배우] 전환
 function aplOfKind(x) { return (x.kind === 'actor' ? 'actor' : 'staff') === aplKind(); }
 function aplApps() { return applicants.filter(aplOfKind); }
 function aplRecs() { return recruits.filter(aplOfKind); }
@@ -6176,11 +6174,15 @@ function renderApplicantsTab() {
   const W = aplWord(), apps = aplApps(), total = apps.length, fresh = apps.filter(a => (a.status || 'new') === 'new').length;
   return `
     <div class="eq-header">
-      <div class="eq-title-block"><h1 class="eq-title">${W.tab}</h1><div class="eq-stat">${W.recruit} <b>${aplRecs().length}</b> · ${W.person} <b>${total}</b>${fresh ? ` · 새 지원 <b>${fresh}</b>` : ''}</div></div>
+      <div class="eq-title-block"><h1 class="eq-title">지원자</h1><div class="eq-stat">${W.recruit} <b>${aplRecs().length}</b> · ${W.person} <b>${total}</b>${fresh ? ` · 새 지원 <b>${fresh}</b>` : ''}</div></div>
       <div style="display:flex; gap:8px; flex-wrap:wrap">
         <button class="eq-chip" data-action="apl-open-recruit">+ ${aplWord().recruit} 추가</button>
         <button class="eq-add-btn" data-action="apl-open-add">+ ${aplWord().person} 추가</button>
       </div>
+    </div>
+    <div class="apl-kind-seg">
+      <button class="${aplKind() === 'staff' ? 'on' : ''}" data-action="apl-kind" data-id="staff">🎬 감독 <b>${applicants.filter(a => a.kind !== 'actor').length}</b></button>
+      <button class="${aplKind() === 'actor' ? 'on' : ''}" data-action="apl-kind" data-id="actor">🎭 배우 <b>${applicants.filter(a => a.kind === 'actor').length}</b></button>
     </div>
     <div class="eq-toolbar">
       <div class="eq-search"><input id="aplSearchInput" placeholder="이름, 이메일, 메모로 찾기" value="${esc(S.apl.search)}" /></div>
@@ -6205,6 +6207,7 @@ function handleApplicantAction(action, el, e) {
     case 'apl-close': close(); render(); return true;
     case 'apl-close-backdrop': if (!e.target.closest('[data-stop-close]')) { close(); render(); } return true;
     case 'apl-filter': S.apl.status = id; render(); return true;
+    case 'apl-kind': S.apl.kind = id === 'actor' ? 'actor' : 'staff'; S.apl.status = 'all'; S.apl.search = ''; render(); return true;
     case 'apl-crew': { // ☆/★ — 같은 사람(이메일)의 기록 전체에 맞춰 둔다
       const a = applicants.find(x => x.id === id); if (!a) return true;
       const k = aplPersonKey(a), on = !aplApps().some(x => x.crew && aplPersonKey(x) === k);
@@ -6425,7 +6428,8 @@ function renderTab() {
   if (S.activeTab === 'notes') return renderNotesTab();
   if (S.activeTab === 'songs') return renderSongsTab();
   if (S.activeTab === 'bikes' && !GUEST_MODE) return renderBikesTab();
-  if ((S.activeTab === 'applicants' || S.activeTab === 'actors') && !GUEST_MODE) return renderApplicantsTab();
+  if (S.activeTab === 'actors') S.activeTab = 'applicants';
+  if (S.activeTab === 'applicants' && !GUEST_MODE) return renderApplicantsTab();
   if (S.activeTab === 'quotes') return renderQuotesTab();
   if (S.activeTab === 'studio' && !GUEST_MODE) return renderStudioTab();
   if (S.activeTab === 'library' && !GUEST_MODE) return renderLibraryTab();
@@ -9570,6 +9574,13 @@ document.addEventListener('DOMContentLoaded', () => {
   .eq-card-compact .eq-card-name-compact { white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; font-size:13.5px; line-height:1.3; min-height:2.6em; }
   .eq-card-compact .eq-card-actions { top:8px; right:8px; }
   @media (max-width: 720px) { .eq-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; } }
+
+  /* 지원자 탭 [🎬 감독 | 🎭 배우] 전환 */
+  .apl-kind-seg { display:inline-flex; gap:4px; padding:4px; margin:0 0 14px; background:var(--surface); border:1px solid var(--border); border-radius:12px; }
+  .apl-kind-seg button { border:none; background:none; font-family:var(--font-body); font-size:15px; font-weight:700; color:var(--text-dim); padding:8px 18px; border-radius:9px; cursor:pointer; }
+  .apl-kind-seg button b { margin-left:4px; color:var(--text-faint); font-weight:700; }
+  .apl-kind-seg button.on { background:var(--accent); color:#fff; }
+  .apl-kind-seg button.on b { color:rgba(255,255,255,.8); }
 </style>
 </body>
 </html>
