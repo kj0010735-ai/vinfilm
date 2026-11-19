@@ -4293,6 +4293,22 @@ function isStandaloneApp() { return window.navigator.standalone === true || (win
 /* 📱 WORKS 아이폰 앱(tools/works-ios, WKWebView) 안에서 열렸는지 — 앱이 페이지에 window.__workApp 을 넣어 준다.
    앱 ↔ 사이트 약속: 앱→웹 window.__workApp.push={permission,token,env} + 'workapp:push' 이벤트 / 웹→앱 messageHandlers.workApp.postMessage({type:'enablePush'|'badge'|'openSettings'}) */
 function workAppIos() { return !!(window.__workApp && window.__workApp.platform === 'ios'); }
+/* WORKS 앱(아이폰·아이패드) 안에서 유튜브 링크는 사파리 창 대신 유튜브 앱으로 바로 연다 — youtube:// 주소로 바꿔 이동하면 앱이 밖으로 넘긴다 */
+function youtubeAppUrl(href) {
+  try {
+    const u = new URL(href); const h = u.hostname.replace(/^www\.|^m\./, '');
+    if (h === 'youtu.be') { const id = u.pathname.slice(1).split('/')[0]; if (!id) return ''; const t = u.searchParams.get('t'); return `youtube://www.youtube.com/watch?v=${id}${t ? '&t=' + encodeURIComponent(t) : ''}`; }
+    if (h === 'youtube.com' || h === 'music.youtube.com') return 'youtube://www.youtube.com' + u.pathname + u.search;
+  } catch (e) {}
+  return '';
+}
+document.addEventListener('click', e => {
+  if (!workAppIos()) return;
+  const a = e.target.closest && e.target.closest('a[href]'); if (!a) return;
+  const y = youtubeAppUrl(a.href); if (!y) return;
+  e.preventDefault(); e.stopPropagation();
+  window.location.href = y;
+}, true);
 function workAppPost(msg) { try { window.webkit.messageHandlers.workApp.postMessage(msg); } catch (e) {} }
 function quotePreview(q) {
   try { localStorage.setItem('vinfilm-quote-preview', JSON.stringify(quoteSnapshot(q))); } catch (e) {}
