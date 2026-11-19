@@ -3012,15 +3012,30 @@ function shootCardHtml(s) {
         : `<button class="sh-row-del" data-action="shoot-confirm-delete" data-id="${s.id}" title="삭제">✕</button>`}
     </div>`;
 }
+function shootMonthGroups(list) {
+  const groups = [];
+  list.forEach(s => {
+    const k = s.date ? s.date.slice(0, 7) : '';
+    let g = groups.find(x => x.k === k); if (!g) { g = { k, items: [] }; groups.push(g); }
+    g.items.push(s);
+  });
+  return groups.map(g => `
+    <div class="sh-month">${g.k ? `${+g.k.slice(0, 4)}년 ${+g.k.slice(5, 7)}월` : '날짜 미정'}</div>
+    <div class="sh-list">${g.items.map(shootCardHtml).join('')}</div>`).join('');
+}
 function shootListHtml() {
   if (shoots.length === 0) return `<div class="eq-empty"><p>아직 만든 촬영이 없어요.</p><p>위 버튼으로 첫 촬영을 만들어보세요.</p></div>`;
   const up = shoots.filter(s => !shootIsPast(s)).sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999') || b.createdAt - a.createdAt);
   const past = shoots.filter(shootIsPast).sort((a, b) => shootDateOf(b).localeCompare(shootDateOf(a)));
   return `
-    <h2 class="shoot-section-title">다가오는 촬영 <span class="sh-count">${up.length}</span></h2>
-    ${up.length ? `<div class="sh-list">${up.map(shootCardHtml).join('')}</div>` : `<div class="sh-empty">예정된 촬영이 없어요.</div>`}
-    <h2 class="shoot-section-title">지난 촬영 기록 <span class="sh-count">${past.length}</span></h2>
-    ${past.length ? `<div class="sh-list">${past.map(shootCardHtml).join('')}</div>` : `<div class="sh-empty">아직 지난 촬영이 없어요.</div>`}`;
+    <section class="sh-sec">
+      <h2 class="sh-sec-title">다가오는 촬영 <span class="sh-pill">${up.length}</span></h2>
+      ${up.length ? shootMonthGroups(up) : `<div class="sh-empty">예정된 촬영이 없어요.</div>`}
+    </section>
+    <section class="sh-sec">
+      <h2 class="sh-sec-title">지난 촬영 기록 <span class="sh-pill">${past.length}</span></h2>
+      ${past.length ? shootMonthGroups(past) : `<div class="sh-empty">아직 지난 촬영이 없어요.</div>`}
+    </section>`;
 }
 
 function presetRowHtml() {
@@ -3088,20 +3103,20 @@ function shootDetailHtml() {
           <div class="sh-hero-date">${esc(shootDateText(shoot))}${shoot.date ? (past ? '<span class="sh-dday is-past">지난 촬영</span>' : `<span class="sh-dday">${ddayLabel(shoot.date)}</span>`) : ''}</div>
           <h1 class="sh-hero-title">${esc(shoot.name || '이름 없는 촬영')}</h1>
           <div class="sh-hero-meta">
-            ${shoot.place ? `<span>📍 ${esc(shoot.place)}</span>` : ''}
-            ${shoot.client ? `<span>👤 ${esc(shoot.client)}</span>` : ''}
-            ${shoot.shootType ? `<span>🎬 ${esc(shoot.shootType)}</span>` : ''}
+            ${shoot.place ? `<span class="sh-chip"><em>장소</em>${esc(shoot.place)}</span>` : ''}
+            ${shoot.client ? `<span class="sh-chip"><em>클라이언트</em>${esc(shoot.client)}</span>` : ''}
+            ${shoot.shootType ? `<span class="sh-chip"><em>종류</em>${esc(shoot.shootType)}</span>` : ''}
           </div>
         </div>
         <button class="eq-add-btn sh-edit-btn" data-action="shoot-edit-params" data-id="${shoot.id}">✎ 정보 수정</button>
       </div>
 
-      <h2 class="shoot-section-title">개요</h2>
+      <h2 class="sh-sec-title">개요</h2>
       ${shoot.overview
         ? `<div class="sh-overview">${linkify(shoot.overview)}</div>`
         : `<button class="sh-overview sh-overview-empty" data-action="shoot-edit-params" data-id="${shoot.id}">어떤 촬영인지 개요를 적어 두세요 — 나중에 기록으로 남아요 ✎</button>`}
 
-      <h2 class="shoot-section-title">촬영 자료 <span class="sh-count">${docs.length}</span></h2>
+      <h2 class="sh-sec-title">촬영 자료 <span class="sh-pill">${docs.length}</span></h2>
       ${shootDocsHtml(shoot)}
 
       <details class="sh-gear" data-gear-id="${shoot.id}" ${gearOpen ? 'open' : ''}>
@@ -6756,8 +6771,8 @@ window.addEventListener('resize', () => { window.__navY = null; positionNavIndic
   let sx = null, sy = 0, ind = null;
   const pick = () => {
     const q = sel => { const all = [...document.querySelectorAll(sel)].filter(el => el.offsetParent !== null || getComputedStyle(el).position === 'fixed'); return all[all.length - 1] || null; };
-    const btn = q('.st-viewer [data-action="studio-view-close"]') || q('.eq-modal-overlay .eq-modal-close') || q('.eq-modal-overlay [data-action$="-close"]') || q('[data-action="notif-close"]')
-      || q('.st-panel.is-staff .st-sheet-close') || q('.m-sheet-backdrop') || q('[data-action="song-back"]') || q('[data-action="quote-back"]') || q('[data-action="contract-back"]');
+    const btn = q('#docViewer [data-dv="close"]') || q('.st-viewer [data-action="studio-view-close"]') || q('.eq-modal-overlay .eq-modal-close') || q('.eq-modal-overlay [data-action$="-close"]') || q('[data-action="notif-close"]')
+      || q('.st-panel.is-staff .st-sheet-close') || q('.m-sheet-backdrop') || q('[data-action="song-back"]') || q('[data-action="quote-back"]') || q('[data-action="contract-back"]') || q('[data-action="shoot-back-to-list"]');
     if (btn) return () => btn.click();
     const crumbs = [...document.querySelectorAll('[data-action="proj-go-parent"], [data-action="shared-go-parent"]')];
     if (crumbs.length) return () => crumbs[crumbs.length - 1].click();
@@ -8698,6 +8713,38 @@ document.addEventListener('DOMContentLoaded', () => {
     .sh-row-date { width:52px; }
     .sh-row-date b { font-size:22px; }
     .sh-hero-title { font-size:24px; }
+  }
+
+  /* 촬영 탭 — 구분감 다시 (월별 묶음·구획 제목줄·옅은 배경, 2026-11-19) */
+  .shoot-detail, .sh-sec { max-width:1000px; }
+  .sh-sec { margin-top:28px; }
+  .sh-sec-title { display:flex; align-items:center; gap:10px; font-size:17px; font-weight:800; color:var(--text); margin:30px 0 14px; }
+  .sh-sec-title::after { content:''; flex:1; height:1px; background:var(--border); }
+  .sh-pill { font-size:12px; font-weight:700; color:var(--text-dim); background:var(--surface-hover); border-radius:999px; padding:2px 9px; }
+  .sh-month { font-size:12.5px; font-weight:700; color:var(--text-faint); letter-spacing:.03em; margin:18px 0 6px 4px; }
+  .sh-list { border-top:none; background:var(--surface); border-radius:14px; box-shadow:var(--shadow-sm); overflow:hidden; }
+  .sh-row { border-bottom:1px solid var(--border); padding:16px 48px 16px 8px; }
+  .sh-row:last-child { border-bottom:none; }
+  .sh-row-date b { color:var(--accent); }
+  .sh-row.is-past { opacity:1; }
+  .sh-row.is-past .sh-row-date b { color:var(--text-faint); }
+  .sh-row.is-past .sh-row-title { color:var(--text-dim); }
+  .sh-row-date { border-right:1px solid var(--border); padding-right:14px; width:78px; }
+  .sh-hero { padding:6px 0 22px; }
+  .sh-hero-date { color:var(--accent); font-weight:700; }
+  .sh-hero-meta { gap:8px; margin-top:4px; }
+  .sh-chip { display:inline-flex; align-items:baseline; gap:7px; font-size:14px; color:var(--text); background:var(--surface-hover); border-radius:999px; padding:6px 13px; max-width:100%; overflow-wrap:anywhere; }
+  .sh-chip em { font-style:normal; font-size:12px; font-weight:700; color:var(--text-faint); flex:none; }
+  .sh-overview { background:var(--surface); border-radius:14px; padding:20px 22px; box-shadow:var(--shadow-sm); }
+  .sh-overview-empty { background:none; box-shadow:none; border:1.5px dashed var(--border-strong); padding:16px 20px; }
+  .sh-gear { border-top:none; margin-top:36px; }
+  .sh-gear > summary { font-size:17px; font-weight:800; padding:0; margin:0 0 14px; gap:10px; justify-content:flex-start; }
+  .sh-gear > summary::before { content:''; order:3; flex:1; height:1px; background:var(--border); }
+  .sh-gear > summary::after { order:4; }
+  .sh-gear-sub { order:2; margin-left:0; }
+  @media (max-width:720px) {
+    .sh-row-date { width:60px; padding-right:10px; }
+    .sh-overview { padding:16px; }
   }
   .shoot-card { cursor:pointer; }
   .shoot-section-title { font-size:15px; font-weight:700; margin:26px 0 12px; }
