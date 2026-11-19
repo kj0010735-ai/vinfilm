@@ -3349,7 +3349,20 @@ async function docViewerShow(keepScroll) {
     const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
     c.style.width = box.style.width; c.style.height = box.style.height;
     await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
-    if (tok === DV.token) box.appendChild(c);
+    if (tok !== DV.token) return;
+    box.appendChild(c);
+    // PDF 안의 링크(주소)를 눌리게 — 그림 위에 같은 자리로 링크 영역을 덧씌운다
+    try {
+      const anns = await page.getAnnotations();
+      anns.filter(an => an.subtype === 'Link' && (an.url || an.unsafeUrl)).forEach(an => {
+        const url = an.url || an.unsafeUrl; if (!/^(https?:|mailto:|tel:)/i.test(url)) return;
+        const [x1, y1, x2, y2] = vpCss.convertToViewportRectangle(an.rect);
+        const l = document.createElement('a'); l.className = 'dv-link'; l.href = url; l.target = '_blank'; l.rel = 'noopener';
+        l.style.left = Math.min(x1, x2) + 'px'; l.style.top = Math.min(y1, y2) + 'px';
+        l.style.width = Math.abs(x2 - x1) + 'px'; l.style.height = Math.abs(y2 - y1) + 'px';
+        l.title = url; box.appendChild(l);
+      });
+    } catch (e) {}
   };
   DV.io = new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) draw(en.target); }), { root: body, rootMargin: '0px 100% 0px 100%' });
   body.querySelectorAll('.dv-slide').forEach(b => DV.io.observe(b));
@@ -8800,6 +8813,9 @@ document.addEventListener('DOMContentLoaded', () => {
   .dv-side-l { left:10px; } .dv-side-r { right:10px; }
   @media (hover:none) { .dv-side { display:none; } }
   .dv:not(:has(.dv-paged)) .dv-side { display:none; }
+  .dv-page { position:relative; }
+  .dv-link { position:absolute; z-index:2; display:block; border-radius:3px; }
+  .dv-link:hover, .dv-link:active { background:rgba(47,111,238,.18); }
   .dv-fullx, .dv-fullpg { display:none; }
   .dv.dv-full { background:#000; }
   .dv.dv-full .dv-bar { display:none; }
