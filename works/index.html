@@ -8,6 +8,24 @@
 try{var v=localStorage.getItem('vinfilm-works-theme'),t=v==='dark'||v==='terminal'||v==='light'?v:'light';document.documentElement.setAttribute('data-theme',t);document.getElementById('themeColorMeta').setAttribute('content',t==='terminal'?'#06090b':t==='dark'?'#101216':'#f6f7f9');}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <script>
+/* 아이패드 미니(짧은 변 800px 이하 터치 기기)는 화면 폭을 좁게 잡아 아이폰과 같은 화면(하단 탭바·큰 글씨)으로 보여 준다.
+   세로 560px·가로 720px 폭으로 그려서 기기 화면에 맞게 키운다 — 720px 이하 규칙(폰 화면)이 그대로 적용됨. */
+(function () {
+  var t = navigator.maxTouchPoints > 1, ua = navigator.userAgent;
+  var ipad = t && (/iPad/.test(ua) || /Macintosh/.test(ua));
+  if (!ipad || Math.min(screen.width, screen.height) > 800) return;
+  var m = document.querySelector('meta[name="viewport"]');
+  function fit() {
+    var land = (window.matchMedia && matchMedia('(orientation: landscape)').matches) || Math.abs(window.orientation || 0) === 90;
+    m.setAttribute('content', 'width=' + (land ? 720 : 560) + ', user-scalable=no, viewport-fit=cover');
+  }
+  fit();
+  document.documentElement.classList.add('ipad-mini');
+  window.addEventListener('orientationchange', function () { setTimeout(fit, 50); });
+  if (window.matchMedia) { var mq = matchMedia('(orientation: landscape)'); (mq.addEventListener ? mq.addEventListener('change', fit) : mq.addListener(fit)); }
+})();
+</script>
+<script>
 /* 앱처럼 쓰는 화면이라 손가락 확대(핀치 줌)를 막는다 — 아이폰 Safari는 viewport만으로는 안 막혀서 제스처 이벤트도 막음 */
 (function () {
   ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (t) {
@@ -290,7 +308,7 @@ const SI = {
 const NAV_ITEMS_BASE = [
   { id: 'today', icon: SI.dash, label: '대시보드' },
   { id: 'equipment', icon: SI.eq, label: '장비목록' },
-  { id: 'shootprep', icon: SI.bag, label: '촬영준비' },
+  { id: 'shootprep', icon: SI.bag, label: '촬영' },
   { id: 'schedule', icon: SI.cal, label: '캘린더' },
   { id: 'projects', icon: SI.proj, label: '프로젝트' },
   { id: 'quotes', icon: SI.quote, label: '견적·계약' },
@@ -1600,7 +1618,7 @@ function mobileMoreSheetHtml() {
     <div class="m-sheet-backdrop" data-action="m-more-close"></div>
     <div class="m-sheet">
       <div class="m-sheet-grip"></div>
-      ${row('data-action="set-tab" data-id="shootprep"', MI.bag, '촬영준비')}
+      ${row('data-action="set-tab" data-id="shootprep"', MI.bag, '촬영')}
       ${row('data-action="set-tab" data-id="quotes"', MI.quote, '견적·계약')}
       ${row('data-action="set-tab" data-id="notes"', MI.note, '메모장')}
       ${row('data-action="set-tab" data-id="songs"', MI.mic, '노래연습')}
@@ -1629,7 +1647,7 @@ function dashQuickHtml() {
     { attrs: 'data-action="set-tab" data-id="projects"', icon: MI.proj, label: '프로젝트', tone: 't-violet' },
     { attrs: 'data-action="set-tab" data-id="quotes"', icon: MI.quote, label: '견적·계약', tone: 't-blue' },
     { attrs: 'data-action="set-tab" data-id="equipment"', icon: MI.eq, label: '장비목록', tone: 't-slate' },
-    { attrs: 'data-action="set-tab" data-id="shootprep"', icon: MI.bag, label: '촬영준비', tone: 't-orange' },
+    { attrs: 'data-action="set-tab" data-id="shootprep"', icon: MI.bag, label: '촬영', tone: 't-orange' },
     { attrs: 'data-action="set-tab" data-id="notes"', icon: MI.note, label: '메모장', tone: 't-yellow' },
     { href: '../ledger/', icon: MI.money, label: '수입·지출', tone: 't-teal' },
   ];
@@ -1858,14 +1876,14 @@ function schedDetailModalHtml() {
     const modeState = S.shoot.mode === 'pack' ? (linkedShoot.packedIds || []) : (linkedShoot.retrievedIds || []);
     const bagKeys = [...bagIds, ...(groups.none ? ['none'] : [])].sort((a,b) => (a==='none'?1:0) - (b==='none'?1:0));
     packSectionHtml = `
-      <h3 class="shoot-section-title" style="margin-top:22px;">🎒 촬영준비 체크리스트</h3>
+      <h3 class="shoot-section-title" style="margin-top:22px;">🎒 패킹 체크리스트</h3>
       <div class="shoot-mode-toggle">
         <button class="eq-chip ${S.shoot.mode==='pack'?'active':''}" data-action="shoot-set-mode" data-id="pack">패킹 모드</button>
         <button class="eq-chip ${S.shoot.mode==='retrieve'?'active':''}" data-action="shoot-set-mode" data-id="retrieve">회수 모드</button>
       </div>
       <div class="sched-embedded-pack-list">${shootPackListHtml(linkedShoot, groups, bagKeys, modeState)}</div>`;
   } else {
-    packSectionHtml = GUEST_MODE ? '' : `<button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border); margin-top:16px;" data-action="today-open-shootprep">🎒 촬영준비에서 만들기</button>`;
+    packSectionHtml = GUEST_MODE ? '' : `<button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border); margin-top:16px;" data-action="today-open-shootprep">🎒 촬영 탭에서 만들기</button>`;
   }
   return `
     <div class="eq-modal-overlay" data-action="sched-close-detail-backdrop">
@@ -2834,6 +2852,8 @@ function paramsFromShootForm(fd) {
     cameraCount: parseInt(fd.get('cameraCount'), 10) || 0, durationHours: parseFloat(fd.get('durationHours')) || 0, location: fd.get('location') || 'indoor',
     crewCount: parseInt(fd.get('crewCount'), 10) || 0, transport: fd.get('transport') || 'car', packPref: fd.get('packPref') || 'standard',
     audioCount: parseInt(fd.get('audioCount'), 10) || 0, lightPref: fd.get('lightPref') || 'none',
+    date: (fd.get('date') || '').toString(), place: (fd.get('place') || '').toString().trim(),
+    client: (fd.get('client') || '').toString().trim(), overview: (fd.get('overview') || '').toString().replace(/\s+$/, ''),
   };
 }
 function finalizeNewShoot(params, confirmedIds) {
@@ -2879,6 +2899,8 @@ function shootFormHtml() {
     name: editing ? editing.name : '', shootType: src.shootType || '', castCount: src.castCount ?? 1, cameraCount: src.cameraCount ?? 1,
     durationHours: src.durationHours ?? 2, location: src.location || 'indoor', crewCount: src.crewCount ?? 1, transport: src.transport || 'car',
     packPref: src.packPref || 'standard', audioCount: src.audioCount ?? 1, lightPref: src.lightPref || 'minimal',
+    date: editing ? (editing.date || '') : '', place: editing ? (editing.place || '') : '',
+    client: editing ? (editing.client || '') : '', overview: editing ? (editing.overview || '') : '',
   };
   return `
     <div class="eq-modal-overlay" data-action="shoot-close-form-backdrop">
@@ -2886,6 +2908,13 @@ function shootFormHtml() {
         <div class="eq-modal-head"><h2>${editing ? '촬영 정보 수정' : '새 촬영 만들기'}</h2><button class="eq-modal-close" data-action="shoot-close-form">✕</button></div>
         <form data-form-role="shoot-form">
           <div class="eq-field"><label>촬영 이름</label><input name="name" autofocus value="${esc(f.name)}" placeholder="예: 8월 브랜드 인터뷰" /></div>
+          <div class="eq-field-row">
+            <div class="eq-field"><label>촬영 날짜</label><input type="date" name="date" value="${esc(f.date)}" /></div>
+            <div class="eq-field"><label>클라이언트</label><input name="client" value="${esc(f.client)}" placeholder="예: 히스플랜" /></div>
+          </div>
+          <div class="eq-field"><label>촬영 장소</label><input name="place" value="${esc(f.place)}" placeholder="예: 픽스스튜디오 (서울 성수동)" /></div>
+          <div class="eq-field"><label>개요</label><textarea name="overview" rows="4" placeholder="어떤 촬영인지, 콘셉트·출연·진행 순서 등을 짧게 적어 두세요">${esc(f.overview)}</textarea></div>
+          <details class="shoot-gear-details" ${editing ? '' : 'open'}><summary>🎒 장비 추천 조건</summary>
           <div class="eq-field">
             <label>촬영 종류</label>
             <input name="shootType" list="shootTypeList" value="${esc(f.shootType)}" placeholder="예: 인터뷰" />
@@ -2908,6 +2937,7 @@ function shootFormHtml() {
             <div class="eq-field"><label>오디오 소스 개수</label><input type="number" name="audioCount" min="0" value="${f.audioCount}" /></div>
             <div class="eq-field"><label>조명 구성</label><select name="lightPref">${LIGHT_PREF_OPTIONS.map(o => `<option value="${o.id}" ${f.lightPref===o.id?'selected':''}>${o.label}</option>`).join('')}</select></div>
           </div>
+          </details>
           ${editing
             ? `<button type="submit" class="eq-modal-submit">수정 완료</button>`
             : `<div class="shoot-form-btn-row">
@@ -2919,25 +2949,45 @@ function shootFormHtml() {
     </div>`;
 }
 
-function shootListHtml() {
-  if (shoots.length === 0) return `<div class="eq-empty"><p>아직 만든 촬영이 없어요.</p><p>위 버튼으로 첫 촬영을 만들어보세요.</p></div>`;
-  const sorted = [...shoots].sort((a,b) => b.createdAt - a.createdAt);
-  return `<div class="eq-grid">${sorted.map(s => {
-    const confirming = S.shoot.confirmDeleteShootId === s.id;
-    return `
-    <div class="eq-card shoot-card" data-action="shoot-open-detail" data-id="${s.id}">
+function shootDateOf(s) { return s.date || (s.createdAt ? ymd(new Date(s.createdAt)) : ''); }
+function shootIsPast(s) { const d = shootDateOf(s); return !!d && d < todayStr(); }
+function shootDateText(s) {
+  if (!s.date) return '날짜 미정';
+  const d = parseYmd(s.date);
+  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()} (${WEEKDAYS_KO[d.getDay()]})`;
+}
+function shootCardHtml(s) {
+  const confirming = S.shoot.confirmDeleteShootId === s.id;
+  const docs = s.docs || [], past = shootIsPast(s);
+  const dd = s.date && !past ? `<span class="sh-dday">${ddayLabel(s.date)}</span>` : '';
+  return `
+    <div class="eq-card shoot-card sh-card ${past ? 'is-past' : ''}" data-action="shoot-open-detail" data-id="${s.id}">
       ${confirming ? `
         <div class="eq-confirm-bar">
           <span>"${esc(s.name||'이 촬영')}" 삭제할까요?</span>
           <div class="eq-confirm-actions"><button data-action="shoot-cancel-delete">취소</button><button class="danger" data-action="shoot-delete" data-id="${s.id}">삭제</button></div>
         </div>` : ''}
       <div class="eq-card-actions"><button class="eq-icon-btn" data-action="shoot-confirm-delete" data-id="${s.id}">✕</button></div>
+      <div class="sh-card-date">${esc(shootDateText(s))}${dd}</div>
       <h3 class="eq-card-name">${esc(s.name || '이름 없는 촬영')}</h3>
-      <div class="eq-meta-row">${esc(s.shootType || '촬영 종류 미지정')}</div>
-      <div class="eq-meta-row">🎥 카메라 ${s.cameraCount}대 · ⏱ ${s.durationHours}시간</div>
-      <div class="eq-meta-row">✅ 확정 장비 ${(s.confirmedIds||[]).length}개</div>
+      ${s.place || s.client ? `<div class="sh-card-meta">${s.place ? `📍 ${esc(s.place)}` : ''}${s.place && s.client ? ' · ' : ''}${s.client ? `👤 ${esc(s.client)}` : ''}</div>` : ''}
+      ${s.overview ? `<div class="sh-card-ov">${esc(s.overview)}</div>` : ''}
+      <div class="sh-card-foot">
+        ${s.shootType ? `<span class="sh-tag">${esc(s.shootType)}</span>` : ''}
+        ${docs.length ? `<span class="sh-tag sh-tag-doc">📄 자료 ${docs.length}</span>` : ''}
+        <span class="sh-tag">🎒 장비 ${(s.confirmedIds||[]).length}</span>
+      </div>
     </div>`;
-  }).join('')}</div>`;
+}
+function shootListHtml() {
+  if (shoots.length === 0) return `<div class="eq-empty"><p>아직 만든 촬영이 없어요.</p><p>위 버튼으로 첫 촬영을 만들어보세요.</p></div>`;
+  const up = shoots.filter(s => !shootIsPast(s)).sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999') || b.createdAt - a.createdAt);
+  const past = shoots.filter(shootIsPast).sort((a, b) => shootDateOf(b).localeCompare(shootDateOf(a)));
+  return `
+    <h2 class="shoot-section-title">다가오는 촬영 <span class="sh-count">${up.length}</span></h2>
+    ${up.length ? `<div class="eq-grid sh-grid">${up.map(shootCardHtml).join('')}</div>` : `<div class="sh-empty">예정된 촬영이 없어요.</div>`}
+    <h2 class="shoot-section-title">지난 촬영 기록 <span class="sh-count">${past.length}</span></h2>
+    ${past.length ? `<div class="eq-grid sh-grid">${past.map(shootCardHtml).join('')}</div>` : `<div class="sh-empty">아직 지난 촬영이 없어요.</div>`}`;
 }
 
 function presetRowHtml() {
@@ -2951,6 +3001,36 @@ function presetRowHtml() {
   }).join('');
 }
 
+function shootDocsHtml(shoot) {
+  const docs = shoot.docs || [];
+  const cards = docs.map((d, i) => {
+    const isPdf = /pdf/i.test(d.type || '') || /\.pdf$/i.test(d.name || '');
+    const isImg = /^image\//.test(d.type || '');
+    const confirming = S.shoot.confirmDocId === d.id;
+    return `
+      <div class="sh-doc" data-action="shoot-doc-open" data-id="${shoot.id}" data-idx="${i}">
+        <div class="sh-doc-thumb ${isPdf ? 'is-pdf' : ''}" ${isPdf ? `data-pdf-thumb="${esc(d.url)}"` : ''} ${isImg ? `style="background-image:url('${esc(d.url)}')"` : ''}>
+          ${isPdf ? '<span class="sh-doc-ph">PDF</span>' : isImg ? '' : '<span class="sh-doc-ph">FILE</span>'}
+        </div>
+        <div class="sh-doc-info">
+          <div class="sh-doc-name">${esc(d.name)}</div>
+          <div class="sh-doc-sub">${isPdf ? '<span data-pdf-pages="' + esc(d.url) + '"></span>' : ''}${d.size ? `${(d.size / 1048576).toFixed(1)}MB` : ''}</div>
+        </div>
+        ${confirming
+          ? `<div class="sh-doc-confirm" data-action="shoot-doc-noop">빼기? <button data-action="shoot-doc-delete" data-id="${shoot.id}" data-doc="${d.id}">예</button><button data-action="shoot-doc-cancel">아니오</button></div>`
+          : `<button class="sh-doc-del" title="빼기" data-action="shoot-doc-confirm" data-doc="${d.id}">✕</button>`}
+      </div>`;
+  }).join('');
+  return `
+    <div class="sh-docs">
+      ${cards}
+      <label class="sh-doc sh-doc-add">
+        <input type="file" multiple accept="application/pdf,image/*" data-role="shoot-doc-input" data-shoot-id="${shoot.id}" />
+        <span class="sh-doc-add-plus">＋</span><span>PDF·이미지 올리기</span>
+      </label>
+    </div>
+    ${S.shoot.docMsg ? `<div class="sh-doc-msg">${esc(S.shoot.docMsg)}</div>` : ''}`;
+}
 function shootDetailHtml() {
   const shoot = shoots.find(s => s.id === S.shoot.selectedShootId);
   if (!shoot) return '';
@@ -2964,18 +3044,40 @@ function shootDetailHtml() {
     ['짐 선호', (PACK_PREF_OPTIONS.find(o=>o.id===shoot.packPref)||{}).label || '-'], ['오디오', `${shoot.audioCount}개`],
     ['조명', (LIGHT_PREF_OPTIONS.find(o=>o.id===shoot.lightPref)||{}).label || '-'],
   ];
+  const past = shootIsPast(shoot);
+  const gearOpen = (S.shoot.gearOpen || {})[shoot.id] ?? !past;
+  const docs = shoot.docs || [];
   return `
     <div class="shoot-detail">
-      <button class="shoot-back-btn" data-action="shoot-back-to-list">← 목록으로</button>
-      <div class="eq-header">
-        <div class="eq-title-block"><h1 class="eq-title">${esc(shoot.name || '이름 없는 촬영')}</h1></div>
-        <div style="display:flex;gap:8px">
-          <button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border)" data-action="shoot-edit-params" data-id="${shoot.id}">정보 수정</button>
-          <button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border)" data-action="shoot-regenerate" data-id="${shoot.id}">추천 다시 받기</button>
-          <button class="eq-add-btn" data-action="shoot-save-preset" data-id="${shoot.id}">프리셋으로 저장</button>
+      <button class="shoot-back-btn" data-action="shoot-back-to-list">← 촬영 목록</button>
+      <div class="sh-hero">
+        <div class="sh-hero-main">
+          <div class="sh-hero-date">${esc(shootDateText(shoot))}${shoot.date ? (past ? '<span class="sh-dday is-past">지난 촬영</span>' : `<span class="sh-dday">${ddayLabel(shoot.date)}</span>`) : ''}</div>
+          <h1 class="sh-hero-title">${esc(shoot.name || '이름 없는 촬영')}</h1>
+          <div class="sh-hero-meta">
+            ${shoot.place ? `<span>📍 ${esc(shoot.place)}</span>` : ''}
+            ${shoot.client ? `<span>👤 ${esc(shoot.client)}</span>` : ''}
+            ${shoot.shootType ? `<span>🎬 ${esc(shoot.shootType)}</span>` : ''}
+          </div>
         </div>
+        <button class="eq-add-btn sh-edit-btn" data-action="shoot-edit-params" data-id="${shoot.id}">✎ 정보 수정</button>
       </div>
-      <div class="shoot-param-grid">${paramRows.map(([k,v]) => `<div class="shoot-param-cell"><span>${k}</span><b>${esc(v)}</b></div>`).join('')}</div>
+
+      <h2 class="shoot-section-title">개요</h2>
+      ${shoot.overview
+        ? `<div class="sh-overview">${linkify(shoot.overview)}</div>`
+        : `<button class="sh-overview sh-overview-empty" data-action="shoot-edit-params" data-id="${shoot.id}">어떤 촬영인지 개요를 적어 두세요 — 나중에 기록으로 남아요 ✎</button>`}
+
+      <h2 class="shoot-section-title">촬영 자료 <span class="sh-count">${docs.length}</span></h2>
+      ${shootDocsHtml(shoot)}
+
+      <details class="sh-gear" data-gear-id="${shoot.id}" ${gearOpen ? 'open' : ''}>
+        <summary><span>🎒 장비 · 패킹</span><span class="sh-gear-sub">확정 장비 ${(shoot.confirmedIds||[]).length}개</span></summary>
+        <div class="sh-gear-actions">
+          <button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border)" data-action="shoot-regenerate" data-id="${shoot.id}">추천 다시 받기</button>
+          <button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border)" data-action="shoot-save-preset" data-id="${shoot.id}">프리셋으로 저장</button>
+        </div>
+        <div class="shoot-param-grid">${paramRows.map(([k,v]) => `<div class="shoot-param-cell"><span>${k}</span><b>${esc(v)}</b></div>`).join('')}</div>
 
       <h2 class="shoot-section-title">확정 장비</h2>
       <div class="shoot-confirm-list">
@@ -3000,6 +3102,7 @@ function shootDetailHtml() {
         <button class="eq-chip" style="margin-left:auto" data-action="shoot-reset-checklist" data-id="${shoot.id}">체크 초기화</button>
       </div>
       <div id="shootPackList">${shootPackListHtml(shoot, groups, bagKeys, modeState)}</div>
+      </details>
     </div>`;
 }
 function shootPackListHtml(shoot, groups, bagKeys, modeState) {
@@ -3037,17 +3140,160 @@ function refreshShootPackList() {
   if (el) el.innerHTML = shootPackListHtml(shoot, groups, bagKeys, modeState);
 }
 
+/* ---- 촬영 자료(PDF·이미지) — 올리기 · 첫 장 미리보기 · 전용 뷰어 ---- */
+async function shootUploadDocs(shootId, files) {
+  const done = [];
+  for (const [i, file] of files.entries()) {
+    S.shoot.docMsg = `자료 올리는 중… (${i + 1}/${files.length}) ${file.name}`; render();
+    try {
+      if (IS_LOCAL_DEV || typeof firebase === 'undefined' || !firebase.storage) { done.push({ id: uid(), name: file.name, url: URL.createObjectURL(file), path: '', size: file.size, type: file.type || '', at: Date.now() }); continue; }
+      const path = `shoots/${shootId}/${Date.now()}-${file.name.replace(/[^\w.\-가-힣 ()]/g, '_')}`;
+      const snap = await firebase.storage().ref(path).put(file, { contentType: file.type || 'application/octet-stream' });
+      done.push({ id: uid(), name: file.name, url: await snap.ref.getDownloadURL(), path, size: file.size, type: file.type || '', at: Date.now() });
+    } catch (e) { S.shoot.docMsg = `"${file.name}"을 올리지 못했어요: ${e && e.message || e}`; render(); }
+  }
+  if (done.length) saveShoots(shoots.map(s => s.id === shootId ? { ...s, docs: [...(s.docs || []), ...done] } : s));
+  if (!/못했어요/.test(S.shoot.docMsg || '')) S.shoot.docMsg = '';
+  render();
+}
+const PDFJS_BASE = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/legacy/build/';
+let __pdfjsP = null;
+function pdfLib() {
+  if (!__pdfjsP) __pdfjsP = import(PDFJS_BASE + 'pdf.min.mjs').then(m => { m.GlobalWorkerOptions.workerSrc = PDFJS_BASE + 'pdf.worker.min.mjs'; return m; }).catch(e => { __pdfjsP = null; throw e; });
+  return __pdfjsP;
+}
+const __pdfDocs = new Map(), __pdfThumbs = new Map(), __pdfPages = new Map();
+function pdfOpen(url) {
+  if (!__pdfDocs.has(url)) {
+    const p = pdfLib().then(l => l.getDocument({ url, isEvalSupported: false }).promise);
+    p.catch(() => __pdfDocs.delete(url));
+    __pdfDocs.set(url, p);
+  }
+  return __pdfDocs.get(url);
+}
+async function pdfThumb(url) {
+  if (__pdfThumbs.has(url)) return __pdfThumbs.get(url);
+  const doc = await pdfOpen(url);
+  __pdfPages.set(url, doc.numPages);
+  const page = await doc.getPage(1);
+  const v1 = page.getViewport({ scale: 1 }), scale = 480 / v1.width, vp = page.getViewport({ scale });
+  const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+  const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+  await page.render({ canvasContext: ctx, viewport: vp }).promise;
+  const data = c.toDataURL('image/jpeg', 0.82);
+  __pdfThumbs.set(url, data);
+  return data;
+}
+function shootAfterRender() {
+  const fill = (url) => {
+    document.querySelectorAll('[data-pdf-thumb]').forEach(el => {
+      if (el.dataset.pdfThumb !== url || !__pdfThumbs.has(url)) return;
+      el.style.backgroundImage = `url(${__pdfThumbs.get(url)})`; el.classList.add('ready');
+    });
+    document.querySelectorAll('[data-pdf-pages]').forEach(el => { if (el.dataset.pdfPages === url && __pdfPages.has(url)) el.textContent = `${__pdfPages.get(url)}쪽 · `; });
+  };
+  document.querySelectorAll('[data-pdf-thumb]').forEach(el => {
+    const url = el.dataset.pdfThumb;
+    if (__pdfThumbs.has(url)) { fill(url); return; }
+    pdfThumb(url).then(() => fill(url)).catch(() => el.classList.add('fail'));
+  });
+}
+/* 전용 뷰어: render()와 무관하게 body에 붙는 층 — 동기화로 화면이 다시 그려져도 닫히지 않는다 */
+const DV = { docs: [], idx: 0, zoom: 1, token: 0, io: null };
+function docViewerOpen(docs, idx) {
+  DV.docs = docs; DV.idx = Math.max(0, Math.min(idx, docs.length - 1)); DV.zoom = 1;
+  let el = document.getElementById('docViewer');
+  if (!el) {
+    el = document.createElement('div'); el.id = 'docViewer'; el.className = 'dv';
+    el.innerHTML = `
+      <div class="dv-bar">
+        <button class="dv-btn" data-dv="close" title="닫기 (Esc)">✕</button>
+        <div class="dv-title"><b id="dvName"></b><span id="dvInfo"></span></div>
+        <div class="dv-tools">
+          <button class="dv-btn" data-dv="prev" title="이전 자료 (←)">‹</button><span id="dvPos" class="dv-pos"></span><button class="dv-btn" data-dv="next" title="다음 자료 (→)">›</button>
+          <span class="dv-sep"></span>
+          <button class="dv-btn" data-dv="out" title="축소">−</button><span id="dvZoom" class="dv-pos"></span><button class="dv-btn" data-dv="in" title="확대">＋</button>
+          <a class="dv-btn dv-open" id="dvOpen" target="_blank" rel="noopener" title="원본 열기">↗</a>
+        </div>
+      </div>
+      <div class="dv-body" id="dvBody"></div>`;
+    el.addEventListener('click', ev => {
+      const b = ev.target.closest('[data-dv]'); if (!b) return;
+      const a = b.dataset.dv;
+      if (a === 'close') docViewerClose();
+      else if (a === 'prev') docViewerStep(-1);
+      else if (a === 'next') docViewerStep(1);
+      else if (a === 'in') { DV.zoom = Math.min(3, +(DV.zoom + 0.25).toFixed(2)); docViewerShow(true); }
+      else if (a === 'out') { DV.zoom = Math.max(0.5, +(DV.zoom - 0.25).toFixed(2)); docViewerShow(true); }
+    });
+    document.body.appendChild(el);
+  }
+  document.body.classList.add('dv-on');
+  docViewerShow();
+}
+function docViewerClose() { const el = document.getElementById('docViewer'); if (el) el.remove(); document.body.classList.remove('dv-on'); DV.token++; if (DV.io) DV.io.disconnect(); }
+function docViewerStep(d) { if (DV.docs.length < 2) return; DV.idx = (DV.idx + d + DV.docs.length) % DV.docs.length; DV.zoom = 1; docViewerShow(); }
+async function docViewerShow(keepScroll) {
+  const d = DV.docs[DV.idx], body = document.getElementById('dvBody'); if (!d || !body) return;
+  const tok = ++DV.token; if (DV.io) DV.io.disconnect();
+  const ratio = keepScroll && body.scrollHeight ? body.scrollTop / body.scrollHeight : 0;
+  document.getElementById('dvName').textContent = d.name;
+  document.getElementById('dvPos').textContent = DV.docs.length > 1 ? `${DV.idx + 1}/${DV.docs.length}` : '';
+  document.getElementById('dvZoom').textContent = `${Math.round(DV.zoom * 100)}%`;
+  document.getElementById('dvOpen').href = d.url;
+  document.getElementById('docViewer').classList.toggle('dv-single', DV.docs.length < 2);
+  const info = document.getElementById('dvInfo'); info.textContent = '';
+  const isPdf = /pdf/i.test(d.type || '') || /\.pdf$/i.test(d.name || '');
+  const fitW = Math.min(body.clientWidth - 24, 1000) * DV.zoom;
+  if (!isPdf) {
+    body.innerHTML = /^image\//.test(d.type || '') ? `<img class="dv-img" src="${esc(d.url)}" style="width:${Math.round(fitW)}px" alt="">` : `<div class="dv-msg">미리 볼 수 없는 파일이에요. 오른쪽 위 ↗로 열어 주세요.</div>`;
+    return;
+  }
+  body.innerHTML = `<div class="dv-msg">PDF 여는 중…</div>`;
+  let doc;
+  try { doc = await pdfOpen(d.url); } catch (e) { if (tok === DV.token) body.innerHTML = `<div class="dv-msg">PDF를 열지 못했어요. 오른쪽 위 ↗로 원본을 열어 주세요.</div>`; return; }
+  if (tok !== DV.token) return;
+  info.textContent = ` · ${doc.numPages}쪽`;
+  const p1 = await doc.getPage(1), v1 = p1.getViewport({ scale: 1 });
+  const scale = fitW / v1.width, dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  body.innerHTML = Array.from({ length: doc.numPages }, (_, i) => `<div class="dv-page" data-pg="${i + 1}" style="width:${Math.round(v1.width * scale)}px;height:${Math.round(v1.height * scale)}px"><span class="dv-pgno">${i + 1}</span></div>`).join('');
+  if (keepScroll) body.scrollTop = ratio * body.scrollHeight; else body.scrollTop = 0;
+  const draw = async (box) => {
+    if (box.dataset.done) return; box.dataset.done = '1';
+    const page = await doc.getPage(+box.dataset.pg); if (tok !== DV.token) return;
+    const vp = page.getViewport({ scale: scale * dpr });
+    const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+    const vpCss = page.getViewport({ scale });
+    c.style.width = Math.round(vpCss.width) + 'px'; c.style.height = Math.round(vpCss.height) + 'px';
+    box.style.height = c.style.height;
+    await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+    if (tok === DV.token) box.appendChild(c);
+  };
+  DV.io = new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) draw(en.target); }), { root: body, rootMargin: '600px 0px' });
+  body.querySelectorAll('.dv-page').forEach(b => DV.io.observe(b));
+}
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('docViewer')) return;
+  if (e.key === 'Escape') { e.stopImmediatePropagation(); docViewerClose(); }
+  else if (e.key === 'ArrowLeft') docViewerStep(-1);
+  else if (e.key === 'ArrowRight') docViewerStep(1);
+}, true);
+window.addEventListener('resize', () => { if (document.getElementById('docViewer')) { clearTimeout(DV.rt); DV.rt = setTimeout(() => docViewerShow(true), 200); } });
+document.addEventListener('toggle', e => {
+  const d = e.target; if (!d || !d.matches || !d.matches('details[data-gear-id]')) return;
+  S.shoot.gearOpen = S.shoot.gearOpen || {}; S.shoot.gearOpen[d.dataset.gearId] = d.open;
+}, true);
+
 function renderShootPrepTab() {
   if (S.shoot.selectedShootId) return shootDetailHtml() + shootFormHtml();
   return `
     <div class="eq-header">
-      <div class="eq-title-block"><h1 class="eq-title">촬영 준비</h1><div class="eq-stat">전체 <b>${shoots.length}</b></div></div>
+      <div class="eq-title-block"><h1 class="eq-title">촬영</h1><div class="eq-stat">전체 <b>${shoots.length}</b></div></div>
       <button class="eq-add-btn" data-action="shoot-open-new-form">+ 새 촬영 만들기</button>
     </div>
-    <h2 class="shoot-section-title">프리셋</h2>
-    <div class="preset-row">${presetRowHtml()}</div>
-    <h2 class="shoot-section-title">촬영 목록</h2>
     ${shootListHtml()}
+    <h2 class="shoot-section-title">장비 프리셋</h2>
+    <div class="preset-row">${presetRowHtml()}</div>
     ${shootFormHtml()}
   `;
 }
@@ -3074,7 +3320,7 @@ function todayCardHtml(item) {
       <div class="today-card-actions">
         ${item.source === 'google' ? `<button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border)" data-action="gcal-open-detail" data-id="${esc(item.id)}">📱 휴대폰 일정</button>` : linkedShoot
           ? `<button class="eq-add-btn" data-action="today-open-shoot" data-id="${linkedShoot.id}">🎒 패킹 체크 열기</button>`
-          : `<button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border)" data-action="today-open-shootprep">🎒 촬영준비에서 만들기</button>`}
+          : `<button class="eq-add-btn" style="background:var(--surface);color:var(--text);border:1px solid var(--border)" data-action="today-open-shootprep">🎒 촬영 탭에서 만들기</button>`}
       </div>
     </div>`;
 }
@@ -6455,6 +6701,7 @@ function render() {
   fitCalendar();
   positionNavIndicator();
   quoteAfterRender();
+  shootAfterRender();
   syncSongDock();
   if (S.song.full && !(S.activeTab === 'songs' && S.song.playId)) songSetFull(false);
   document.body.classList.toggle('song-full', !!S.song.full);
@@ -7143,6 +7390,7 @@ function bootApp() {
       case 'shoot-confirm-delete': S.shoot.confirmDeleteShootId = id; render(); break;
       case 'shoot-cancel-delete': S.shoot.confirmDeleteShootId = null; render(); break;
       case 'shoot-delete':
+        ((shoots.find(s => s.id === id) || {}).docs || []).forEach(d => projDeleteFile(d.path));
         saveShoots(shoots.filter(s => s.id !== id));
         S.shoot.confirmDeleteShootId = null;
         if (S.shoot.selectedShootId === id) S.shoot.selectedShootId = null;
@@ -7164,6 +7412,20 @@ function bootApp() {
         break;
       }
       case 'shoot-set-mode': S.shoot.mode = id; render(); break;
+      case 'shoot-doc-open': {
+        const sh = shoots.find(s => s.id === id);
+        if (sh && (sh.docs || []).length) docViewerOpen(sh.docs, parseInt(el.dataset.idx, 10) || 0);
+        break;
+      }
+      case 'shoot-doc-confirm': e.stopPropagation(); S.shoot.confirmDocId = el.dataset.doc; render(); break;
+      case 'shoot-doc-cancel': S.shoot.confirmDocId = null; render(); break;
+      case 'shoot-doc-delete': {
+        const sh = shoots.find(s => s.id === id), docId = el.dataset.doc;
+        const d = sh && (sh.docs || []).find(x => x.id === docId);
+        if (d) { projDeleteFile(d.path); saveShoots(shoots.map(s => s.id === id ? { ...s, docs: (s.docs || []).filter(x => x.id !== docId) } : s)); }
+        S.shoot.confirmDocId = null; render();
+        break;
+      }
       case 'shoot-save-preset': {
         const shoot = shoots.find(s => s.id === id);
         if (!shoot) break;
@@ -7171,7 +7433,7 @@ function bootApp() {
         if (!name) break;
         const trimmed = name.trim();
         if (!trimmed) break;
-        const { name: _n, id: _id, createdAt: _c, packedIds: _p, retrievedIds: _r, ...params } = shoot;
+        const { name: _n, id: _id, createdAt: _c, packedIds: _p, retrievedIds: _r, date: _d, place: _pl, client: _cl, overview: _o, docs: _docs, ...params } = shoot;
         savePresets([...presets, { id: uid(), name: trimmed, params, confirmedIds: shoot.confirmedIds || [], createdAt: Date.now() }]);
         window.alert('프리셋으로 저장했어요.');
         break;
@@ -7215,6 +7477,12 @@ function bootApp() {
 
   /* checkboxes: allDay, photo file, ics import, shoot confirm/pack toggles */
   root.addEventListener('change', (e) => {
+    if (e.target.dataset && e.target.dataset.role === 'shoot-doc-input') {
+      const files = [...(e.target.files || [])];
+      if (files.length) shootUploadDocs(e.target.dataset.shootId, files);
+      e.target.value = '';
+      return;
+    }
     if (e.target.dataset && e.target.dataset.role === 'apl-status') { // 목록에서 바로 상태 바꾸기
       const id = e.target.dataset.id, st = e.target.value;
       saveApplicants(applicants.map(a => a.id === id ? { ...a, status: st, updatedAt: Date.now() } : a));
@@ -8218,6 +8486,87 @@ document.addEventListener('DOMContentLoaded', () => {
   .task-note-delete:hover { color:#f2a8a8; }
   .task-note-empty { grid-column:1/-1; color:var(--text-faint); font-size:13px; padding:20px; text-align:center; }
   .note-card-title { font-size:14.5px; font-weight:700; color:var(--text); margin-bottom:6px; padding-right:18px; }
+
+  /* ---- 촬영 탭: 개요 · 자료 · 기록 ---- */
+  .sh-count { font-size:12.5px; font-weight:600; color:var(--text-faint); margin-left:4px; }
+  .sh-empty { font-size:13.5px; color:var(--text-faint); padding:14px 2px; }
+  .sh-grid { grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); }
+  .sh-card { display:flex; flex-direction:column; gap:6px; }
+  .sh-card.is-past { opacity:.82; }
+  .sh-card-date { font-size:13px; font-weight:600; color:var(--text-dim); display:flex; align-items:center; gap:8px; }
+  .sh-dday { font-size:11.5px; font-weight:700; color:var(--accent); background:var(--accent-soft); border-radius:999px; padding:2px 8px; }
+  .sh-dday.is-past { color:var(--text-dim); background:var(--surface); border:1px solid var(--border); }
+  .sh-card-meta { font-size:13px; color:var(--text-dim); overflow-wrap:anywhere; }
+  .sh-card-ov { font-size:13px; color:var(--text-faint); line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:pre-line; }
+  .sh-card-foot { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+  .sh-tag { font-size:12px; color:var(--text-dim); background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:2px 8px; }
+  .sh-tag-doc { color:var(--accent); border-color:var(--accent-soft); }
+  .sh-hero { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:22px 24px; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow-sm); }
+  .sh-hero-main { min-width:0; }
+  .sh-hero-date { font-size:14px; font-weight:600; color:var(--text-dim); display:flex; align-items:center; gap:10px; }
+  .sh-hero-title { font-size:28px; font-weight:800; margin:6px 0 10px; line-height:1.25; overflow-wrap:anywhere; }
+  .sh-hero-meta { display:flex; flex-wrap:wrap; gap:6px 16px; font-size:14.5px; color:var(--text-dim); }
+  .sh-edit-btn { background:var(--bg) !important; color:var(--text) !important; border:1px solid var(--border) !important; flex:none; }
+  .sh-overview { display:block; width:100%; text-align:left; font:inherit; font-size:15.5px; line-height:1.75; color:var(--text); background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px 20px; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .sh-overview-empty { color:var(--text-faint); border-style:dashed; cursor:pointer; font-size:14px; }
+  .sh-docs { display:grid; grid-template-columns:repeat(auto-fill, minmax(170px,1fr)); gap:14px; }
+  .sh-doc { position:relative; display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; cursor:pointer; transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease; }
+  .sh-doc:hover { transform:translateY(-2px); box-shadow:var(--shadow-md); border-color:var(--accent); }
+  .sh-doc-thumb { aspect-ratio:3/4; background:var(--bg) center top/cover no-repeat; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:center; }
+  .sh-doc-thumb.is-pdf { background-color:#fff; }
+  .sh-doc-thumb.ready .sh-doc-ph { display:none; }
+  .sh-doc-ph { font-size:13px; font-weight:800; letter-spacing:.08em; color:#c0392b; border:2px solid currentColor; border-radius:6px; padding:6px 10px; }
+  .sh-doc-thumb.fail .sh-doc-ph { color:var(--text-faint); }
+  .sh-doc-info { padding:10px 12px 12px; min-width:0; }
+  .sh-doc-name { font-size:13.5px; font-weight:600; line-height:1.4; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow-wrap:anywhere; }
+  .sh-doc-sub { font-size:12px; color:var(--text-faint); margin-top:4px; }
+  .sh-doc-del { position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%; border:none; background:rgba(0,0,0,.55); color:#fff; cursor:pointer; font-size:12px; opacity:0; transition:opacity .12s; }
+  .sh-doc:hover .sh-doc-del { opacity:1; }
+  @media (hover:none) { .sh-doc-del { opacity:.85; } }
+  .sh-doc-confirm { position:absolute; top:8px; left:8px; right:8px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:8px; font-size:12.5px; display:flex; gap:6px; align-items:center; box-shadow:var(--shadow-md); }
+  .sh-doc-confirm button { border:none; background:none; color:var(--accent); cursor:pointer; font:inherit; font-weight:700; }
+  .sh-doc-add { align-items:center; justify-content:center; gap:8px; min-height:200px; border-style:dashed; color:var(--text-dim); font-size:13.5px; }
+  .sh-doc-add input { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+  .sh-doc-add-plus { font-size:28px; color:var(--accent); line-height:1; }
+  .sh-doc-msg { font-size:13px; color:var(--text-dim); margin-top:10px; }
+  .sh-gear { margin-top:30px; border:1px solid var(--border); border-radius:12px; background:var(--surface); padding:0 18px; }
+  .sh-gear > summary { list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; padding:16px 0; font-size:15px; font-weight:700; }
+  .sh-gear > summary::-webkit-details-marker { display:none; }
+  .sh-gear > summary::after { content:'▾'; color:var(--text-faint); margin-left:10px; transition:transform .15s; }
+  .sh-gear:not([open]) > summary::after { transform:rotate(-90deg); }
+  .sh-gear-sub { font-size:13px; font-weight:500; color:var(--text-faint); margin-left:auto; }
+  .sh-gear[open] { padding-bottom:18px; }
+  .sh-gear-actions { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  .shoot-gear-details { border:1px solid var(--border); border-radius:10px; padding:4px 12px 2px; margin:6px 0 14px; }
+  .shoot-gear-details > summary { cursor:pointer; font-size:13.5px; font-weight:600; color:var(--text-dim); padding:8px 0; }
+  /* 전용 문서 뷰어 */
+  body.dv-on { overflow:hidden; }
+  .dv { position:fixed; inset:0; z-index:400; background:#1b1d22; display:flex; flex-direction:column; color:#eef0f3; font-family:var(--font-body); }
+  .dv-bar { display:flex; align-items:center; gap:12px; padding:10px 14px; padding-top:max(10px, env(safe-area-inset-top)); background:#111317; border-bottom:1px solid rgba(255,255,255,.08); }
+  .dv-title { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:14.5px; }
+  .dv-title span { color:#9aa1ad; font-size:13px; }
+  .dv-tools { display:flex; align-items:center; gap:4px; flex:none; }
+  .dv-btn { min-width:36px; height:36px; border-radius:9px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.06); color:#eef0f3; font-size:16px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; text-decoration:none; }
+  .dv-btn:hover { background:rgba(255,255,255,.14); }
+  .dv-pos { font-size:12.5px; color:#9aa1ad; min-width:38px; text-align:center; }
+  .dv-sep { width:1px; height:22px; background:rgba(255,255,255,.12); margin:0 6px; }
+  .dv.dv-single [data-dv="prev"], .dv.dv-single [data-dv="next"], .dv.dv-single .dv-sep { display:none; }
+  .dv-body { flex:1; overflow:auto; padding:18px 12px 40px; display:flex; flex-direction:column; align-items:center; gap:14px; -webkit-overflow-scrolling:touch; }
+  .dv-page { position:relative; background:#fff; box-shadow:0 4px 20px rgba(0,0,0,.45); flex:none; }
+  .dv-page canvas { display:block; position:relative; }
+  .dv-pgno { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); color:#bbb; font-size:13px; }
+  .dv-img { max-width:none; height:auto; box-shadow:0 4px 20px rgba(0,0,0,.45); background:#fff; }
+  .dv-msg { margin-top:30vh; color:#9aa1ad; font-size:14px; text-align:center; padding:0 20px; }
+  @media (max-width:720px) {
+    .sh-hero { flex-direction:column; padding:18px; }
+    .sh-hero-title { font-size:23px; }
+    .sh-docs { grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; }
+    .sh-doc-add { min-height:160px; }
+    .dv-bar { flex-wrap:wrap; gap:8px; }
+    .dv-title { order:1; flex-basis:calc(100% - 50px); }
+    .dv-tools { order:2; width:100%; justify-content:center; }
+    .dv-body { padding:12px 6px 40px; }
+  }
 
   .shoot-card { cursor:pointer; }
   .shoot-section-title { font-size:15px; font-weight:700; margin:26px 0 12px; }
