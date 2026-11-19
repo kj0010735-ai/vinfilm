@@ -8,22 +8,47 @@
 try{var v=localStorage.getItem('vinfilm-works-theme'),t=v==='dark'||v==='terminal'||v==='light'?v:'light';document.documentElement.setAttribute('data-theme',t);document.getElementById('themeColorMeta').setAttribute('content',t==='terminal'?'#06090b':t==='dark'?'#101216':'#f6f7f9');}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <script>
-/* 아이패드 미니(짧은 변 800px 이하 터치 기기): 세로는 700px 폭으로 그려 폰 화면(하단 탭바, 720px 이하 규칙)을 쓰되 거의 원래 크기(×1.06),
-   가로는 980px 폭으로 사이드바 화면을 살짝 키워(×1.15) 보여 준다. 처음엔 560/720으로 했다가 "너무 크다"는 피드백으로 넓힘. */
-(function () {
-  var t = navigator.maxTouchPoints > 1, ua = navigator.userAgent;
-  var ipad = t && (/iPad/.test(ua) || /Macintosh/.test(ua));
-  if (!ipad || Math.min(screen.width, screen.height) > 800) return;
-  var m = document.querySelector('meta[name="viewport"]');
-  function fit() {
-    var land = (window.matchMedia && matchMedia('(orientation: landscape)').matches) || Math.abs(window.orientation || 0) === 90;
-    m.setAttribute('content', 'width=' + (land ? 980 : 700) + ', user-scalable=no, viewport-fit=cover');
-  }
-  fit();
-  document.documentElement.classList.add('ipad-mini');
-  window.addEventListener('orientationchange', function () { setTimeout(fit, 50); });
-  if (window.matchMedia) { var mq = matchMedia('(orientation: landscape)'); (mq.addEventListener ? mq.addEventListener('change', fit) : mq.addListener(fit)); }
+/* 아이패드 미니(짧은 변 800px 이하 터치 기기) — 세로일 때는 아이폰과 같은 화면 구성(하단 탭바·카드)을 쓰되 크기는 원래보다 작게.
+   뷰포트 폭을 넓게(기본 840px ≈ ×0.89) 잡고, 폰 화면 규칙(@media max-width:720/860px, min-width:721px)을 이 기기 세로에서만 켜 준다
+   (ipadPhoneMedia). JS의 폰 판정은 phoneUI(). 크기는 설정 ⚙️ '아이패드 화면 크기'(localStorage vinfilm-ipad-size: s/m/l).
+   가로는 원래 화면(사이드바) 그대로. 처음엔 폭 560/700으로 키웠다가 "훨씬 작아도 된다·캘린더가 한 화면에"로 바꿈. */
+var IPAD_MINI = (function () {
+  var ua = navigator.userAgent;
+  return navigator.maxTouchPoints > 1 && (/iPad/.test(ua) || /Macintosh/.test(ua)) && Math.min(screen.width, screen.height) <= 800;
 })();
+var IPAD_SIZES = { s: 940, m: 840, l: 760 };
+function ipadSize() { try { var v = localStorage.getItem('vinfilm-ipad-size'); return IPAD_SIZES[v] ? v : 'm'; } catch (e) { return 'm'; } }
+function ipadLandscape() { return (window.matchMedia && matchMedia('(orientation: landscape)').matches) || Math.abs(window.orientation || 0) === 90; }
+function phoneUI() { return window.innerWidth <= 720 || document.documentElement.classList.contains('ipad-phone'); }
+function ipadPhoneMedia(on) {
+  for (var i = 0; i < document.styleSheets.length; i++) {
+    var rules; try { rules = document.styleSheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var r = rules[j]; if (!r.media || r.type !== 4) continue;
+      if (!r.__orig) r.__orig = r.media.mediaText;
+      var t = r.__orig;
+      if (on) t = t.replace(/max-width:\s*(720|860)px/g, 'max-width: 99999px').replace(/min-width:\s*721px/g, 'min-width: 99999px');
+      if (r.media.mediaText !== t) r.media.mediaText = t;
+    }
+  }
+}
+function ipadFit() {
+  if (!IPAD_MINI) return;
+  var m = document.querySelector('meta[name="viewport"]'), land = ipadLandscape();
+  m.setAttribute('content', land ? 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover'
+                                  : 'width=' + IPAD_SIZES[ipadSize()] + ', user-scalable=no, viewport-fit=cover');
+  document.documentElement.classList.add('ipad-mini');
+  document.documentElement.classList.toggle('ipad-phone', !land);
+  ipadPhoneMedia(!land);
+  if (typeof render === 'function' && document.querySelector('.app-shell')) setTimeout(function () { try { render(); } catch (e) {} }, 80);
+}
+if (IPAD_MINI) {
+  ipadFit();
+  document.addEventListener('DOMContentLoaded', function () { ipadPhoneMedia(!ipadLandscape()); });
+  window.addEventListener('load', function () { ipadPhoneMedia(!ipadLandscape()); });
+  window.addEventListener('orientationchange', function () { setTimeout(ipadFit, 60); });
+  if (window.matchMedia) { var __mq = matchMedia('(orientation: landscape)'); (__mq.addEventListener ? __mq.addEventListener('change', ipadFit) : __mq.addListener(ipadFit)); }
+}
 </script>
 <script>
 /* 앱처럼 쓰는 화면이라 손가락 확대(핀치 줌)를 막는다 — 아이폰 Safari는 viewport만으로는 안 막혀서 제스처 이벤트도 막음 */
@@ -809,6 +834,12 @@ function settingsModalHtml() {
             <button type="button" class="eq-status-option ${cur === 'light' ? 'theme-on' : ''}" data-action="set-theme" data-theme="light">☀️ 화이트</button>
           </div>
         </div>
+        ${IPAD_MINI ? `<div class="eq-field">
+          <label>아이패드 화면 크기 <span class="eq-hint">(세로 화면, 이 기기에만 저장돼요)</span></label>
+          <div style="display:flex; gap:8px;">
+            ${[['s','작게'],['m','보통'],['l','크게']].map(([k, t]) => `<button type="button" class="eq-status-option ${ipadSize() === k ? 'theme-on' : ''}" data-action="set-ipad-size" data-id="${k}">${t}</button>`).join('')}
+          </div>
+        </div>` : ''}
         ${GUEST_MODE ? '' : `<div class="eq-field">
           <label>HISPLAN 일정 불러오기 <span class="eq-hint">(구독 주소를 한 번만 붙여넣으면 캘린더에 보라색으로 떠요)</span></label>
           <input class="hisplan-url-input" data-role="hisplan-url" inputmode="url" autocomplete="off" placeholder="https://…/calendar-feed?t=…" value="${esc(hisplan.url)}" />
@@ -2025,7 +2056,7 @@ function calGridHtml() {
     const last = new Date(c.getFullYear(), c.getMonth() + 1, 0);
     weeks = Math.ceil((first.getDay() + last.getDate()) / 7);
   }
-  const maxShow = S.sched.view === 'week' ? 99 : (window.innerWidth <= 720 ? 5 : Math.max(3, Math.floor(((window.innerHeight - 130) / weeks - 30) / 17)));
+  const maxShow = S.sched.view === 'week' ? 99 : (phoneUI() ? 5 : Math.max(3, Math.floor(((window.innerHeight - 130) / weeks - 30) / 17)));
   const selDay = S.sched.view === 'month' ? calSelDay() : '';
   let cells = '';
   for (let i = 0; i < weeks * 7; i++) {
@@ -2046,7 +2077,7 @@ function calGridHtml() {
   return `
     <div class="cal ${S.sched.view === 'week' ? 'cal-week' : ''}">
       <div class="cal-head">${weekdays.map((w, i) => `<div class="${i===0?'is-sun':i===6?'is-sat':''}">${w}</div>`).join('')}</div>
-      <div class="cal-body" style="grid-template-rows:repeat(${weeks}, minmax(${S.sched.view === 'week' ? '300px' : (window.innerWidth <= 720 ? '96px' : '84px')}, 1fr));">${cells}</div>
+      <div class="cal-body" style="grid-template-rows:repeat(${weeks}, minmax(${S.sched.view === 'week' ? '300px' : (phoneUI() ? '96px' : '84px')}, 1fr));">${cells}</div>
     </div>`;
 }
 function calToolbarHtml() {
@@ -2075,7 +2106,7 @@ function renderScheduleTab() {
       <div class="eq-title-block"><h1 class="eq-title">캘린더</h1><div class="eq-stat">오늘 <b>${todayCount}</b> / 전체 <b>${schedItems.length}</b></div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         ${GUEST_MODE ? '' : gcalButtonHtml().replace('📱 ', '📱<span class="gcal-lbl">').replace('</button>', '</span></button>')}
-        <button class="eq-add-btn" data-action="sched-open-add">${window.innerWidth <= 720 ? '+ 일정' : '+ 일정 등록'}</button>
+        <button class="eq-add-btn" data-action="sched-open-add">${phoneUI() ? '+ 일정' : '+ 일정 등록'}</button>
       </div>
     </div>
     <div class="eq-toolbar">
@@ -5187,7 +5218,7 @@ function notifGo(n) {
 function handleNotifAction(action, el, e) {
   switch (action) {
     case 'notif-toggle':
-      if (STUDIO_HOME && !GUEST_MODE && !window.matchMedia('(max-width:720px)').matches) { S.activeTab = 'studio'; S.studio.box = 'notif'; S.notif.open = false; S.moreOpen = false; render(); return true; } // 폰 상단 종도 스튜디오 알림으로
+      if (STUDIO_HOME && !GUEST_MODE && !phoneUI()) { S.activeTab = 'studio'; S.studio.box = 'notif'; S.notif.open = false; S.moreOpen = false; render(); return true; } // 폰 상단 종도 스튜디오 알림으로
       S.notif.open = !S.notif.open; render(); return true;
     case 'notif-close': S.notif.open = false; render(); return true;
     case 'notif-read-all': notifMarkRead(notifItems().map(n => n.id)); render(); return true;
@@ -6755,7 +6786,7 @@ function fitCalendar() {
   const top = cal.getBoundingClientRect().top + window.scrollY;
   const tb = document.querySelector('.m-tabbar');
   const tbh = tb && getComputedStyle(tb).display !== 'none' ? tb.offsetHeight : 0;
-  const h = Math.max(window.innerHeight - top - (window.innerWidth <= 720 ? 8 : 0) - tbh, 460);
+  const h = Math.max(window.innerHeight - top - (phoneUI() ? 8 : 0) - tbh, 460);
   cal.style.height = h + 'px';
 }
 window.addEventListener('resize', () => fitCalendar());
@@ -6860,6 +6891,7 @@ function bootApp() {
       case 'close-settings': S.settingsOpen = false; render(); break;
       case 'close-settings-backdrop': if (!e.target.closest('[data-stop-close]')) { S.settingsOpen = false; render(); } break;
       case 'set-theme': applyTheme(el.dataset.theme); render(); break;
+      case 'set-ipad-size': try { localStorage.setItem('vinfilm-ipad-size', id); } catch (err) {} ipadFit(); render(); break;
       case 'logout': logout(); break;
 
       /* equipment */
