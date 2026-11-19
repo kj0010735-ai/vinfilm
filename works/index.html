@@ -8,47 +8,18 @@
 try{var v=localStorage.getItem('vinfilm-works-theme'),t=v==='dark'||v==='terminal'||v==='light'?v:'light';document.documentElement.setAttribute('data-theme',t);document.getElementById('themeColorMeta').setAttribute('content',t==='terminal'?'#06090b':t==='dark'?'#101216':'#f6f7f9');}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <script>
-/* 아이패드 미니(짧은 변 800px 이하 터치 기기) — 세로일 때는 아이폰과 같은 화면 구성(하단 탭바·카드)을 쓰되 크기는 원래보다 작게.
-   뷰포트 폭을 넓게(기본 840px ≈ ×0.89) 잡고, 폰 화면 규칙(@media max-width:720/860px, min-width:721px)을 이 기기 세로에서만 켜 준다
-   (ipadPhoneMedia). JS의 폰 판정은 phoneUI(). 크기는 설정 ⚙️ '아이패드 화면 크기'(localStorage vinfilm-ipad-size: s/m/l).
-   가로는 원래 화면(사이드바) 그대로. 처음엔 폭 560/700으로 키웠다가 "훨씬 작아도 된다·캘린더가 한 화면에"로 바꿈. */
+/* 아이패드 미니(짧은 변 800px 이하 터치 기기): 원래 화면 크기 그대로, 왼쪽 메뉴는 숨겼다가 왼쪽 끝에서 밀거나 ☰을 누르면 크게 나온다(ipadNav).
+   본문 글자 크기는 설정 ⚙️ '글자 크기'(localStorage vinfilm-ipad-size: s/m/l → .app-main zoom 0.9/1/1.15).
+   (뷰포트 폭을 바꾸는 방식은 앱에서 나중에 바꾼 값이 반영되지 않아 걷어냄, 2026-11-19) */
 var IPAD_MINI = (function () {
   var ua = navigator.userAgent;
   return navigator.maxTouchPoints > 1 && (/iPad/.test(ua) || /Macintosh/.test(ua)) && Math.min(screen.width, screen.height) <= 800;
 })();
-var IPAD_SIZES = { s: 940, m: 840, l: 760 };
-function ipadSize() { try { var v = localStorage.getItem('vinfilm-ipad-size'); return IPAD_SIZES[v] ? v : 'm'; } catch (e) { return 'm'; } }
-function ipadLandscape() { return (window.matchMedia && matchMedia('(orientation: landscape)').matches) || Math.abs(window.orientation || 0) === 90; }
-function phoneUI() { return window.innerWidth <= 720 || document.documentElement.classList.contains('ipad-phone'); }
-function ipadPhoneMedia(on) {
-  for (var i = 0; i < document.styleSheets.length; i++) {
-    var rules; try { rules = document.styleSheets[i].cssRules; } catch (e) { continue; }
-    for (var j = 0; j < rules.length; j++) {
-      var r = rules[j]; if (!r.media || r.type !== 4) continue;
-      if (!r.__orig) r.__orig = r.media.mediaText;
-      var t = r.__orig;
-      if (on) t = t.replace(/max-width:\s*(720|860)px/g, 'max-width: 99999px').replace(/min-width:\s*721px/g, 'min-width: 99999px');
-      if (r.media.mediaText !== t) r.media.mediaText = t;
-    }
-  }
-}
-function ipadFit() {
-  if (!IPAD_MINI) return;
-  var m = document.querySelector('meta[name="viewport"]'), land = ipadLandscape();
-  m.setAttribute('content', land ? 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover'
-                                  : 'width=' + IPAD_SIZES[ipadSize()] + ', user-scalable=no, viewport-fit=cover');
-  document.documentElement.classList.add('ipad-mini');
-  document.documentElement.classList.toggle('ipad-phone', !land);
-  ipadPhoneMedia(!land);
-  if (typeof render === 'function' && document.querySelector('.app-shell')) setTimeout(function () { try { render(); } catch (e) {} }, 80);
-}
-if (IPAD_MINI) {
-  ipadFit();
-  document.addEventListener('DOMContentLoaded', function () { ipadPhoneMedia(!ipadLandscape()); });
-  window.addEventListener('load', function () { ipadPhoneMedia(!ipadLandscape()); });
-  window.addEventListener('orientationchange', function () { setTimeout(ipadFit, 60); });
-  if (window.matchMedia) { var __mq = matchMedia('(orientation: landscape)'); (__mq.addEventListener ? __mq.addEventListener('change', ipadFit) : __mq.addListener(ipadFit)); }
-}
+var IPAD_ZOOM = { s: 0.9, m: 1, l: 1.15 };
+function ipadSize() { try { var v = localStorage.getItem('vinfilm-ipad-size'); return IPAD_ZOOM[v] ? v : 'm'; } catch (e) { return 'm'; } }
+function phoneUI() { return window.innerWidth <= 720; }
+function ipadApplyZoom() { if (IPAD_MINI) document.documentElement.style.setProperty('--ipad-zoom', IPAD_ZOOM[ipadSize()]); }
+if (IPAD_MINI) { document.documentElement.classList.add('ipad-mini'); ipadApplyZoom(); }
 </script>
 <script>
 /* 앱처럼 쓰는 화면이라 손가락 확대(핀치 줌)를 막는다 — 아이폰 Safari는 viewport만으로는 안 막혀서 제스처 이벤트도 막음 */
@@ -835,7 +806,7 @@ function settingsModalHtml() {
           </div>
         </div>
         ${IPAD_MINI ? `<div class="eq-field">
-          <label>아이패드 화면 크기 <span class="eq-hint">(세로 화면, 이 기기에만 저장돼요)</span></label>
+          <label>글자 크기 <span class="eq-hint">(아이패드, 이 기기에만 저장돼요)</span></label>
           <div style="display:flex; gap:8px;">
             ${[['s','작게'],['m','보통'],['l','크게']].map(([k, t]) => `<button type="button" class="eq-status-option ${ipadSize() === k ? 'theme-on' : ''}" data-action="set-ipad-size" data-id="${k}">${t}</button>`).join('')}
           </div>
@@ -6773,9 +6744,31 @@ window.addEventListener('resize', () => { window.__navY = null; positionNavIndic
   document.addEventListener('touchend', e => {
     if (sx == null) return; const t = e.changedTouches[0], dx = t.clientX - sx, dy = Math.abs(t.clientY - sy); sx = null;
     if (ind) ind.style.opacity = 0;
-    if (dx > 70 && dy < 60) { const go = pick(); if (go) go(); }
+    if (dx > 70 && dy < 60) {
+      if (IPAD_MINI && !phoneUI()) { const btn = document.querySelector('.eq-modal-overlay, .st-viewer, #docViewer'); if (!btn) { ipadNav(true); return; } }
+      const go = pick(); if (go) go();
+    }
   }, { passive: true });
 })();
+/* 아이패드 미니: 왼쪽 메뉴를 서랍처럼 — ☰ 버튼·왼쪽 끝 밀기로 열고, 메뉴를 고르거나 바깥을 누르거나 왼쪽으로 밀면 닫힌다 */
+function ipadNav(open) {
+  if (!IPAD_MINI) return;
+  document.documentElement.classList.toggle('nav-open', !!open);
+}
+if (IPAD_MINI) {
+  const mountNav = () => {
+    if (document.getElementById('navHandle')) return;
+    const h = document.createElement('button'); h.id = 'navHandle'; h.type = 'button'; h.setAttribute('aria-label', '메뉴'); h.textContent = '☰';
+    h.addEventListener('click', () => ipadNav(!document.documentElement.classList.contains('nav-open')));
+    const bd = document.createElement('div'); bd.id = 'navBackdrop'; bd.addEventListener('click', () => ipadNav(false));
+    document.body.append(bd, h);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountNav); else mountNav();
+  document.addEventListener('click', e => { if (e.target.closest('.side-nav [data-action]')) setTimeout(() => ipadNav(false), 60); }, true);
+  let nx = null;
+  document.addEventListener('touchstart', e => { nx = document.documentElement.classList.contains('nav-open') ? e.touches[0].clientX : null; }, { passive: true });
+  document.addEventListener('touchend', e => { if (nx != null && nx - e.changedTouches[0].clientX > 60) ipadNav(false); nx = null; }, { passive: true });
+}
 /* 사이드바 선택 표시가 이전 메뉴 위치에서 새 메뉴 위치로 미끄러지듯 움직이게 한다.
    render()가 매번 DOM을 새로 만들기 때문에 CSS transition만으로는 안 움직여서, 이전 위치를 기억해 두었다가
    새 요소를 이전 위치에 먼저 그린 뒤 다음 프레임에 새 위치로 옮긴다. */
@@ -6786,8 +6779,9 @@ function fitCalendar() {
   const top = cal.getBoundingClientRect().top + window.scrollY;
   const tb = document.querySelector('.m-tabbar');
   const tbh = tb && getComputedStyle(tb).display !== 'none' ? tb.offsetHeight : 0;
-  const h = Math.max(window.innerHeight - top - (phoneUI() ? 8 : 0) - tbh, 460);
-  cal.style.height = h + 'px';
+  const z = IPAD_MINI ? (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ipad-zoom')) || 1) : 1;
+  const h = Math.max(window.innerHeight - top - (phoneUI() ? 8 : 0) - tbh, 460 * z);
+  cal.style.height = (h / z) + 'px';
 }
 window.addEventListener('resize', () => fitCalendar());
 function positionNavIndicator() {
@@ -6891,7 +6885,7 @@ function bootApp() {
       case 'close-settings': S.settingsOpen = false; render(); break;
       case 'close-settings-backdrop': if (!e.target.closest('[data-stop-close]')) { S.settingsOpen = false; render(); } break;
       case 'set-theme': applyTheme(el.dataset.theme); render(); break;
-      case 'set-ipad-size': try { localStorage.setItem('vinfilm-ipad-size', id); } catch (err) {} ipadFit(); render(); break;
+      case 'set-ipad-size': try { localStorage.setItem('vinfilm-ipad-size', id); } catch (err) {} ipadApplyZoom(); render(); break;
       case 'logout': logout(); break;
 
       /* equipment */
@@ -8519,6 +8513,24 @@ document.addEventListener('DOMContentLoaded', () => {
   .task-note-empty { grid-column:1/-1; color:var(--text-faint); font-size:13px; padding:20px; text-align:center; }
   .note-card-title { font-size:14.5px; font-weight:700; color:var(--text); margin-bottom:6px; padding-right:18px; }
 
+
+  /* ---- 아이패드 미니: 왼쪽 메뉴 서랍 + 큰 메뉴 + 글자 크기 ---- */
+  @media (min-width: 721px) {
+    html.ipad-mini .app-main { margin-left:0 !important; zoom:var(--ipad-zoom, 1); padding-top:58px; }
+    html.ipad-mini .side-nav { width:280px; z-index:320; transform:translateX(-105%); transition:transform .26s cubic-bezier(.4,0,.2,1); box-shadow:0 0 40px rgba(0,0,0,.25); overflow-y:auto; }
+    html.ipad-mini.nav-open .side-nav { transform:none; }
+    html.ipad-mini .side-nav-item { padding:13px 16px; font-size:17px; }
+    html.ipad-mini .side-nav-label { font-size:17px; }
+    html.ipad-mini .side-nav-icon { font-size:20px; width:26px; }
+    html.ipad-mini .side-nav-icon svg { width:22px; height:22px; }
+    html.ipad-mini .side-nav-sync, html.ipad-mini .side-nav-sync .side-nav-label { font-size:15px; }
+    html.ipad-mini .side-nav-logo { width:180px; }
+    html.ipad-mini .side-nav-indicator { height:48px; }
+    #navHandle { position:fixed; top:max(10px, env(safe-area-inset-top)); left:12px; z-index:310; width:42px; height:42px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:20px; box-shadow:var(--shadow-sm); cursor:pointer; }
+    #navBackdrop { position:fixed; inset:0; z-index:315; background:rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:opacity .2s; }
+    html.nav-open #navBackdrop { opacity:1; pointer-events:auto; }
+  }
+  @media (max-width: 720px) { #navHandle, #navBackdrop { display:none; } }
   /* ---- 촬영 탭: 개요 · 자료 · 기록 ---- */
   .sh-count { font-size:12.5px; font-weight:600; color:var(--text-faint); margin-left:4px; }
   .sh-empty { font-size:13.5px; color:var(--text-faint); padding:14px 2px; }
