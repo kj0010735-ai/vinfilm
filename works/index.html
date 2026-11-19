@@ -8,7 +8,7 @@
 try{var v=localStorage.getItem('vinfilm-works-theme'),t=v==='dark'||v==='terminal'||v==='light'?v:'light';document.documentElement.setAttribute('data-theme',t);document.getElementById('themeColorMeta').setAttribute('content',t==='terminal'?'#06090b':t==='dark'?'#101216':'#f6f7f9');}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <script>
-/* 아이패드 미니(짧은 변 800px 이하 터치 기기): 원래 화면 크기 그대로, 왼쪽 메뉴는 숨겼다가 왼쪽 끝에서 밀거나 ☰을 누르면 크게 나온다(ipadNav).
+/* 아이패드 미니(짧은 변 800px 이하 터치 기기): 원래 화면 크기 그대로, 왼쪽 메뉴 대신 아이폰처럼 아래 고정 메뉴(.m-tabbar·더보기 시트)를 쓴다 — 서랍 메뉴는 '아래 고정이 낫다'는 피드백으로 바꿈.
    본문 글자 크기는 설정 ⚙️ '글자 크기'(localStorage vinfilm-ipad-size: s/m/l → .app-main zoom 0.9/1/1.15).
    (뷰포트 폭을 바꾸는 방식은 앱에서 나중에 바꾼 값이 반영되지 않아 걷어냄, 2026-11-19) */
 var IPAD_MINI = (function () {
@@ -6745,30 +6745,11 @@ window.addEventListener('resize', () => { window.__navY = null; positionNavIndic
     if (sx == null) return; const t = e.changedTouches[0], dx = t.clientX - sx, dy = Math.abs(t.clientY - sy); sx = null;
     if (ind) ind.style.opacity = 0;
     if (dx > 70 && dy < 60) {
-      if (IPAD_MINI && !phoneUI()) { const btn = document.querySelector('.eq-modal-overlay, .st-viewer, #docViewer'); if (!btn) { ipadNav(true); return; } }
       const go = pick(); if (go) go();
     }
   }, { passive: true });
 })();
-/* 아이패드 미니: 왼쪽 메뉴를 서랍처럼 — ☰ 버튼·왼쪽 끝 밀기로 열고, 메뉴를 고르거나 바깥을 누르거나 왼쪽으로 밀면 닫힌다 */
-function ipadNav(open) {
-  if (!IPAD_MINI) return;
-  document.documentElement.classList.toggle('nav-open', !!open);
-}
-if (IPAD_MINI) {
-  const mountNav = () => {
-    if (document.getElementById('navHandle')) return;
-    const h = document.createElement('button'); h.id = 'navHandle'; h.type = 'button'; h.setAttribute('aria-label', '메뉴'); h.textContent = '☰';
-    h.addEventListener('click', () => ipadNav(!document.documentElement.classList.contains('nav-open')));
-    const bd = document.createElement('div'); bd.id = 'navBackdrop'; bd.addEventListener('click', () => ipadNav(false));
-    document.body.append(bd, h);
-  };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountNav); else mountNav();
-  document.addEventListener('click', e => { if (e.target.closest('.side-nav [data-action]')) setTimeout(() => ipadNav(false), 60); }, true);
-  let nx = null;
-  document.addEventListener('touchstart', e => { nx = document.documentElement.classList.contains('nav-open') ? e.touches[0].clientX : null; }, { passive: true });
-  document.addEventListener('touchend', e => { if (nx != null && nx - e.changedTouches[0].clientX > 60) ipadNav(false); nx = null; }, { passive: true });
-}
+
 /* 사이드바 선택 표시가 이전 메뉴 위치에서 새 메뉴 위치로 미끄러지듯 움직이게 한다.
    render()가 매번 DOM을 새로 만들기 때문에 CSS transition만으로는 안 움직여서, 이전 위치를 기억해 두었다가
    새 요소를 이전 위치에 먼저 그린 뒤 다음 프레임에 새 위치로 옮긴다. */
@@ -8519,23 +8500,28 @@ document.addEventListener('DOMContentLoaded', () => {
   .note-card-title { font-size:14.5px; font-weight:700; color:var(--text); margin-bottom:6px; padding-right:18px; }
 
 
-  /* ---- 아이패드 미니: 왼쪽 메뉴 서랍 + 큰 메뉴 + 글자 크기 ---- */
+  /* ---- 아이패드 미니: 왼쪽 메뉴 대신 아이폰처럼 아래 고정 메뉴(홈·캘린더·프로젝트·장비·더보기) + 글자 크기 ---- */
   @media (min-width: 721px) {
-    html.ipad-mini .app-main { margin-left:0 !important; zoom:var(--ipad-zoom, 1); }
-    html.ipad-mini .side-nav { width:280px; z-index:320; transform:translateX(-105%); transition:transform .26s cubic-bezier(.4,0,.2,1); box-shadow:0 0 40px rgba(0,0,0,.25); overflow-y:auto; }
-    html.ipad-mini.nav-open .side-nav { transform:none; }
-    html.ipad-mini .side-nav-item { padding:13px 16px; font-size:17px; }
-    html.ipad-mini .side-nav-label { font-size:17px; }
-    html.ipad-mini .side-nav-icon { font-size:20px; width:26px; }
-    html.ipad-mini .side-nav-icon svg { width:22px; height:22px; }
-    html.ipad-mini .side-nav-sync, html.ipad-mini .side-nav-sync .side-nav-label { font-size:15px; }
-    html.ipad-mini .side-nav-logo { width:180px; }
-    html.ipad-mini .side-nav-indicator { height:48px; }
-    #navHandle { position:fixed; bottom:calc(14px + env(safe-area-inset-bottom)); left:14px; z-index:310; width:42px; height:42px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:20px; box-shadow:var(--shadow-sm); cursor:pointer; }
-    #navBackdrop { position:fixed; inset:0; z-index:315; background:rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:opacity .2s; }
-    html.nav-open #navBackdrop { opacity:1; pointer-events:auto; }
+    html.ipad-mini .side-nav { display:none !important; }
+    html.ipad-mini .app-main { margin-left:0 !important; zoom:var(--ipad-zoom, 1); padding-bottom:calc(110px + env(safe-area-inset-bottom)) !important; }
+    html.ipad-mini .m-tabbar { display:flex; position:fixed; left:0; right:0; bottom:0; z-index:60; padding:7px 4px calc(7px + env(safe-area-inset-bottom)); background:color-mix(in srgb, var(--surface) 90%, transparent); -webkit-backdrop-filter:blur(18px); backdrop-filter:blur(18px); border-top:1px solid var(--border); }
+    html.ipad-mini .m-tab { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; border:none; background:none; color:var(--text-faint); font-family:var(--font-body); font-size:12px; font-weight:600; padding:4px 0; -webkit-tap-highlight-color:transparent; transition:color .15s ease; }
+    html.ipad-mini .m-tab svg { width:26px; height:26px; transition:transform .2s cubic-bezier(.2,.8,.2,1); }
+    html.ipad-mini .m-tab.on { color:var(--text); font-weight:800; }
+    html.ipad-mini .m-tab.on svg { transform:scale(1.06); stroke-width:2; }
+    html.ipad-mini .m-sheet-backdrop { position:fixed; inset:0; z-index:70; background:rgba(0,0,0,0.38); animation:fadeIn .2s ease both; }
+    html.ipad-mini .m-sheet { position:fixed; left:0; right:0; bottom:0; z-index:71; background:var(--surface); border-radius:22px 22px 0 0; padding:8px 12px calc(14px + env(safe-area-inset-bottom)); box-shadow:var(--shadow-lg); animation:sheetUp .3s cubic-bezier(.2,.8,.2,1) both; }
+    html.ipad-mini .m-sheet-grip { width:40px; height:5px; border-radius:3px; background:var(--border-strong); margin:4px auto 10px; }
+    html.ipad-mini .m-sheet-row { display:flex; align-items:center; gap:14px; width:100%; padding:14px 10px; border:none; background:none; color:var(--text); font-family:var(--font-body); font-size:16px; font-weight:600; text-decoration:none; border-radius:14px; text-align:left; -webkit-tap-highlight-color:transparent; }
+    html.ipad-mini .m-sheet-row:active { background:var(--surface-hover); }
+    html.ipad-mini .m-sheet-row.is-dim { color:var(--text-faint); }
+    html.ipad-mini .m-sheet-ic { width:40px; height:40px; border-radius:12px; background:var(--surface-hover); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    html.ipad-mini .m-sheet-ic svg { width:22px; height:22px; }
+    html.ipad-mini .m-sheet-row i { margin-left:auto; color:var(--text-faint); display:flex; }
+    html.ipad-mini .m-sheet-row i svg { width:18px; height:18px; }
+    html.ipad-mini .m-tabbar { padding-left:max(24px, calc((100vw - 640px) / 2)); padding-right:max(24px, calc((100vw - 640px) / 2)); }
+    html.ipad-mini .m-sheet { margin:0 auto; width:min(560px, 100vw); }
   }
-  @media (max-width: 720px) { #navHandle, #navBackdrop { display:none; } }
   /* ---- 촬영 탭: 개요 · 자료 · 기록 ---- */
   .sh-count { font-size:12.5px; font-weight:600; color:var(--text-faint); margin-left:4px; }
   .sh-empty { font-size:13.5px; color:var(--text-faint); padding:14px 2px; }
