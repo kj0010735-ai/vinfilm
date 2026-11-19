@@ -8,8 +8,8 @@
 try{var v=localStorage.getItem('vinfilm-works-theme'),t=v==='dark'||v==='terminal'||v==='light'?v:'light';document.documentElement.setAttribute('data-theme',t);document.getElementById('themeColorMeta').setAttribute('content',t==='terminal'?'#06090b':t==='dark'?'#101216':'#f6f7f9');}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <script>
-/* 아이패드 미니(짧은 변 800px 이하 터치 기기)는 화면 폭을 좁게 잡아 아이폰과 같은 화면(하단 탭바·큰 글씨)으로 보여 준다.
-   세로 560px·가로 720px 폭으로 그려서 기기 화면에 맞게 키운다 — 720px 이하 규칙(폰 화면)이 그대로 적용됨. */
+/* 아이패드 미니(짧은 변 800px 이하 터치 기기): 세로는 700px 폭으로 그려 폰 화면(하단 탭바, 720px 이하 규칙)을 쓰되 거의 원래 크기(×1.06),
+   가로는 980px 폭으로 사이드바 화면을 살짝 키워(×1.15) 보여 준다. 처음엔 560/720으로 했다가 "너무 크다"는 피드백으로 넓힘. */
 (function () {
   var t = navigator.maxTouchPoints > 1, ua = navigator.userAgent;
   var ipad = t && (/iPad/.test(ua) || /Macintosh/.test(ua));
@@ -17,7 +17,7 @@ try{var v=localStorage.getItem('vinfilm-works-theme'),t=v==='dark'||v==='termina
   var m = document.querySelector('meta[name="viewport"]');
   function fit() {
     var land = (window.matchMedia && matchMedia('(orientation: landscape)').matches) || Math.abs(window.orientation || 0) === 90;
-    m.setAttribute('content', 'width=' + (land ? 720 : 560) + ', user-scalable=no, viewport-fit=cover');
+    m.setAttribute('content', 'width=' + (land ? 980 : 700) + ', user-scalable=no, viewport-fit=cover');
   }
   fit();
   document.documentElement.classList.add('ipad-mini');
