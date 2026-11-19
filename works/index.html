@@ -2996,24 +2996,20 @@ function shootDateText(s) {
 function shootCardHtml(s) {
   const confirming = S.shoot.confirmDeleteShootId === s.id;
   const docs = s.docs || [], past = shootIsPast(s);
-  const dd = s.date && !past ? `<span class="sh-dday">${ddayLabel(s.date)}</span>` : '';
+  let day = '–', sub = '날짜 미정';
+  if (s.date) { const d = parseYmd(s.date); day = d.getDate(); sub = `${d.getFullYear() !== new Date().getFullYear() ? d.getFullYear() + '. ' : ''}${d.getMonth() + 1}월 · ${WEEKDAYS_KO[d.getDay()]}`; }
+  const meta = [s.place && `📍 ${esc(s.place)}`, s.client && esc(s.client), s.shootType && esc(s.shootType), docs.length && `📄 자료 ${docs.length}`].filter(Boolean);
   return `
-    <div class="eq-card shoot-card sh-card ${past ? 'is-past' : ''}" data-action="shoot-open-detail" data-id="${s.id}">
-      ${confirming ? `
-        <div class="eq-confirm-bar">
-          <span>"${esc(s.name||'이 촬영')}" 삭제할까요?</span>
-          <div class="eq-confirm-actions"><button data-action="shoot-cancel-delete">취소</button><button class="danger" data-action="shoot-delete" data-id="${s.id}">삭제</button></div>
-        </div>` : ''}
-      <div class="eq-card-actions"><button class="eq-icon-btn" data-action="shoot-confirm-delete" data-id="${s.id}">✕</button></div>
-      <div class="sh-card-date">${esc(shootDateText(s))}${dd}</div>
-      <h3 class="eq-card-name">${esc(s.name || '이름 없는 촬영')}</h3>
-      ${s.place || s.client ? `<div class="sh-card-meta">${s.place ? `📍 ${esc(s.place)}` : ''}${s.place && s.client ? ' · ' : ''}${s.client ? `👤 ${esc(s.client)}` : ''}</div>` : ''}
-      ${s.overview ? `<div class="sh-card-ov">${esc(s.overview)}</div>` : ''}
-      <div class="sh-card-foot">
-        ${s.shootType ? `<span class="sh-tag">${esc(s.shootType)}</span>` : ''}
-        ${docs.length ? `<span class="sh-tag sh-tag-doc">📄 자료 ${docs.length}</span>` : ''}
-        <span class="sh-tag">🎒 장비 ${(s.confirmedIds||[]).length}</span>
+    <div class="sh-row ${past ? 'is-past' : ''}" data-action="shoot-open-detail" data-id="${s.id}">
+      <div class="sh-row-date"><b>${day}</b><span>${sub}</span></div>
+      <div class="sh-row-main">
+        <div class="sh-row-title">${esc(s.name || '이름 없는 촬영')}${s.date && !past ? `<span class="sh-dday">${ddayLabel(s.date)}</span>` : ''}</div>
+        ${meta.length ? `<div class="sh-row-meta">${meta.join('<i>·</i>')}</div>` : ''}
+        ${s.overview ? `<div class="sh-row-ov">${esc(s.overview)}</div>` : ''}
       </div>
+      ${confirming
+        ? `<div class="sh-row-confirm" data-action="shoot-noop"><span>삭제할까요?</span><button data-action="shoot-cancel-delete">취소</button><button class="danger" data-action="shoot-delete" data-id="${s.id}">삭제</button></div>`
+        : `<button class="sh-row-del" data-action="shoot-confirm-delete" data-id="${s.id}" title="삭제">✕</button>`}
     </div>`;
 }
 function shootListHtml() {
@@ -3022,9 +3018,9 @@ function shootListHtml() {
   const past = shoots.filter(shootIsPast).sort((a, b) => shootDateOf(b).localeCompare(shootDateOf(a)));
   return `
     <h2 class="shoot-section-title">다가오는 촬영 <span class="sh-count">${up.length}</span></h2>
-    ${up.length ? `<div class="eq-grid sh-grid">${up.map(shootCardHtml).join('')}</div>` : `<div class="sh-empty">예정된 촬영이 없어요.</div>`}
+    ${up.length ? `<div class="sh-list">${up.map(shootCardHtml).join('')}</div>` : `<div class="sh-empty">예정된 촬영이 없어요.</div>`}
     <h2 class="shoot-section-title">지난 촬영 기록 <span class="sh-count">${past.length}</span></h2>
-    ${past.length ? `<div class="eq-grid sh-grid">${past.map(shootCardHtml).join('')}</div>` : `<div class="sh-empty">아직 지난 촬영이 없어요.</div>`}`;
+    ${past.length ? `<div class="sh-list">${past.map(shootCardHtml).join('')}</div>` : `<div class="sh-empty">아직 지난 촬영이 없어요.</div>`}`;
 }
 
 function presetRowHtml() {
@@ -8660,6 +8656,49 @@ document.addEventListener('DOMContentLoaded', () => {
     .dv-body { padding:12px 6px 40px; }
   }
 
+
+  /* 촬영 탭 — 상자 없이 선·여백만 (2026-11-19 "상자 같은 게 굳이 필요한가" 피드백) */
+  .sh-list { border-top:1px solid var(--border); }
+  .sh-row { position:relative; display:flex; align-items:flex-start; gap:20px; padding:16px 44px 16px 4px; border-bottom:1px solid var(--border); cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .sh-row:hover { background:var(--surface-hover); }
+  .sh-row.is-past { opacity:.7; }
+  .sh-row-date { width:64px; flex:none; text-align:center; }
+  .sh-row-date b { display:block; font-size:26px; font-weight:800; line-height:1.05; color:var(--text); }
+  .sh-row-date span { display:block; font-size:12px; color:var(--text-faint); margin-top:3px; white-space:nowrap; }
+  .sh-row-main { flex:1; min-width:0; }
+  .sh-row-title { font-size:16.5px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:8px; flex-wrap:wrap; overflow-wrap:anywhere; }
+  .sh-row-meta { font-size:13.5px; color:var(--text-dim); margin-top:4px; overflow-wrap:anywhere; }
+  .sh-row-meta i { font-style:normal; color:var(--text-faint); margin:0 6px; }
+  .sh-row-ov { font-size:13.5px; color:var(--text-faint); margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sh-row-del { position:absolute; right:6px; top:50%; transform:translateY(-50%); width:32px; height:32px; border:none; background:none; color:var(--text-faint); border-radius:8px; cursor:pointer; opacity:0; }
+  .sh-row:hover .sh-row-del { opacity:1; }
+  @media (hover:none) { .sh-row-del { opacity:.6; } }
+  .sh-row-confirm { position:absolute; right:6px; top:50%; transform:translateY(-50%); display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:6px 10px; font-size:13px; box-shadow:var(--shadow-md); }
+  .sh-row-confirm button { border:none; background:none; font:inherit; font-weight:700; color:var(--text-dim); cursor:pointer; }
+  .sh-row-confirm button.danger { color:#e5484d; }
+  .sh-dday { font-size:11.5px; font-weight:700; color:var(--accent); background:var(--accent-soft); border-radius:999px; padding:2px 8px; }
+  /* 상세 화면도 상자 없이 */
+  .sh-hero { background:none; border:none; box-shadow:none; padding:4px 0 20px; border-bottom:1px solid var(--border); }
+  .sh-hero-title { font-size:30px; }
+  .sh-overview { background:none; border:none; padding:0; font-size:16px; line-height:1.8; max-width:780px; }
+  .sh-overview-empty { border:none; padding:0; color:var(--text-faint); }
+  .sh-docs { gap:22px 18px; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); }
+  .sh-doc { background:none; border:none; border-radius:0; overflow:visible; }
+  .sh-doc:hover { transform:none; box-shadow:none; }
+  .sh-doc-thumb { border:1px solid var(--border); border-radius:6px; box-shadow:var(--shadow-sm); transition:transform .15s ease, box-shadow .15s ease; overflow:hidden; }
+  .sh-doc:hover .sh-doc-thumb { transform:translateY(-2px); box-shadow:var(--shadow-md); }
+  .sh-doc-info { padding:8px 2px 0; }
+  .sh-doc-add { border:1.5px dashed var(--border-strong); border-radius:6px; aspect-ratio:3/4; min-height:0; }
+  .sh-doc-del { top:6px; right:6px; }
+  .sh-gear { background:none; border:none; border-top:1px solid var(--border); border-radius:0; padding:0; margin-top:34px; }
+  .sh-gear[open] { padding-bottom:10px; }
+  .shoot-detail .shoot-section-title { font-size:13px; font-weight:700; color:var(--text-faint); letter-spacing:.04em; margin:30px 0 12px; }
+  @media (max-width:720px) {
+    .sh-row { gap:14px; padding:14px 36px 14px 0; }
+    .sh-row-date { width:52px; }
+    .sh-row-date b { font-size:22px; }
+    .sh-hero-title { font-size:24px; }
+  }
   .shoot-card { cursor:pointer; }
   .shoot-section-title { font-size:15px; font-weight:700; margin:26px 0 12px; }
   .today-month-nav { display:flex; align-items:center; gap:10px; margin-bottom:18px; }
