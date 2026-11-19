@@ -6782,6 +6782,11 @@ function fitCalendar() {
   const z = IPAD_MINI ? (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ipad-zoom')) || 1) : 1;
   const h = Math.max(window.innerHeight - top - (phoneUI() ? 8 : 0) - tbh, 460 * z);
   cal.style.height = (h / z) + 'px';
+  if (z !== 1) { // 브라우저마다 zoom 안 좌표가 달라서, 실제로 그려진 아래 끝을 재서 한 번 더 맞춘다
+    const r = cal.getBoundingClientRect(), want = window.innerHeight - tbh - (phoneUI() ? 8 : 0), cur = parseFloat(cal.style.height);
+    const over = r.bottom - want, k = r.height / cur || 1;
+    if (Math.abs(over) > 2 && h > 460 * z) cal.style.height = Math.max(400, cur - over / k) + 'px';
+  }
 }
 window.addEventListener('resize', () => fitCalendar());
 function positionNavIndicator() {
