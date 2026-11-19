@@ -8521,7 +8521,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* ---- 아이패드 미니: 왼쪽 메뉴 서랍 + 큰 메뉴 + 글자 크기 ---- */
   @media (min-width: 721px) {
-    html.ipad-mini .app-main { margin-left:0 !important; zoom:var(--ipad-zoom, 1); padding-top:58px; }
+    html.ipad-mini .app-main { margin-left:0 !important; zoom:var(--ipad-zoom, 1); }
     html.ipad-mini .side-nav { width:280px; z-index:320; transform:translateX(-105%); transition:transform .26s cubic-bezier(.4,0,.2,1); box-shadow:0 0 40px rgba(0,0,0,.25); overflow-y:auto; }
     html.ipad-mini.nav-open .side-nav { transform:none; }
     html.ipad-mini .side-nav-item { padding:13px 16px; font-size:17px; }
@@ -8531,7 +8531,7 @@ document.addEventListener('DOMContentLoaded', () => {
     html.ipad-mini .side-nav-sync, html.ipad-mini .side-nav-sync .side-nav-label { font-size:15px; }
     html.ipad-mini .side-nav-logo { width:180px; }
     html.ipad-mini .side-nav-indicator { height:48px; }
-    #navHandle { position:fixed; top:max(10px, env(safe-area-inset-top)); left:12px; z-index:310; width:42px; height:42px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:20px; box-shadow:var(--shadow-sm); cursor:pointer; }
+    #navHandle { position:fixed; bottom:calc(14px + env(safe-area-inset-bottom)); left:14px; z-index:310; width:42px; height:42px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:20px; box-shadow:var(--shadow-sm); cursor:pointer; }
     #navBackdrop { position:fixed; inset:0; z-index:315; background:rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:opacity .2s; }
     html.nav-open #navBackdrop { opacity:1; pointer-events:auto; }
   }
