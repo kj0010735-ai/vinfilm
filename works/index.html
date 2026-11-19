@@ -1604,8 +1604,40 @@ function renderMobileTopBar() {
       </div>
     </header>`;
 }
+/* 아래 메뉴 즐겨찾기 — 더보기(…) 시트의 ☆로 고른 메뉴가 홈 옆에 고정된다 (기기별 localStorage vinfilm-mtabs, 폰 최대 4·아이패드 최대 6) */
+const mEmoji = e => `<span class="m-emoji">${e}</span>`;
+function mPinItems() {
+  return [
+    { id: 'schedule', label: '캘린더', icon: MI.cal },
+    { id: 'projects', label: '프로젝트', icon: MI.proj },
+    { id: 'equipment', label: '장비', icon: MI.eq },
+    { id: 'shootprep', label: '촬영', icon: MI.bag },
+    { id: 'quotes', label: '견적·계약', icon: MI.quote },
+    { id: 'notes', label: '메모장', icon: MI.note },
+    { id: 'songs', label: '노래연습', icon: MI.mic },
+    { id: 'bikes', label: '이륜차', icon: mEmoji('🏍') },
+    { id: 'applicants', label: '지원자', icon: mEmoji('🙋') },
+    ...(STUDIO_HIDDEN ? [] : [{ id: 'chat', label: '단톡방', icon: mEmoji('💬') }, { id: 'library', label: '자료실', icon: mEmoji('🗂') }]),
+    ...(STUDIO_HOME || STUDIO_HIDDEN ? [] : [{ id: 'studio', label: '스튜디오', icon: mEmoji('🏢') }]),
+  ];
+}
+function mPinMax() { return phoneUI() ? 4 : 6; }
+function mPins() {
+  let v; try { v = JSON.parse(localStorage.getItem('vinfilm-mtabs') || 'null'); } catch (e) { v = null; }
+  const ok = mPinItems().map(t => t.id);
+  return (Array.isArray(v) ? v : ['schedule', 'projects', 'equipment']).filter(id => ok.includes(id));
+}
+function mTogglePin(id) {
+  let pins = mPins();
+  if (pins.includes(id)) pins = pins.filter(x => x !== id);
+  else { if (pins.length >= mPinMax()) { S.pinMsg = `아래 메뉴에는 최대 ${mPinMax()}개까지 둘 수 있어요`; return; } pins.push(id); }
+  S.pinMsg = '';
+  try { localStorage.setItem('vinfilm-mtabs', JSON.stringify(pins)); } catch (e) {}
+}
 function renderMobileTabBar() {
-  const tabs = GUEST_MODE ? GUEST_ALLOWED_TABS.map(id => MOBILE_TABS_GUEST.find(t => t.id === id)).filter(Boolean) : MOBILE_TABS_OWNER;
+  const items = mPinItems();
+  const tabs = GUEST_MODE ? GUEST_ALLOWED_TABS.map(id => MOBILE_TABS_GUEST.find(t => t.id === id)).filter(Boolean)
+    : [MOBILE_TABS_OWNER[0], ...mPins().slice(0, mPinMax()).map(id => items.find(t => t.id === id)).filter(Boolean)];
   const inTabs = tabs.some(t => t.id === S.activeTab) || (!GUEST_MODE && S.activeTab === 'shared');
   return `
     <nav class="m-tabbar">
@@ -1615,23 +1647,26 @@ function renderMobileTabBar() {
     ${S.moreOpen ? mobileMoreSheetHtml() : ''}`;
 }
 function mobileMoreSheetHtml() {
+  const pins = mPins();
   const row = (attrs, icon, label, tone) => `<button class="m-sheet-row ${tone || ''}" ${attrs}><span class="m-sheet-ic">${icon}</span><span>${label}</span><i>${MI.chev}</i></button>`;
+  const pinRow = t => `
+    <div class="m-sheet-row m-pin-row">
+      <button class="m-pin-go" data-action="set-tab" data-id="${t.id}"><span class="m-sheet-ic">${t.icon}</span><span>${t.label}</span></button>
+      <button class="m-pin-star ${pins.includes(t.id) ? 'on' : ''}" data-action="m-pin" data-id="${t.id}" aria-label="아래 메뉴에 고정">${pins.includes(t.id) ? '★' : '☆'}</button>
+    </div>`;
   return `
     <div class="m-sheet-backdrop" data-action="m-more-close"></div>
     <div class="m-sheet">
       <div class="m-sheet-grip"></div>
-      ${row('data-action="set-tab" data-id="shootprep"', MI.bag, '촬영')}
-      ${row('data-action="set-tab" data-id="quotes"', MI.quote, '견적·계약')}
-      ${row('data-action="set-tab" data-id="notes"', MI.note, '메모장')}
-      ${row('data-action="set-tab" data-id="songs"', MI.mic, '노래연습')}
-      ${row('data-action="set-tab" data-id="bikes"', '<span style="font-size:17px;line-height:1">🏍</span>', '이륜차 정비')}
-      ${row('data-action="set-tab" data-id="applicants"', '<span style="font-size:17px;line-height:1">🙋</span>', '지원자')}
-      ${STUDIO_HIDDEN ? '' : row('data-action="set-tab" data-id="chat"', '<span style="font-size:17px;line-height:1">💬</span>', '단톡방')}
-      ${STUDIO_HIDDEN ? '' : row('data-action="set-tab" data-id="library"', '<span style="font-size:17px;line-height:1">🗂</span>', '자료실')}
-      ${STUDIO_HOME || STUDIO_HIDDEN ? '' : row('data-action="set-tab" data-id="studio"', '<span style="font-size:17px;line-height:1">🏢</span>', '스튜디오')}
-      <a class="m-sheet-row" href="../ledger/"><span class="m-sheet-ic">${MI.money}</span><span>수입·지출 관리</span><i>${MI.chev}</i></a>
-      ${row('data-action="open-settings"', MI.gear, '설정')}
-      ${row('data-action="logout"', MI.logout, '로그아웃', 'is-dim')}
+      <div class="m-pin-hint">${S.pinMsg ? esc(S.pinMsg) : `☆를 누르면 아래 메뉴에 고정돼요 (${pins.length}/${mPinMax()})`}</div>
+      <div class="m-sheet-scroll">
+        ${mPinItems().map(pinRow).join('')}
+        <a class="m-sheet-row" href="../ledger/"><span class="m-sheet-ic">${MI.money}</span><span>수입·지출 관리</span><i>${MI.chev}</i></a>
+        ${row('data-action="open-settings"', MI.gear, '설정')}
+      </div>
+      ${S.logoutAsk
+        ? `<div class="m-logout-ask"><span>로그아웃할까요?</span><button class="m-logout-yes" data-action="m-logout-yes">로그아웃</button><button class="m-logout-no" data-action="m-logout-no">취소</button></div>`
+        : `<button class="m-logout-link" data-action="m-logout-ask">${MI.logout}<span>로그아웃</span></button>`}
     </div>`;
 }
 
@@ -6866,8 +6901,12 @@ function bootApp() {
         break;
       case 'app-refresh': el.disabled = true; el.textContent = '확인 중…'; refreshToLatest(); break;
       case 'open-settings': S.settingsOpen = true; S.moreOpen = false; render(); break;
-      case 'm-more': S.moreOpen = !S.moreOpen; render(); break;
-      case 'm-more-close': S.moreOpen = false; render(); break;
+      case 'm-more': S.moreOpen = !S.moreOpen; S.logoutAsk = false; S.pinMsg = ''; S.moreAt = Date.now(); render(); break;
+      case 'm-more-close': S.moreOpen = false; S.logoutAsk = false; render(); break;
+      case 'm-pin': mTogglePin(id); render(); break;
+      case 'm-logout-ask': if (Date.now() - (S.moreAt || 0) < 700) break; S.logoutAsk = true; S.logoutAt = Date.now(); render(); break; // 더보기를 두 번 눌러 바로 로그아웃되는 실수 방지
+      case 'm-logout-no': S.logoutAsk = false; render(); break;
+      case 'm-logout-yes': if (Date.now() - (S.logoutAt || 0) < 500) break; S.logoutAsk = false; S.moreOpen = false; logout(); break;
       case 'close-settings': S.settingsOpen = false; render(); break;
       case 'close-settings-backdrop': if (!e.target.closest('[data-stop-close]')) { S.settingsOpen = false; render(); } break;
       case 'set-theme': applyTheme(el.dataset.theme); render(); break;
@@ -8500,6 +8539,24 @@ document.addEventListener('DOMContentLoaded', () => {
   .note-card-title { font-size:14.5px; font-weight:700; color:var(--text); margin-bottom:6px; padding-right:18px; }
 
 
+
+  /* 더보기 시트: 즐겨찾기 ☆ + 로그아웃 확인 */
+  .m-emoji { font-size:21px; line-height:26px; display:inline-block; height:26px; }
+  .m-sheet-ic .m-emoji { font-size:18px; line-height:1; height:auto; }
+  .m-sheet-scroll { max-height:min(62vh, 560px); overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .m-pin-hint { font-size:12.5px; color:var(--text-faint); text-align:center; margin:-2px 0 6px; }
+  .m-pin-row { padding:0 !important; gap:0 !important; }
+  .m-pin-go { flex:1; display:flex; align-items:center; gap:14px; padding:12px 10px; border:none; background:none; color:var(--text); font:inherit; font-size:16px; font-weight:600; text-align:left; border-radius:14px; -webkit-tap-highlight-color:transparent; }
+  .m-pin-go:active { background:var(--surface-hover); }
+  .m-pin-star { width:52px; height:48px; border:none; background:none; font-size:22px; color:var(--text-faint); -webkit-tap-highlight-color:transparent; }
+  .m-pin-star.on { color:#f5b301; }
+  .m-logout-link { display:flex; align-items:center; gap:6px; margin:10px 10px 2px; padding:6px 4px; border:none; background:none; color:var(--text-faint); font:inherit; font-size:13px; }
+  .m-logout-link svg { width:16px; height:16px; }
+  .m-logout-ask { display:flex; align-items:center; gap:8px; margin:10px 6px 2px; padding:10px 12px; border:1px solid var(--border); border-radius:12px; font-size:14px; color:var(--text); }
+  .m-logout-ask span { flex:1; }
+  .m-logout-ask button { border:none; border-radius:9px; padding:8px 14px; font:inherit; font-size:14px; font-weight:700; }
+  .m-logout-yes { background:#e5484d; color:#fff; }
+  .m-logout-no { background:var(--surface-hover); color:var(--text); }
   /* ---- 아이패드 미니: 왼쪽 메뉴 대신 아이폰처럼 아래 고정 메뉴(홈·캘린더·프로젝트·장비·더보기) + 글자 크기 ---- */
   @media (min-width: 721px) {
     html.ipad-mini .side-nav { display:none !important; }
@@ -8825,7 +8882,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .dash-tile { display:flex; flex-direction:column; align-items:center; gap:9px; border:none; background:none; color:var(--text); font-family:var(--font-body); font-size:13px; font-weight:600; text-decoration:none; cursor:pointer; padding:0; -webkit-tap-highlight-color:transparent; }
   .dash-tile:active .dash-tile-ic { transform:scale(.94); }
   .dash-tile-ic { width:62px; height:62px; border-radius:19px; display:flex; align-items:center; justify-content:center; transition:transform .15s ease; }
-  .dash-tile-ic svg, .m-tab svg, .m-icon-btn svg, .m-sheet-ic svg, .m-sheet-row i svg { fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+  .dash-tile-ic svg, .m-tab svg, .m-icon-btn svg, .m-sheet-ic svg, .m-sheet-row i svg, .m-logout-link svg { fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
   .dash-tile-ic svg { width:28px; height:28px; }
   .t-blue { background:rgba(74,125,255,0.14); color:#4a7dff; } .t-violet { background:rgba(139,92,246,0.14); color:#8b5cf6; }
   .t-green { background:rgba(46,164,110,0.14); color:#2ea46e; } .t-slate { background:rgba(100,116,139,0.16); color:#64748b; }
