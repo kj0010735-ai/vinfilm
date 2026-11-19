@@ -3261,10 +3261,13 @@ function docViewerOpen(docs, idx) {
           <button class="dv-btn" data-dv="prev" title="이전 자료 (←)">‹</button><span id="dvPos" class="dv-pos"></span><button class="dv-btn" data-dv="next" title="다음 자료 (→)">›</button>
           <span class="dv-sep"></span>
           <button class="dv-btn" data-dv="out" title="축소">−</button><span id="dvZoom" class="dv-pos"></span><button class="dv-btn" data-dv="in" title="확대">＋</button>
+          <button class="dv-btn" data-dv="full" title="전체화면">⛶</button>
           <a class="dv-btn dv-open" id="dvOpen" target="_blank" rel="noopener" title="원본 열기">↗</a>
         </div>
       </div>
       <div class="dv-body" id="dvBody"></div>
+      <button class="dv-fullx" data-dv="full" aria-label="전체화면 끝내기">✕</button>
+      <div class="dv-fullpg" id="dvFullPg"></div>
       <button class="dv-side dv-side-l" data-dv="pprev" aria-label="이전 장">‹</button>
       <button class="dv-side dv-side-r" data-dv="pnext" aria-label="다음 장">›</button>`;
     el.addEventListener('click', ev => {
@@ -3273,6 +3276,7 @@ function docViewerOpen(docs, idx) {
       if (a === 'close') docViewerClose();
       else if (a === 'prev') docViewerStep(-1);
       else if (a === 'next') docViewerStep(1);
+      else if (a === 'full') docViewerFull(!DV.full);
       else if (a === 'pprev') docViewerPage(-1);
       else if (a === 'pnext') docViewerPage(1);
       else if (a === 'in') { DV.zoom = Math.min(3, +(DV.zoom + 0.25).toFixed(2)); docViewerShow(true); }
@@ -3283,7 +3287,26 @@ function docViewerOpen(docs, idx) {
   document.body.classList.add('dv-on');
   docViewerShow();
 }
-function docViewerClose() { const el = document.getElementById('docViewer'); if (el) el.remove(); document.body.classList.remove('dv-on'); DV.token++; if (DV.io) DV.io.disconnect(); }
+/* 전체화면: 위 막대를 숨기고 화면 전체에 한 장씩 (브라우저 전체화면이 되면 그것도 켬 — 앱 안에서는 막대만 숨김) */
+function docViewerFull(on) {
+  const el = document.getElementById('docViewer'); if (!el) return;
+  DV.full = !!on; el.classList.toggle('dv-full', DV.full);
+  try {
+    if (on && !document.fullscreenElement && el.requestFullscreen) el.requestFullscreen().catch(() => {});
+    else if (on && el.webkitRequestFullscreen && !document.webkitFullscreenElement) el.webkitRequestFullscreen();
+    else if (!on && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    else if (!on && document.webkitFullscreenElement && document.webkitExitFullscreen) document.webkitExitFullscreen();
+  } catch (e) {}
+  setTimeout(() => docViewerShow(true), 120);
+}
+['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, () => {
+  if (!document.getElementById('docViewer')) return;
+  if (!(document.fullscreenElement || document.webkitFullscreenElement) && DV.full) { DV.full = false; document.getElementById('docViewer').classList.remove('dv-full'); }
+  setTimeout(() => docViewerShow(true), 120);
+}));
+function docViewerClose() {
+  if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+  DV.full = false; const el = document.getElementById('docViewer'); if (el) el.remove(); document.body.classList.remove('dv-on'); DV.token++; if (DV.io) DV.io.disconnect(); }
 function docViewerStep(d) { if (DV.docs.length < 2) return; DV.idx = (DV.idx + d + DV.docs.length) % DV.docs.length; DV.zoom = 1; DV.page = 1; docViewerShow(); }
 async function docViewerShow(keepScroll) {
   const d = DV.docs[DV.idx], body = document.getElementById('dvBody'); if (!d || !body) return;
@@ -3311,7 +3334,7 @@ async function docViewerShow(keepScroll) {
   const W = body.clientWidth, H = body.clientHeight, dpr = Math.min(window.devicePixelRatio || 1, 2.5);
   body.classList.add('dv-paged');
   body.innerHTML = Array.from({ length: n }, (_, i) => `<div class="dv-slide" data-pg="${i + 1}"><div class="dv-page"><span class="dv-pgno">${i + 1}</span></div></div>`).join('');
-  const setInfo = () => { info.textContent = ` · ${DV.page}/${n}쪽`; };
+  const setInfo = () => { info.textContent = ` · ${DV.page}/${n}쪽`; const fp = document.getElementById('dvFullPg'); if (fp) fp.textContent = `${DV.page} / ${n}`; };
   DV.page = keepPage; setInfo();
   body.scrollLeft = (keepPage - 1) * W;
   body.onscroll = () => { const p = Math.round(body.scrollLeft / Math.max(1, body.clientWidth)) + 1; if (p !== DV.page) { DV.page = p; setInfo(); } };
@@ -3337,7 +3360,7 @@ function docViewerPage(d) {
 }
 document.addEventListener('keydown', e => {
   if (!document.getElementById('docViewer')) return;
-  if (e.key === 'Escape') { e.stopImmediatePropagation(); docViewerClose(); }
+  if (e.key === 'Escape') { e.stopImmediatePropagation(); if (DV.full) docViewerFull(false); else docViewerClose(); }
   else if (e.key === 'ArrowLeft') { if (!docViewerPage(-1)) docViewerStep(-1); }
   else if (e.key === 'ArrowRight') { if (!docViewerPage(1)) docViewerStep(1); }
 }, true);
@@ -8777,6 +8800,13 @@ document.addEventListener('DOMContentLoaded', () => {
   .dv-side-l { left:10px; } .dv-side-r { right:10px; }
   @media (hover:none) { .dv-side { display:none; } }
   .dv:not(:has(.dv-paged)) .dv-side { display:none; }
+  .dv-fullx, .dv-fullpg { display:none; }
+  .dv.dv-full { background:#000; }
+  .dv.dv-full .dv-bar { display:none; }
+  .dv.dv-full .dv-fullx { display:flex; align-items:center; justify-content:center; position:absolute; top:max(12px, env(safe-area-inset-top)); right:14px; z-index:3; width:40px; height:40px; border:none; border-radius:50%; background:rgba(255,255,255,.14); color:#fff; font-size:16px; cursor:pointer; }
+  .dv.dv-full .dv-fullpg { display:block; position:absolute; left:50%; bottom:max(14px, env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:3; font-size:13px; color:#fff; background:rgba(0,0,0,.5); border-radius:999px; padding:4px 12px; pointer-events:none; }
+  .dv.dv-full .dv-body:not(.dv-paged) .dv-fullpg { display:none; }
+
   .shoot-card { cursor:pointer; }
   .shoot-section-title { font-size:15px; font-weight:700; margin:26px 0 12px; }
   .today-month-nav { display:flex; align-items:center; gap:10px; margin-bottom:18px; }
