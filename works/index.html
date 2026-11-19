@@ -3264,13 +3264,17 @@ function docViewerOpen(docs, idx) {
           <a class="dv-btn dv-open" id="dvOpen" target="_blank" rel="noopener" title="원본 열기">↗</a>
         </div>
       </div>
-      <div class="dv-body" id="dvBody"></div>`;
+      <div class="dv-body" id="dvBody"></div>
+      <button class="dv-side dv-side-l" data-dv="pprev" aria-label="이전 장">‹</button>
+      <button class="dv-side dv-side-r" data-dv="pnext" aria-label="다음 장">›</button>`;
     el.addEventListener('click', ev => {
       const b = ev.target.closest('[data-dv]'); if (!b) return;
       const a = b.dataset.dv;
       if (a === 'close') docViewerClose();
       else if (a === 'prev') docViewerStep(-1);
       else if (a === 'next') docViewerStep(1);
+      else if (a === 'pprev') docViewerPage(-1);
+      else if (a === 'pnext') docViewerPage(1);
       else if (a === 'in') { DV.zoom = Math.min(3, +(DV.zoom + 0.25).toFixed(2)); docViewerShow(true); }
       else if (a === 'out') { DV.zoom = Math.max(0.5, +(DV.zoom - 0.25).toFixed(2)); docViewerShow(true); }
     });
@@ -3280,7 +3284,7 @@ function docViewerOpen(docs, idx) {
   docViewerShow();
 }
 function docViewerClose() { const el = document.getElementById('docViewer'); if (el) el.remove(); document.body.classList.remove('dv-on'); DV.token++; if (DV.io) DV.io.disconnect(); }
-function docViewerStep(d) { if (DV.docs.length < 2) return; DV.idx = (DV.idx + d + DV.docs.length) % DV.docs.length; DV.zoom = 1; docViewerShow(); }
+function docViewerStep(d) { if (DV.docs.length < 2) return; DV.idx = (DV.idx + d + DV.docs.length) % DV.docs.length; DV.zoom = 1; DV.page = 1; docViewerShow(); }
 async function docViewerShow(keepScroll) {
   const d = DV.docs[DV.idx], body = document.getElementById('dvBody'); if (!d || !body) return;
   const tok = ++DV.token; if (DV.io) DV.io.disconnect();
@@ -3297,34 +3301,45 @@ async function docViewerShow(keepScroll) {
     body.innerHTML = /^image\//.test(d.type || '') ? `<img class="dv-img" src="${esc(d.url)}" style="width:${Math.round(fitW)}px" alt="">` : `<div class="dv-msg">미리 볼 수 없는 파일이에요. 오른쪽 위 ↗로 열어 주세요.</div>`;
     return;
   }
+  body.classList.remove('dv-paged');
   body.innerHTML = `<div class="dv-msg">PDF 여는 중…</div>`;
   let doc;
   try { doc = await pdfOpen(d.url); } catch (e) { if (tok === DV.token) body.innerHTML = `<div class="dv-msg">PDF를 열지 못했어요. 오른쪽 위 ↗로 원본을 열어 주세요.</div>`; return; }
   if (tok !== DV.token) return;
-  info.textContent = ` · ${doc.numPages}쪽`;
-  const p1 = await doc.getPage(1), v1 = p1.getViewport({ scale: 1 });
-  const scale = fitW / v1.width, dpr = Math.min(window.devicePixelRatio || 1, 2.5);
-  body.innerHTML = Array.from({ length: doc.numPages }, (_, i) => `<div class="dv-page" data-pg="${i + 1}" style="width:${Math.round(v1.width * scale)}px;height:${Math.round(v1.height * scale)}px"><span class="dv-pgno">${i + 1}</span></div>`).join('');
-  if (keepScroll) body.scrollTop = ratio * body.scrollHeight; else body.scrollTop = 0;
-  const draw = async (box) => {
-    if (box.dataset.done) return; box.dataset.done = '1';
-    const page = await doc.getPage(+box.dataset.pg); if (tok !== DV.token) return;
-    const vp = page.getViewport({ scale: scale * dpr });
+  /* 한 장씩 옆으로 넘기기 — 가로 스크롤 + scroll-snap, 각 장은 화면 안에 다 들어오게(확대하면 그 장 안에서 스크롤) */
+  const n = doc.numPages, keepPage = keepScroll ? (DV.page || 1) : 1;
+  const W = body.clientWidth, H = body.clientHeight, dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  body.classList.add('dv-paged');
+  body.innerHTML = Array.from({ length: n }, (_, i) => `<div class="dv-slide" data-pg="${i + 1}"><div class="dv-page"><span class="dv-pgno">${i + 1}</span></div></div>`).join('');
+  const setInfo = () => { info.textContent = ` · ${DV.page}/${n}쪽`; };
+  DV.page = keepPage; setInfo();
+  body.scrollLeft = (keepPage - 1) * W;
+  body.onscroll = () => { const p = Math.round(body.scrollLeft / Math.max(1, body.clientWidth)) + 1; if (p !== DV.page) { DV.page = p; setInfo(); } };
+  const draw = async (slide) => {
+    if (slide.dataset.done) return; slide.dataset.done = '1';
+    const page = await doc.getPage(+slide.dataset.pg); if (tok !== DV.token) return;
+    const v1 = page.getViewport({ scale: 1 });
+    const scale = Math.min((W - 24) / v1.width, (H - 24) / v1.height) * DV.zoom;
+    const vpCss = page.getViewport({ scale }), vp = page.getViewport({ scale: scale * dpr });
+    const box = slide.querySelector('.dv-page');
+    box.style.width = Math.round(vpCss.width) + 'px'; box.style.height = Math.round(vpCss.height) + 'px';
     const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
-    const vpCss = page.getViewport({ scale });
-    c.style.width = Math.round(vpCss.width) + 'px'; c.style.height = Math.round(vpCss.height) + 'px';
-    box.style.height = c.style.height;
+    c.style.width = box.style.width; c.style.height = box.style.height;
     await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
     if (tok === DV.token) box.appendChild(c);
   };
-  DV.io = new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) draw(en.target); }), { root: body, rootMargin: '600px 0px' });
-  body.querySelectorAll('.dv-page').forEach(b => DV.io.observe(b));
+  DV.io = new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) draw(en.target); }), { root: body, rootMargin: '0px 100% 0px 100%' });
+  body.querySelectorAll('.dv-slide').forEach(b => DV.io.observe(b));
+}
+function docViewerPage(d) {
+  const body = document.getElementById('dvBody'); if (!body || !body.classList.contains('dv-paged')) return false;
+  body.scrollBy({ left: d * body.clientWidth, behavior: 'smooth' }); return true;
 }
 document.addEventListener('keydown', e => {
   if (!document.getElementById('docViewer')) return;
   if (e.key === 'Escape') { e.stopImmediatePropagation(); docViewerClose(); }
-  else if (e.key === 'ArrowLeft') docViewerStep(-1);
-  else if (e.key === 'ArrowRight') docViewerStep(1);
+  else if (e.key === 'ArrowLeft') { if (!docViewerPage(-1)) docViewerStep(-1); }
+  else if (e.key === 'ArrowRight') { if (!docViewerPage(1)) docViewerStep(1); }
 }, true);
 window.addEventListener('resize', () => { if (document.getElementById('docViewer')) { clearTimeout(DV.rt); DV.rt = setTimeout(() => docViewerShow(true), 200); } });
 document.addEventListener('toggle', e => {
@@ -8746,6 +8761,22 @@ document.addEventListener('DOMContentLoaded', () => {
     .sh-row-date { width:60px; padding-right:10px; }
     .sh-overview { padding:16px; }
   }
+
+  /* 촬영 자료 미리보기: 작은 정사각형 / PDF 뷰어: 한 장씩 옆으로 넘기기 */
+  .sh-docs { grid-template-columns:repeat(auto-fill, minmax(118px,1fr)) !important; gap:16px 14px !important; }
+  .sh-doc-thumb { aspect-ratio:1/1 !important; }
+  .sh-doc-add { aspect-ratio:1/1 !important; font-size:12.5px; }
+  .sh-doc-name { font-size:12.5px; }
+  .dv { position:fixed; }
+  .dv-body.dv-paged { flex-direction:row; align-items:stretch; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; padding:0; gap:0; overscroll-behavior:contain; scrollbar-width:none; }
+  .dv-body.dv-paged::-webkit-scrollbar { display:none; }
+  .dv-slide { flex:0 0 100%; width:100%; height:100%; scroll-snap-align:center; scroll-snap-stop:always; display:flex; overflow:auto; }
+  .dv-slide .dv-page { margin:auto; flex:none; min-width:40px; min-height:40px; }
+  .dv-side { position:absolute; top:50%; transform:translateY(-50%); width:44px; height:64px; border:none; border-radius:12px; background:rgba(255,255,255,.08); color:#eef0f3; font-size:28px; cursor:pointer; z-index:2; }
+  .dv-side:hover { background:rgba(255,255,255,.18); }
+  .dv-side-l { left:10px; } .dv-side-r { right:10px; }
+  @media (hover:none) { .dv-side { display:none; } }
+  .dv:not(:has(.dv-paged)) .dv-side { display:none; }
   .shoot-card { cursor:pointer; }
   .shoot-section-title { font-size:15px; font-weight:700; margin:26px 0 12px; }
   .today-month-nav { display:flex; align-items:center; gap:10px; margin-bottom:18px; }
