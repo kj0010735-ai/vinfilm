@@ -26,7 +26,8 @@ service cloud.firestore {
     // 같이 등록/수정 가능하지만, 장비목록은 보기만 가능하고 수정은 owner만.
     // 장비 추가·수정·삭제를 스튜디오 직원 계정(재무팀)도 가능 (2026-11-21 대표님 요청). 카테고리는 owner만.
     match /equipment/{id} { allow read: if true; allow write: if isOwner() || isBridge(); }
-    match /categories/{id} { allow read: if true; allow write: if isOwner(); }
+    // 장비 카테고리도 스튜디오 직원 계정(재무팀)이 관리 가능 (2026-11-21 대표님 요청)
+    match /categories/{id} { allow read: if true; allow write: if isOwner() || isBridge(); }
     // 공유 프로젝트: 대표님은 전부, 협업자는 자기 공간(collabId) 것만 읽고 쓴다. 협업자는 항목을 다른 공간으로 옮길 수 없다.
     match /sharedProjects/{id} {
       allow read: if isOwner() || collabOk(resource.data.collabId);
