@@ -6378,9 +6378,9 @@ function aplLinkLabel(u) {
   if (/notion/.test(h)) return '노션';
   return h.length > 22 ? h.slice(0, 22) + '…' : h;
 }
-function aplLinkChips(links, max) {
+function aplLinkChips(links, max, big) {
   const L = (links || []).slice(0, max || 99);
-  return L.map(u => `<a class="apl-link" href="${esc(u)}" target="_blank" rel="noopener" title="${esc(u)}" onclick="event.stopPropagation()">${esc(aplLinkLabel(u))}</a>`).join('') + ((links || []).length > L.length ? `<span class="apl-dim">+${links.length - L.length}</span>` : '');
+  return L.map(u => `<a class="apl-link${big ? ' apl-link-big' : ''}" href="${esc(u)}" target="_blank" rel="noopener" title="${esc(u)}" onclick="event.stopPropagation()">${esc(aplLinkLabel(u))}${big ? ' 열기 ↗' : ''}</a>`).join('') + ((links || []).length > L.length ? `<span class="apl-dim">+${links.length - L.length}</span>` : '');
 }
 /* 🎬 CREW — 자주 함께하는 감독님. 지원자 기록에 crew 표시(★)를 하면 사람(이메일, 없으면 이름) 단위로 모아 맨 위에 카드로 보여 준다 */
 function aplPersonKey(a) { return (a.email || '').toLowerCase() || 'n:' + (a.name || '').trim(); }
@@ -6527,7 +6527,7 @@ function aplModalHtml() {
             <div class="eq-field"><label>이름</label><input name="name" value="${esc(f.name || '')}" placeholder="지원자 이름" /></div>
             <div class="eq-field"><label>이메일</label><input name="email" value="${esc(f.email || '')}" inputmode="email" /></div>
             <div class="eq-field"><label>전화번호</label><input name="phone" value="${esc(f.phone || '')}" inputmode="tel" /></div>
-            <div class="eq-field"><label>포트폴리오·링크 <span class="eq-hint">(한 줄에 하나)</span></label>${(f.links || []).length ? `<div class="apl-links apl-links-modal">${aplLinkChips(f.links)}</div>` : ''}<textarea name="links" class="sched-memo-textarea" placeholder="https://...">${esc((f.links || []).join('\n'))}</textarea></div>
+            <div class="eq-field"><label>포트폴리오·링크 <span class="eq-hint">(한 줄에 하나)</span></label>${(f.links || []).length ? `<div class="apl-links apl-links-modal">${aplLinkChips(f.links, 0, true)}</div>` : ''}<textarea name="links" class="sched-memo-textarea" placeholder="https://...">${esc((f.links || []).join('\n'))}</textarea></div>
             <div class="eq-field"><label>지원일</label><input type="date" name="receivedAt" value="${esc(f.receivedAt || '')}" /></div>
             <div class="eq-field"><label>✍️ 내 평가 메모 <span class="eq-hint">(이 ${aplWord().who}은 어땠는지 — ${aplKind() === 'actor' ? '연기·이미지·태도·다시 부를지' : '실력·태도·장비·다시 부를지'})</span></label><textarea name="review" class="sched-memo-textarea" placeholder="예: 구도 좋음, 시간 약속 잘 지킴, 다음 공연 촬영 때 다시 연락">${esc(f.review || '')}</textarea>${a && !(f.review || '').trim() && aplPrevReview(a) ? `<div class="eq-hint" style="margin-top:6px">다른 공모에서 남긴 평가: ${esc(aplPrevReview(a))}</div>` : ''}</div>
             <label class="apl-crew-check"><input type="checkbox" name="crew" ${a && aplApps().some(x => x.crew && aplPersonKey(x) === aplPersonKey(a)) ? 'checked' : ''} /> ⭐ CREW로 등록 <span class="eq-hint">(${aplWord().crewTitle} — 맨 위에 모아 보여 줘요)</span></label>
@@ -9959,6 +9959,8 @@ document.addEventListener('DOMContentLoaded', () => {
   .apl-link { display:inline-flex; align-items:center; padding:3px 9px; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-size:12.5px; font-weight:600; text-decoration:none; white-space:nowrap; }
   .apl-link:hover { background:var(--accent); color:#fff; }
   .apl-links-modal { margin-bottom:6px; }
+  .apl-links-modal { gap:8px; white-space:normal; overflow:visible; }
+  .apl-link-big { padding:9px 16px; font-size:15px; background:var(--accent); color:#fff; }
   .apl-crew-check { display:flex; align-items:center; gap:8px; margin:4px 0 14px; font-size:14px; font-weight:600; cursor:pointer; }
   .apl-crew-check input { width:18px; height:18px; }
   .apl-sec-head { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin:20px 0 8px; }
