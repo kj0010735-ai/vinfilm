@@ -1138,23 +1138,49 @@ async function openEqScan() {
     <div class="eq-scan-top"><b>장비 라벨 스캔</b><button type="button" class="eq-scan-close" aria-label="닫기">✕</button></div>
     <div class="eq-scan-msg">카메라를 준비하는 중…</div>`;
   document.body.appendChild(el);
-  eqScan = { el, controls: null, busy: false };
+  eqScan = { el, stream: null, timer: 0, busy: false };
   el.querySelector('.eq-scan-close').onclick = closeEqScan;
   const msg = h => { const m = el.querySelector('.eq-scan-msg'); if (m) m.innerHTML = h; };
+  const ready = () => msg(`바코드를 네모 안에 <b>가로로</b> 꽉 차게 맞춰 주세요<div class="eq-scan-actions" style="margin-top:10px"><button type="button" data-k="type">번호 직접 입력</button></div>`);
+  el.addEventListener('click', e => { const k = e.target.closest('[data-k=type]'); if (!k || !eqScan) return;
+    const v = prompt('라벨 번호를 입력해 주세요 (예: EQ-013, SD-01)'); if (v && v.trim()) onEqScanResult(v); });
   try {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('이 화면에서는 카메라를 쓸 수 없어요');
-    await loadZXing();
-    if (!eqScan || eqScan.el !== el) return;
-    const Z = window.ZXingBrowser, reader = new Z.BrowserMultiFormatReader();
-    try { reader.possibleFormats = [Z.BarcodeFormat.CODE_128, Z.BarcodeFormat.QR_CODE, Z.BarcodeFormat.CODE_39, Z.BarcodeFormat.EAN_13]; } catch (e) {}
-    const controls = await reader.decodeFromConstraints({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } },
-      el.querySelector('video'), (result) => { if (result && eqScan && !eqScan.busy) onEqScanResult(result.getText()); });
-    if (!eqScan || eqScan.el !== el) { controls.stop(); return; }
-    eqScan.controls = controls;
-    msg('라벨의 바코드나 QR을 네모 안에 맞춰 주세요');
+    const [, stream] = await Promise.all([loadZXing(), navigator.mediaDevices.getUserMedia({ audio: false,
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } })]);
+    if (!eqScan || eqScan.el !== el) { stream.getTracks().forEach(t => t.stop()); return; }
+    eqScan.stream = stream;
+    try { const tr = stream.getVideoTracks()[0], cap = tr.getCapabilities ? tr.getCapabilities() : {};   // 가까이 대도 초점 맞게
+      if (cap.focusMode && cap.focusMode.includes('continuous')) await tr.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) {}
+    const video = el.querySelector('video'); video.srcObject = stream; await video.play().catch(() => {});
+    const Z = window.ZXingBrowser;
+    // 2=POSSIBLE_FORMATS, 3=TRY_HARDER (1D 바코드는 이걸 켜야 잘 읽힘)
+    const reader = new Z.BrowserMultiFormatReader(new Map([[2, [Z.BarcodeFormat.CODE_128, Z.BarcodeFormat.QR_CODE, Z.BarcodeFormat.CODE_39, Z.BarcodeFormat.EAN_13]], [3, true]]));
+    const cv = document.createElement('canvas'), cx = cv.getContext('2d', { willReadFrequently: true });
+    let tick = 0;
+    ready();
+    const scanOnce = () => {
+      if (!eqScan || eqScan.el !== el) return;
+      eqScan.timer = setTimeout(scanOnce, 110);
+      if (eqScan.busy || video.readyState < 2 || !video.videoWidth) return;
+      tick++;
+      const vw = video.videoWidth, vh = video.videoHeight, W = el.clientWidth, H = el.clientHeight;
+      const sc = Math.max(W / vw, H / vh), ox = (W - vw * sc) / 2, oy = (H - vh * sc) / 2;
+      const fr = el.querySelector('.eq-scan-frame').getBoundingClientRect();
+      // 화면의 네모 → 카메라 원본 좌표 (위아래로 넉넉히)
+      let x = (fr.left - ox) / sc, y = (fr.top - oy) / sc, w = fr.width / sc, h = fr.height / sc;
+      const mode = tick % 3;   // 0·1: 네모 안, 2: 화면 전체
+      if (mode === 2) { x = 0; y = 0; w = vw; h = vh; } else { y -= h * .25; h *= 1.5; }
+      x = Math.max(0, x); y = Math.max(0, y); w = Math.min(vw - x, w); h = Math.min(vh - y, h);
+      const k = Math.min(1, 1280 / Math.max(w, h));
+      cv.width = Math.round(w * k); cv.height = Math.round(h * k);
+      cx.drawImage(video, x, y, w, h, 0, 0, cv.width, cv.height);
+      try { const r = reader.decodeFromCanvas(cv); if (r && r.getText()) onEqScanResult(r.getText()); } catch (e) { /* 이번 장면엔 없음 */ }
+    };
+    scanOnce();
   } catch (e) {
     const denied = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
-    msg(`<b>카메라를 열 수 없어요</b><br>${denied ? '설정에서 카메라 접근을 허용해 주세요.' : esc(e && e.message || String(e))}`);
+    msg(`<b>카메라를 열 수 없어요</b><br>${denied ? '설정에서 카메라 접근을 허용해 주세요.' : esc(e && e.message || String(e))}<div class="eq-scan-actions" style="margin-top:10px"><button type="button" data-k="type">번호 직접 입력</button></div>`);
   }
 }
 function onEqScanResult(raw) {
@@ -1168,14 +1194,14 @@ function onEqScanResult(raw) {
   const m = eqScan.el.querySelector('.eq-scan-msg');
   m.innerHTML = `<b>등록되지 않은 번호예요</b><div class="eq-scan-code">${esc(code)}</div>
     <div class="eq-scan-actions"><button type="button" data-k="again">다시 스캔</button><button type="button" data-k="search">검색창에 넣기</button></div>`;
-  m.querySelector('[data-k=again]').onclick = () => { eqScan.busy = false; m.innerHTML = '라벨의 바코드나 QR을 네모 안에 맞춰 주세요'; };
+  m.querySelector('[data-k=again]').onclick = () => { eqScan.busy = false; m.innerHTML = '바코드를 네모 안에 <b>가로로</b> 꽉 차게 맞춰 주세요'; };
   m.querySelector('[data-k=search]').onclick = () => { closeEqScan(); S.eq.search = code; S.eq.categoryFilter = 'all'; S.eq.statusFilter = 'all'; render(); };
 }
 function closeEqScan() {
   if (!eqScan) return;
-  const { el, controls } = eqScan; eqScan = null;
-  try { controls && controls.stop(); } catch (e) {}
-  const v = el.querySelector('video'); try { v && v.srcObject && v.srcObject.getTracks().forEach(t => t.stop()); } catch (e) {}
+  const { el, stream, timer } = eqScan; eqScan = null;
+  clearTimeout(timer);
+  try { stream && stream.getTracks().forEach(t => t.stop()); } catch (e) {}
   el.remove();
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden) closeEqScan(); });
