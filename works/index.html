@@ -894,7 +894,7 @@ function eqCardHtml(item, children) {
       <div class="eq-card-main-compact">
         <div class="eq-photo-box-xs">${item.photo ? `<img src="${item.photo}" class="eq-photo-img" alt="${esc(item.name)}"/>` : ''}</div>
         <div class="eq-card-body-compact">
-          <div class="eq-card-name-compact">${esc(item.name)}${item.quantity > 1 ? ` <span class="eq-qty">×${item.quantity}</span>` : ''}${item.owner === 'hisplan' ? ' <span class="eq-owner-badge">히스플랜</span>' : ''}</div>
+          <div class="eq-card-name-compact">${esc(item.name)}${item.quantity > 1 ? ` <span class="eq-qty">×${item.quantity}</span>` : ''}${item.owner === 'hisplan' ? ' <span class="eq-owner-badge">HISPLAN</span>' : ''}</div>
           <div class="eq-card-sub-compact">
             <span class="eq-status-dot" style="background:var(${st.v})"></span>
             <span class="eq-cat-badge-compact" style="color:${cat.color || '#8b90a0'}">${esc(cat.label)}</span>
@@ -920,7 +920,7 @@ function eqDetailModalHtml() {
         <div class="eq-detail-photo" ${item.photo ? `data-action="eq-view-photo" data-id="${item.id}"` : ''}>${item.photo ? `<img src="${item.photo}" class="eq-photo-img" alt="${esc(item.name)}"/>` : `<div class="eq-photo-placeholder">사진 없음</div>`}</div>
         <div class="eq-detail-row"><span>시리얼</span><b>${esc(item.serial)}</b></div>
         ${item.labels ? `<div class="eq-detail-row"><span>라벨 번호</span><b>${esc(item.labels)}</b></div>` : ''}
-        ${item.owner === 'hisplan' ? `<div class="eq-detail-row"><span>소유</span><b><span class="eq-owner-badge">히스플랜</span></b></div>` : ''}
+        ${item.owner === 'hisplan' ? `<div class="eq-detail-row"><span>소유</span><b><span class="eq-owner-badge">HISPLAN</span></b></div>` : ''}
         <div class="eq-detail-row"><span>카테고리</span><b style="color:${cat.color || '#8b90a0'}">${esc(cat.label)}</b></div>
         <div class="eq-detail-row"><span>상태</span><b><span class="eq-status-dot" style="background:var(${st.v})"></span> ${st.label}</b></div>
         ${item.quantity > 1 ? `<div class="eq-detail-row"><span>수량</span><b>${item.quantity}개</b></div>` : ''}
@@ -8616,7 +8616,7 @@ document.addEventListener('DOMContentLoaded', () => {
   .eq-card-compact { padding:8px 10px; cursor:pointer; }
   .eq-card-compact:hover { background:var(--surface-hover); }
   .eq-card-main-compact { display:flex; gap:10px; align-items:center; }
-  .eq-owner-badge { display:inline-block; font-size:11.5px; font-weight:700; color:#fff; background:#7c5cff; border-radius:999px; padding:1px 8px; vertical-align:1px; letter-spacing:.2px; }
+  .eq-owner-badge { display:inline-block; font-size:10.5px; font-weight:700; color:#fff; background:#7c5cff; border-radius:4px; padding:0 5px; line-height:16px; vertical-align:1px; letter-spacing:.6px; }
   .eq-price-line { margin-top:4px; font-size:14px; color:var(--text-dim); }
   .eq-price-line b { color:var(--text); font-size:16px; margin-right:8px; }
   .eq-price-line span { font-size:12.5px; color:var(--text-faint); }
