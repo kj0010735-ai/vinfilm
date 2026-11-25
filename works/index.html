@@ -863,7 +863,7 @@ function getFilteredEquipment() {
   if (st.statusFilter !== 'all') list = list.filter(it => it.status === st.statusFilter);
   if (st.search.trim()) {
     const q = st.search.trim().toLowerCase();
-    list = list.filter(it => it.name.toLowerCase().includes(q) || (it.location||'').toLowerCase().includes(q) || (it.notes||'').toLowerCase().includes(q) || (it.serial||'').toLowerCase().includes(q) || (it.battery||'').toLowerCase().includes(q));
+    list = list.filter(it => it.name.toLowerCase().includes(q) || (it.location||'').toLowerCase().includes(q) || (it.notes||'').toLowerCase().includes(q) || (it.serial||'').toLowerCase().includes(q) || (it.labels||'').toLowerCase().includes(q) || (it.battery||'').toLowerCase().includes(q));
   }
   if (st.sortBy === 'name') list.sort((a,b) => a.name.localeCompare(b.name, 'ko'));
   else if (st.sortBy === 'category') list.sort((a,b) => a.category.localeCompare(b.category));
@@ -919,6 +919,7 @@ function eqDetailModalHtml() {
         <div class="eq-modal-head"><h2>${esc(item.name)}</h2><button class="eq-modal-close" data-action="eq-close-detail">✕</button></div>
         <div class="eq-detail-photo" ${item.photo ? `data-action="eq-view-photo" data-id="${item.id}"` : ''}>${item.photo ? `<img src="${item.photo}" class="eq-photo-img" alt="${esc(item.name)}"/>` : `<div class="eq-photo-placeholder">사진 없음</div>`}</div>
         <div class="eq-detail-row"><span>시리얼</span><b>${esc(item.serial)}</b></div>
+        ${item.labels ? `<div class="eq-detail-row"><span>라벨 번호</span><b>${esc(item.labels)}</b></div>` : ''}
         <div class="eq-detail-row"><span>카테고리</span><b style="color:${cat.color || '#8b90a0'}">${esc(cat.label)}</b></div>
         <div class="eq-detail-row"><span>상태</span><b><span class="eq-status-dot" style="background:var(${st.v})"></span> ${st.label}</b></div>
         ${item.quantity > 1 ? `<div class="eq-detail-row"><span>수량</span><b>${item.quantity}개</b></div>` : ''}
@@ -1000,6 +1001,7 @@ function eqModalHtml() {
         <div class="eq-modal-head"><h2>${editing ? '장비 정보 수정' : '새 장비 등록'}</h2><button class="eq-modal-close" data-action="eq-close-modal">✕</button></div>
         <form data-form-role="eq-form">
           <div class="eq-field"><label>장비 이름</label><input name="name" id="eqNameInput" autofocus value="${esc(f.name)}" placeholder="예: 소니 FX3" required /></div>
+          <div class="eq-field"><label>라벨 번호 <span style="opacity:.55;font-weight:400">(선택 · 바코드 라벨에 넣은 번호)</span></label><input name="labels" value="${esc(f.labels || '')}" placeholder="예: SD-01 · 여러 개는 쉼표로 SD-01, SD-02" autocapitalize="characters" autocomplete="off" /><div style="font-size:12px;opacity:.55;margin-top:4px">비워 두면 시리얼(${esc(editing ? editing.serial || '' : nextSerial(eqItems))})로 스캔돼요</div></div>
           <div class="eq-field">
             <label>사진</label>
             <div id="eqPhotoZone">${eqPhotoZoneHtml()}</div>
@@ -1124,7 +1126,11 @@ function eqCodeOf(raw) {
   const m = /[?&#](?:eq|serial|code)=([^&#]+)/i.exec(t);   // QR에 주소를 넣은 경우 …?eq=EQ-013
   return (m ? decodeURIComponent(m[1]) : t).trim().toUpperCase();
 }
+function eqLabelList(v) { return String(v || '').split(/[,\s/·]+/).map(x => x.trim().toUpperCase()).filter(Boolean).filter((x, i, a) => a.indexOf(x) === i); }
 function eqFindByCode(code) {
+  // 1) 라벨 번호 칸  2) 시리얼(EQ-###)  3) 이름·메모에 적어 둔 번호
+  const byLabel = eqItems.filter(it => eqLabelList(it.labels).includes(code));
+  if (byLabel.length) return byLabel;
   const exact = eqItems.filter(it => String(it.serial || '').trim().toUpperCase() === code);
   if (exact.length) return exact;
   const re = new RegExp('(^|[^A-Z0-9])' + code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^A-Z0-9])', 'i');   // 소모품은 이름·메모에 번호를 적어둔 경우
@@ -7873,6 +7879,7 @@ function bootApp() {
         name, category: fd.get('category'), status: fd.get('status') || 'owned', quantity: parseInt(fd.get('quantity'), 10) || 1,
         weight: fd.get('weight') || '', battery: fd.get('battery') || '', cables: fd.get('cables') || '', bagId: fd.get('bagId') || '',
         parentId: fd.get('parentId') || '', companionIds: fd.getAll('companions'), notes: fd.get('notes') || '', photo: currentEqPhoto,
+        labels: eqLabelList((fd.get('labels') || '').toString()).join(', '),
         updatedBy: currentEditorName(), updatedAt: Date.now(),
       };
       if (S.eq.editingId) saveEqItems(eqItems.map(it => it.id === S.eq.editingId ? { ...it, ...payload } : it));
