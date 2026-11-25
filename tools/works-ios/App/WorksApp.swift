@@ -5,6 +5,7 @@ import SwiftUI
 import WebKit
 import SafariServices
 import UserNotifications
+import VisionKit
 
 @main
 struct WorksApp: App {
@@ -126,6 +127,8 @@ final class WebVC: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScrip
         cfg.applicationNameForUserAgent = "Version/18.0 Mobile/15E148 Safari/604.1"
         // 사이트와 주고받기 (푸시 토큰·아이콘 숫자)
         cfg.userContentController.add(self, name: "workApp")
+        // 이 앱은 애플 바코드 스캐너를 쓸 수 있다고 사이트에 알림 (장비 라벨 스캔)
+        cfg.userContentController.addUserScript(WKUserScript(source: "window.__workAppScan=1;", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         cfg.userContentController.addUserScript(WKUserScript(source: Push.shared.bootScript, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         web = WKWebView(frame: view.bounds, configuration: cfg)
         web.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -174,6 +177,8 @@ final class WebVC: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScrip
                 return Reminders.Item(id: id, at: at, title: d["title"] as? String ?? "WORKS", body: d["body"] as? String ?? "")
             }
             Reminders.schedule(list)
+        case "scan":
+            openScanner()
         case "openSettings":
             if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
         default:
@@ -182,6 +187,22 @@ final class WebVC: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScrip
     }
 
     override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+
+    /// 장비 라벨 스캔 — 애플 스캐너(VisionKit)로 읽고 결과를 사이트의 window.__worksScanResult(code, err)로 돌려준다
+    private func openScanner() {
+        let reply: (String?, String?) -> Void = { [weak self] code, err in
+            let arg = { (v: String?) -> String in
+                guard let v, let d = try? JSONSerialization.data(withJSONObject: [v]), let j = String(data: d, encoding: .utf8) else { return "null" }
+                return String(j.dropFirst().dropLast())
+            }
+            self?.web.evaluateJavaScript("window.__worksScanResult && window.__worksScanResult(\(arg(code)), \(arg(err)))")
+        }
+        guard DataScannerViewController.isSupported else { reply(nil, "unsupported"); return }
+        let vc = ScanVC()
+        vc.modalPresentationStyle = .fullScreen
+        vc.onResult = reply
+        present(vc, animated: true)
+    }
 
     // 앱 화면 안에서 그대로 열 사이트 (우리 사이트 + 로그인에 쓰는 구글·파이어베이스)
     private static func isInApp(_ host: String) -> Bool {
@@ -326,5 +347,81 @@ enum Reminders {
                 center.add(UNNotificationRequest(identifier: "rm-" + it.id, content: c, trigger: UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)))
             }
         }
+    }
+}
+
+
+/// 애플 바코드 스캐너 화면 (CODE128·QR 등). 하나 읽히면 진동과 함께 바로 닫힌다.
+final class ScanVC: UIViewController, DataScannerViewControllerDelegate {
+    var onResult: ((String?, String?) -> Void)?
+    private var scanner: DataScannerViewController!
+    private var done = false
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .black
+        scanner = DataScannerViewController(recognizedDataTypes: [.barcode(symbologies: [.code128, .qr, .code39, .ean13])],
+                                            qualityLevel: .accurate, recognizesMultipleItems: false,
+                                            isHighFrameRateTrackingEnabled: true, isPinchToZoomEnabled: true,
+                                            isGuidanceEnabled: true, isHighlightingEnabled: true)
+        scanner.delegate = self
+        addChild(scanner)
+        scanner.view.frame = view.bounds
+        scanner.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.addSubview(scanner.view)
+        scanner.didMove(toParent: self)
+
+        let close = UIButton(type: .system)
+        close.setImage(UIImage(systemName: "xmark.circle.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 30)), for: .normal)
+        close.tintColor = .white
+        close.translatesAutoresizingMaskIntoConstraints = false
+        close.addAction(UIAction { [weak self] _ in self?.finish(nil, nil) }, for: .touchUpInside)
+        view.addSubview(close)
+
+        let label = UILabel()
+        label.text = "장비 라벨의 바코드·QR을 비춰 주세요"
+        label.textColor = .white
+        label.font = .boldSystemFont(ofSize: 16)
+        label.textAlignment = .center
+        label.backgroundColor = UIColor.black.withAlphaComponent(0.55)
+        label.layer.cornerRadius = 14
+        label.clipsToBounds = true
+        label.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(label)
+
+        NSLayoutConstraint.activate([
+            close.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
+            close.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -14),
+            close.widthAnchor.constraint(equalToConstant: 44), close.heightAnchor.constraint(equalToConstant: 44),
+            label.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -24),
+            label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            label.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.86),
+            label.heightAnchor.constraint(equalToConstant: 50),
+        ])
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        do { try scanner.startScanning() } catch { finish(nil, "camera") }
+    }
+
+    func dataScanner(_ dataScanner: DataScannerViewController, didAdd addedItems: [RecognizedItem], allItems: [RecognizedItem]) {
+        for item in addedItems {
+            if case .barcode(let b) = item, let v = b.payloadStringValue, !v.isEmpty {
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                finish(v, nil); return
+            }
+        }
+    }
+
+    func dataScanner(_ dataScanner: DataScannerViewController, becameUnavailableWithError error: DataScannerViewController.ScanningUnavailable) {
+        finish(nil, "camera")
+    }
+
+    private func finish(_ code: String?, _ err: String?) {
+        guard !done else { return }
+        done = true
+        scanner.stopScanning()
+        dismiss(animated: true) { [onResult] in onResult?(code, err) }
     }
 }
