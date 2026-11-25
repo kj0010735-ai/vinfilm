@@ -1089,7 +1089,7 @@ function renderEquipmentTab() {
       ${!GUEST_MODE ? `<button class="eq-add-btn" data-action="eq-open-add">+ 장비 등록</button>` : ''}
     </div>
     <div class="eq-toolbar">
-      <div class="eq-search"><input id="eqSearchInput" placeholder="이름, 배터리, 메모로 검색" value="${esc(S.eq.search)}" /></div>
+      <div class="eq-search eq-search-scan"><input id="eqSearchInput" placeholder="이름, 시리얼, 배터리, 메모로 검색" value="${esc(S.eq.search)}" /><button type="button" class="eq-scan-btn" data-action="eq-open-scan" title="라벨 바코드·QR 스캔"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 8v8M11 8v8M14 8v8M17 8v8"/></svg><span>스캔</span></button></div>
       <div class="eq-chip-row">
         <button class="eq-chip ${S.eq.categoryFilter==='all'?'active':''}" data-action="eq-set-category-filter" data-id="all">전체</button>
         ${eqCategories.map(c => `<button class="eq-chip ${S.eq.categoryFilter===c.id?'active':''}" data-action="eq-set-category-filter" data-id="${c.id}"><span class="eq-chip-dot" style="background:${c.color||'#8b90a0'}"></span>${esc(c.label)}</button>`).join('')}
@@ -1110,6 +1110,75 @@ function renderEquipmentTab() {
     ${eqDetailModalHtml()}
   `;
 }
+
+/* ===== 장비 라벨 스캔 — 라벨프린터 CODE128(또는 QR) 바코드 = 장비 시리얼(EQ-013)·소모품 번호(SD-01 등) =====
+   아이폰 Safari·WKWebView엔 BarcodeDetector가 없어서 ZXing(works/vendor, 처음 누를 때만 불러옴)으로 카메라 화면을 읽는다.
+   카메라 화면은 render()가 다시 그려도 끊기지 않게 body에 따로 붙인다. 읽기만 하므로 guest도 쓸 수 있음. */
+let eqScan = null;
+function loadZXing() {
+  if (window.ZXingBrowser) return Promise.resolve();
+  return new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'vendor/zxing-browser-0.1.5.min.js'; sc.onload = () => res(); sc.onerror = () => rej(new Error('스캔 도구를 불러오지 못했어요')); document.head.appendChild(sc); });
+}
+function eqCodeOf(raw) {
+  const t = String(raw || '').trim();
+  const m = /[?&#](?:eq|serial|code)=([^&#]+)/i.exec(t);   // QR에 주소를 넣은 경우 …?eq=EQ-013
+  return (m ? decodeURIComponent(m[1]) : t).trim().toUpperCase();
+}
+function eqFindByCode(code) {
+  const exact = eqItems.filter(it => String(it.serial || '').trim().toUpperCase() === code);
+  if (exact.length) return exact;
+  const re = new RegExp('(^|[^A-Z0-9])' + code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^A-Z0-9])', 'i');   // 소모품은 이름·메모에 번호를 적어둔 경우
+  return eqItems.filter(it => [it.name, it.notes, it.serial].some(v => v && re.test(String(v))));
+}
+async function openEqScan() {
+  if (eqScan) return;
+  const el = document.createElement('div');
+  el.className = 'eq-scan';
+  el.innerHTML = `<video playsinline muted autoplay></video><div class="eq-scan-frame"><i></i></div>
+    <div class="eq-scan-top"><b>장비 라벨 스캔</b><button type="button" class="eq-scan-close" aria-label="닫기">✕</button></div>
+    <div class="eq-scan-msg">카메라를 준비하는 중…</div>`;
+  document.body.appendChild(el);
+  eqScan = { el, controls: null, busy: false };
+  el.querySelector('.eq-scan-close').onclick = closeEqScan;
+  const msg = h => { const m = el.querySelector('.eq-scan-msg'); if (m) m.innerHTML = h; };
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('이 화면에서는 카메라를 쓸 수 없어요');
+    await loadZXing();
+    if (!eqScan || eqScan.el !== el) return;
+    const Z = window.ZXingBrowser, reader = new Z.BrowserMultiFormatReader();
+    try { reader.possibleFormats = [Z.BarcodeFormat.CODE_128, Z.BarcodeFormat.QR_CODE, Z.BarcodeFormat.CODE_39, Z.BarcodeFormat.EAN_13]; } catch (e) {}
+    const controls = await reader.decodeFromConstraints({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+      el.querySelector('video'), (result) => { if (result && eqScan && !eqScan.busy) onEqScanResult(result.getText()); });
+    if (!eqScan || eqScan.el !== el) { controls.stop(); return; }
+    eqScan.controls = controls;
+    msg('라벨의 바코드나 QR을 네모 안에 맞춰 주세요');
+  } catch (e) {
+    const denied = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
+    msg(`<b>카메라를 열 수 없어요</b><br>${denied ? '설정에서 카메라 접근을 허용해 주세요.' : esc(e && e.message || String(e))}`);
+  }
+}
+function onEqScanResult(raw) {
+  const code = eqCodeOf(raw);
+  if (!code) return;
+  try { navigator.vibrate && navigator.vibrate(60); } catch (e) {}
+  const found = eqFindByCode(code);
+  if (found.length === 1) { closeEqScan(); S.eq.detailId = found[0].id; render(); return; }
+  if (found.length > 1) { closeEqScan(); S.eq.search = code; S.eq.categoryFilter = 'all'; S.eq.statusFilter = 'all'; render(); return; }
+  eqScan.busy = true;
+  const m = eqScan.el.querySelector('.eq-scan-msg');
+  m.innerHTML = `<b>등록되지 않은 번호예요</b><div class="eq-scan-code">${esc(code)}</div>
+    <div class="eq-scan-actions"><button type="button" data-k="again">다시 스캔</button><button type="button" data-k="search">검색창에 넣기</button></div>`;
+  m.querySelector('[data-k=again]').onclick = () => { eqScan.busy = false; m.innerHTML = '라벨의 바코드나 QR을 네모 안에 맞춰 주세요'; };
+  m.querySelector('[data-k=search]').onclick = () => { closeEqScan(); S.eq.search = code; S.eq.categoryFilter = 'all'; S.eq.statusFilter = 'all'; render(); };
+}
+function closeEqScan() {
+  if (!eqScan) return;
+  const { el, controls } = eqScan; eqScan = null;
+  try { controls && controls.stop(); } catch (e) {}
+  const v = el.querySelector('video'); try { v && v.srcObject && v.srcObject.getTracks().forEach(t => t.stop()); } catch (e) {}
+  el.remove();
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) closeEqScan(); });
 
 /* 예전 "캘린더 가져오기/구독 연결"로 복사해 온 일정(source:'calendar')은 새 휴대폰 연결과 겹치므로 화면에서 숨긴다(데이터는 지우지 않음). */
 /* 같은 날 HISPLAN(및 켜둔 휴대폰 캘린더) 일정이 있으면 등록 창에 알려준다 — 두 곳 일정이 겹치지 않게 */
@@ -7044,6 +7113,7 @@ function bootApp() {
         break;
       }
       case 'eq-open-detail': S.eq.detailId = id; render(); break;
+      case 'eq-open-scan': openEqScan(); break;
       case 'eq-close-detail': S.eq.detailId = null; render(); break;
       case 'eq-close-detail-backdrop': if (!e.target.closest('[data-stop-close]')) { S.eq.detailId = null; render(); } break;
       case 'eq-detail-edit': S.eq.detailId = null; S.eq.editingId = id; S.eq.newItemParentId = null; currentEqPhotoError = ''; S.eq.modalOpen = true; render(); break;
@@ -8360,6 +8430,22 @@ document.addEventListener('DOMContentLoaded', () => {
   .eq-search input { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:9px 12px; color:var(--text); font-family:var(--font-body); font-size:13.5px; outline:none; }
   .eq-search input:focus { border-color: var(--accent); }
   .eq-search input::placeholder { color: var(--text-faint); opacity: 0.35; }
+  .eq-search-scan { display:flex; gap:8px; align-items:stretch; }
+  .eq-search-scan input { flex:1; min-width:0; }
+  .eq-scan-btn { flex:0 0 auto; display:inline-flex; align-items:center; gap:6px; padding:0 14px; border-radius:10px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-family:var(--font-body); font-size:13.5px; font-weight:600; cursor:pointer; }
+  .eq-scan-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .eq-scan { position:fixed; inset:0; z-index:10000; background:#000; color:#fff; font-family:var(--font-body); }
+  .eq-scan video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .eq-scan-frame { position:absolute; left:50%; top:45%; width:min(78vw,420px); height:min(42vw,220px); transform:translate(-50%,-50%); border-radius:16px; box-shadow:0 0 0 200vmax rgba(0,0,0,.45); border:2px solid rgba(255,255,255,.9); overflow:hidden; }
+  .eq-scan-frame i { position:absolute; left:6%; right:6%; top:50%; height:2px; background:#ff4d4d; box-shadow:0 0 10px #ff4d4d; animation:eqScanLine 1.6s ease-in-out infinite alternate; }
+  @keyframes eqScanLine { from { top:12%; } to { top:88%; } }
+  .eq-scan-top { position:absolute; left:0; right:0; top:0; padding:calc(env(safe-area-inset-top) + 14px) 18px 14px; display:flex; justify-content:space-between; align-items:center; font-size:16px; background:linear-gradient(rgba(0,0,0,.6),transparent); }
+  .eq-scan-close { width:40px; height:40px; border-radius:50%; border:0; background:rgba(255,255,255,.18); color:#fff; font-size:18px; cursor:pointer; }
+  .eq-scan-msg { position:absolute; left:16px; right:16px; bottom:calc(env(safe-area-inset-bottom) + 28px); text-align:center; font-size:15px; line-height:1.5; background:rgba(0,0,0,.6); border-radius:14px; padding:14px; }
+  .eq-scan-code { font-family:var(--font-mono); font-size:22px; letter-spacing:.06em; margin:6px 0 10px; }
+  .eq-scan-actions { display:flex; gap:10px; justify-content:center; }
+  .eq-scan-actions button { flex:1; max-width:170px; padding:11px; border-radius:10px; border:0; font-size:14.5px; font-weight:700; cursor:pointer; background:rgba(255,255,255,.18); color:#fff; }
+  .eq-scan-actions button[data-k=search] { background:#fff; color:#111; }
   .eq-field input::placeholder, .eq-field textarea::placeholder { color: var(--text-faint); opacity: 0.35; }
   .eq-chip-row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
   .eq-chip { font-family: var(--font-body); font-size:13px; padding:7px 12px; border-radius:999px; border:1px solid var(--border); background:var(--surface); color:var(--text-dim); cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:6px; }
