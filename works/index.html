@@ -466,7 +466,7 @@ const S = {
   chat: { to: 'sec', open: {}, toBottom: true, msg: '' },
   apl: { kind: 'staff', search: '', status: 'all', modal: null, editingId: null, recruitId: '', closed: {}, msg: '' },
   activeTab: COLLAB_MODE ? 'shared' : GUEST_MODE ? 'equipment' : STUDIO_HOME ? 'studio' : 'today',
-  eq: { search: '', categoryFilter: 'all', statusFilter: 'all', sortBy: 'recent', sortOpen: false, modalOpen: false, editingId: null, confirmDeleteId: null, categoryModalOpen: false, detailId: null },
+  eq: { search: '', categoryFilter: 'all', statusFilter: 'all', sortBy: 'recent', sortOpen: false, catSumOpen: false, modalOpen: false, editingId: null, confirmDeleteId: null, categoryModalOpen: false, detailId: null },
   sched: { view: 'month', cursor: todayStr(), prefillDate: null, search: '', categoryFilter: 'all', showPast: false, modalOpen: false, editingId: null, confirmDeleteId: null, importMsg: '', detailId: null, linkProjectId: null },
   today: { viewMode: 'today', month: todayStr().slice(0, 7) },
   proj: { detailId: null, modalOpen: false, editingId: null, confirmDeleteId: null, addStatus: 'todo', search: '', statusFilter: 'all', currentParentId: null, statusMenu: null, rowMenu: null, selectedIds: [], selectMode: false, moveIds: null },
@@ -1098,9 +1098,25 @@ function renderEquipmentTab() {
   const pBuy = pricedAll.filter(i => !i.priceKind), pMkt = pricedAll.filter(i => i.priceKind === 'market'), pEst = pricedAll.filter(i => i.priceKind === 'estimate');
   const won = n => '₩' + n.toLocaleString('ko-KR');
   const priceLine = !pricedAll.length ? '' : `<div class="eq-stat">${[pBuy.length ? `구입가 <b>${won(sumOf(pBuy))}</b> (${pBuy.length}개)` : '', pMkt.length ? `현재가(시세) <b>${won(sumOf(pMkt))}</b> (${pMkt.length}개)` : '', pEst.length ? `환산 추정 <b>${won(sumOf(pEst))}</b> (${pEst.length}개)` : '', `합계 <b>${won(sumOf(pricedAll))}</b>`].filter(Boolean).join(' · ')}</div>`;
+  let catSumHtml = '';
+  if (pricedAll.length) {
+    const rows = eqCategories.map(c => {
+      const its = pricedAll.filter(i => i.category === c.id);
+      const cnt = eqItems.filter(i => i.status === 'owned' && i.category === c.id).length;
+      return { c, its, cnt, sum: sumOf(its), buy: sumOf(its.filter(i => !i.priceKind)), mkt: sumOf(its.filter(i => i.priceKind === 'market')), est: sumOf(its.filter(i => i.priceKind === 'estimate')) };
+    }).filter(r => r.its.length).sort((a, b) => b.sum - a.sum);
+    const total = sumOf(pricedAll);
+    catSumHtml = `<div class="eq-catsum">
+      <button class="eq-chip" data-action="eq-toggle-catsum">${S.eq.catSumOpen ? '▾' : '▸'} 카테고리별 금액</button>
+      ${S.eq.catSumOpen ? `<div class="eq-catsum-box"><table class="eq-catsum-table"><thead><tr><th>카테고리</th><th>보유</th><th>금액 합계</th><th>비율</th><th>구입가</th><th>시세</th><th>환산 추정</th></tr></thead><tbody>
+        ${rows.map(r => `<tr><td><span class="eq-chip-dot" style="background:${r.c.color || '#8b90a0'}"></span> ${esc(r.c.label)}</td><td>${r.cnt}개</td><td><b>${won(r.sum)}</b></td><td>${total ? Math.round(r.sum / total * 100) : 0}%</td><td>${r.buy ? won(r.buy) : '—'}</td><td>${r.mkt ? won(r.mkt) : '—'}</td><td>${r.est ? won(r.est) : '—'}</td></tr>`).join('')}
+        <tr class="eq-catsum-total"><td>전체</td><td>${eqItems.filter(i => i.status === 'owned').length}개</td><td><b>${won(total)}</b></td><td>100%</td><td>${won(sumOf(pBuy))}</td><td>${won(sumOf(pMkt))}</td><td>${won(sumOf(pEst))}</td></tr>
+      </tbody></table><div class="eq-catsum-note">금액이 입력된 장비 ${pricedAll.length}개 기준 · 개당 금액 × 수량</div></div>` : ''}
+    </div>`;
+  }
   return `
     <div class="eq-header">
-      <div class="eq-title-block"><h1 class="eq-title">장비 목록</h1><div class="eq-stat">보유 <b>${ownedCount}</b> / 전체 <b>${totalCount}</b></div>${priceLine}</div>
+      <div class="eq-title-block"><h1 class="eq-title">장비 목록</h1><div class="eq-stat">보유 <b>${ownedCount}</b> / 전체 <b>${totalCount}</b></div>${priceLine}${catSumHtml}</div>
       ${!GUEST_MODE ? `<button class="eq-add-btn" data-action="eq-open-add">+ 장비 등록</button>` : ''}
     </div>
     <div class="eq-toolbar">
@@ -7191,6 +7207,7 @@ function bootApp() {
       case 'eq-delete': saveEqItems(eqItems.filter(it => it.id !== id)); S.eq.confirmDeleteId = null; refreshEqGrid(); break;
       case 'eq-set-category-filter': S.eq.categoryFilter = id; render(); break;
       case 'eq-set-status-filter': S.eq.statusFilter = id; render(); break;
+      case 'eq-toggle-catsum': S.eq.catSumOpen = !S.eq.catSumOpen; render(); break;
       case 'eq-toggle-sort-open': S.eq.sortOpen = !S.eq.sortOpen; render(); break;
       case 'eq-set-sort': S.eq.sortBy = id; S.eq.sortOpen = false; render(); break;
       case 'eq-open-category-modal': S.eq.categoryModalOpen = true; render(); break;
@@ -8594,6 +8611,14 @@ document.addEventListener('DOMContentLoaded', () => {
   .eq-card-compact { padding:8px 10px; cursor:pointer; }
   .eq-card-compact:hover { background:var(--surface-hover); }
   .eq-card-main-compact { display:flex; gap:10px; align-items:center; }
+  .eq-catsum { margin-top:8px; }
+  .eq-catsum-box { margin-top:8px; overflow-x:auto; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:10px 12px; }
+  .eq-catsum-table { border-collapse:collapse; width:100%; font-size:13.5px; white-space:nowrap; }
+  .eq-catsum-table th { text-align:left; color:var(--text-dim); font-weight:600; padding:6px 10px; border-bottom:1px solid var(--border); }
+  .eq-catsum-table td { padding:6px 10px; border-bottom:1px solid var(--border); }
+  .eq-catsum-table td:nth-child(n+2), .eq-catsum-table th:nth-child(n+2) { text-align:right; }
+  .eq-catsum-total td { border-bottom:none; font-weight:700; }
+  .eq-catsum-note { margin-top:6px; font-size:12.5px; color:var(--text-faint); }
   .eq-photo-box-xs { width:42px; height:42px; flex-shrink:0; border-radius:6px; overflow:hidden; background:var(--bg); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; }
   .eq-photo-box-xs .eq-photo-img { object-fit:contain; }
   .eq-card-body-compact { flex:1; min-width:0; }
