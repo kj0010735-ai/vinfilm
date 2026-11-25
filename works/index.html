@@ -991,7 +991,7 @@ function eqModalHtml() {
   const editing = S.eq.editingId ? eqItems.find(it => it.id === S.eq.editingId) : null;
   const f = editing
     ? { name: editing.name, category: editing.category, status: editing.status, quantity: editing.quantity || 1, weight: editing.weight || '', battery: editing.battery || '', cables: editing.cables || '', bagId: editing.bagId || '', parentId: editing.parentId || '', companionIds: editing.companionIds || [], notes: editing.notes || '' }
-    : { name: '', category: eqCategories[0] ? eqCategories[0].id : '', status: 'owned', quantity: 1, weight: '', battery: '', cables: '', bagId: '', parentId: S.eq.newItemParentId || '', companionIds: [], notes: '' };
+    : { name: '', labels: S.eq.prefillLabels || '', category: eqCategories[0] ? eqCategories[0].id : '', status: 'owned', quantity: 1, weight: '', battery: '', cables: '', bagId: '', parentId: S.eq.newItemParentId || '', companionIds: [], notes: '' };
   currentEqPhoto = editing ? (editing.photo || '') : currentEqPhoto;
   const otherItems = eqItems.filter(it => it.id !== S.eq.editingId);
   const parentOptions = eqItems.filter(it => it.id !== S.eq.editingId && it.parentId !== S.eq.editingId);
@@ -1001,7 +1001,9 @@ function eqModalHtml() {
         <div class="eq-modal-head"><h2>${editing ? '장비 정보 수정' : '새 장비 등록'}</h2><button class="eq-modal-close" data-action="eq-close-modal">✕</button></div>
         <form data-form-role="eq-form">
           <div class="eq-field"><label>장비 이름</label><input name="name" id="eqNameInput" autofocus value="${esc(f.name)}" placeholder="예: 소니 FX3" required /></div>
-          <div class="eq-field"><label>라벨 번호 <span style="opacity:.55;font-weight:400">(선택 · 바코드 라벨에 넣은 번호)</span></label><input name="labels" value="${esc(f.labels || '')}" placeholder="예: SD-01 · 여러 개는 쉼표로 SD-01, SD-02" autocapitalize="characters" autocomplete="off" /><div style="font-size:12px;opacity:.55;margin-top:4px">비워 두면 시리얼(${esc(editing ? editing.serial || '' : nextSerial(eqItems))})로 스캔돼요</div></div>
+          <div class="eq-field"><label>라벨 번호 <span style="opacity:.55;font-weight:400">(선택 · 바코드 라벨에 넣은 번호)</span></label><input name="labels" id="eqLabelsInput" value="${esc(f.labels || '')}" placeholder="종류코드만 적어도 돼요 — SD → SD-03 자동" autocapitalize="characters" autocomplete="off" />
+            <div class="eq-chip-row" style="margin-top:6px">${eqLabelPrefixes().map(px => `<button type="button" class="eq-chip" data-action="eq-label-next" data-id="${px}">${px}-${String(eqNextLabelNum(px)).padStart(2, '0')}</button>`).join('')}</div>
+            <div style="font-size:12px;opacity:.55;margin-top:4px">버튼을 누르거나 종류코드(SD, CF…)만 적으면 다음 번호가 자동으로 붙어요 · 비워 두면 시리얼(${esc(editing ? editing.serial || '' : nextSerial(eqItems))})로 스캔돼요</div></div>
           <div class="eq-field">
             <label>사진</label>
             <div id="eqPhotoZone">${eqPhotoZoneHtml()}</div>
@@ -1110,6 +1112,7 @@ function renderEquipmentTab() {
     ${eqModalHtml()}
     ${eqCategoryModalHtml()}
     ${eqDetailModalHtml()}
+    ${eqScanNewHtml()}
   `;
 }
 
@@ -1125,6 +1128,22 @@ function eqCodeOf(raw) {
   const t = String(raw || '').trim();
   const m = /[?&#](?:eq|serial|code)=([^&#]+)/i.exec(t);   // QR에 주소를 넣은 경우 …?eq=EQ-013
   return (m ? decodeURIComponent(m[1]) : t).trim().toUpperCase();
+}
+/* 라벨 번호 자동: '종류코드-두 자리'(SD-01). 지금까지 쓴 번호 중 가장 큰 것 + 1 */
+const EQ_LABEL_DEFAULT_PREFIXES = ['SD', 'CF', 'SSD'];
+function eqAllLabels(exceptId) { return eqItems.filter(it => it.id !== exceptId).flatMap(it => eqLabelList(it.labels)); }
+function eqLabelPrefixes() {
+  const used = eqAllLabels().map(l => (/^([A-Z]+)-\d+$/.exec(l) || [])[1]).filter(Boolean);
+  return [...new Set([...EQ_LABEL_DEFAULT_PREFIXES, ...used])];
+}
+function eqNextLabelNum(px, extra = []) {
+  let max = 0; [...eqAllLabels(), ...extra].forEach(l => { const m = new RegExp('^' + px + '-(\\d+)$').exec(l); if (m) max = Math.max(max, parseInt(m[1], 10)); });
+  return max + 1;
+}
+function eqResolveLabels(raw, editingId) {   // 'SD' 나 'SD-' 처럼 종류코드만 적은 것 → 다음 빈 번호
+  const out = [];
+  eqLabelList(raw).forEach(t => { const m = /^([A-Z]+)-?$/.exec(t); out.push(m ? `${m[1]}-${String(eqNextLabelNum(m[1], out)).padStart(2, '0')}` : t); });
+  return out;
 }
 function eqLabelList(v) { return String(v || '').split(/[,\s/·]+/).map(x => x.trim().toUpperCase()).filter(Boolean).filter((x, i, a) => a.indexOf(x) === i); }
 function eqFindByCode(code) {
@@ -1207,6 +1226,7 @@ function onEqScanResult(raw) {
   const found = eqFindByCode(code);
   if (found.length === 1) { closeEqScan(); S.eq.detailId = found[0].id; render(); return; }
   if (found.length > 1) { closeEqScan(); S.eq.search = code; S.eq.categoryFilter = 'all'; S.eq.statusFilter = 'all'; render(); return; }
+  if (!GUEST_MODE) { closeEqScan(); eqShowNewCode(code); return; }
   eqScan.busy = true;
   const m = eqScan.el.querySelector('.eq-scan-msg');
   m.innerHTML = `<b>등록되지 않은 번호예요</b><div class="eq-scan-code">${esc(code)}</div>
@@ -1221,8 +1241,28 @@ function onEqNativeScan(raw) {
   if (S.activeTab !== 'equipment') S.activeTab = 'equipment';
   if (found.length === 1) { S.eq.detailId = found[0].id; render(); return; }
   if (found.length > 1) { S.eq.search = code; S.eq.categoryFilter = 'all'; S.eq.statusFilter = 'all'; render(); return; }
+  if (!GUEST_MODE) { eqShowNewCode(code); return; }
   if (confirm(`등록되지 않은 번호예요\n${code}\n\n다시 스캔할까요? (취소하면 검색창에 넣어요)`)) { openEqScan(); return; }
   S.eq.search = code; S.eq.categoryFilter = 'all'; S.eq.statusFilter = 'all'; render();
+}
+/* 등록 안 된 라벨을 스캔하면: 새 장비로 등록(라벨 번호 채워서) / 기존 장비에 이 라벨 연결 / 다시 스캔 */
+function eqShowNewCode(code) { S.activeTab = 'equipment'; S.eq.detailId = null; S.eq.scanNew = code; render(); }
+function eqScanNewHtml() {
+  const code = S.eq.scanNew;
+  if (!code || GUEST_MODE) return '';
+  const opts = [...eqItems].sort((a, b) => String(a.name).localeCompare(String(b.name), 'ko'))
+    .map(it => `<option value="${it.id}">${esc(it.name)}${it.serial ? ' · ' + esc(it.serial) : ''}${it.labels ? ' · ' + esc(it.labels) : ''}</option>`).join('');
+  return `
+    <div class="eq-modal-overlay" data-action="eq-scan-new-backdrop">
+      <div class="eq-modal" data-stop-close style="max-width:440px">
+        <div class="eq-modal-head"><h2>새 라벨이에요</h2><button class="eq-modal-close" data-action="eq-scan-new-close">✕</button></div>
+        <div style="text-align:center;margin:4px 0 16px"><div style="font-size:13px;opacity:.6">아직 등록되지 않은 번호</div><div style="font-family:var(--font-mono);font-size:26px;letter-spacing:.06em;margin-top:4px">${esc(code)}</div></div>
+        <button type="button" class="eq-modal-submit" data-action="eq-scan-new-add" style="width:100%">＋ 이 번호로 새 장비 등록</button>
+        ${eqItems.length ? `<div class="eq-field" style="margin-top:16px"><label>또는 기존 장비에 이 라벨 붙이기</label>
+          <div style="display:flex;gap:8px"><select id="eqScanLinkSel" style="flex:1;min-width:0">${opts}</select><button type="button" class="eq-scan-btn" data-action="eq-scan-new-link">연결</button></div></div>` : ''}
+        <button type="button" class="eq-scan-btn" data-action="eq-scan-new-again" style="width:100%;justify-content:center;margin-top:14px;padding:11px">다시 스캔</button>
+      </div>
+    </div>`;
 }
 function closeEqScan() {
   if (!eqScan) return;
@@ -7116,7 +7156,24 @@ function bootApp() {
       /* equipment */
       case 'eq-open-add': S.eq.editingId = null; S.eq.newItemParentId = null; S.eq.modalOpen = true; currentEqPhoto = ''; currentEqPhotoError = ''; render(); break;
       case 'eq-open-edit': S.eq.editingId = id; S.eq.newItemParentId = null; S.eq.modalOpen = true; currentEqPhotoError = ''; render(); break;
-      case 'eq-close-modal': S.eq.modalOpen = false; S.eq.editingId = null; S.eq.newItemParentId = null; currentEqPhoto = ''; render(); break;
+      case 'eq-close-modal': S.eq.modalOpen = false; S.eq.editingId = null; S.eq.newItemParentId = null; S.eq.prefillLabels = ''; currentEqPhoto = ''; render(); break;
+      case 'eq-scan-new-add': S.eq.prefillLabels = S.eq.scanNew; S.eq.scanNew = null; S.eq.editingId = null; S.eq.newItemParentId = null; S.eq.modalOpen = true; currentEqPhoto = ''; currentEqPhotoError = ''; render(); break;
+      case 'eq-scan-new-link': {
+        const code = S.eq.scanNew, tid = document.getElementById('eqScanLinkSel')?.value;
+        const t = tid && eqById(tid); if (!code || !t || GUEST_MODE) break;
+        saveEqItems(eqItems.map(it => it.id === t.id ? { ...it, labels: eqLabelList((it.labels || '') + ',' + code).join(', '), updatedBy: currentEditorName(), updatedAt: Date.now() } : it));
+        S.eq.scanNew = null; S.eq.detailId = t.id; render(); break;
+      }
+      case 'eq-label-next': {
+        const inp = document.getElementById('eqLabelsInput'); if (!inp) break;
+        const cur = eqLabelList(inp.value), label = `${id}-${String(eqNextLabelNum(id, cur)).padStart(2, '0')}`;
+        inp.value = [...cur, label].join(', ');
+        el.textContent = `${id}-${String(eqNextLabelNum(id, [...cur, label])).padStart(2, '0')}`;
+        break;
+      }
+      case 'eq-scan-new-again': S.eq.scanNew = null; render(); openEqScan(); break;
+      case 'eq-scan-new-close': S.eq.scanNew = null; render(); break;
+      case 'eq-scan-new-backdrop': if (!e.target.closest('[data-stop-close]')) { S.eq.scanNew = null; render(); } break;
       case 'eq-close-modal-backdrop': if (!e.target.closest('[data-stop-close]')) { S.eq.modalOpen = false; S.eq.editingId = null; S.eq.newItemParentId = null; currentEqPhoto = ''; render(); } break;
       case 'eq-confirm-delete': S.eq.confirmDeleteId = id; refreshEqGrid(); break;
       case 'eq-cancel-delete': S.eq.confirmDeleteId = null; refreshEqGrid(); break;
@@ -7879,12 +7936,12 @@ function bootApp() {
         name, category: fd.get('category'), status: fd.get('status') || 'owned', quantity: parseInt(fd.get('quantity'), 10) || 1,
         weight: fd.get('weight') || '', battery: fd.get('battery') || '', cables: fd.get('cables') || '', bagId: fd.get('bagId') || '',
         parentId: fd.get('parentId') || '', companionIds: fd.getAll('companions'), notes: fd.get('notes') || '', photo: currentEqPhoto,
-        labels: eqLabelList((fd.get('labels') || '').toString()).join(', '),
+        labels: eqResolveLabels((fd.get('labels') || '').toString(), S.eq.editingId).join(', '),
         updatedBy: currentEditorName(), updatedAt: Date.now(),
       };
       if (S.eq.editingId) saveEqItems(eqItems.map(it => it.id === S.eq.editingId ? { ...it, ...payload } : it));
       else saveEqItems([{ id: uid(), serial: nextSerial(eqItems), createdAt: Date.now(), ...payload }, ...eqItems]);
-      S.eq.modalOpen = false; S.eq.editingId = null; S.eq.newItemParentId = null; currentEqPhoto = '';
+      S.eq.modalOpen = false; S.eq.editingId = null; S.eq.newItemParentId = null; S.eq.prefillLabels = ''; currentEqPhoto = '';
       render();
     } else if (form.matches('[data-form-role="sched-form"]')) {
       const fd = new FormData(form);
