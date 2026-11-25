@@ -924,7 +924,7 @@ function eqDetailModalHtml() {
         <div class="eq-detail-row"><span>상태</span><b><span class="eq-status-dot" style="background:var(${st.v})"></span> ${st.label}</b></div>
         ${item.quantity > 1 ? `<div class="eq-detail-row"><span>수량</span><b>${item.quantity}개</b></div>` : ''}
         ${item.weight ? `<div class="eq-detail-row"><span>무게</span><b>${esc(item.weight)}kg</b></div>` : ''}
-        ${(!GUEST_MODE && Number(item.price) > 0) ? `<div class="eq-detail-row"><span>${item.priceKind === 'market' ? '현재가(시세)' : item.priceKind === 'estimate' ? '환산 추정가' : '구입가'}</span><b>₩${Number(item.price).toLocaleString('ko-KR')}${item.quantity > 1 ? ` × ${item.quantity} = ₩${(Number(item.price) * item.quantity).toLocaleString('ko-KR')}` : ''}${item.purchaseDate ? ` <small style="color:var(--text-faint)">(${esc(item.purchaseDate)})</small>` : ''}</b></div>` : ''}
+        ${(!GUEST_MODE && Number(item.price) > 0) ? `<div class="eq-detail-row"><span>${item.priceKind === 'market' ? '현재가(시세)' : item.priceKind === 'estimate' ? '환산 추정가' : '구입가'}</span><b>₩${Number(item.price).toLocaleString('ko-KR')}${item.quantity > 1 ? ` × ${item.quantity} = ₩${(Number(item.price) * item.quantity).toLocaleString('ko-KR')}` : ''}${item.purchaseDate ? ` <small style="color:var(--text-faint)">(${esc(item.purchaseDate)})</small>` : ''}</b></div>${item.priceNote ? `<div class="eq-price-note">${linkify(item.priceNote)}</div>` : ''}` : ''}
         ${item.battery ? `<div class="eq-detail-row"><span>배터리</span><b>${esc(item.battery)}</b></div>` : ''}
         ${item.cables ? `<div class="eq-detail-row"><span>케이블</span><b>${esc(item.cables)}</b></div>` : ''}
         ${bag ? `<div class="eq-detail-row"><span>보관 가방</span><b>${esc(bag.name)}</b></div>` : ''}
@@ -991,7 +991,7 @@ function eqModalHtml() {
   if (!S.eq.modalOpen) return '';
   const editing = S.eq.editingId ? eqItems.find(it => it.id === S.eq.editingId) : null;
   const f = editing
-    ? { name: editing.name, price: editing.price, priceKind: editing.priceKind || '', purchaseDate: editing.purchaseDate || '', category: editing.category, status: editing.status, quantity: editing.quantity || 1, weight: editing.weight || '', battery: editing.battery || '', cables: editing.cables || '', bagId: editing.bagId || '', parentId: editing.parentId || '', companionIds: editing.companionIds || [], notes: editing.notes || '' }
+    ? { name: editing.name, price: editing.price, priceKind: editing.priceKind || '', priceNote: editing.priceNote || '', purchaseDate: editing.purchaseDate || '', category: editing.category, status: editing.status, quantity: editing.quantity || 1, weight: editing.weight || '', battery: editing.battery || '', cables: editing.cables || '', bagId: editing.bagId || '', parentId: editing.parentId || '', companionIds: editing.companionIds || [], notes: editing.notes || '' }
     : { name: '', labels: S.eq.prefillLabels || '', category: eqCategories[0] ? eqCategories[0].id : '', status: 'owned', quantity: 1, weight: '', battery: '', cables: '', bagId: '', parentId: S.eq.newItemParentId || '', companionIds: [], notes: '' };
   currentEqPhoto = editing ? (editing.photo || '') : currentEqPhoto;
   const otherItems = eqItems.filter(it => it.id !== S.eq.editingId);
@@ -1039,7 +1039,10 @@ function eqModalHtml() {
             <div class="eq-field"><label>금액 (개당, 원)</label><input type="number" step="1" min="0" name="price" value="${esc(f.price === undefined || f.price === null ? '' : f.price)}" placeholder="예: 43140" /></div>
             <div class="eq-field"><label>금액 종류</label><select name="priceKind"><option value="" ${!f.priceKind ? 'selected' : ''}>구입가</option><option value="market" ${f.priceKind === 'market' ? 'selected' : ''}>현재가(시세)</option><option value="estimate" ${f.priceKind === 'estimate' ? 'selected' : ''}>환산 추정가</option></select></div>
           </div>
-          <div class="eq-field"><label>구입일</label><input type="date" name="purchaseDate" value="${esc(f.purchaseDate || '')}" /></div>` : ''}
+          <div class="eq-field-row">
+            <div class="eq-field"><label>구입일</label><input type="date" name="purchaseDate" value="${esc(f.purchaseDate || '')}" /></div>
+            <div class="eq-field"><label>금액 근거 (선택)</label><input name="priceNote" value="${esc(f.priceNote || '')}" placeholder="예: 쿠팡 결제 내역" /></div>
+          </div>` : ''}
           <div class="eq-field">
             <label>기본 보관 가방</label>
             <select name="bagId">
@@ -1097,7 +1100,7 @@ function renderEquipmentTab() {
   const sumOf = list => list.reduce((a, i) => a + Number(i.price) * (i.quantity || 1), 0);
   const pBuy = pricedAll.filter(i => !i.priceKind), pMkt = pricedAll.filter(i => i.priceKind === 'market'), pEst = pricedAll.filter(i => i.priceKind === 'estimate');
   const won = n => '₩' + n.toLocaleString('ko-KR');
-  const priceLine = !pricedAll.length ? '' : `<div class="eq-stat">${[pBuy.length ? `구입가 <b>${won(sumOf(pBuy))}</b> (${pBuy.length}개)` : '', pMkt.length ? `현재가(시세) <b>${won(sumOf(pMkt))}</b> (${pMkt.length}개)` : '', pEst.length ? `환산 추정 <b>${won(sumOf(pEst))}</b> (${pEst.length}개)` : '', `합계 <b>${won(sumOf(pricedAll))}</b>`].filter(Boolean).join(' · ')}</div>`;
+  const priceLine = !pricedAll.length ? '' : `<div class="eq-price-line"><b>총 ${won(sumOf(pricedAll))}</b><span>${[pBuy.length ? `구입가 ${won(sumOf(pBuy))}` : '', pMkt.length ? `시세 ${won(sumOf(pMkt))}` : '', pEst.length ? `환산 추정 ${won(sumOf(pEst))}` : ''].filter(Boolean).join(' · ')}</span></div>`;
   let catSumHtml = '';
   if (pricedAll.length) {
     const rows = eqCategories.map(c => {
@@ -7963,7 +7966,7 @@ function bootApp() {
       const payload = {
         name, category: fd.get('category'), status: fd.get('status') || 'owned', quantity: parseInt(fd.get('quantity'), 10) || 1,
         weight: fd.get('weight') || '', battery: fd.get('battery') || '', cables: fd.get('cables') || '', bagId: fd.get('bagId') || '',
-        parentId: fd.get('parentId') || '', companionIds: fd.getAll('companions'), notes: fd.get('notes') || '', photo: currentEqPhoto, ...(GUEST_MODE ? {} : { price: fd.get('price') ? Math.max(0, Number(fd.get('price')) || 0) : '', priceKind: fd.get('priceKind') || '', purchaseDate: fd.get('purchaseDate') || '' }),
+        parentId: fd.get('parentId') || '', companionIds: fd.getAll('companions'), notes: fd.get('notes') || '', photo: currentEqPhoto, ...(GUEST_MODE ? {} : { price: fd.get('price') ? Math.max(0, Number(fd.get('price')) || 0) : '', priceKind: fd.get('priceKind') || '', priceNote: (fd.get('priceNote') || '').toString().trim(), purchaseDate: fd.get('purchaseDate') || '' }),
         labels: eqResolveLabels((fd.get('labels') || '').toString(), S.eq.editingId).join(', '),
         updatedBy: currentEditorName(), updatedAt: Date.now(),
       };
@@ -8611,6 +8614,10 @@ document.addEventListener('DOMContentLoaded', () => {
   .eq-card-compact { padding:8px 10px; cursor:pointer; }
   .eq-card-compact:hover { background:var(--surface-hover); }
   .eq-card-main-compact { display:flex; gap:10px; align-items:center; }
+  .eq-price-line { margin-top:4px; font-size:14px; color:var(--text-dim); }
+  .eq-price-line b { color:var(--text); font-size:16px; margin-right:8px; }
+  .eq-price-line span { font-size:12.5px; color:var(--text-faint); }
+  .eq-price-note { font-size:12.5px; color:var(--text-faint); padding:0 0 6px; margin-top:-2px; text-align:right; }
   .eq-catsum { margin-top:8px; }
   .eq-catsum-box { margin-top:8px; overflow-x:auto; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:10px 12px; }
   .eq-catsum-table { border-collapse:collapse; width:100%; font-size:13.5px; white-space:nowrap; }
