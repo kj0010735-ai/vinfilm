@@ -1036,7 +1036,7 @@ function eqModalHtml() {
             <div class="eq-field"><label>사용 배터리</label><input name="battery" value="${esc(f.battery)}" placeholder="예: NP-FZ100" /></div>
           </div>
           <div class="eq-field"><label>필요한 케이블</label><input name="cables" value="${esc(f.cables)}" placeholder="예: USB-C to C, HDMI 풀사이즈" /></div>
-          ${!GUEST_MODE ? `<div class="eq-field"><label>소유</label><select name="owner"><option value="" ${f.owner !== 'hisplan' ? 'selected' : ''}>VINFILM</option><option value="hisplan" ${f.owner === 'hisplan' ? 'selected' : ''}>히스플랜</option></select></div>` : ''}
+          ${!GUEST_MODE ? `<div class="eq-field"><label>소유</label><select name="owner"><option value="" ${f.owner !== 'hisplan' ? 'selected' : ''}>VINFILM</option><option value="hisplan" ${f.owner === 'hisplan' ? 'selected' : ''}>HISPLAN</option></select></div>` : ''}
           ${!GUEST_MODE ? `<div class="eq-field-row">
             <div class="eq-field"><label>금액 (개당, 원)</label><input type="number" step="1" min="0" name="price" value="${esc(f.price === undefined || f.price === null ? '' : f.price)}" placeholder="예: 43140" /></div>
             <div class="eq-field"><label>금액 종류</label><select name="priceKind"><option value="" ${!f.priceKind ? 'selected' : ''}>구입가</option><option value="market" ${f.priceKind === 'market' ? 'selected' : ''}>현재가(시세)</option><option value="estimate" ${f.priceKind === 'estimate' ? 'selected' : ''}>환산 추정가</option></select></div>
