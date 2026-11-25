@@ -1132,6 +1132,17 @@ function eqFindByCode(code) {
 }
 async function openEqScan() {
   if (eqScan) return;
+  // WORKS 아이폰 앱이면 애플 스캐너(실제 바코드 스캐너처럼 빠름)로 — 결과는 앱이 window.__worksScanResult로 돌려준다
+  const wk = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.workApp;
+  if (window.__workAppScan && wk) {
+    window.__worksScanResult = (raw, err) => {
+      if (err === 'unsupported') { window.__workAppScan = 0; openEqScan(); return; }   // 스캐너 못 쓰는 기기 → 웹 스캔
+      if (err === 'camera') { alert('카메라를 열 수 없어요. 설정 → WORKS에서 카메라를 허용해 주세요.'); return; }
+      if (raw) onEqNativeScan(raw);
+    };
+    wk.postMessage({ type: 'scan' });
+    return;
+  }
   const el = document.createElement('div');
   el.className = 'eq-scan';
   el.innerHTML = `<video playsinline muted autoplay></video><div class="eq-scan-frame"><i></i></div>
@@ -1196,6 +1207,16 @@ function onEqScanResult(raw) {
     <div class="eq-scan-actions"><button type="button" data-k="again">다시 스캔</button><button type="button" data-k="search">검색창에 넣기</button></div>`;
   m.querySelector('[data-k=again]').onclick = () => { eqScan.busy = false; m.innerHTML = '바코드를 네모 안에 <b>가로로</b> 꽉 차게 맞춰 주세요'; };
   m.querySelector('[data-k=search]').onclick = () => { closeEqScan(); S.eq.search = code; S.eq.categoryFilter = 'all'; S.eq.statusFilter = 'all'; render(); };
+}
+function onEqNativeScan(raw) {
+  const code = eqCodeOf(raw);
+  if (!code) return;
+  const found = eqFindByCode(code);
+  if (S.activeTab !== 'equipment') S.activeTab = 'equipment';
+  if (found.length === 1) { S.eq.detailId = found[0].id; render(); return; }
+  if (found.length > 1) { S.eq.search = code; S.eq.categoryFilter = 'all'; S.eq.statusFilter = 'all'; render(); return; }
+  if (confirm(`등록되지 않은 번호예요\n${code}\n\n다시 스캔할까요? (취소하면 검색창에 넣어요)`)) { openEqScan(); return; }
+  S.eq.search = code; S.eq.categoryFilter = 'all'; S.eq.statusFilter = 'all'; render();
 }
 function closeEqScan() {
   if (!eqScan) return;
