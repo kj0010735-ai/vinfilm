@@ -918,6 +918,7 @@ function eqDetailModalHtml() {
       <div class="eq-modal" data-stop-close>
         <div class="eq-modal-head"><h2>${esc(item.name)}</h2><button class="eq-modal-close" data-action="eq-close-detail">✕</button></div>
         <div class="eq-detail-photo" ${item.photo ? `data-action="eq-view-photo" data-id="${item.id}"` : ''}>${item.photo ? `<img src="${item.photo}" class="eq-photo-img" alt="${esc(item.name)}"/>` : `<div class="eq-photo-placeholder">사진 없음</div>`}</div>
+        ${eqHddProjectsHtml(item)}
         <div class="eq-detail-row"><span>시리얼</span><b>${esc(item.serial)}</b></div>
         ${item.labels ? `<div class="eq-detail-row"><span>라벨 번호</span><b>${esc(item.labels)}</b></div>` : ''}
         ${item.owner === 'hisplan' ? `<div class="eq-detail-row"><span>소유</span><b><span class="eq-owner-badge">HISPLAN</span></b></div>` : ''}
@@ -2388,12 +2389,57 @@ function projModalHtml() {
           <div class="eq-field"><label>📎 첨부파일 <span class="eq-hint">(PDF·이미지 등 — 상세 화면에서 눌러 바로 열어요)</span></label>
             ${(editing && editing.attachments || []).map(a => `<div class="att-row"><a class="att-link" href="${esc(a.url)}" target="_blank" rel="noopener">${attIcon(a)} ${esc(a.name)}</a><label class="att-rm"><input type="checkbox" name="attRemove" value="${esc(a.id)}" /> 빼기</label></div>`).join('')}
             <input type="file" name="attFiles" multiple accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.hwp,.txt,.zip" /></div>
+          ${projHddFieldsHtml(editing)}
           <div class="eq-field"><label>메모</label>${richMemoHtml('notes', f.notes, '진행 상황, 참고사항 등')}</div>
           <button type="submit" class="eq-modal-submit">${editing ? '수정 완료' : '등록하기'}</button>
         </form>
       </div>
     </div>`;
 }
+/* ---- HDD 보관 영상 (2026-11-26) ----
+   프로젝트에 hddIds(원본 보관 HDD = 장비 id 여러 개)와 thumb(대표 썸네일, 120px JPEG dataURL ≈ 3~6KB — 문서 1MB 한도 걱정 없음)를 둔다.
+   장비(HDD) 상세 화면 맨 위에 그 HDD에 보관된 프로젝트를 한 줄 카드로 보여 준다 → 라벨 스캔하면 바로 보임.
+   프로젝트는 대표님만 읽을 수 있어서 guest 화면에는 목록이 안 나온다. */
+let projThumbDraft = null;   // null = 안 건드림(기존 값 유지), '' = 지움, 'data:…' = 새 사진
+const isHddItem = it => /HDD|하드|외장|SSD|백업|저장/i.test(`${it.name || ''} ${(eqCategories.find(c => c.id === it.category) || {}).label || ''}`);
+function projHddFieldsHtml(editing) {
+  const sel = new Set(editing && editing.hddIds || []);
+  const hdds = eqItems.filter(it => isHddItem(it) || sel.has(it.id)).sort((a, b) => String(a.name).localeCompare(String(b.name), 'ko'));
+  const thumb = projThumbDraft === null ? (editing && editing.thumb || '') : projThumbDraft;
+  return `
+          <div class="eq-field"><label>💾 원본 보관 HDD <span class="eq-hint">(여러 개 선택 가능)</span></label>
+            ${hdds.length ? `<div style="display:flex; flex-wrap:wrap; gap:6px;">${hdds.map(h => `<label class="eq-status-option"><input type="checkbox" name="hddIds" value="${h.id}" ${sel.has(h.id) ? 'checked' : ''} /> ${esc(h.name)} <span style="opacity:.5;font-size:11px">${esc(h.serial || '')}</span></label>`).join('')}</div>`
+              : `<div class="eq-hint">장비목록에 이름이나 카테고리에 'HDD'가 들어간 장비가 없어요</div>`}
+          </div>
+          <div class="eq-field"><label>🖼️ 대표 썸네일 <span class="eq-hint">(작게 줄여 저장돼요)</span></label>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div id="projThumbBox" class="proj-thumb-box">${thumb ? `<img src="${thumb}" alt="" />` : ''}</div>
+              <button type="button" class="eq-chip" data-action="proj-thumb-pick">${thumb ? '바꾸기' : '사진 고르기'}</button>
+              <button type="button" class="eq-chip" data-action="proj-thumb-clear" id="projThumbClear" ${thumb ? '' : 'style="display:none"'}>지우기</button>
+              <input id="projThumbInput" type="file" accept="image/*" style="display:none" />
+            </div>
+          </div>`;
+}
+function projThumbPreview() {
+  const box = document.getElementById('projThumbBox'), clr = document.getElementById('projThumbClear');
+  if (box) box.innerHTML = projThumbDraft ? `<img src="${projThumbDraft}" alt="" />` : '';
+  if (clr) clr.style.display = projThumbDraft ? '' : 'none';
+}
+function projShootDate(p) {
+  const s = p.scheduleId && schedItems.find(x => x.id === p.scheduleId);
+  return (s && s.date) || p.dueDate || '';
+}
+function eqHddProjectsHtml(item) {
+  if (GUEST_MODE || !projItems.length) return '';
+  const list = projItems.filter(p => (p.hddIds || []).includes(item.id)).sort((a, b) => projShootDate(b).localeCompare(projShootDate(a)));
+  if (!list.length) return isHddItem(item) ? `<div class="hdd-proj-wrap"><div class="hdd-proj-head">💾 보관 영상 <b>0</b></div><div class="eq-hint" style="padding:4px 2px 8px">프로젝트 수정 화면의 '원본 보관 HDD'에서 이 장비를 고르면 여기에 보여요</div></div>` : '';
+  return `<div class="hdd-proj-wrap"><div class="hdd-proj-head">💾 보관 영상 <b>${list.length}</b>개 프로젝트</div>
+    ${list.map(p => `<div class="hdd-proj-row" data-action="eq-hdd-open-proj" data-id="${p.id}">
+      <div class="hdd-proj-thumb">${p.thumb ? `<img src="${p.thumb}" alt="" />` : ''}</div>
+      <div class="hdd-proj-text"><div class="hdd-proj-title">${esc(p.title)}</div><div class="hdd-proj-meta">${esc(p.serial || '')}${projShootDate(p) ? ' · ' + esc(projShootDate(p)) : ''}</div></div>
+    </div>`).join('')}</div>`;
+}
+
 /* ---- 프로젝트 첨부파일 ----
    Firebase Storage projects/{프로젝트id}/{시각}-{파일명}(storage.rules owner 전용)에 올리고 projItems[].attachments
    = [{id,name,url,path,size,type,at}]에 적는다. 열 때는 다운로드 URL(토큰 포함)을 새 탭으로 연다 — CORS 필요 없음. */
@@ -7371,8 +7417,8 @@ function bootApp() {
       case 'gcal-close-detail': gcal.detailId = null; render(); break;
       case 'gcal-close-detail-backdrop': if (!e.target.closest('[data-stop-close]')) { gcal.detailId = null; render(); } break;
 
-      case 'proj-open-add': S.proj.editingId = null; S.proj.addStatus = id; S.proj.modalOpen = true; render(); break;
-      case 'proj-open-edit': S.proj.editingId = id; S.proj.modalOpen = true; S.proj.rowMenu = null; render(); break;
+      case 'proj-open-add': projThumbDraft = null; S.proj.editingId = null; S.proj.addStatus = id; S.proj.modalOpen = true; render(); break;
+      case 'proj-open-edit': projThumbDraft = null; S.proj.editingId = id; S.proj.modalOpen = true; S.proj.rowMenu = null; render(); break;
       case 'proj-duplicate': {
         const src = projItems.find(p => p.id === id);
         if (src) {
@@ -7383,7 +7429,10 @@ function bootApp() {
         }
         break;
       }
-      case 'proj-close-modal': S.proj.modalOpen = false; S.proj.editingId = null; render(); break;
+      case 'proj-thumb-pick': { const inp = document.getElementById('projThumbInput'); if (inp) inp.click(); break; }
+      case 'proj-thumb-clear': projThumbDraft = ''; projThumbPreview(); break;
+      case 'eq-hdd-open-proj': S.eq.detailId = null; S.activeTab = 'projects'; S.proj.detailId = id; render(); window.scrollTo(0, 0); break;
+      case 'proj-close-modal': projThumbDraft = null; S.proj.modalOpen = false; S.proj.editingId = null; render(); break;
       case 'proj-close-modal-backdrop': if (!e.target.closest('[data-stop-close]')) { S.proj.modalOpen = false; S.proj.editingId = null; render(); } break;
       case 'proj-confirm-delete': S.proj.confirmDeleteId = id; S.proj.rowMenu = null; render(); break;
       case 'proj-cancel-delete': S.proj.confirmDeleteId = null; render(); break;
@@ -7863,6 +7912,10 @@ function bootApp() {
       const timeInput = document.getElementById('schedTimeInput');
       if (timeInput && e.target.checked) { timeInput.value = ''; timeInput.dispatchEvent(new Event('input', { bubbles: true })); }
     }
+    if (e.target.id === 'projThumbInput') {
+      const file = e.target.files && e.target.files[0]; e.target.value = '';
+      if (file) resizeImage(file, 120, 0.7).then(d => { projThumbDraft = d; projThumbPreview(); }).catch(() => alert('사진을 읽을 수 없어요'));
+    }
     if (e.target.id === 'eqFileInput') {
       const file = e.target.files && e.target.files[0];
       if (file) handlePhotoFile(file);
@@ -8041,6 +8094,9 @@ function bootApp() {
         scoutScheduleId = null;
       }
       payload.scoutScheduleId = scoutScheduleId;
+      payload.hddIds = fd.getAll('hddIds').map(String);
+      payload.thumb = projThumbDraft === null ? (editingProj && editingProj.thumb || '') : projThumbDraft;
+      projThumbDraft = null;
       /* 📎 첨부파일: 체크한 건 빼고(Storage에서도 지움), 새로 고른 파일은 저장 뒤 올려서 붙인다 */
       const rm = new Set(fd.getAll('attRemove').map(String));
       if (editingProj && rm.size) { (editingProj.attachments || []).filter(a => rm.has(a.id)).forEach(a => projDeleteFile(a.path)); payload.attachments = (editingProj.attachments || []).filter(a => !rm.has(a.id)); }
@@ -8576,6 +8632,17 @@ document.addEventListener('DOMContentLoaded', () => {
   .eq-search input::placeholder { color: var(--text-faint); opacity: 0.35; }
   .eq-search-scan { display:flex; gap:8px; align-items:stretch; }
   .eq-search-scan input { flex:1; min-width:0; }
+  .proj-thumb-box { width:56px; height:56px; border-radius:8px; background:var(--bg); border:1px solid var(--border); overflow:hidden; flex:none; }
+  .proj-thumb-box img { width:100%; height:100%; object-fit:cover; display:block; }
+  .hdd-proj-wrap { margin:4px 0 12px; padding:10px; border-radius:10px; background:var(--bg); }
+  .hdd-proj-head { font-size:13px; margin-bottom:6px; }
+  .hdd-proj-row { display:flex; align-items:center; gap:10px; padding:6px; border-radius:8px; cursor:pointer; }
+  .hdd-proj-row:hover { background:var(--surface-hover, rgba(0,0,0,.04)); }
+  .hdd-proj-thumb { width:40px; height:40px; border-radius:6px; background:var(--surface); border:1px solid var(--border); overflow:hidden; flex:none; }
+  .hdd-proj-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+  .hdd-proj-text { min-width:0; flex:1; }
+  .hdd-proj-title { font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .hdd-proj-meta { font-size:11.5px; opacity:.6; font-family:var(--font-mono); }
   .eq-scan-btn { flex:0 0 auto; display:inline-flex; align-items:center; gap:6px; padding:0 14px; border-radius:10px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-family:var(--font-body); font-size:13.5px; font-weight:600; cursor:pointer; }
   .eq-scan-btn:hover { border-color:var(--accent); color:var(--accent); }
   .eq-scan { position:fixed; inset:0; z-index:10000; background:#000; color:#fff; font-family:var(--font-body); }
