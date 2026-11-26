@@ -918,6 +918,7 @@ function eqDetailModalHtml() {
       <div class="eq-modal" data-stop-close>
         <div class="eq-modal-head"><h2>${esc(item.name)}</h2><button class="eq-modal-close" data-action="eq-close-detail">✕</button></div>
         <div class="eq-detail-photo" ${item.photo ? `data-action="eq-view-photo" data-id="${item.id}"` : ''}>${item.photo ? `<img src="${item.photo}" class="eq-photo-img" alt="${esc(item.name)}"/>` : `<div class="eq-photo-placeholder">사진 없음</div>`}</div>
+        ${eqStorageHtml(item)}
         ${eqHddProjectsHtml(item)}
         <div class="eq-detail-row"><span>시리얼</span><b>${esc(item.serial)}</b></div>
         ${item.labels ? `<div class="eq-detail-row"><span>라벨 번호</span><b>${esc(item.labels)}</b></div>` : ''}
@@ -2426,8 +2427,61 @@ function projThumbPreview() {
   if (clr) clr.style.display = projThumbDraft ? '' : 'none';
 }
 function projShootDate(p) {
+  if (p.shootDate) return p.shootDate;
   const s = p.scheduleId && schedItems.find(x => x.id === p.scheduleId);
   return (s && s.date) || p.dueDate || '';
+}
+/* ---- HDD 저장 공간 (hddIndex/{장비 id}, 대표님·직원 계정만 읽기) ----
+   맥에서 HDD를 훑어 tools/studio-bridge/hdd-index.mjs로 올린 용량·폴더 목록(폴더별 GB·영상 수·첫 날짜·120px 썸네일).
+   장비 상세를 열 때 한 번 읽어 와서 막대그래프로 보여 주고, 폴더를 프로젝트로 한 번에 등록할 수 있다. */
+const hddIndexCache = {};
+function loadHddIndex(eqId) {
+  if (hddIndexCache[eqId] !== undefined || GUEST_MODE || IS_LOCAL_DEV || typeof firebase === 'undefined') return;
+  hddIndexCache[eqId] = 'loading';
+  firebase.firestore().collection('hddIndex').doc(String(eqId)).get()
+    .then(d => { hddIndexCache[eqId] = d.exists ? d.data() : null; if (S.eq.detailId === eqId) render(); })
+    .catch(() => { hddIndexCache[eqId] = null; });
+}
+const fmtGB = gb => gb >= 1000 ? (gb / 1000).toFixed(gb >= 10000 ? 0 : 1) + 'TB' : Math.round(gb) + 'GB';
+const HDD_COLORS = ['#4f8cff', '#9b6bff', '#ff7a59', '#2bb98a', '#f2b33d', '#ff5c8a', '#3cc4d6'];
+function eqStorageHtml(item) {
+  loadHddIndex(item.id);
+  const x = hddIndexCache[item.id];
+  if (!x || x === 'loading') return '';
+  const total = x.totalGB || 1, folders = [...(x.folders || [])].sort((a, b) => b.gb - a.gb);
+  const top = folders.slice(0, 6), restGB = folders.slice(6).reduce((n, f) => n + f.gb, 0);
+  const segs = [...top.map((f, i) => ({ label: f.name, gb: f.gb, c: HDD_COLORS[i] })),
+    ...(restGB ? [{ label: `그 밖의 폴더 ${folders.length - 6}개`, gb: restGB, c: HDD_COLORS[6] }] : []),
+    ...(x.otherGB ? [{ label: x.otherNote || '기타', gb: x.otherGB, c: '#8a93a3' }] : [])];
+  const pct = Math.round((x.usedGB / total) * 100), maxGB = folders[0] ? folders[0].gb : 1;
+  const linked = new Set(projItems.filter(p => (p.hddIds || []).includes(item.id)).map(p => p.title));
+  const importable = folders.filter(f => f.top && f.videos > 0 && !linked.has(f.name));
+  const when = x.scannedAt ? new Date(x.scannedAt) : null;
+  return `<div class="hdd-st">
+    <div class="hdd-st-head"><b>💽 저장 공간</b><span>${fmtGB(x.usedGB)} / ${fmtGB(total)} 사용 · <b class="${pct >= 90 ? 'warn' : ''}">${fmtGB(x.freeGB)} 남음</b> (${pct}%)</span></div>
+    <div class="hdd-st-bar">${segs.map(g => `<i style="width:${(g.gb / total * 100).toFixed(2)}%;background:${g.c}" title="${esc(g.label)} ${fmtGB(g.gb)}"></i>`).join('')}</div>
+    <div class="hdd-st-legend">${segs.map(g => `<span><b style="background:${g.c}"></b>${esc(g.label)} ${fmtGB(g.gb)}</span>`).join('')}<span><b style="background:var(--border)"></b>남은 공간 ${fmtGB(x.freeGB)}</span></div>
+    <details class="hdd-st-list"><summary>폴더 ${folders.length}개 보기${when ? ` · ${when.getMonth() + 1}/${when.getDate()} 기준` : ''}</summary>
+      ${folders.map(f => `<div class="hdd-st-row"><div class="hdd-proj-thumb">${f.thumb ? `<img src="${f.thumb}" alt="" />` : ''}</div>
+        <div class="hdd-st-txt"><div class="hdd-proj-title">${esc(f.name)}</div><div class="hdd-st-mini"><i style="width:${Math.max(2, f.gb / maxGB * 100)}%"></i></div></div>
+        <div class="hdd-st-gb">${fmtGB(f.gb)}<small>${f.first || ''}</small></div></div>`).join('')}
+    </details>
+    ${importable.length ? `<button type="button" class="eq-scan-btn hdd-import" data-action="hdd-import" data-id="${item.id}">📥 폴더 ${importable.length}개를 프로젝트로 등록 (완료 상태·썸네일·HDD 연결)</button>` : ''}
+  </div>`;
+}
+function hddImportProjects(eqId) {
+  const x = hddIndexCache[eqId]; if (!x || typeof x !== 'object') return;
+  const linked = new Set(projItems.filter(p => (p.hddIds || []).includes(eqId)).map(p => p.title));
+  const list = (x.folders || []).filter(f => f.top && f.videos > 0 && !linked.has(f.name));
+  if (!list.length || !confirm(`${x.name || 'HDD'}의 폴더 ${list.length}개를 '완료' 프로젝트로 만들고 이 HDD에 연결할까요?\n(클라이언트: HISPLAN · 썸네일·촬영일 자동)`)) return;
+  let all = projItems.slice(); const made = [];
+  list.forEach(f => {
+    const p = { id: uid(), serial: nextProjectSerial(all), createdAt: Date.now(), parentId: null, title: f.name, client: 'HISPLAN', status: 'done', type: '', color: '', dueDate: '',
+      notes: `${x.name || 'HDD'} · ${f.top}/${f.name} · ${fmtGB(f.gb)} · 영상 ${f.videos}개`, hddIds: [eqId], thumb: f.thumb || '', shootDate: f.first || '' };
+    all = [p, ...all]; made.push(p);
+  });
+  saveProjItems([...made, ...projItems]);
+  render();
 }
 function eqHddProjectsHtml(item) {
   if (GUEST_MODE || !projItems.length) return '';
@@ -7431,6 +7485,7 @@ function bootApp() {
       }
       case 'proj-thumb-pick': { const inp = document.getElementById('projThumbInput'); if (inp) inp.click(); break; }
       case 'proj-thumb-clear': projThumbDraft = ''; projThumbPreview(); break;
+      case 'hdd-import': hddImportProjects(id); break;
       case 'eq-hdd-open-proj': S.eq.detailId = null; S.activeTab = 'projects'; S.proj.detailId = id; render(); window.scrollTo(0, 0); break;
       case 'proj-close-modal': projThumbDraft = null; S.proj.modalOpen = false; S.proj.editingId = null; render(); break;
       case 'proj-close-modal-backdrop': if (!e.target.closest('[data-stop-close]')) { S.proj.modalOpen = false; S.proj.editingId = null; render(); } break;
@@ -8634,6 +8689,19 @@ document.addEventListener('DOMContentLoaded', () => {
   .eq-search-scan input { flex:1; min-width:0; }
   .proj-thumb-box { width:56px; height:56px; border-radius:8px; background:var(--bg); border:1px solid var(--border); overflow:hidden; flex:none; }
   .proj-thumb-box img { width:100%; height:100%; object-fit:cover; display:block; }
+  .hdd-st { margin:4px 0 10px; padding:10px; border-radius:10px; background:var(--bg); font-size:12.5px; }
+  .hdd-st-head { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:7px; }
+  .hdd-st-head span { opacity:.8; } .hdd-st-head .warn { color:#e5484d; }
+  .hdd-st-bar { display:flex; height:14px; border-radius:7px; overflow:hidden; background:var(--border); }
+  .hdd-st-bar i { display:block; height:100%; border-right:1px solid rgba(255,255,255,.5); }
+  .hdd-st-legend { display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:7px; font-size:11px; opacity:.85; }
+  .hdd-st-legend b { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:4px; vertical-align:0; }
+  .hdd-st-list { margin-top:8px; } .hdd-st-list summary { cursor:pointer; font-size:12px; opacity:.75; padding:3px 0; }
+  .hdd-st-row { display:flex; align-items:center; gap:9px; padding:4px 2px; }
+  .hdd-st-txt { flex:1; min-width:0; }
+  .hdd-st-mini { height:4px; border-radius:2px; background:var(--border); margin-top:4px; overflow:hidden; } .hdd-st-mini i { display:block; height:100%; background:#4f8cff; }
+  .hdd-st-gb { text-align:right; font-family:var(--font-mono); font-size:12px; white-space:nowrap; } .hdd-st-gb small { display:block; opacity:.55; font-size:10.5px; }
+  .hdd-import { width:100%; justify-content:center; margin-top:8px; padding:9px; }
   .hdd-proj-wrap { margin:4px 0 12px; padding:10px; border-radius:10px; background:var(--bg); }
   .hdd-proj-head { font-size:13px; margin-bottom:6px; }
   .hdd-proj-row { display:flex; align-items:center; gap:10px; padding:6px; border-radius:8px; cursor:pointer; }

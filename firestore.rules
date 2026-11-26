@@ -28,6 +28,8 @@ service cloud.firestore {
     match /equipment/{id} { allow read: if true; allow write: if isOwner() || isBridge(); }
     // 장비 카테고리도 스튜디오 직원 계정(재무팀)이 관리 가능 (2026-11-21 대표님 요청)
     match /categories/{id} { allow read: if true; allow write: if isOwner() || isBridge(); }
+    // HDD 보관 목록(용량·폴더·썸네일) — 장비는 공개 읽기라 따로 둔다. 대표님·스튜디오 직원 계정만 (2026-11-26)
+    match /hddIndex/{id} { allow read, write: if isOwner() || isBridge(); }
     // 공유 프로젝트: 대표님은 전부, 협업자는 자기 공간(collabId) 것만 읽고 쓴다. 협업자는 항목을 다른 공간으로 옮길 수 없다.
     match /sharedProjects/{id} {
       allow read: if isOwner() || collabOk(resource.data.collabId);
